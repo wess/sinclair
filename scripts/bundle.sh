@@ -73,10 +73,10 @@ PLIST
 echo "[bundle] codesign ($identity)"
 runtime_opts=()
 [ "$identity" != "-" ] && runtime_opts=(--options runtime --timestamp)
-codesign --force "${runtime_opts[@]}" \
+codesign --force ${runtime_opts[@]+"${runtime_opts[@]}"} \
   --entitlements assets/prompt.entitlements \
   -s "$identity" "$contents/MacOS/$bin_name"
-codesign --force "${runtime_opts[@]}" \
+codesign --force ${runtime_opts[@]+"${runtime_opts[@]}"} \
   --entitlements assets/prompt.entitlements \
   -s "$identity" "$app"
 
