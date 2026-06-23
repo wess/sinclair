@@ -42,6 +42,12 @@ pub struct RunBind(pub usize);
 #[action(namespace = prompt, no_json)]
 pub struct ShowDocs;
 
+/// Open the About panel. Its own action so the application-menu item works
+/// without depending on a configured keybind.
+#[derive(Clone, PartialEq, Default, Debug, gpui::Action)]
+#[action(namespace = prompt, no_json)]
+pub struct ShowAbout;
+
 /// Dispatch a menu item that has no keybind: the index into the workspace's
 /// `menu_actions` table built alongside the native menu.
 #[derive(Clone, PartialEq, Default, Debug, gpui::Action)]
@@ -256,6 +262,8 @@ impl WorkspaceView {
         Self::menu(
             "Prompt",
             vec![
+                Some(MenuItem::action("About Prompt", ShowAbout)),
+                Some(MenuItem::separator()),
                 self.pick(a, "Reload Config", Action::ReloadConfig),
                 Some(MenuItem::separator()),
                 self.pick(a, "Quit Prompt", Action::Quit),
@@ -864,6 +872,11 @@ impl WorkspaceView {
         crate::help::open(window, cx);
     }
 
+    /// Open the About panel (application menu).
+    fn showabout(&mut self, _: &ShowAbout, window: &mut Window, cx: &mut Context<Self>) {
+        crate::about::open(window, cx);
+    }
+
     /// Dispatch a keybind-less menu item via its `menu_actions` index.
     fn menupick(&mut self, action: &MenuPick, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(config_action) = self.menu_actions.get(action.0).cloned() {
@@ -1237,6 +1250,7 @@ impl Render for WorkspaceView {
             .key_context("Workspace")
             .on_action(cx.listener(Self::runbind))
             .on_action(cx.listener(Self::showdocs))
+            .on_action(cx.listener(Self::showabout))
             .on_action(cx.listener(Self::menupick));
 
         if self.tabs.len() > 1 {

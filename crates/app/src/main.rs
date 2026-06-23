@@ -1,5 +1,6 @@
 //! Prompt: a terminal emulator. Tabs of split panes, one shell per pane.
 
+mod about;
 mod appkit;
 mod boxdraw;
 mod bridge;
