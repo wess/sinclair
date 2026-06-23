@@ -1,4 +1,5 @@
 [package]
+autotests = false
 name = "theme"
 version.workspace = true
 edition.workspace = true

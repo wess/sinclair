@@ -52,16 +52,5 @@ pub fn analyze(text: &str) -> PasteRisk {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn multiline_is_medium_risk() {
-        assert_eq!(analyze("echo a\necho b").level, RiskLevel::Medium);
-    }
-
-    #[test]
-    fn destructive_is_high_risk() {
-        assert_eq!(analyze("rm -rf /tmp/x").level, RiskLevel::High);
-    }
-}
+#[path = "../tests/safety.rs"]
+mod tests;

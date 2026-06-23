@@ -117,6 +117,9 @@ pub fn open_window(
             appears_transparent: true,
             traffic_light_position: Some(point(px(9.0), px(9.0))),
         }),
+        // Matches the `.desktop` StartupWMClass so Linux associates the window
+        // with our icon in the taskbar/dock.
+        app_id: Some("prompt".into()),
         ..Default::default()
     };
     #[cfg(target_os = "linux")]

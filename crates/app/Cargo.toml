@@ -1,12 +1,33 @@
 [package]
+autotests = false
 name = "app"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+description = "A fast, modern terminal that gets out of your way"
 
 [[bin]]
 name = "prompt"
 path = "src/main.rs"
+
+# Linux .deb packaging (see scripts/linux.sh). The `prompt` binary is added
+# automatically; here we add the desktop entry and icon. Paths are relative to
+# this crate directory.
+[package.metadata.deb]
+name = "prompt"
+maintainer = "Wess Cope <me@wess.io>"
+license-file = ["../../LICENSE", "0"]
+section = "utils"
+priority = "optional"
+extended-description = "Prompt is a GPU-accelerated terminal emulator with tabs, recursive splits, live-reload config, and built-in themes."
+# An explicit assets list disables cargo-deb's automatic binary inclusion, so
+# the binary is listed here too. cargo-deb remaps the `target/release/` prefix
+# to the actual --target/profile path.
+assets = [
+    ["target/release/prompt", "usr/bin/prompt", "755"],
+    ["../../assets/prompt.desktop", "usr/share/applications/prompt.desktop", "644"],
+    ["../../assets/icon512.png", "usr/share/pixmaps/prompt.png", "644"],
+]
 
 [dependencies]
 assist = { path = "../assist" }

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Prompt
+GenericName=Terminal Emulator
+Comment=A fast, modern terminal that gets out of your way
+Exec=prompt
+Icon=prompt
+Terminal=false
+Categories=System;TerminalEmulator;Utility;
+Keywords=terminal;shell;command;console;
+StartupWMClass=prompt

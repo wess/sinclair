@@ -1,4 +1,5 @@
 [package]
+autotests = false
 name = "pty"
 version.workspace = true
 edition.workspace = true

@@ -29,7 +29,7 @@ pub fn is_wayland() -> bool {
 /// normal window on X11 (decorated by [`make_overlay`]).
 pub fn window_kind() -> WindowKind {
     if is_wayland() {
-        use gpui::{Anchor, KeyboardInteractivity, Layer, LayerShellOptions};
+        use gpui::layer_shell::{Anchor, KeyboardInteractivity, Layer, LayerShellOptions};
         WindowKind::LayerShell(LayerShellOptions {
             namespace: "prompt-quick".to_string(),
             layer: Layer::Overlay,
@@ -76,7 +76,7 @@ fn x11_overlay(window: &Window) -> Result<(), Box<dyn Error>> {
     let above = atom(b"_NET_WM_STATE_ABOVE")?;
     let sticky = atom(b"_NET_WM_STATE_STICKY")?;
     conn.change_property32(
-        PropMode::Replace,
+        PropMode::REPLACE,
         win,
         wm_state,
         AtomEnum::ATOM,
@@ -84,7 +84,7 @@ fn x11_overlay(window: &Window) -> Result<(), Box<dyn Error>> {
     )?;
     let desktop = atom(b"_NET_WM_DESKTOP")?;
     conn.change_property32(
-        PropMode::Replace,
+        PropMode::REPLACE,
         win,
         desktop,
         AtomEnum::CARDINAL,
@@ -93,7 +93,7 @@ fn x11_overlay(window: &Window) -> Result<(), Box<dyn Error>> {
 
     // Borderless: Motif hints with the decorations flag set and no decorations.
     let motif = atom(b"_MOTIF_WM_HINTS")?;
-    conn.change_property32(PropMode::Replace, win, motif, motif, &[2, 0, 0, 0, 0])?;
+    conn.change_property32(PropMode::REPLACE, win, motif, motif, &[2, 0, 0, 0, 0])?;
 
     conn.flush()?;
     Ok(())

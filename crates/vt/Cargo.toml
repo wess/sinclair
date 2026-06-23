@@ -1,4 +1,5 @@
 [package]
+autotests = false
 name = "vt"
 version.workspace = true
 edition.workspace = true
@@ -8,3 +9,13 @@ license.workspace = true
 bitflags = "2"
 unicode-width = "0.2"
 vte = "0.13"
+
+# Integration tests (the moved unit tests are compiled in-crate via #[path],
+# so auto-discovery is off; declare the real integration tests explicitly).
+[[test]]
+name = "sequences"
+path = "tests/sequences.rs"
+
+[[test]]
+name = "throughput"
+path = "tests/throughput.rs"

@@ -1,88 +1,118 @@
-//! End-to-end session tests: real shells on a real pty.
+use super::*;
+use std::time::Instant;
 
-#![cfg(unix)]
-
-use std::sync::mpsc::Receiver;
-use std::time::{Duration, Instant};
-
-use terminal::{Event, Session, SessionOptions};
-
-const TIMEOUT: Duration = Duration::from_secs(10);
-
-fn shell(args: &[&str]) -> SessionOptions {
+fn command(args: &[&str]) -> SessionOptions {
     SessionOptions::command(args.iter().map(|s| s.to_string()).collect())
 }
 
-/// Flatten the visible grid rows into one newline-joined string.
-fn grid_text(session: &Session) -> String {
-    session.with_term(|term| {
-        term.visible_rows()
-            .map(|row| row.text())
-            .collect::<Vec<_>>()
-            .join("\n")
-    })
-}
-
-/// Poll the grid until `ok` accepts its text; panic with a dump on timeout.
-fn wait_for(session: &Session, what: &str, ok: impl Fn(&str) -> bool) {
-    let deadline = Instant::now() + TIMEOUT;
-    loop {
-        let text = grid_text(session);
-        if ok(&text) {
-            return;
-        }
-        assert!(
-            Instant::now() < deadline,
-            "timed out waiting for {what}; grid was:\n{text}"
-        );
-        std::thread::sleep(Duration::from_millis(25));
-    }
-}
-
-/// Block until an `Exit` event arrives; panic on timeout.
-fn wait_for_exit(events: &Receiver<Event>) -> Option<i32> {
-    let deadline = Instant::now() + TIMEOUT;
+/// Collect events until `Exit`; returns the others plus the exit code.
+fn drain_until_exit(rx: &Receiver<Event>) -> (Vec<Event>, Option<i32>) {
+    let deadline = Instant::now() + Duration::from_secs(10);
+    let mut seen = Vec::new();
     loop {
         let remaining = deadline.saturating_duration_since(Instant::now());
-        match events.recv_timeout(remaining) {
-            Ok(Event::Exit(code)) => return code,
-            Ok(_) => {}
-            Err(e) => panic!("no Exit event before timeout: {e}"),
+        match rx.recv_timeout(remaining) {
+            Ok(Event::Exit(code)) => return (seen, code),
+            Ok(event) => seen.push(event),
+            Err(e) => panic!("no Exit before timeout; saw {seen:?}: {e}"),
         }
     }
 }
 
 #[test]
-fn oneshot_output_lands_in_grid() {
-    let (session, _events) =
-        Session::spawn(shell(&["/bin/sh", "-c", "printf 'hello terminal'"])).expect("spawn");
-    wait_for(&session, "hello terminal", |text| {
-        text.contains("hello terminal")
-    });
+fn exit_event_carries_exit_code() {
+    let (_session, rx) = Session::spawn(command(&["/bin/sh", "-c", "exit 7"])).expect("spawn");
+    let (_, code) = drain_until_exit(&rx);
+    assert_eq!(code, Some(7));
 }
 
 #[test]
-fn interactive_echo_and_exit() {
-    let (session, events) = Session::spawn(shell(&["/bin/sh"])).expect("spawn");
-    session.write(b"echo marker42\n").expect("write echo");
-    // The command-output line holds "marker42" without the "echo" that the
-    // tty-echoed input line carries.
-    wait_for(&session, "marker42 output line", |text| {
-        text.lines()
-            .any(|line| line.contains("marker42") && !line.contains("echo"))
-    });
-    session.write(b"exit\n").expect("write exit");
-    wait_for_exit(&events);
+fn write_reaches_child() {
+    let (session, rx) =
+        Session::spawn(command(&["/bin/sh", "-c", "read line; exit 5"])).expect("spawn");
+    session.write(b"go\n").expect("write");
+    let (_, code) = drain_until_exit(&rx);
+    assert_eq!(code, Some(5));
 }
 
 #[test]
-fn resize_reaches_child_and_grid() {
-    let (session, _events) = Session::spawn(shell(&["/bin/sh"])).expect("spawn");
-    session.resize(100, 30).expect("resize");
+fn wakeup_is_coalesced_until_term_access() {
+    // Two output bursts, but the embedder never observes the terminal,
+    // so exactly one Wakeup may be queued.
+    let (_session, rx) =
+        Session::spawn(command(&["/bin/sh", "-c", "printf a; sleep 1; printf b"]))
+            .expect("spawn");
+    let (seen, _) = drain_until_exit(&rx);
+    let wakeups = seen.iter().filter(|e| **e == Event::Wakeup).count();
+    assert_eq!(wakeups, 1, "events: {seen:?}");
+}
+
+#[test]
+fn with_term_rearms_wakeup() {
+    let (session, rx) = Session::spawn(command(&[
+        "/bin/sh",
+        "-c",
+        "printf a; sleep 1; printf b; sleep 1",
+    ]))
+    .expect("spawn");
+    assert_eq!(
+        rx.recv_timeout(Duration::from_secs(10))
+            .expect("first wakeup"),
+        Event::Wakeup
+    );
+    session.with_term(|_| ()); // re-arms the pending flag
+    assert_eq!(
+        rx.recv_timeout(Duration::from_secs(10))
+            .expect("second wakeup"),
+        Event::Wakeup
+    );
+}
+
+#[test]
+fn title_and_bell_events() {
+    let (_session, rx) = Session::spawn(command(&[
+        "/bin/sh",
+        "-c",
+        "printf '\\033]2;mytitle\\007'; printf '\\007'",
+    ]))
+    .expect("spawn");
+    let (seen, _) = drain_until_exit(&rx);
+    assert!(
+        seen.contains(&Event::TitleChanged("mytitle".to_string())),
+        "events: {seen:?}"
+    );
+    assert!(seen.contains(&Event::Bell), "events: {seen:?}");
+}
+
+#[test]
+fn osc52_surfaces_clipboard_event() {
+    // base64("hi") = "aGk="
+    let (_session, rx) =
+        Session::spawn(command(&["/bin/sh", "-c", "printf '\\033]52;c;aGk=\\007'"]))
+            .expect("spawn");
+    let (seen, _) = drain_until_exit(&rx);
+    assert!(
+        seen.contains(&Event::Clipboard {
+            kind: "c".to_string(),
+            data: b"hi".to_vec(),
+        }),
+        "events: {seen:?}"
+    );
+}
+
+#[test]
+fn resize_updates_grid_immediately() {
+    let (session, _rx) =
+        Session::spawn(command(&["/bin/sh", "-c", "sleep 30"])).expect("spawn");
+    session.resize(90, 28).expect("resize");
     let size = session.with_term(|t| (t.cols(), t.rows()));
-    assert_eq!(size, (100, 30));
-    session.write(b"stty size\n").expect("write stty");
-    wait_for(&session, "stty to report 30 100", |text| {
-        text.contains("30 100")
-    });
+    assert_eq!(size, (90, 28));
+}
+
+#[test]
+fn shutdown_kills_and_reports_exit() {
+    let (session, rx) = Session::spawn(command(&["/bin/sh", "-c", "sleep 30"])).expect("spawn");
+    session.shutdown();
+    let (_, code) = drain_until_exit(&rx);
+    assert_eq!(code, None); // killed by signal, no exit code
 }
