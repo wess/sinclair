@@ -461,7 +461,30 @@ impl SettingsView {
             Section::Terminal => vec![self.list(self.terminal_rows(cx)).into_any_element()],
             Section::Keyboard => vec![self.list_group(ListKind::Keybind, cx).into_any_element()],
             Section::Plugins => vec![self.list_group(ListKind::Plugin, cx).into_any_element()],
+            Section::Ai => vec![self.list(self.ai_rows(cx)).into_any_element()],
         }
+    }
+
+    fn ai_rows(&self, cx: &mut Context<Self>) -> Vec<AnyElement> {
+        let a = Section::Ai.accent();
+        vec![
+            self.toggle_row(Bool::AiEnabled, "\u{2728}", a, cx),
+            self.toggle_row(Bool::McpServer, "M", theme::Rgb::new(10, 132, 255), cx),
+            self.toggle_row(Bool::RelayEnabled, "R", theme::Rgb::new(52, 199, 89), cx),
+            self.toggle_row(
+                Bool::RelayStartOnLaunch,
+                "\u{21aa}",
+                theme::Rgb::new(255, 159, 10),
+                cx,
+            ),
+            self.field_row(Field::RelayAddress, "@", theme::Rgb::new(90, 200, 250), cx),
+            self.field_row(
+                Field::RelayDefaultAgent,
+                "\u{2318}",
+                theme::Rgb::new(94, 92, 230),
+                cx,
+            ),
+        ]
     }
 
     fn general_rows(&self, cx: &mut Context<Self>) -> Vec<AnyElement> {

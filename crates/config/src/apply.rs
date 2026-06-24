@@ -286,6 +286,48 @@ pub fn apply(opts: &mut Options, key: &str, val: &str) -> Result<(), String> {
                 opts.keybind.push(val.to_string());
             }
         }
+        "ai-enabled" => {
+            opts.ai_enabled = if empty {
+                d.ai_enabled
+            } else {
+                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+            };
+        }
+        "mcp-server-enabled" => {
+            opts.mcp_server_enabled = if empty {
+                d.mcp_server_enabled
+            } else {
+                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+            };
+        }
+        "relay-enabled" => {
+            opts.relay_enabled = if empty {
+                d.relay_enabled
+            } else {
+                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+            };
+        }
+        "relay-start-on-launch" => {
+            opts.relay_start_on_launch = if empty {
+                d.relay_start_on_launch
+            } else {
+                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+            };
+        }
+        "relay-address" => {
+            opts.relay_address = if empty {
+                d.relay_address
+            } else {
+                val.to_string()
+            };
+        }
+        "relay-default-agent" => {
+            opts.relay_default_agent = if empty {
+                d.relay_default_agent
+            } else {
+                val.to_string()
+            };
+        }
         _ => return Err(format!("unknown key `{key}`")),
     }
     Ok(())

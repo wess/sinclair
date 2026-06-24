@@ -169,6 +169,7 @@ impl WorkspaceView {
         this.tabs = Tabs::new(id);
         this.focusactive(window, cx);
         this.startwatch(window, cx);
+        crate::relay::on_launch(&this.opts);
         this
     }
 
@@ -232,22 +233,35 @@ impl WorkspaceView {
     fn setmenus(&mut self, cx: &mut Context<Self>) {
         // Actions for menu items that have no keybind, indexed by `MenuPick`.
         let mut actions: Vec<Action> = Vec::new();
-        let menus = vec![
+        let mut menus = vec![
             self.prompt_menu(&mut actions),
             self.shell_menu(&mut actions),
             self.edit_menu(&mut actions),
             self.view_menu(&mut actions, cx),
             self.window_menu(&mut actions),
-            // macOS inserts the "Search" field at the top of any menu named
-            // "Help" automatically; "Documents" opens the docs window.
-            Menu {
-                name: "Help".into(),
-                items: vec![MenuItem::action("Documents", ShowDocs)],
-                disabled: false,
-            },
         ];
+        if crate::relay::enabled(&self.opts) {
+            menus.push(self.relay_menu(&mut actions));
+        }
+        // macOS inserts the "Search" field at the top of any menu named
+        // "Help" automatically; "Documents" opens the docs window.
+        menus.push(Menu {
+            name: "Help".into(),
+            items: vec![MenuItem::action("Documents", ShowDocs)],
+            disabled: false,
+        });
         self.menu_actions = actions;
         cx.set_menus(menus);
+    }
+
+    fn relay_menu(&self, a: &mut Vec<Action>) -> Menu {
+        Self::menu(
+            "Relay",
+            vec![
+                self.pick(a, "Launch Agent\u{2026}", Action::RelayLaunch),
+                self.pick(a, "Open Feed", Action::RelayFeed),
+            ],
+        )
     }
 
     fn menu(name: &str, items: Vec<Option<MenuItem>>) -> Menu {
@@ -421,6 +435,7 @@ impl WorkspaceView {
         self.applykeybinds(cx);
         self.setmenus(cx);
         self.pushappearance(cx);
+        crate::relay::on_reload(&self.opts);
         cx.notify();
     }
 
@@ -989,6 +1004,16 @@ impl WorkspaceView {
                 self.setmenus(cx);
             }
             Action::ToggleQuickTerminal => crate::quick::toggle(cx),
+            Action::RelayFeed => {
+                self.splitcommand(&crate::relay::feed_command(), Axis::Vertical, false, window, cx)
+            }
+            Action::RelayLaunch => self.splitcommand(
+                &crate::relay::launch_command(&self.opts),
+                Axis::Horizontal,
+                false,
+                window,
+                cx,
+            ),
             Action::Quit => cx.quit(),
             Action::Unbound => {}
         }

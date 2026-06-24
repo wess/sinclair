@@ -170,6 +170,18 @@ pub struct Options {
     pub plugin: Vec<String>,
     /// File key: `keybind`, raw strings (accumulated, parsed later).
     pub keybind: Vec<String>,
+    /// File key: `ai-enabled` — master switch for all AI features.
+    pub ai_enabled: bool,
+    /// File key: `mcp-server-enabled` — expose this terminal to agents over MCP.
+    pub mcp_server_enabled: bool,
+    /// File key: `relay-enabled` — run the Relay agent mesh.
+    pub relay_enabled: bool,
+    /// File key: `relay-start-on-launch` — start Relay when Prompt launches.
+    pub relay_start_on_launch: bool,
+    /// File key: `relay-address` — bind address for the Relay server.
+    pub relay_address: String,
+    /// File key: `relay-default-agent` — default agent CLI for launches.
+    pub relay_default_agent: String,
 }
 
 /// The built-in primary font when none is configured.
@@ -232,6 +244,12 @@ impl Default for Options {
             palette: Vec::new(),
             plugin: Vec::new(),
             keybind: Vec::new(),
+            ai_enabled: false,
+            mcp_server_enabled: false,
+            relay_enabled: false,
+            relay_start_on_launch: false,
+            relay_address: "127.0.0.1:7777".to_string(),
+            relay_default_agent: "claude".to_string(),
         }
     }
 }

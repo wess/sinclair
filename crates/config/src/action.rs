@@ -178,6 +178,10 @@ pub enum Action {
     ToggleReadOnly,
     /// Toggle the Quake-style dropdown quick terminal.
     ToggleQuickTerminal,
+    /// Open the Relay agent-mesh feed in a split.
+    RelayFeed,
+    /// Launch a Relay agent in a split (prompts for a name).
+    RelayLaunch,
     Quit,
     /// The special `unbind` action: removes the trigger's binding.
     Unbound,
@@ -277,6 +281,8 @@ impl Action {
             "toggle_quick_terminal" | "quick_terminal" => {
                 only(Self::ToggleQuickTerminal, &name, param)
             }
+            "relay_feed" => only(Self::RelayFeed, &name, param),
+            "relay_launch" => only(Self::RelayLaunch, &name, param),
             "quit" => only(Self::Quit, &name, param),
             "unbind" => only(Self::Unbound, &name, param),
             _ => Err(format!("unknown action `{name}`")),
@@ -317,6 +323,8 @@ impl Action {
             Self::ToggleSemanticSearch => "toggle_semantic_search".into(),
             Self::ExplainOutput => "explain_output".into(),
             Self::ComposeCommand => "compose_command".into(),
+            Self::RelayFeed => "relay_feed".into(),
+            Self::RelayLaunch => "relay_launch".into(),
             Self::PluginCommand(s) => format!("plugin_command:{s}"),
             Self::MacroRecord => "macro_record".into(),
             Self::MacroReplay(s) => format!("macro:{s}"),

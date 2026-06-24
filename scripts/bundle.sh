@@ -24,8 +24,8 @@ if [ ! -f assets/icon.icns ]; then
   scripts/icon.sh
 fi
 
-echo "[bundle] cargo build --release -p app"
-cargo build --release -p app
+echo "[bundle] cargo build --release -p app -p relay"
+cargo build --release -p app -p relay
 
 app="dist/$app_name.app"
 contents="$app/Contents"
@@ -33,6 +33,8 @@ rm -rf "$app"
 mkdir -p "$contents/MacOS" "$contents/Resources"
 
 cp "target/release/$bin_name" "$contents/MacOS/$bin_name"
+# The Relay agent-mesh sidecar, found by the app as a sibling of its executable.
+cp "target/release/relay" "$contents/MacOS/relay"
 cp assets/icon.icns "$contents/Resources/icon.icns"
 
 cat > "$contents/Info.plist" << PLIST
@@ -76,6 +78,9 @@ runtime_opts=()
 codesign --force ${runtime_opts[@]+"${runtime_opts[@]}"} \
   --entitlements assets/prompt.entitlements \
   -s "$identity" "$contents/MacOS/$bin_name"
+codesign --force ${runtime_opts[@]+"${runtime_opts[@]}"} \
+  --entitlements assets/prompt.entitlements \
+  -s "$identity" "$contents/MacOS/relay"
 codesign --force ${runtime_opts[@]+"${runtime_opts[@]}"} \
   --entitlements assets/prompt.entitlements \
   -s "$identity" "$app"

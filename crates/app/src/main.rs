@@ -17,6 +17,7 @@ mod metrics;
 mod mouse;
 mod pointer;
 mod quick;
+mod relay;
 mod reload;
 mod rename;
 mod root;

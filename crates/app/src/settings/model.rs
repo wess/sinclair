@@ -12,15 +12,17 @@ pub enum Section {
     Terminal,
     Keyboard,
     Plugins,
+    Ai,
 }
 
 impl Section {
-    pub const ALL: [Section; 5] = [
+    pub const ALL: [Section; 6] = [
         Section::General,
         Section::Appearance,
         Section::Terminal,
         Section::Keyboard,
         Section::Plugins,
+        Section::Ai,
     ];
 
     pub fn title(self) -> &'static str {
@@ -30,6 +32,7 @@ impl Section {
             Section::Terminal => "Terminal",
             Section::Keyboard => "Keyboard",
             Section::Plugins => "Plugins",
+            Section::Ai => "AI",
         }
     }
 
@@ -40,6 +43,7 @@ impl Section {
             Section::Terminal => "Control grid density, padding, scrollback, and scrolling.",
             Section::Keyboard => "Edit the keymap: change a trigger, remove it, or add one.",
             Section::Plugins => "Manage the directories Prompt loads extensions from.",
+            Section::Ai => "Expose this terminal over MCP and run the Relay agent mesh.",
         }
     }
 
@@ -50,6 +54,7 @@ impl Section {
             Section::Terminal => "\u{25a3}",
             Section::Keyboard => "\u{2328}",
             Section::Plugins => "\u{2739}",
+            Section::Ai => "\u{2728}",
         }
     }
 
@@ -60,6 +65,7 @@ impl Section {
             Section::Terminal => theme::Rgb::new(52, 199, 89),
             Section::Keyboard => theme::Rgb::new(10, 132, 255),
             Section::Plugins => theme::Rgb::new(255, 159, 10),
+            Section::Ai => theme::Rgb::new(191, 90, 242),
         }
     }
 }
@@ -74,6 +80,10 @@ pub enum Bool {
     CursorBlink,
     BoldIsBright,
     MouseHide,
+    AiEnabled,
+    McpServer,
+    RelayEnabled,
+    RelayStartOnLaunch,
 }
 
 impl Bool {
@@ -86,6 +96,10 @@ impl Bool {
             Bool::CursorBlink => "cursor-style-blink",
             Bool::BoldIsBright => "bold-is-bright",
             Bool::MouseHide => "mouse-hide-while-typing",
+            Bool::AiEnabled => "ai-enabled",
+            Bool::McpServer => "mcp-server-enabled",
+            Bool::RelayEnabled => "relay-enabled",
+            Bool::RelayStartOnLaunch => "relay-start-on-launch",
         }
     }
 
@@ -98,6 +112,10 @@ impl Bool {
             Bool::CursorBlink => "Cursor blink",
             Bool::BoldIsBright => "Bold is bright",
             Bool::MouseHide => "Hide mouse while typing",
+            Bool::AiEnabled => "Enable AI features",
+            Bool::McpServer => "MCP server (expose this terminal)",
+            Bool::RelayEnabled => "Relay agent mesh",
+            Bool::RelayStartOnLaunch => "Start Relay on launch",
         }
     }
 
@@ -110,6 +128,10 @@ impl Bool {
             Bool::CursorBlink => o.cursor_style_blink,
             Bool::BoldIsBright => o.bold_is_bright,
             Bool::MouseHide => o.mouse_hide_while_typing,
+            Bool::AiEnabled => o.ai_enabled,
+            Bool::McpServer => o.mcp_server_enabled,
+            Bool::RelayEnabled => o.relay_enabled,
+            Bool::RelayStartOnLaunch => o.relay_start_on_launch,
         }
     }
 }
@@ -343,6 +365,8 @@ pub enum Field {
     SelectionForeground,
     SelectionBackground,
     SplitDivider,
+    RelayAddress,
+    RelayDefaultAgent,
 }
 
 impl Field {
@@ -358,6 +382,8 @@ impl Field {
             Field::SelectionForeground => "selection-foreground",
             Field::SelectionBackground => "selection-background",
             Field::SplitDivider => "split-divider-color",
+            Field::RelayAddress => "relay-address",
+            Field::RelayDefaultAgent => "relay-default-agent",
         }
     }
 
@@ -373,6 +399,8 @@ impl Field {
             Field::SelectionForeground => "Selection foreground",
             Field::SelectionBackground => "Selection background",
             Field::SplitDivider => "Split divider color",
+            Field::RelayAddress => "Relay address",
+            Field::RelayDefaultAgent => "Default agent",
         }
     }
 
@@ -381,6 +409,8 @@ impl Field {
             Field::Shell => "Login shell",
             Field::WorkingDirectory => "Inherit",
             Field::Title => "Default",
+            Field::RelayAddress => "127.0.0.1:7777",
+            Field::RelayDefaultAgent => "claude",
             Field::Foreground
             | Field::Background
             | Field::CursorColor
@@ -392,6 +422,12 @@ impl Field {
     }
 
     pub fn value(self, o: &Options) -> String {
+        // String-typed (non-optional) fields.
+        match self {
+            Field::RelayAddress => return o.relay_address.clone(),
+            Field::RelayDefaultAgent => return o.relay_default_agent.clone(),
+            _ => {}
+        }
         let opt = match self {
             Field::Shell => &o.shell,
             Field::WorkingDirectory => &o.working_directory,
@@ -403,6 +439,7 @@ impl Field {
             Field::SelectionForeground => &o.selection_foreground,
             Field::SelectionBackground => &o.selection_background,
             Field::SplitDivider => &o.split_divider_color,
+            Field::RelayAddress | Field::RelayDefaultAgent => unreachable!(),
         };
         opt.clone().unwrap_or_default()
     }

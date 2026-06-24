@@ -9,6 +9,7 @@ members = [
     "crates/mcp",
     "crates/plugin",
     "crates/pty",
+    "crates/relay",
     "crates/terminal",
     "crates/theme",
     "crates/vt",
