@@ -40,6 +40,9 @@ const STYLE_FLAGS: CellFlags = CellFlags::BOLD
 pub struct SearchQuery {
     pub query: String,
     pub current: usize,
+    /// Precomputed (and view-cached) matches, so the renderer never re-scans
+    /// the buffer itself.
+    pub matches: Vec<vt::Match>,
 }
 
 pub struct TerminalElement {
@@ -201,8 +204,7 @@ fn snapshot(
     let mut search_map: std::collections::HashMap<usize, Vec<(usize, usize, bool)>> =
         std::collections::HashMap::new();
     if let Some(sq) = search.filter(|s| !s.query.is_empty()) {
-        let hits = term.search(&sq.query, false);
-        for (i, m) in hits.iter().enumerate() {
+        for (i, m) in sq.matches.iter().enumerate() {
             search_map
                 .entry(m.line)
                 .or_default()

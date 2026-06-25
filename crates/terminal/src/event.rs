@@ -18,6 +18,11 @@ pub enum Event {
     /// selection field (`c` = clipboard, `p` = primary); `data` is the
     /// already-decoded bytes to place on the clipboard.
     Clipboard { kind: String, data: Vec<u8> },
+    /// The child requested a desktop notification (OSC 9 / 777 / 99).
+    Notify {
+        title: Option<String>,
+        body: String,
+    },
     /// The child exited; carries the unix exit code when available
     /// (`None` when it was killed by a signal).
     Exit(Option<i32>),

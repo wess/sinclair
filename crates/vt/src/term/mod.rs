@@ -8,7 +8,7 @@ mod perform;
 pub mod report;
 mod select;
 
-pub use report::{Clipboard, ReportColors};
+pub use report::{Clipboard, Notification, ReportColors};
 
 use crate::cell::Cell;
 use crate::charset::Charsets;
@@ -63,6 +63,8 @@ pub(crate) struct Inner {
     pub(crate) word_chars: Vec<char>,
     /// Pending OSC 52 clipboard write for the host to act on.
     pub(crate) clipboard: Option<report::Clipboard>,
+    /// Pending OSC 9/777/99 desktop notification for the host to post.
+    pub(crate) notification: Option<report::Notification>,
     /// Colors the host installed for answering OSC color queries.
     pub(crate) report_colors: Option<Box<report::ReportColors>>,
     /// Interned OSC 8 hyperlinks referenced by cells.
@@ -123,6 +125,7 @@ impl Terminal {
                 selection: None,
                 word_chars: vec!['/', '-', '_', '.', '~'],
                 clipboard: None,
+                notification: None,
                 report_colors: None,
                 hyperlinks: Hyperlinks::default(),
                 dcs: dcs::Dcs::None,
@@ -368,6 +371,11 @@ impl Terminal {
     /// from the theme and refresh it on config reload.
     pub fn set_report_colors(&mut self, colors: report::ReportColors) {
         self.inner.report_colors = Some(Box::new(colors));
+    }
+
+    /// Take a pending OSC 9/777/99 desktop notification, if one was requested.
+    pub fn take_notification(&mut self) -> Option<report::Notification> {
+        self.inner.notification.take()
     }
 
     /// Take a pending OSC 52 clipboard write, if the program requested one.

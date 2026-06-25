@@ -23,7 +23,7 @@ pub fn height(window: &Window) -> gpui::Pixels {
 
 /// The titlebar strip rendered as the first child of the workspace root.
 pub fn bar(
-    titles: &[String],
+    tabs: &[tabbar::TabInfo],
     active: usize,
     colors: &Colors,
     font: &gpui::Font,
@@ -49,7 +49,7 @@ pub fn bar(
         // Whole bar is a platform drag region (native drag on macOS).
         .window_control_area(WindowControlArea::Drag)
         .pl(lead)
-        .child(tabbar::tabs(titles, active, colors, font, font_size, cx));
+        .child(tabbar::tabs(tabs, active, colors, font, font_size, cx));
 
     // The empty area to the right of the tabs is the window drag handle. gpui
     // ignores the `window_control_area(Drag)` hint on macOS, so we begin the

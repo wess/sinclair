@@ -228,9 +228,18 @@ MCP client at it — for Claude Desktop, in `claude_desktop_config.json`:
 ```
 
 Tools exposed: `run_command` (into the focused pane, a new tab, or a split),
-`read_screen`, `list_macros`, `run_macro`, `list_tabs`, and `focus_tab`. The
-`prompt mcp` process is a thin stdio bridge; the live terminal window does the
-work, reached over the same per-user socket used for `--toggle-quick`.
+`send_input` (raw keystrokes), `read_screen`, `new_tab`, `split`, `list_tabs`,
+`list_panes`, `focus_tab`, `list_macros`, `run_macro`, and `notify` (post a
+desktop alert). The `prompt mcp` process is a thin stdio bridge; the live
+terminal window does the work, reached over the same per-user socket used for
+`--toggle-quick`.
+
+**Agent attention.** A program (or agent hook) can raise a desktop notification
+with an `OSC 9` / `OSC 777` / `OSC 99` escape, or by running `prompt notify
+"message"`. Prompt posts a native banner and — if the pane is in the
+background — lights up its tab until you look at it. Each tab also shows the
+focused pane's **git branch and working directory**, so a row of agents is
+legible at a glance.
 
 ## Relay
 

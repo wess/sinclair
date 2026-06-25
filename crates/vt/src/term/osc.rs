@@ -1,7 +1,7 @@
 //! OSC sequence dispatch: titles, palette overrides, cwd, cursor color,
 //! dynamic-color queries (OSC 4/10/11/12) and clipboard (OSC 52).
 
-use super::report::{base64_decode, format_rgb, Clipboard};
+use super::report::{base64_decode, format_rgb, Clipboard, Notification};
 use super::Inner;
 
 /// Handle a complete OSC. `params` are the semicolon-split raw byte chunks
@@ -126,8 +126,44 @@ pub(crate) fn dispatch(inner: &mut Inner, params: &[&[u8]], bell_terminated: boo
             inner.cursor_color = None;
             inner.full_damage = true;
         }
+        // Desktop notification (iTerm2 OSC 9): `9;<text>`. ConEmu's numeric
+        // subcommands (`9;4;...` progress and friends) are not notifications.
+        9 => {
+            let conemu = params.len() > 2
+                && params
+                    .get(1)
+                    .is_some_and(|p| p.len() == 1 && p[0].is_ascii_digit());
+            if !conemu {
+                notify(inner, None, rejoin(&params[1..]));
+            }
+        }
+        // urxvt notify protocol: `777;notify;<title>;<body>`.
+        777 => {
+            if params.get(1) == Some(&b"notify".as_slice()) {
+                let title = params
+                    .get(2)
+                    .map(|b| String::from_utf8_lossy(b).into_owned())
+                    .filter(|t| !t.is_empty());
+                notify(inner, title, rejoin(&params[3..]));
+            }
+        }
+        // kitty desktop notification (OSC 99): `99;<metadata>;<payload>`. We
+        // handle the common single-chunk case and treat the payload as the
+        // body; chunking, base64, identifiers, and actions are not supported.
+        99 => {
+            notify(inner, None, rejoin(&params[2..]));
+        }
         _ => {}
     }
+}
+
+/// Set the pending desktop notification (last write wins). Empty requests are
+/// dropped so a bare sequence doesn't post a blank notification.
+fn notify(inner: &mut Inner, title: Option<String>, body: String) {
+    if body.is_empty() && title.is_none() {
+        return;
+    }
+    inner.notification = Some(Notification { title, body });
 }
 
 /// Answer a `?` query for a single dynamic color (OSC 10/11), echoing the
@@ -230,6 +266,13 @@ pub(crate) fn parse_color_spec(spec: &str) -> Option<(u8, u8, u8)> {
         return Some((r, g, b));
     }
     if let Some(hex) = spec.strip_prefix('#') {
+        // Reject non-ASCII so the byte slices below always land on char
+        // boundaries: a multi-byte codepoint with byte length 3/6/12 (e.g. from
+        // a crafted OSC color) would otherwise split mid-codepoint and panic,
+        // poisoning the term lock and crashing the app.
+        if !hex.is_ascii() {
+            return None;
+        }
         let per = match hex.len() {
             3 => 1,
             6 => 2,

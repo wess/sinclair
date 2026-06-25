@@ -690,6 +690,8 @@ impl WorkspaceView {
                 self.focusactive(window, cx);
                 self.dispatch(action.clone(), window, cx);
             }
+            // A pane raised/cleared its attention flag; repaint the tab strip.
+            ViewEvent::Attention => cx.notify(),
         }
     }
 
@@ -971,6 +973,45 @@ impl WorkspaceView {
                     .get(&tab.focused)
                     .map(|pane| pane.view.read(cx).title().to_string())
                     .unwrap_or_default()
+            })
+            .collect()
+    }
+
+    /// Per-tab strip data: the label, a `branch · dir` subtitle from the
+    /// focused pane's working directory, and whether any pane in the tab has a
+    /// pending notification.
+    fn tab_infos(&self, cx: &App) -> Vec<crate::tabbar::TabInfo> {
+        (0..self.tabs.len())
+            .map(|i| {
+                let tab = self.tabs.get(i).expect("tab index");
+                let focused = self.panes.get(&tab.focused).map(|p| p.view.read(cx));
+                let title = match &tab.title {
+                    Some(t) => t.clone(),
+                    None => focused
+                        .as_ref()
+                        .map(|v| v.title().to_string())
+                        .unwrap_or_default(),
+                };
+                let subtitle = focused.as_ref().and_then(|v| {
+                    let branch = v.git_branch();
+                    let dir = v.cwd_path().as_deref().and_then(short_dir);
+                    match (branch, dir) {
+                        (Some(b), Some(d)) => Some(format!("{b} \u{00b7} {d}")),
+                        (Some(b), None) => Some(b),
+                        (None, Some(d)) => Some(d),
+                        (None, None) => None,
+                    }
+                });
+                let attention = tab.tree.panes().iter().any(|id| {
+                    self.panes
+                        .get(id)
+                        .is_some_and(|p| p.view.read(cx).needs_attention())
+                });
+                crate::tabbar::TabInfo {
+                    title,
+                    subtitle,
+                    attention,
+                }
             })
             .collect()
     }
@@ -1357,6 +1398,54 @@ impl WorkspaceView {
                     .map(|pane| pane.view.read(cx).screen_text(lines))
                     .unwrap_or_default();
                 Ok(json!({ "text": text }))
+            }
+            "send_input" => {
+                let text = args
+                    .get("text")
+                    .and_then(Value::as_str)
+                    .ok_or("send_input requires a `text` string")?
+                    .to_string();
+                self.onfocused(cx, |v, cx| v.send_text(text.as_bytes(), cx));
+                Ok(json!({ "ok": true }))
+            }
+            "new_tab" => {
+                self.newtab(window, cx);
+                Ok(json!({ "ok": true, "index": self.tabs.active_index() }))
+            }
+            "split" => {
+                let dir = args
+                    .get("direction")
+                    .and_then(Value::as_str)
+                    .ok_or("split requires a `direction` of right or down")?;
+                let axis = match dir {
+                    "right" => Axis::Horizontal,
+                    "down" => Axis::Vertical,
+                    other => return Err(format!("unknown split direction `{other}`")),
+                };
+                self.split(axis, false, window, cx);
+                Ok(json!({ "ok": true }))
+            }
+            "list_panes" => {
+                let focused = self.tabs.focused();
+                let panes = self
+                    .tabs
+                    .active()
+                    .tree
+                    .panes()
+                    .into_iter()
+                    .map(|id| {
+                        let view = self.panes.get(&id).map(|p| p.view.read(cx));
+                        json!({
+                            "title": view.as_ref().map(|v| v.title().to_string()).unwrap_or_default(),
+                            "cwd": view
+                                .as_ref()
+                                .and_then(|v| v.cwd_path())
+                                .map(|p| p.to_string_lossy().into_owned()),
+                            "focused": id == focused,
+                        })
+                    })
+                    .collect::<Vec<_>>();
+                Ok(json!({ "panes": panes }))
             }
             "list_macros" => Ok(json!({
                 "macros": self
@@ -1841,9 +1930,9 @@ impl Render for WorkspaceView {
 
         // The custom titlebar replaces the native one and folds the tabs in,
         // so it is always present (the window opens with no native chrome).
-        let titles = self.titles(cx);
+        let tab_infos = self.tab_infos(cx);
         base = base.child(crate::titlebar::bar(
-            &titles,
+            &tab_infos,
             self.tabs.active_index(),
             &self.colors,
             &self.font,
@@ -1931,6 +2020,17 @@ fn loadplugins(opts: &config::Options) -> Vec<plugin::Plugin> {
 
 /// Build the floating macro indicator pill, shown while recording a macro or
 /// replaying one. Recording wins when both are somehow active.
+/// A compact directory label for the tab strip: `~` for home, otherwise the
+/// final path component.
+fn short_dir(path: &std::path::Path) -> Option<String> {
+    if let Some(home) = std::env::var_os("HOME") {
+        if path == std::path::Path::new(&home) {
+            return Some("~".to_string());
+        }
+    }
+    path.file_name().map(|n| n.to_string_lossy().into_owned())
+}
+
 /// The curated set of actions the command palette offers, with display
 /// labels. Ordered roughly by how often they're reached.
 fn palette_catalog() -> Vec<(&'static str, Action)> {

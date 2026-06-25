@@ -31,10 +31,19 @@ pub(crate) fn hook(inner: &mut Inner, intermediates: &[u8], action: char) {
     };
 }
 
-/// Accumulate a payload byte.
+/// Largest DCS payload we buffer. A sequence with no terminator (ST) would
+/// otherwise grow the buffer without bound; legitimate sixel images and
+/// XTGETTCAP queries are far smaller.
+const MAX_DCS_BYTES: usize = 4 * 1024 * 1024;
+
+/// Accumulate a payload byte, dropping anything past the size cap.
 pub(crate) fn put(inner: &mut Inner, byte: u8) {
     match &mut inner.dcs {
-        Dcs::XtGetTcap(buf) | Dcs::Sixel(buf) => buf.push(byte),
+        Dcs::XtGetTcap(buf) | Dcs::Sixel(buf) => {
+            if buf.len() < MAX_DCS_BYTES {
+                buf.push(byte);
+            }
+        }
         Dcs::None => {}
     }
 }

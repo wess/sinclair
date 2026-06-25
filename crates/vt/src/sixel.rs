@@ -58,6 +58,10 @@ const DEFAULT_PALETTE: [Rgb; 16] = [
 
 const MAX_DIM: usize = 10_000;
 
+/// Cap on total decoded pixels (~32 MB of `Option<Rgb>`), so a malicious sixel
+/// can't exhaust memory regardless of its declared dimensions.
+const MAX_AREA: usize = 8_000_000;
+
 /// Decode a sixel payload (the bytes between `DCS ... q` and `ST`). Returns
 /// `None` when nothing was drawn or the geometry is unreasonable.
 pub fn decode(data: &[u8]) -> Option<Image> {
@@ -80,7 +84,9 @@ pub fn decode(data: &[u8]) -> Option<Image> {
      -> bool {
         let w = (*width).max(max_x);
         let h = (*height).max(max_y);
-        if w > MAX_DIM || h > MAX_DIM {
+        // Bound both dimensions and the total area so one crafted DCS payload
+        // can't force a huge (hundreds of MB) allocation.
+        if w > MAX_DIM || h > MAX_DIM || w.saturating_mul(h) > MAX_AREA {
             return false;
         }
         if w != *width || h != *height {

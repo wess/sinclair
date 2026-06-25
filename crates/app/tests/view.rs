@@ -1,6 +1,24 @@
 use super::*;
 
 #[test]
+fn git_branch_from_head_file() {
+    let dir = std::env::temp_dir().join(format!("prompt-githead-{}", std::process::id()));
+    let git = dir.join(".git");
+    std::fs::create_dir_all(&git).unwrap();
+
+    std::fs::write(git.join("HEAD"), "ref: refs/heads/feature/x\n").unwrap();
+    assert_eq!(git_branch_at(&dir).as_deref(), Some("feature/x"));
+
+    // Detached HEAD: a raw commit hash yields its short form.
+    std::fs::write(git.join("HEAD"), "0123456789abcdef0123\n").unwrap();
+    assert_eq!(git_branch_at(&dir).as_deref(), Some("0123456"));
+
+    std::fs::remove_dir_all(&dir).ok();
+    // Not a repo -> None.
+    assert_eq!(git_branch_at(std::path::Path::new("/")), None);
+}
+
+#[test]
 fn label_prefers_nonblank_title() {
     assert_eq!(label(Some("vim"), "zsh"), "vim");
     assert_eq!(label(Some(""), "zsh"), "zsh");

@@ -23,6 +23,15 @@ pub struct Clipboard {
     pub data: Vec<u8>,
 }
 
+/// A desktop notification a program requested via OSC 9 / 777 / 99 — used to
+/// surface "an agent needs attention". The host posts it natively and lights
+/// up the pane/tab.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Notification {
+    pub title: Option<String>,
+    pub body: String,
+}
+
 /// Format an 8-bit RGB triple as an xterm color reply body:
 /// `rgb:RRRR/GGGG/BBBB`, where each channel is widened to 16 bits by
 /// replication (0xAB -> 0xABAB), matching xterm's query answers.

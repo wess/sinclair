@@ -11,6 +11,53 @@ fn title_via_osc0_and_osc2() {
 }
 
 #[test]
+fn osc9_notification() {
+    let mut t = Terminal::new(10, 3, 0);
+    t.feed(b"\x1b]9;build done\x07");
+    let n = t.take_notification().expect("notification");
+    assert_eq!(n.body, "build done");
+    assert_eq!(n.title, None);
+    assert!(t.take_notification().is_none()); // taken once
+}
+
+#[test]
+fn osc9_conemu_progress_is_not_a_notification() {
+    let mut t = Terminal::new(10, 3, 0);
+    t.feed(b"\x1b]9;4;1;50\x07"); // ConEmu progress, not a notification
+    assert!(t.take_notification().is_none());
+}
+
+#[test]
+fn osc777_notify_with_title_and_body() {
+    let mut t = Terminal::new(10, 3, 0);
+    t.feed(b"\x1b]777;notify;Claude;needs input\x1b\\");
+    let n = t.take_notification().expect("notification");
+    assert_eq!(n.title.as_deref(), Some("Claude"));
+    assert_eq!(n.body, "needs input");
+}
+
+#[test]
+fn osc99_basic_body() {
+    let mut t = Terminal::new(10, 3, 0);
+    t.feed(b"\x1b]99;;hello there\x1b\\");
+    assert_eq!(t.take_notification().expect("n").body, "hello there");
+}
+
+#[test]
+fn malformed_non_ascii_osc_color_does_not_panic() {
+    // A crafted OSC 4 / OSC 12 color whose `#`-hex body is non-ASCII used to
+    // byte-slice mid-codepoint and panic (poisoning the term lock). It must
+    // now be rejected quietly with the buffer left intact.
+    let mut t = Terminal::new(10, 3, 0);
+    t.feed(b"\x1b]4;0;#"); // start a color spec
+    t.feed(&[0xc3, 0xa9, 0x61]); // "éa": byte-len 3, splits mid-'é'
+    t.feed(b"\x1b\\");
+    t.feed(b"\x1b]12;#\xff\x07"); // OSC 12 with a lone invalid byte
+    t.feed(b"hi");
+    assert_eq!(t.row_text(0), "hi"); // survived; still usable
+}
+
+#[test]
 fn palette_set_and_reset() {
     let mut t = Terminal::new(10, 3, 0);
     t.feed(b"\x1b]4;1;rgb:ff/00/00\x07");

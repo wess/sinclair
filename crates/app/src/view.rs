@@ -47,6 +47,9 @@ pub enum ViewEvent {
     /// A config action picked from this pane's right-click menu; the workspace
     /// focuses this pane and dispatches it.
     Action(Action),
+    /// This pane's attention state changed (a notification arrived, or focus
+    /// cleared it); the workspace repaints the tab/pane indicator.
+    Attention,
 }
 
 /// Pane title: the vt title when set and non-blank, else the fallback.
@@ -62,6 +65,13 @@ struct Search {
     edit: crate::textedit::TextEdit,
     /// Index of the focused match among current results.
     current: usize,
+    /// The query `results` were computed for; `None` until first search.
+    cached_query: Option<String>,
+    /// Cached match list, reused across frames until the query changes or new
+    /// output arrives, so the whole buffer isn't re-scanned every repaint.
+    results: Vec<vt::Match>,
+    /// Set when new output may have changed the matches.
+    dirty: bool,
 }
 
 enum Assist {
@@ -126,6 +136,15 @@ pub struct TerminalView {
     read_only: bool,
     /// Set when BEL arrives. TODO: visual bell.
     pub bell: bool,
+    /// Set when this pane posts a desktop notification (OSC 9/777/99) while
+    /// unfocused; drives the tab/pane attention indicator. Cleared on focus.
+    attention: bool,
+    /// Tracks pane focus (kept in sync by the focus-in/out subscriptions), so
+    /// a notification only raises the attention indicator on a background pane.
+    focused: bool,
+    /// Cache of `(cwd, git branch)` so the tab strip doesn't read `.git/HEAD`
+    /// every frame — only when the working directory changes.
+    git_cache: RefCell<(Option<String>, Option<String>)>,
     /// True while a repaint is being withheld for synchronized output
     /// (?2026), with a safety timer armed to release it.
     sync_pending: bool,
@@ -200,11 +219,18 @@ impl TerminalView {
         // loses focus.
         let on_in = cx.weak_entity();
         let sub_in = window.on_focus_in(&focus, cx, move |_window, cx| {
-            let _ = on_in.update(cx, |this, _| this.report_focus(true));
+            let _ = on_in.update(cx, |this, cx| {
+                this.focused = true;
+                this.report_focus(true);
+                this.clear_attention(cx);
+            });
         });
         let on_out = cx.weak_entity();
         let sub_out = window.on_focus_out(&focus, cx, move |_event, _window, cx| {
-            let _ = on_out.update(cx, |this, _| this.report_focus(false));
+            let _ = on_out.update(cx, |this, _| {
+                this.focused = false;
+                this.report_focus(false);
+            });
         });
         Self {
             session,
@@ -226,6 +252,9 @@ impl TerminalView {
             fallback,
             read_only: false,
             bell: false,
+            attention: false,
+            focused: false,
+            git_cache: RefCell::new((None, None)),
             sync_pending: false,
             search: None,
             assist: None,
@@ -309,6 +338,17 @@ impl TerminalView {
                 cx.emit(ViewEvent::Title);
             }
             Event::Bell => self.bell = true,
+            Event::Notify { title, body } => {
+                // Post a native banner, and — if we're not the focused pane —
+                // raise the in-app attention indicator on the tab/pane.
+                let heading = title.unwrap_or_else(|| self.title().to_string());
+                post_os_notification(&heading, &body);
+                if !self.focused {
+                    self.attention = true;
+                    cx.emit(ViewEvent::Attention);
+                    cx.notify();
+                }
+            }
             Event::Clipboard { data, .. } => {
                 // OSC 52 write; macOS has no primary selection, so any kind
                 // goes to the system clipboard.
@@ -324,6 +364,10 @@ impl TerminalView {
     /// a short safety timer so a program that never clears ?2026 can't
     /// freeze the view.
     fn wakeup(&mut self, cx: &mut Context<Self>) {
+        // New output may have changed the search hits; invalidate the cache.
+        if let Some(s) = &mut self.search {
+            s.dirty = true;
+        }
         if self.session.with_term(|t| t.synchronized_output()) {
             if !self.sync_pending {
                 self.sync_pending = true;
@@ -353,24 +397,37 @@ impl TerminalView {
             None => Some(Search {
                 edit: crate::textedit::TextEdit::new(""),
                 current: 0,
+                cached_query: None,
+                results: Vec::new(),
+                dirty: true,
             }),
         };
         cx.notify();
     }
 
-    /// Current search results against the live buffer.
-    fn search_matches(&self) -> Vec<vt::Match> {
-        match &self.search {
-            Some(s) => {
-                let q = s.edit.text();
-                if q.is_empty() {
-                    Vec::new()
-                } else {
-                    self.session.with_term(|t| t.search(&q, false))
-                }
+    /// Current search results, cached until the query changes or new output
+    /// marks them stale — the full-buffer scan never runs on an idle repaint.
+    fn search_matches(&mut self) -> Vec<vt::Match> {
+        let q = match &self.search {
+            Some(s) => s.edit.text(),
+            None => return Vec::new(),
+        };
+        if let Some(s) = &self.search {
+            if !s.dirty && s.cached_query.as_deref() == Some(q.as_str()) {
+                return s.results.clone();
             }
-            None => Vec::new(),
         }
+        let hits = if q.is_empty() {
+            Vec::new()
+        } else {
+            self.session.with_term(|t| t.search(&q, false))
+        };
+        if let Some(s) = &mut self.search {
+            s.results = hits.clone();
+            s.cached_query = Some(q);
+            s.dirty = false;
+        }
+        hits
     }
 
     /// Clamp the focused match and scroll it into view.
@@ -765,6 +822,38 @@ impl TerminalView {
     /// Whether a foreground process (beyond the shell) is running in this pane.
     pub fn has_running_process(&self) -> bool {
         self.session.foreground_running()
+    }
+
+    /// Whether this pane has a pending notification awaiting the user's eyes.
+    pub fn needs_attention(&self) -> bool {
+        self.attention
+    }
+
+    /// This pane's working directory as a path (from OSC 7), if reported.
+    pub fn cwd_path(&self) -> Option<std::path::PathBuf> {
+        self.cwd().and_then(|osc| crate::session::cwdpath(&osc))
+    }
+
+    /// The git branch for this pane's cwd, cached until the cwd changes so the
+    /// tab strip never reads `.git/HEAD` on the render hot path.
+    pub fn git_branch(&self) -> Option<String> {
+        let cwd = self.cwd_path()?;
+        let key = cwd.to_string_lossy().into_owned();
+        if self.git_cache.borrow().0.as_deref() == Some(key.as_str()) {
+            return self.git_cache.borrow().1.clone();
+        }
+        let branch = git_branch_at(&cwd);
+        *self.git_cache.borrow_mut() = (Some(key), branch.clone());
+        branch
+    }
+
+    /// Clear the attention indicator (the user is now looking at this pane).
+    fn clear_attention(&mut self, cx: &mut Context<Self>) {
+        if self.attention {
+            self.attention = false;
+            cx.emit(ViewEvent::Attention);
+            cx.notify();
+        }
     }
 
     /// Whether this pane is recording an asciinema cast.
@@ -1207,6 +1296,73 @@ impl TerminalView {
     }
 }
 
+/// The git branch for `start`: walk up to the nearest `.git`, then read its
+/// `HEAD`. Handles a `.git` directory and the worktree/submodule `.git` file.
+/// Reads files only (no `git` subprocess); `None` when not in a repo.
+fn git_branch_at(start: &std::path::Path) -> Option<String> {
+    let mut dir = start;
+    loop {
+        let git = dir.join(".git");
+        if git.is_dir() {
+            return parse_head(&git.join("HEAD"));
+        }
+        if git.is_file() {
+            let content = std::fs::read_to_string(&git).ok()?;
+            let gitdir = content.trim().strip_prefix("gitdir:")?.trim();
+            return parse_head(&std::path::Path::new(gitdir).join("HEAD"));
+        }
+        dir = dir.parent()?;
+    }
+}
+
+/// Parse a git `HEAD` file: a symbolic ref `ref: refs/heads/<branch>` yields
+/// the branch; a detached commit hash yields its short form.
+fn parse_head(head: &std::path::Path) -> Option<String> {
+    let content = std::fs::read_to_string(head).ok()?;
+    let content = content.trim();
+    if let Some(branch) = content.strip_prefix("ref: refs/heads/") {
+        return Some(branch.to_string());
+    }
+    if content.len() >= 7 && content.chars().all(|c| c.is_ascii_hexdigit()) {
+        return Some(content[..7].to_string());
+    }
+    None
+}
+
+/// Post a native desktop notification without blocking the UI (spawns a thread
+/// that runs [`notify_command`]). Best-effort: missing tools and errors are
+/// ignored — the in-app indicator is the reliable signal.
+pub fn post_os_notification(title: &str, body: &str) {
+    let (title, body) = (title.to_string(), body.to_string());
+    std::thread::spawn(move || notify_command(&title, &body));
+}
+
+/// Post a native desktop notification synchronously. macOS uses `osascript
+/// display notification`; Linux uses `notify-send`. Used by `prompt notify`,
+/// which must wait for the helper before the process exits.
+pub fn notify_command(title: &str, body: &str) {
+    #[cfg(target_os = "macos")]
+    {
+        let esc = |s: &str| s.replace('\\', "\\\\").replace('"', "\\\"");
+        let script = format!(
+            "display notification \"{}\" with title \"{}\"",
+            esc(body),
+            esc(title)
+        );
+        let _ = std::process::Command::new("osascript")
+            .args(["-e", &script])
+            .output();
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let _ = std::process::Command::new("notify-send")
+            .args([title, body])
+            .output();
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+    let _ = (title, body);
+}
+
 /// Path for a new recording under `~/.config/prompt/recordings/`, plus the
 /// unix timestamp for its header. `None` if the directory can't be made.
 fn recording_target() -> Option<(std::path::PathBuf, u64)> {
@@ -1229,12 +1385,16 @@ impl Focusable for TerminalView {
 
 impl Render for TerminalView {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        // Compute the matches once (cached) and reuse for the highlight map
+        // and the result counter, instead of re-scanning the buffer per frame.
+        let matches = self.search_matches();
         let query = self.search.as_ref().map(|s| crate::element::SearchQuery {
             query: s.edit.text(),
             current: s.current,
+            matches: matches.clone(),
         });
         let bar = self.search.as_ref().map(|s| {
-            let total = self.search_matches().len();
+            let total = matches.len();
             let pos = if total == 0 { 0 } else { s.current + 1 };
             let (before, after) = s.edit.split();
             self.search_bar(&before, &after, pos, total)

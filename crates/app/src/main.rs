@@ -43,6 +43,25 @@ use gpui::{point, px, size, App, Bounds, TitlebarOptions, WindowBounds, WindowOp
 const DEFAULT_COLS: usize = 80;
 const DEFAULT_ROWS: usize = 24;
 
+/// Parse `notify` argv into `(title, body)`. `--title`/`-t` sets the title
+/// (default "Prompt"); the remaining words join into the body.
+fn notify_args(args: &[String]) -> (String, String) {
+    let mut title = "Prompt".to_string();
+    let mut body: Vec<&str> = Vec::new();
+    let mut it = args.iter();
+    while let Some(a) = it.next() {
+        match a.as_str() {
+            "--title" | "-t" => {
+                if let Some(t) = it.next() {
+                    title = t.clone();
+                }
+            }
+            other => body.push(other),
+        }
+    }
+    (title, body.join(" "))
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
 
@@ -57,6 +76,14 @@ fn main() {
     // tool calls into the running instance over the single-instance socket.
     if args.first().map(String::as_str) == Some("mcp") {
         mcpbridge::run_stdio();
+        return;
+    }
+
+    // `prompt notify [--title T] <message>` posts a desktop notification, for
+    // agent hooks that can't emit an OSC 9/777/99 escape themselves.
+    if args.first().map(String::as_str) == Some("notify") {
+        let (title, body) = notify_args(&args[1..]);
+        view::notify_command(&title, &body);
         return;
     }
 

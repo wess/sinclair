@@ -89,9 +89,9 @@ impl Session {
     /// Resize both the emulation grid and the kernel pty winsize. The
     /// kernel delivers SIGWINCH to the child's process group.
     pub fn resize(&self, cols: usize, rows: usize) -> io::Result<()> {
-        self.term.lock().expect("terminal lock").resize(cols, rows);
+        self.term.lock().unwrap_or_else(|e| e.into_inner()).resize(cols, rows);
         let size = pty::Winsize::new(cols as u16, rows as u16);
-        self.pty.lock().expect("pty lock").resize(size)
+        self.pty.lock().unwrap_or_else(|e| e.into_inner()).resize(size)
     }
 
     /// Whether an asciinema recording is currently capturing this session.
@@ -111,11 +111,11 @@ impl Session {
         timestamp: Option<u64>,
     ) -> io::Result<()> {
         let (cols, rows) = {
-            let term = self.term.lock().expect("terminal lock");
+            let term = self.term.lock().unwrap_or_else(|e| e.into_inner());
             (term.cols(), term.rows())
         };
         let recorder = cast::Recorder::create(path, cols, rows, title, timestamp)?;
-        *self.recorder.lock().expect("recorder lock") = Some(recorder);
+        *self.recorder.lock().unwrap_or_else(|e| e.into_inner()) = Some(recorder);
         Ok(())
     }
 
@@ -130,7 +130,7 @@ impl Session {
     pub fn foreground_running(&self) -> bool {
         self.pty
             .lock()
-            .expect("pty lock")
+            .unwrap_or_else(|e| e.into_inner())
             .foreground_running()
     }
 
@@ -140,7 +140,7 @@ impl Session {
     /// applied while (or after) `f` runs raises a fresh [`Event::Wakeup`].
     pub fn with_term<R>(&self, f: impl FnOnce(&mut vt::Terminal) -> R) -> R {
         self.wakeup_pending.store(false, Ordering::SeqCst);
-        let mut term = self.term.lock().expect("terminal lock");
+        let mut term = self.term.lock().unwrap_or_else(|e| e.into_inner());
         f(&mut term)
     }
 
@@ -217,14 +217,18 @@ fn apply_chunk(
     pending: &AtomicBool,
     events: &Sender<Event>,
 ) {
-    let (reply, title, bell, clipboard) = {
-        let mut term = term.lock().expect("terminal lock");
-        term.feed(chunk);
+    let (reply, title, bell, clipboard, notification) = {
+        let mut term = term.lock().unwrap_or_else(|e| e.into_inner());
+        // Contain any parser panic on untrusted pty bytes: it neither poisons
+        // the lock nor kills the reader thread — at worst one chunk is dropped
+        // and the next one still processes. (Release builds unwind by default.)
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| term.feed(chunk)));
         (
             term.take_output(),
             term.take_title_changed(),
             term.take_bell(),
             term.take_clipboard(),
+            term.take_notification(),
         )
     };
     if !reply.is_empty() {
@@ -243,6 +247,12 @@ fn apply_chunk(
             data: clip.data,
         });
     }
+    if let Some(note) = notification {
+        let _ = events.send(Event::Notify {
+            title: note.title,
+            body: note.body,
+        });
+    }
     // Coalesce: queue a Wakeup only when none is pending; the embedder
     // re-arms via with_term/clear_wakeup.
     if !pending.swap(true, Ordering::SeqCst) {
@@ -254,7 +264,7 @@ fn apply_chunk(
 /// concurrent [`Session::shutdown`] can still take the lock to kill.
 fn reap(pty: &Mutex<pty::Pty>) -> Option<i32> {
     loop {
-        match pty.lock().expect("pty lock").try_wait() {
+        match pty.lock().unwrap_or_else(|e| e.into_inner()).try_wait() {
             Ok(Some(status)) => return status.code(),
             Ok(None) => {}
             Err(_) => return None,

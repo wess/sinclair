@@ -37,6 +37,7 @@ documented limits), **✗** not yet.
 | Dynamic color *queries* (OSC 4/10/11/12 `?`) | ✓ | answered from theme via `set_report_colors` |
 | OSC 7 cwd reporting | ✓ | inherited by new splits, tabs, and windows; defaults to `$HOME` when unknown |
 | OSC 52 clipboard | ✓ | base64 decode → system clipboard |
+| Desktop notifications (OSC 9 / 777 / 99) | ✓ | native banner + per-tab attention indicator; cleared on focus |
 | OSC 8 hyperlinks | ✓ | interned per-cell, underlined, cmd-click opens |
 | URL detection (no OSC 8) | ✓ | cmd-click opens detected URLs |
 | Focus reporting (?1004) | ✓ | |
@@ -84,6 +85,9 @@ documented limits), **✗** not yet.
 | Broadcast input | ✓ | cmd+shift+b mirrors typed keys to every pane in the tab (floating indicator) |
 | Session restore | ✓ | `session-restore` saves tabs/splits/cwds on quit, rebuilds on launch |
 | Session recording | ✓ | record a pane to an asciinema v2 `.cast` (cmd+shift+r); plays with `asciinema play`, embeddable |
+| Per-tab context | ✓ | each tab shows the focused pane's git branch + working directory |
+| Agent attention | ✓ | OSC 9/777/99 (or `prompt notify`) post a native banner and light up the tab |
+| Scripting API (MCP + socket) | ✓ | `prompt mcp` exposes run_command, send_input, read_screen, new_tab, split, list_tabs/panes, focus_tab, notify |
 | Themes | ✓ | 22 builtin schemes + overrides |
 | Native macOS menu bar | ✓ | Prompt/File/Edit/View/Workspace/Window menus (plus AI when enabled), items reuse config actions (shortcuts shown); includes an About panel (icon, version, release date) |
 | Custom window titlebar | ✓ | transparent native bar; app-drawn strip with tabs folded in and drag-to-move. macOS keeps the traffic lights; Linux draws its own minimize/maximize/close + resize edges (client-side decorations) |
