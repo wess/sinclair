@@ -989,7 +989,13 @@ impl WorkspaceView {
                     Some(t) => t.clone(),
                     None => focused
                         .as_ref()
-                        .map(|v| v.title().to_string())
+                        .map(|v| {
+                            if self.opts.tab_title_show_host {
+                                v.title().to_string()
+                            } else {
+                                strip_user_host(v.title()).to_string()
+                            }
+                        })
                         .unwrap_or_default(),
                 };
                 let subtitle = focused.as_ref().and_then(|v| {
@@ -2022,6 +2028,18 @@ fn loadplugins(opts: &config::Options) -> Vec<plugin::Plugin> {
 /// replaying one. Recording wins when both are somehow active.
 /// A compact directory label for the tab strip: `~` for home, otherwise the
 /// final path component.
+/// Strip a leading `user@host:` prefix from a shell-set title, leaving just the
+/// path. Shells default the terminal title to `\u@\h: \w`, which wraps to two
+/// lines in a tab and reads poorly; the host is noise in a tab label.
+fn strip_user_host(title: &str) -> &str {
+    if let Some((head, rest)) = title.split_once(':') {
+        if head.contains('@') && !head.contains([' ', '/']) {
+            return rest.trim_start();
+        }
+    }
+    title
+}
+
 fn short_dir(path: &std::path::Path) -> Option<String> {
     if let Some(home) = std::env::var_os("HOME") {
         if path == std::path::Path::new(&home) {

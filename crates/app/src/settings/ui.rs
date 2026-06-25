@@ -695,6 +695,7 @@ impl SettingsView {
             self.toggle_row(Bool::PasteProtection, "\u{2335}", theme::Rgb::new(255, 214, 10), cx),
             self.toggle_row(Bool::ShellIntegration, "\u{276f}", theme::Rgb::new(48, 209, 88), cx),
             self.toggle_row(Bool::SessionRestore, "\u{21ba}", theme::Rgb::new(94, 92, 230), cx),
+            self.toggle_row(Bool::TabTitleShowHost, "@", theme::Rgb::new(100, 210, 255), cx),
             self.toggle_row(Bool::CopyOnSelect, "\u{2713}", theme::Rgb::new(52, 199, 89), cx),
             self.cycle_row(Choice::OptionAsAlt, "\u{2325}", theme::Rgb::new(88, 86, 214), cx),
             self.cycle_row(Choice::ClipboardRead, "R", theme::Rgb::new(90, 200, 250), cx),

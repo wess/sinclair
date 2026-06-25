@@ -178,6 +178,11 @@ pub struct Options {
     /// reporting into the spawned shell (zsh/bash/fish) so jump-to-prompt and
     /// cwd inheritance work without editing your shell rc. On by default.
     pub shell_integration: bool,
+    /// File key: `tab-title-show-host`. Keep the leading `user@host:` that
+    /// shells set in the terminal title when showing it in a tab. Off by
+    /// default, so tabs show just the path (the host wraps to two lines and
+    /// reads poorly in a narrow tab).
+    pub tab_title_show_host: bool,
     /// File key: `palette`, repeated `N=#rrggbb` entries (accumulated).
     pub palette: Vec<(u8, String)>,
     /// File key: `plugin`, repeated plugin directories or manifest paths.
@@ -267,6 +272,7 @@ impl Default for Options {
             mouse_hide_while_typing: false,
             shell_integration: true,
             session_restore: false,
+            tab_title_show_host: false,
             palette: Vec::new(),
             plugin: Vec::new(),
             keybind: Vec::new(),

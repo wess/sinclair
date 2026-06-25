@@ -285,6 +285,13 @@ pub fn apply(opts: &mut Options, key: &str, val: &str) -> Result<(), String> {
                 value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
             };
         }
+        "tab-title-show-host" => {
+            opts.tab_title_show_host = if empty {
+                d.tab_title_show_host
+            } else {
+                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+            };
+        }
         "mouse-hide-while-typing" => {
             opts.mouse_hide_while_typing = if empty {
                 d.mouse_hide_while_typing

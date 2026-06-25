@@ -149,6 +149,8 @@ confirm-quit = true
 shell-integration = true
 # Reopen the previous window's tabs/splits/cwds on launch (off by default)
 session-restore = false
+# Keep the leading user@host: in tab titles (off by default; tabs show just the path)
+tab-title-show-host = false
 
 # AI — opt-in (also editable in Settings → AI); see docs/relay.md
 ai-enabled = true

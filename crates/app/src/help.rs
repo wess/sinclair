@@ -234,6 +234,9 @@ const ARTICLES: &[Article] = &[
                 "shell-integration — inject OSC 133/7 hooks for prompt-jump and cwd (on)",
             ),
             Block::Bullet("session-restore — reopen tabs/splits on launch (off by default)"),
+            Block::Bullet(
+                "tab-title-show-host — keep user@host: in tab titles (off; tabs show just the path)",
+            ),
             Block::Bullet("confirm-quit — warn on quit if a process is still running (on)"),
             Block::Heading("Keybindings"),
             Block::Para(
