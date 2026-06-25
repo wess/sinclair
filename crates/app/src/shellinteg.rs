@@ -29,7 +29,16 @@ ZDOTDIR=\"$PROMPT_INTEG_DIR\"
 const ZSHRC: &str = "\
 # Restore the user's ZDOTDIR for the rest of the session, source their zshrc,
 # then install OSC 133 prompt marks + OSC 7 cwd reporting.
+_prompt_zdotdir=\"$ZDOTDIR\"
 ZDOTDIR=\"${PROMPT_ZDOTDIR:-$HOME}\"
+# macOS's global /etc/zshrc runs before this file and sets
+# HISTFILE=${ZDOTDIR:-$HOME}/.zsh_history while ZDOTDIR still points at our
+# integration dir, so history would read/write there instead of the user's real
+# file. If HISTFILE landed inside our dir, repoint it at the user's real dir
+# before their rc runs (which may still override it). zsh reads the history file
+# after rc processing, so this loads the correct history.
+[[ \"$HISTFILE\" == \"$_prompt_zdotdir\"/* ]] && HISTFILE=\"$ZDOTDIR/.zsh_history\"
+unset _prompt_zdotdir
 [[ -f \"$ZDOTDIR/.zshrc\" ]] && source \"$ZDOTDIR/.zshrc\"
 _prompt_precmd() {
   printf '\\e]133;D\\e\\\\'
