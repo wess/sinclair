@@ -44,6 +44,11 @@ struct RoleFile {
     model: Option<String>,
     #[serde(default)]
     description: String,
+    /// A human-driven role (a supervisor/lead). It launches interactively rather
+    /// than parking on the `wait`-loop, so the human can steer it. See
+    /// [`crate::cli::agent::harness_prompt`].
+    #[serde(default)]
+    driver: bool,
 }
 
 #[derive(Clone)]
@@ -53,6 +58,7 @@ pub struct Role {
     pub agent: Option<String>,
     pub model: Option<String>,
     pub description: String,
+    pub driver: bool,
     pub source: Source,
 }
 
@@ -64,6 +70,7 @@ fn parse(name: &str, text: &str, source: Source) -> Result<Role> {
         agent: f.agent,
         model: f.model,
         description: f.description.trim().to_string(),
+        driver: f.driver,
         source,
     })
 }
@@ -256,6 +263,9 @@ fn serialize(role: Role) -> String {
     }
     if let Some(m) = &role.model {
         out.push_str(&format!("model = \"{m}\"\n"));
+    }
+    if role.driver {
+        out.push_str("driver = true\n");
     }
     out.push_str(&format!("description = \"\"\"\n{}\n\"\"\"\n", role.description));
     out

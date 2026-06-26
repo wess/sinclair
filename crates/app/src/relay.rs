@@ -273,10 +273,13 @@ pub fn team_info(name: &str) -> Option<(String, Vec<(String, String)>)> {
     Some((layout, members))
 }
 
-/// Shell command that launches one team member in a pane.
-pub fn launch_member(member: &str, role: &str) -> String {
+/// Shell command that launches one team member in a pane. The team's first
+/// member is the human-driven `lead` — it stays interactive instead of parking
+/// on the `wait`-loop, so the human can steer it.
+pub fn launch_member(member: &str, role: &str, lead: bool) -> String {
+    let flag = if lead { " --lead" } else { "" };
     keep_open(format!(
-        "\"{}\" --home \"{}\" launch {member} --role {role}",
+        "\"{}\" --home \"{}\" launch {member} --role {role}{flag}",
         binary(),
         home_str()
     ))

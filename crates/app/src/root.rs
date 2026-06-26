@@ -1837,7 +1837,8 @@ impl WorkspaceView {
         let layout = crate::tiles::generate(&shape, members.len());
         let commands: Vec<Option<String>> = members
             .iter()
-            .map(|(m, role)| Some(crate::relay::launch_member(m, role)))
+            .enumerate()
+            .map(|(i, (m, role))| Some(crate::relay::launch_member(m, role, i == 0)))
             .collect();
         self.apply_layout(&layout, &commands, Some(name), window, cx);
     }

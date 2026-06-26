@@ -36,8 +36,12 @@ pub async fn launch(a: LaunchArgs) -> Result<()> {
             .map(|p| p.display().to_string())
             .unwrap_or_else(|_| ".".into())
     });
+    // The lead/supervisor is driven by the human in its terminal, so it launches
+    // interactively instead of parking on the `wait`-loop. Background workers are
+    // never interactive (no human attached).
+    let interactive = !a.background && (a.lead || role.as_ref().is_some_and(|r| r.driver));
     let mcp = paths::write_mcp_config(&endpoint, &name)?;
-    let prompt = agent::harness_prompt(&name, &a.role, &brief, &channels, a.task.as_deref());
+    let prompt = agent::harness_prompt(&name, &a.role, &brief, &channels, a.task.as_deref(), interactive);
 
     let built = agent::build(&agent::Spec {
         agent: &agent_name,

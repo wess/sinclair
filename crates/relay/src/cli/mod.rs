@@ -193,6 +193,10 @@ pub struct LaunchArgs {
     /// Run as a server-managed background worker instead of in this terminal.
     #[arg(long)]
     pub background: bool,
+    /// Launch as the human-driven lead: stay interactive instead of parking on
+    /// the `wait`-loop. Implied for any `driver` role (e.g. supervisor).
+    #[arg(long)]
+    pub lead: bool,
 }
 
 pub async fn run(cli: Cli) -> Result<()> {

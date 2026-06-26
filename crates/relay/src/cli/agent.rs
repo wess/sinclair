@@ -21,14 +21,22 @@ pub struct Spec<'a> {
     pub skip_perms: bool,
 }
 
-/// The wait-loop harness every agent receives as its opening instruction.
-/// `brief` is the optional role description; `task` is the per-launch focus.
+/// The harness an agent receives as its opening instruction. `brief` is the
+/// optional role description; `task` is the per-launch focus.
+///
+/// `interactive` picks the shape. A parked worker registers and then blocks on
+/// `wait`, costing nothing until a teammate sends it work. A `driver` (the
+/// human-facing lead of a team, or a supervisor launched on its own) instead
+/// stays interactive: it registers, then hands control back to the human in its
+/// terminal and only calls `wait` to gather replies *after* it has delegated —
+/// never parking the human out of their own session.
 pub fn harness_prompt(
     name: &str,
     role: &str,
     brief: &str,
     channels: &[String],
     task: Option<&str>,
+    interactive: bool,
 ) -> String {
     let join = if channels.is_empty() {
         String::new()
@@ -44,17 +52,31 @@ pub fn harness_prompt(
         .filter(|t| !t.trim().is_empty())
         .map(|t| format!("\nYour standing focus: {}\n", t.trim()))
         .unwrap_or_default();
-    format!(
-        "You are \"{name}\", a {role} connected to the Relay mesh via the `relay` MCP tools.\n\
-         Protocol — follow exactly:\n\
+    let protocol = if interactive {
+        "Protocol — follow exactly:\n\
+         - Call `register` with name=\"{name}\" and role=\"{role}\" first.\n\
+         {join}\
+         - Then stop and let the human in this terminal give you a goal — do NOT \
+         call `wait` yet. Stay interactive so they can type.\n\
+         - When you have a goal, break it into tasks and delegate with `send` (to one \
+         agent) or `post` (to a channel).\n\
+         - After delegating, call `wait` to collect replies, integrate them, and \
+         report progress back to the human here. Return control to the human \
+         whenever you need their input.\n"
+    } else {
+        "Protocol — follow exactly:\n\
          - Call `register` with name=\"{name}\" and role=\"{role}\" first.\n\
          {join}\
          - Call `wait` to receive work; it blocks until a message arrives.\n\
          - Do the requested work in this session, then report back with `send` to the \
          message's sender (or `post` to the relevant channel).\n\
          - ALWAYS end your turn by calling `wait` again so you stay reachable. \
-         Never stop the wait-loop.\n\
-         {brief}{task}"
+         Never stop the wait-loop.\n"
+    };
+    let protocol = protocol.replace("{name}", name).replace("{role}", role).replace("{join}", &join);
+    format!(
+        "You are \"{name}\", a {role} connected to the Relay mesh via the `relay` MCP tools.\n\
+         {protocol}{brief}{task}"
     )
 }
 
@@ -178,4 +200,35 @@ fn subst(token: &str, spec: &Spec) -> String {
         .replace("{mcp}", spec.mcp_file)
         .replace("{url}", spec.url)
         .replace("{name}", spec.name)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn worker_harness_parks_on_wait() {
+        let p = harness_prompt("backend", "backend", "", &[], None, false);
+        assert!(p.contains("Call `wait` to receive work"));
+        assert!(p.contains("Never stop the wait-loop"));
+        // A parked worker must not be told to defer to a human.
+        assert!(!p.contains("human in this terminal"));
+    }
+
+    #[test]
+    fn driver_harness_stays_interactive() {
+        let p = harness_prompt("lead", "supervisor", "", &[], None, true);
+        // The lead registers but does not park: it waits for the human, not `wait`.
+        assert!(p.contains("do NOT call `wait` yet"));
+        assert!(p.contains("human in this terminal"));
+        assert!(!p.contains("Never stop the wait-loop"));
+        assert!(p.contains("register"));
+    }
+
+    #[test]
+    fn channels_join_line_threads_into_protocol() {
+        let chans = vec!["frontend".to_string(), "ui".to_string()];
+        let p = harness_prompt("fe", "frontend", "", &chans, None, false);
+        assert!(p.contains("`join` these channels: frontend, ui"));
+    }
 }

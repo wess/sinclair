@@ -238,7 +238,7 @@ pub async fn call(app: &App, session: &str, name: &str, args: &Value) -> Value {
             let brief = crate::cli::role::resolve(role)
                 .map(|r| r.description)
                 .unwrap_or_default();
-            let prompt = crate::cli::agent::harness_prompt(wname, role, &brief, &channels, task);
+            let prompt = crate::cli::agent::harness_prompt(wname, role, &brief, &channels, task, false);
             let built = match crate::cli::agent::build(&crate::cli::agent::Spec {
                 agent: "claude",
                 custom: None,

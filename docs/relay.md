@@ -87,7 +87,8 @@ relay team <list|info|create|edit|delete>   # manage teams (layout + roster)
 ```
 
 `launch` flags: `--agent claude|codex|gemini`, `--role`, `--task`, `--channel`
-(repeatable), `--model`, `--cwd`, `--cmd <template>`, `--background`.
+(repeatable), `--model`, `--cwd`, `--cmd <template>`, `--background`, `--lead`
+(launch interactively as the human-driven lead).
 
 - **Foreground** `launch` replaces the calling shell with the agent (you see and
   steer it).
@@ -128,6 +129,7 @@ name = "frontend"
 channels = ["frontend"]   # auto-joined at launch
 agent = "claude"          # default agent CLI (optional)
 # model = "claude-..."    # default model (optional)
+# driver = true           # human-driven lead: stay interactive, don't park on wait
 description = """
 You own the frontend. Follow the existing component conventions and report
 blockers to the supervisor.
@@ -183,10 +185,18 @@ is how a team of N members maps onto one shape.
 
 ## How agents connect
 
-Every launched agent receives the same opening **harness**: register under its
-name, join its channels, then enter a `wait`-loop — do work, report back, call
-`wait` again to stay reachable. Coordination happens through MCP tools the agent
-calls:
+Every launched agent receives an opening **harness** in one of two shapes:
+
+- **Parked worker** (the default) — register under its name, join its channels,
+  then enter a `wait`-loop: do work, report back, call `wait` again to stay
+  reachable. Idle costs nothing.
+- **Driver** — the human-driven lead. It registers and joins, then hands control
+  back to the human in its terminal and only calls `wait` to gather replies
+  *after* it has delegated, so the human can actually type to it. A team's first
+  member (its main pane) launches as the driver, as does any role marked
+  `driver = true` (the built-in `supervisor`) or a `relay launch … --lead`.
+
+Coordination happens through MCP tools the agent calls:
 
 | tool | purpose |
 |------|---------|
