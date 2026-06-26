@@ -977,8 +977,7 @@ impl WorkspaceView {
             .collect()
     }
 
-    /// Per-tab strip data: the label, a `branch · dir` subtitle from the
-    /// focused pane's working directory, and whether any pane in the tab has a
+    /// Per-tab strip data: the label and whether any pane in the tab has a
     /// pending notification.
     fn tab_infos(&self, cx: &App) -> Vec<crate::tabbar::TabInfo> {
         (0..self.tabs.len())
@@ -998,26 +997,12 @@ impl WorkspaceView {
                         })
                         .unwrap_or_default(),
                 };
-                let subtitle = focused.as_ref().and_then(|v| {
-                    let branch = v.git_branch();
-                    let dir = v.cwd_path().as_deref().and_then(short_dir);
-                    match (branch, dir) {
-                        (Some(b), Some(d)) => Some(format!("{b} \u{00b7} {d}")),
-                        (Some(b), None) => Some(b),
-                        (None, Some(d)) => Some(d),
-                        (None, None) => None,
-                    }
-                });
                 let attention = tab.tree.panes().iter().any(|id| {
                     self.panes
                         .get(id)
                         .is_some_and(|p| p.view.read(cx).needs_attention())
                 });
-                crate::tabbar::TabInfo {
-                    title,
-                    subtitle,
-                    attention,
-                }
+                crate::tabbar::TabInfo { title, attention }
             })
             .collect()
     }
@@ -2024,10 +2009,6 @@ fn loadplugins(opts: &config::Options) -> Vec<plugin::Plugin> {
     plugins
 }
 
-/// Build the floating macro indicator pill, shown while recording a macro or
-/// replaying one. Recording wins when both are somehow active.
-/// A compact directory label for the tab strip: `~` for home, otherwise the
-/// final path component.
 /// Strip a leading `user@host:` prefix from a shell-set title, leaving just the
 /// path. Shells default the terminal title to `\u@\h: \w`, which wraps to two
 /// lines in a tab and reads poorly; the host is noise in a tab label.
@@ -2038,15 +2019,6 @@ fn strip_user_host(title: &str) -> &str {
         }
     }
     title
-}
-
-fn short_dir(path: &std::path::Path) -> Option<String> {
-    if let Some(home) = std::env::var_os("HOME") {
-        if path == std::path::Path::new(&home) {
-            return Some("~".to_string());
-        }
-    }
-    path.file_name().map(|n| n.to_string_lossy().into_owned())
 }
 
 /// The curated set of actions the command palette offers, with display

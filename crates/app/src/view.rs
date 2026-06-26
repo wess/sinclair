@@ -142,9 +142,6 @@ pub struct TerminalView {
     /// Tracks pane focus (kept in sync by the focus-in/out subscriptions), so
     /// a notification only raises the attention indicator on a background pane.
     focused: bool,
-    /// Cache of `(cwd, git branch)` so the tab strip doesn't read `.git/HEAD`
-    /// every frame — only when the working directory changes.
-    git_cache: RefCell<(Option<String>, Option<String>)>,
     /// True while a repaint is being withheld for synchronized output
     /// (?2026), with a safety timer armed to release it.
     sync_pending: bool,
@@ -254,7 +251,6 @@ impl TerminalView {
             bell: false,
             attention: false,
             focused: false,
-            git_cache: RefCell::new((None, None)),
             sync_pending: false,
             search: None,
             assist: None,
@@ -834,19 +830,6 @@ impl TerminalView {
         self.cwd().and_then(|osc| crate::session::cwdpath(&osc))
     }
 
-    /// The git branch for this pane's cwd, cached until the cwd changes so the
-    /// tab strip never reads `.git/HEAD` on the render hot path.
-    pub fn git_branch(&self) -> Option<String> {
-        let cwd = self.cwd_path()?;
-        let key = cwd.to_string_lossy().into_owned();
-        if self.git_cache.borrow().0.as_deref() == Some(key.as_str()) {
-            return self.git_cache.borrow().1.clone();
-        }
-        let branch = git_branch_at(&cwd);
-        *self.git_cache.borrow_mut() = (Some(key), branch.clone());
-        branch
-    }
-
     /// Clear the attention indicator (the user is now looking at this pane).
     fn clear_attention(&mut self, cx: &mut Context<Self>) {
         if self.attention {
@@ -1294,39 +1277,6 @@ impl TerminalView {
         };
         Some(panel.into_any_element())
     }
-}
-
-/// The git branch for `start`: walk up to the nearest `.git`, then read its
-/// `HEAD`. Handles a `.git` directory and the worktree/submodule `.git` file.
-/// Reads files only (no `git` subprocess); `None` when not in a repo.
-fn git_branch_at(start: &std::path::Path) -> Option<String> {
-    let mut dir = start;
-    loop {
-        let git = dir.join(".git");
-        if git.is_dir() {
-            return parse_head(&git.join("HEAD"));
-        }
-        if git.is_file() {
-            let content = std::fs::read_to_string(&git).ok()?;
-            let gitdir = content.trim().strip_prefix("gitdir:")?.trim();
-            return parse_head(&std::path::Path::new(gitdir).join("HEAD"));
-        }
-        dir = dir.parent()?;
-    }
-}
-
-/// Parse a git `HEAD` file: a symbolic ref `ref: refs/heads/<branch>` yields
-/// the branch; a detached commit hash yields its short form.
-fn parse_head(head: &std::path::Path) -> Option<String> {
-    let content = std::fs::read_to_string(head).ok()?;
-    let content = content.trim();
-    if let Some(branch) = content.strip_prefix("ref: refs/heads/") {
-        return Some(branch.to_string());
-    }
-    if content.len() >= 7 && content.chars().all(|c| c.is_ascii_hexdigit()) {
-        return Some(content[..7].to_string());
-    }
-    None
 }
 
 /// Post a native desktop notification without blocking the UI (spawns a thread

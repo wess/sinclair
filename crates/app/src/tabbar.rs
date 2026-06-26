@@ -15,11 +15,10 @@ pub fn blend(a: Rgb, b: Rgb, t: f32) -> Rgb {
     Rgb::new(mix(a.r, b.r), mix(a.g, b.g), mix(a.b, b.b))
 }
 
-/// Per-tab data rendered in the strip: the label, an optional `branch · dir`
-/// subtitle, and whether the tab is waiting on the user (a notification).
+/// Per-tab data rendered in the strip: the label and whether the tab is
+/// waiting on the user (a notification).
 pub struct TabInfo {
     pub title: String,
-    pub subtitle: Option<String>,
     pub attention: bool,
 }
 
@@ -53,8 +52,6 @@ pub fn tabs(
         .text_size(font_size * 0.85)
         .children(tabs.iter().enumerate().map(|(index, info)| {
             let isactive = index == active;
-            let mut subcol = if isactive { fg } else { dim };
-            subcol.a *= 0.7;
             div()
                 .id(("tab", index))
                 .flex()
@@ -102,18 +99,7 @@ pub fn tabs(
                                 .whitespace_nowrap()
                                 .text_ellipsis()
                                 .child(SharedString::from(info.title.clone())),
-                        )
-                        .when_some(info.subtitle.clone(), |d, sub| {
-                            d.child(
-                                div()
-                                    .overflow_hidden()
-                                    .whitespace_nowrap()
-                                    .text_ellipsis()
-                                    .text_size(font_size * 0.62)
-                                    .text_color(subcol)
-                                    .child(SharedString::from(sub)),
-                            )
-                        }),
+                        ),
                 )
                 .child(
                     div()
