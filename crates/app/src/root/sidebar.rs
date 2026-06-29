@@ -7,6 +7,7 @@
 
 use super::*;
 use gpui::prelude::*;
+use guise::prelude::{Size, Text};
 
 /// Attention accent, matching the tab strip's pending-notification dot.
 const ATTENTION: theme::Rgb = theme::Rgb::new(255, 196, 0);
@@ -330,27 +331,20 @@ impl WorkspaceView {
         body.into_any_element()
     }
 
-    /// A small dimmed sub-header inside a panel.
+    /// A small dimmed sub-header inside a panel (guise typography).
     fn sidebar_section(&self, label: &str) -> impl IntoElement {
-        let mut dim = colors::hsla(self.colors.fg);
-        dim.a = 0.5;
         div()
             .px_3()
             .pt_2()
             .pb_1()
-            .text_size(px(10.0))
-            .text_color(dim)
-            .child(SharedString::from(label.to_uppercase()))
+            .child(Text::new(label.to_uppercase()).size(Size::Xs).dimmed())
     }
 
-    /// A dimmed empty-state line.
+    /// A dimmed empty-state line (guise typography).
     fn sidebar_note(&self, text: &str) -> impl IntoElement {
-        let mut dim = colors::hsla(self.colors.fg);
-        dim.a = 0.5;
         div()
             .px_3()
             .py_2()
-            .text_color(dim)
-            .child(SharedString::from(text.to_string()))
+            .child(Text::new(text.to_string()).size(Size::Sm).dimmed())
     }
 }

@@ -41,6 +41,7 @@ Done:
 - guise integrated with a single unified gpui; theme bridge with live reload.
 - About panel ported to guise.
 - IPC plugin side panels render entirely with guise components.
+- Side drawers' typography (section headers, empty-state notes) on guise `Text`.
 
 Remaining (incremental, surface by surface; keep the build green and behavior
 identical at each step):
@@ -49,7 +50,6 @@ identical at each step):
 - Settings panel controls → guise inputs (`settings/ui/*`).
 - Custom `textedit` widget → `TextInput` / `TextArea`.
 - Dialogs (`rename`, save-layout, `newagent`) → `Modal`.
-- Built-in sidebar panels' typography → guise `Text` / `Title`.
 - Notifications → `ToastStack`; tab-overflow menu → `Menu`.
 
 ## Porting a surface
