@@ -1,0 +1,18 @@
+id = "sysmon"
+name = "System Monitor"
+version = "0.1.0"
+description = "Open a system monitor (htop or btop) in a split below"
+
+[[command]]
+id = "htop"
+title = "Open htop"
+run = "htop"
+mode = "split-down"
+keybind = "cmd+ctrl+h"
+
+[[command]]
+id = "btop"
+title = "Open btop"
+run = "btop"
+mode = "split-down"
+keybind = "cmd+ctrl+b"

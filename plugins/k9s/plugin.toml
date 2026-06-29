@@ -1,0 +1,11 @@
+id = "k9s"
+name = "k9s"
+version = "0.1.0"
+description = "Open the k9s Kubernetes UI in a new tab"
+
+[[command]]
+id = "open"
+title = "Open k9s"
+run = "k9s"
+mode = "tab"
+keybind = "cmd+ctrl+k"

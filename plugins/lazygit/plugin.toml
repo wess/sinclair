@@ -1,0 +1,11 @@
+id = "lazygit"
+name = "LazyGit"
+version = "0.1.0"
+description = "Launch the lazygit terminal UI in a new tab"
+
+[[command]]
+id = "open"
+title = "Open LazyGit"
+run = "lazygit"
+mode = "tab"
+keybind = "cmd+ctrl+g"

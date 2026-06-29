@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Prompt - GPU terminal for builders and agent teams</title>
+    <meta
+      name="description"
+      content="Prompt is a fast GPU-accelerated terminal for macOS and Linux with splits, themes, MCP, and a local agent mesh."
+    >
+    <meta property="og:title" content="Prompt - a terminal for builders and agent teams">
+    <meta
+      property="og:description"
+      content="GPU rendering, meticulous VT support, live config, MCP, and a local relay for agent teams."
+    >
+    <meta property="og:type" content="website">
+    <meta name="theme-color" content="#05070c">
+    <link rel="icon" href="icon.png">
+    <link rel="apple-touch-icon" href="icon.png">
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <header class="nav" aria-label="Primary navigation">
+      <a class="brand" href="#top" aria-label="Prompt home">
+        <img class="brandmark" src="icon.png" alt="" width="36" height="36">
+        <span>Prompt</span>
+      </a>
+      <nav class="navlinks" aria-label="Site">
+        <a href="#terminal">Terminal</a>
+        <a href="#agents">Agents</a>
+        <a href="#plugins">Plugins</a>
+        <a href="#install">Install</a>
+      </nav>
+      <a class="navstar" href="https://github.com/wess/prompt" data-star-link>
+        <span aria-hidden="true">star</span>
+        <strong data-star-count>GitHub</strong>
+      </a>
+    </header>
+
+    <main id="main">
+      <section class="hero" id="top">
+        <div class="herobeams" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+        <div class="herocopy">
+          <p class="kicker">GPU terminal for command-line work that moves.</p>
+          <h1>The terminal that can keep up with your build.</h1>
+          <p class="lede">
+            Prompt is a fast, standards-focused terminal for macOS and Linux.
+            It pairs a meticulous VT core with tabs, splits, live config, MCP,
+            and a local relay for coordinating agent teams.
+          </p>
+          <div class="actions" aria-label="Primary actions">
+            <a class="button primary" href="#install">Install Prompt</a>
+            <a class="button secondary" href="https://github.com/wess/prompt" data-star-link>Star on GitHub</a>
+          </div>
+          <div class="terminalbar" aria-label="Install command">
+            <code>brew install --cask wess/packages/prompt</code>
+            <button type="button" data-copy="brew install --cask wess/packages/prompt">Copy</button>
+          </div>
+        </div>
+        <div class="productstage" aria-label="Prompt terminal workspace preview">
+          <div class="stageglow" aria-hidden="true"></div>
+          <div class="workspacewindow">
+            <div class="windowbar">
+              <div class="traffic" aria-hidden="true"><span></span><span></span><span></span></div>
+              <div class="tabstrip" role="tablist" aria-label="Open tabs">
+                <div class="tab active" role="tab" aria-selected="true">
+                  <span>~/dev/prompt</span>
+                  <i class="tabclose" aria-hidden="true">×</i>
+                </div>
+                <div class="tab attention" role="tab" aria-selected="false">
+                  <i class="tabdot" aria-hidden="true"></i>
+                  <span>relay · web</span>
+                  <i class="tabclose" aria-hidden="true">×</i>
+                </div>
+              </div>
+              <div class="tabactions" aria-label="Tab actions">
+                <button class="tabbtn" type="button" aria-label="New">+</button>
+                <button class="tabbtn" type="button" aria-label="Split into column">◫</button>
+              </div>
+            </div>
+            <div class="workspacegrid">
+              <section class="terminalpane" aria-label="Terminal session preview">
+                <pre><code><span class="prompt">~/dev/prompt</span> <span class="cmd">prompt open team web</span>
+<span class="ok">created tab “web” with 4 panes</span>
+
+<span class="prompt">~/dev/prompt</span> <span class="cmd">cargo test -p vt screen</span>
+running 583 tests
+<span class="ok">test result: ok. 583 passed</span>
+
+<span class="prompt">~/dev/prompt</span> <span class="cmd">prompt notify "review ready"</span>
+<span class="cursor">█</span></code></pre>
+              </section>
+              <aside class="agentpane" aria-label="Agent relay activity">
+                <div class="agentrow lead"><span></span><strong>lead</strong><em>delegating</em></div>
+                <div class="agentrow frontend"><span></span><strong>frontend</strong><em>working</em></div>
+                <div class="agentrow backend"><span></span><strong>backend</strong><em>waiting</em></div>
+                <div class="agentrow reviewer"><span></span><strong>reviewer</strong><em>ready</em></div>
+              </aside>
+            </div>
+            <div class="flowline one" aria-hidden="true"></div>
+            <div class="flowline two" aria-hidden="true"></div>
+            <div class="flowline three" aria-hidden="true"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="proof" aria-label="Product proof points">
+        <div>
+          <strong>GPU rendered</strong>
+          <span>Built on gpui with crisp text, box drawing, emoji, ligatures, and smooth scrollback.</span>
+        </div>
+        <div>
+          <strong>Terminal deep</strong>
+          <span>OSC 8 links, OSC 52 clipboard, kitty keyboard, mouse reporting, synchronized output, sixel.</span>
+        </div>
+        <div>
+          <strong>Agent ready</strong>
+          <span>MCP bridge, notifications, macros, teams, panes, and a local SQLite relay bus.</span>
+        </div>
+      </section>
+
+      <section class="terminalsection" id="terminal">
+        <div class="sectionhead">
+          <p class="kicker">Built for the work, not the demo.</p>
+          <h2>A terminal core that respects the weird parts.</h2>
+        </div>
+        <div class="featureflow">
+          <article class="featurewide">
+            <p class="label">VT coverage</p>
+            <h3>Modern CLI apps behave like they should.</h3>
+            <p>
+              True color, wide characters, scroll regions, alt screen,
+              hyperlinks, palette queries, focus events, bracketed paste, URL
+              detection, and search all land in the core before the UI paints.
+            </p>
+          </article>
+          <article>
+            <p class="label">Workspace</p>
+            <h3>Tabs, recursive splits, and focus that follows your intent.</h3>
+            <p>Each pane is its own shell. Split any direction, drag dividers, restore sessions, and keep the working directory moving with you.</p>
+          </article>
+          <article>
+            <p class="label">Config</p>
+            <h3>Plain text settings, live the moment you save.</h3>
+            <p>Fonts, keybindings, shell, themes, padding, cursor, and behavior stay editable in a readable config file or the settings UI.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="agentsection" id="agents">
+        <div class="agentcopy">
+          <p class="kicker">For people running more than one brain at once.</p>
+          <h2>Launch agent teams into real terminal panes.</h2>
+          <p>
+            Prompt includes a bundled relay sidecar. Agents register, join
+            channels, send messages, wait without burning cycles, and show up
+            where command-line work already happens: in tabs and splits you can
+            see.
+          </p>
+        </div>
+        <div class="mesh" aria-label="Relay mesh diagram">
+          <div class="node lead">lead</div>
+          <div class="node frontend">frontend</div>
+          <div class="node backend">backend</div>
+          <div class="node reviewer">reviewer</div>
+          <div class="bus">relay bus</div>
+          <svg viewBox="0 0 640 360" role="img" aria-label="Agents connected through a local relay bus">
+            <path d="M154 100 C240 42 392 42 486 108"></path>
+            <path d="M120 235 C250 182 394 182 530 238"></path>
+            <path d="M320 82 L320 176"></path>
+            <path d="M320 216 L320 292"></path>
+            <path d="M190 176 C238 152 278 150 320 176 C366 206 420 198 466 176"></path>
+          </svg>
+        </div>
+      </section>
+
+      <section class="pluginsection" id="plugins">
+        <div class="plugincopy">
+          <p class="kicker">Make the terminal yours.</p>
+          <h2>Extend Prompt with plugins.</h2>
+          <p class="lede">
+            A plugin is a small folder with a <code>plugin.toml</code> that
+            contributes shell commands. Run them in the focused pane, a new tab,
+            or a split, each with an optional default keybinding. No build step,
+            just plain text.
+          </p>
+          <p>
+            Share yours by opening a PR that adds
+            <code>plugins/&lt;your-plugin-name&gt;/plugin.toml</code> to the
+            community catalog at
+            <a href="https://github.com/wess/prompt">github.com/wess/prompt</a>.
+          </p>
+          <div class="actions" aria-label="Plugin actions">
+            <a class="button primary" href="plugins.html">Read the plugin guide</a>
+            <a class="button secondary" href="https://github.com/wess/prompt/tree/main/plugins">Browse the catalog</a>
+          </div>
+        </div>
+        <div class="plugincard" aria-label="Example plugin.toml">
+          <div class="cardlabel"><span aria-hidden="true">›</span> plugin.toml</div>
+          <pre><code>id = "tools"
+name = "Dev Tools"
+
+[[command]]
+id = "logs"
+title = "Tail app logs"
+run = "tail -f ./log/dev.log"
+mode = "split-down"
+keybind = "cmd+ctrl+l"</code></pre>
+        </div>
+      </section>
+
+      <section class="details" aria-label="Prompt features">
+        <div class="rail">
+          <span>ship faster</span>
+          <span>stay local</span>
+          <span>own the loop</span>
+        </div>
+        <div class="detailgrid">
+          <article>
+            <h3>Readable automation</h3>
+            <p>Record typed command macros as plain text and replay them with keybindings, paced by shell prompt marks when available.</p>
+          </article>
+          <article>
+            <h3>Terminal-aware notifications</h3>
+            <p>OSC notifications and <code>prompt notify</code> raise native banners and light up background tabs until you look.</p>
+          </article>
+          <article>
+            <h3>Theme without ceremony</h3>
+            <p>Start with 22 built-in schemes, then override exactly the colors you care about in the same config file.</p>
+          </article>
+          <article>
+            <h3>Scriptable by design</h3>
+            <p><code>prompt mcp</code> exposes tabs, panes, screen reads, input, macros, splits, commands, and notifications to local tools.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="install" id="install">
+        <div>
+          <p class="kicker">Open source. macOS and Linux.</p>
+          <h2>Install it, star it, and help shape the terminal.</h2>
+          <p>
+            Prompt ships from GitHub releases, with a Homebrew cask for macOS
+            and AppImage, deb, and tarball packages for Linux on x86_64 and
+            aarch64.
+          </p>
+        </div>
+        <div class="installpanel">
+          <div class="installtabs" role="tablist" aria-label="Install options">
+            <button class="active" type="button" data-install-tab="mac">macOS</button>
+            <button type="button" data-install-tab="linux">Linux</button>
+            <button type="button" data-install-tab="source">Source</button>
+          </div>
+          <pre aria-live="polite"><code data-install-code>brew install --cask wess/packages/prompt</code></pre>
+          <button class="copywide" type="button" data-copy="brew install --cask wess/packages/prompt">Copy command</button>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span>Prompt 1.2.0</span>
+      <a href="https://github.com/wess/prompt">GitHub</a>
+      <a href="plugins.html">Plugin guide</a>
+      <a href="https://github.com/wess/prompt/releases">Releases</a>
+      <a href="https://github.com/wess/prompt/blob/main/docs/parity.md">Feature coverage</a>
+    </footer>
+
+    <script type="module" src="script.js"></script>
+  </body>
+</html>

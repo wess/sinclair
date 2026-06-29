@@ -1,0 +1,10 @@
+id = "ports"
+name = "Open Ports"
+version = "0.1.0"
+description = "List processes listening on local ports"
+
+[[command]]
+id = "list"
+title = "List Listening Ports"
+run = "lsof -i -P -n | grep LISTEN"
+mode = "pane"

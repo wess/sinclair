@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Develop a plugin - Prompt</title>
+    <meta
+      name="description"
+      content="Build and publish a Prompt plugin: a plugin.toml that contributes shell commands runnable in a pane, tab, or split, with optional default keybindings."
+    >
+    <meta property="og:title" content="Develop a plugin for Prompt">
+    <meta
+      property="og:description"
+      content="A zero-to-published tutorial for writing a Prompt plugin.toml and contributing it to the community catalog."
+    >
+    <meta property="og:type" content="article">
+    <meta name="theme-color" content="#05070c">
+    <link rel="icon" href="icon.png">
+    <link rel="apple-touch-icon" href="icon.png">
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <header class="nav" aria-label="Primary navigation">
+      <a class="brand" href="index.html" aria-label="Prompt home">
+        <img class="brandmark" src="icon.png" alt="" width="36" height="36">
+        <span>Prompt</span>
+      </a>
+      <nav class="navlinks" aria-label="Site">
+        <a href="index.html#terminal">Terminal</a>
+        <a href="index.html#agents">Agents</a>
+        <a href="index.html#plugins">Plugins</a>
+        <a href="index.html#install">Install</a>
+      </nav>
+      <a class="navstar" href="https://github.com/wess/prompt" data-star-link>
+        <span aria-hidden="true">star</span>
+        <strong data-star-count>GitHub</strong>
+      </a>
+    </header>
+
+    <main id="main" class="doc">
+      <article class="article">
+        <header class="dochead">
+          <p class="kicker">Extend the terminal you live in.</p>
+          <h1>Develop a plugin.</h1>
+          <p class="lede">
+            A Prompt plugin is a small folder with a <code>plugin.toml</code>
+            inside. It contributes shell commands you can run in a pane, a new
+            tab, or a split, each with an optional default keybinding. This guide
+            walks from an empty folder to a plugin published in the community
+            catalog.
+          </p>
+          <nav class="doctoc" aria-label="On this page">
+            <a href="#what">What a plugin is</a>
+            <a href="#where">Where plugins live</a>
+            <a href="#anatomy">Anatomy of plugin.toml</a>
+            <a href="#build">Build your first plugin</a>
+            <a href="#keys">Keybindings &amp; actions</a>
+            <a href="#publish">Publish it</a>
+            <a href="#ideas">Ideas</a>
+          </nav>
+        </header>
+
+        <section class="docsection" id="what">
+          <p class="label">Overview</p>
+          <h2>What a plugin is.</h2>
+          <p>
+            Plugins are how you teach Prompt new command actions without
+            rebuilding the app. Each plugin declares one or more commands. A
+            command is just a shell command line plus a few hints about
+            <em>where</em> it should run and an optional default key to trigger
+            it.
+          </p>
+          <p>What a plugin can do today:</p>
+          <ul class="doclist">
+            <li>Contribute one or more runnable shell commands.</li>
+            <li>
+              Choose where each command runs: typed into the focused shell, or
+              opened in a new tab or split.
+            </li>
+            <li>Ship a default keybinding for any command.</li>
+            <li>
+              Register each command as a stable action you can rebind, override,
+              or unbind from your own config.
+            </li>
+          </ul>
+          <p>
+            Plugins are plain text. There is no build step, no compilation, and
+            nothing to install beyond dropping a folder in place.
+          </p>
+        </section>
+
+        <section class="docsection" id="where">
+          <p class="label">Discovery</p>
+          <h2>Where plugins live.</h2>
+          <p>
+            On launch, Prompt scans a per-user plugins directory. Each plugin is
+            its own subfolder containing a <code>plugin.toml</code>:
+          </p>
+          <div class="codecard" aria-label="Plugin discovery paths">
+            <pre><code>~/.config/prompt/plugins/&lt;name&gt;/plugin.toml
+# or, if XDG_CONFIG_HOME is set:
+$XDG_CONFIG_HOME/prompt/plugins/&lt;name&gt;/plugin.toml</code></pre>
+          </div>
+          <p>
+            You can also point at a plugin anywhere on disk from your main
+            config file (<code>~/.config/prompt/config</code>) with a
+            <code>plugin</code> line:
+          </p>
+          <div class="codecard" aria-label="Plugin config option">
+            <pre><code># ~/.config/prompt/config
+plugin = /path/to/your/plugin-dir</code></pre>
+          </div>
+        </section>
+
+        <section class="docsection" id="anatomy">
+          <p class="label">Schema</p>
+          <h2>Anatomy of plugin.toml.</h2>
+          <p>
+            A manifest has a small set of root keys describing the plugin, then
+            one or more <code>[[command]]</code> tables. Here is a fully
+            annotated example:
+          </p>
+          <div class="codecard" aria-label="Annotated plugin.toml example">
+            <pre><code><span class="c"># identity of the plugin</span>
+id = "tools"                 <span class="c"># required: lowercase a-z 0-9 . -</span>
+name = "Dev Tools"           <span class="c"># optional, defaults to id</span>
+version = "1.0.0"            <span class="c"># optional, defaults to "0.0.0"</span>
+description = "Handy dev commands"  <span class="c"># optional</span>
+
+<span class="c"># one command, repeat the table for more</span>
+[[command]]
+id = "logs"                  <span class="c"># required: same charset as plugin id</span>
+title = "Tail app logs"      <span class="c"># optional label shown in the UI</span>
+run = "tail -f ./log/dev.log"  <span class="c"># required: the shell command</span>
+mode = "split-down"          <span class="c"># optional: pane | tab | split-right | split-down</span>
+keybind = "cmd+ctrl+l"      <span class="c"># optional default keybinding</span>
+
+[[command]]
+id = "serve"
+title = "Serve ./public"
+run = "python3 -m http.server 8000"
+mode = "split-right"</code></pre>
+          </div>
+
+          <h3>Root keys</h3>
+          <div class="tablewrap">
+            <table class="doctable">
+              <thead>
+                <tr><th>Key</th><th>Required</th><th>Default</th><th>Notes</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>id</code></td><td>Yes</td><td>&mdash;</td>
+                  <td>Lowercase letters, digits, <code>.</code> and <code>-</code>. Identifies the plugin.</td>
+                </tr>
+                <tr>
+                  <td><code>name</code></td><td>No</td><td>the <code>id</code></td>
+                  <td>Human-friendly display name.</td>
+                </tr>
+                <tr>
+                  <td><code>version</code></td><td>No</td><td><code>"0.0.0"</code></td>
+                  <td>Free-form version string.</td>
+                </tr>
+                <tr>
+                  <td><code>description</code></td><td>No</td><td>&mdash;</td>
+                  <td>Short summary of what the plugin adds.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3><code>[[command]]</code> fields</h3>
+          <div class="tablewrap">
+            <table class="doctable">
+              <thead>
+                <tr><th>Field</th><th>Required</th><th>Default</th><th>Notes</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>id</code></td><td>Yes</td><td>&mdash;</td>
+                  <td>Same charset as the plugin id. Unique within the plugin.</td>
+                </tr>
+                <tr>
+                  <td><code>title</code></td><td>No</td><td>&mdash;</td>
+                  <td>Label shown in command lists and menus.</td>
+                </tr>
+                <tr>
+                  <td><code>run</code></td><td>Yes</td><td>&mdash;</td>
+                  <td>The shell command line to execute.</td>
+                </tr>
+                <tr>
+                  <td><code>mode</code></td><td>No</td><td><code>pane</code></td>
+                  <td>Where the command runs. See the table below.</td>
+                </tr>
+                <tr>
+                  <td><code>keybind</code></td><td>No</td><td>&mdash;</td>
+                  <td>Default key, e.g. <code>cmd+ctrl+l</code>. Users can override it.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>Command modes</h3>
+          <div class="tablewrap">
+            <table class="doctable">
+              <thead>
+                <tr><th>Mode</th><th>Behavior</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>pane</code> <span class="badge">default</span></td>
+                  <td>Types the command into the focused shell and presses enter.</td>
+                </tr>
+                <tr><td><code>tab</code></td><td>Opens the command in a new tab.</td></tr>
+                <tr><td><code>split-right</code></td><td>Opens the command in a split to the right.</td></tr>
+                <tr><td><code>split-down</code></td><td>Opens the command in a split below.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="docsection" id="build">
+          <p class="label">Tutorial</p>
+          <h2>Build your first plugin.</h2>
+          <ol class="steps">
+            <li>
+              <h3>Make the folder</h3>
+              <p>Create a directory for the plugin inside the plugins path.</p>
+              <div class="codecard" aria-label="Create plugin folder">
+                <pre><code>mkdir -p ~/.config/prompt/plugins/tools
+cd ~/.config/prompt/plugins/tools</code></pre>
+              </div>
+            </li>
+            <li>
+              <h3>Write <code>plugin.toml</code></h3>
+              <p>Add a manifest with at least an <code>id</code> and one command.</p>
+              <div class="codecard" aria-label="Minimal plugin.toml">
+                <pre><code># ~/.config/prompt/plugins/tools/plugin.toml
+id = "tools"
+name = "Dev Tools"
+description = "Handy dev commands"
+
+[[command]]
+id = "logs"
+title = "Tail app logs"
+run = "tail -f ./log/dev.log"
+mode = "split-down"
+keybind = "cmd+ctrl+l"</code></pre>
+              </div>
+            </li>
+            <li>
+              <h3>Confirm the location</h3>
+              <p>
+                The file must sit at
+                <code>~/.config/prompt/plugins/&lt;name&gt;/plugin.toml</code>.
+                Prefer a path elsewhere? Point at it from your config instead:
+              </p>
+              <div class="codecard" aria-label="Reference a plugin from config">
+                <pre><code># ~/.config/prompt/config
+plugin = ~/code/prompt-plugins/tools</code></pre>
+              </div>
+            </li>
+            <li>
+              <h3>Reload Prompt</h3>
+              <p>
+                Relaunch the app so it picks up the new plugin folder. Your
+                command is now registered as an action.
+              </p>
+            </li>
+            <li>
+              <h3>Trigger it</h3>
+              <p>
+                Press the default keybinding (<code>cmd+ctrl+l</code> above), or
+                bind/run the action by id. The action name follows a fixed
+                pattern covered in the next section.
+              </p>
+            </li>
+            <li>
+              <h3>See it run</h3>
+              <p>
+                With <code>mode = "split-down"</code>, Prompt opens a split below
+                the current pane and runs <code>tail -f ./log/dev.log</code>.
+                Change the mode and reload to see it open in a tab or to the
+                right instead.
+              </p>
+            </li>
+          </ol>
+        </section>
+
+        <section class="docsection" id="keys">
+          <p class="label">Bindings</p>
+          <h2>Keybindings &amp; actions.</h2>
+          <p>
+            Every command becomes a stable action named after the plugin and
+            command ids:
+          </p>
+          <div class="codecard" aria-label="Plugin command action name">
+            <pre><code>plugin_command:&lt;plugin-id&gt;/&lt;command-id&gt;
+# for the example above:
+plugin_command:tools/logs</code></pre>
+          </div>
+          <p>
+            The <code>keybind</code> in <code>plugin.toml</code> is only a
+            default. Bind the action to any key from your own config, which
+            always wins over the plugin default:
+          </p>
+          <div class="codecard" aria-label="Rebind a plugin command">
+            <pre><code># ~/.config/prompt/config
+keybind = cmd+ctrl+l=plugin_command:tools/logs</code></pre>
+          </div>
+          <p>To remove a default binding entirely, unbind it:</p>
+          <div class="codecard" aria-label="Unbind a plugin command">
+            <pre><code># ~/.config/prompt/config
+keybind = cmd+ctrl+l=unbind</code></pre>
+          </div>
+        </section>
+
+        <section class="docsection" id="publish">
+          <p class="label">Share</p>
+          <h2>Publish it: open a PR.</h2>
+          <p>
+            Prompt keeps a community catalog at the root of the repository. To
+            share your plugin, open a pull request against
+            <a href="https://github.com/wess/prompt">github.com/wess/prompt</a>
+            that adds your manifest under a folder named for your plugin:
+          </p>
+          <div class="codecard" aria-label="Catalog path">
+            <pre><code>plugins/&lt;your-plugin-name&gt;/plugin.toml</code></pre>
+          </div>
+          <p>The checklist:</p>
+          <ol class="checklist">
+            <li>Fork the repo and create a branch.</li>
+            <li>Add <code>plugins/&lt;your-plugin-name&gt;/plugin.toml</code>.</li>
+            <li>Give your plugin a unique, descriptive <code>id</code> and <code>name</code>.</li>
+            <li>Set a sensible <code>mode</code> for each command and a non-conflicting <code>keybind</code> (or none).</li>
+            <li>Test it locally by linking the folder into your plugins path first.</li>
+            <li>Open a PR and follow the contribution checklist in the repo.</li>
+          </ol>
+          <p>
+            See the existing catalog and the contribution notes for reference:
+            the
+            <a href="https://github.com/wess/prompt/tree/main/plugins">plugins/ directory</a>
+            and its
+            <a href="https://github.com/wess/prompt/blob/main/plugins/README.md">plugins/README.md</a>.
+            Three example plugins ship there already:
+            <code>lazygit</code> (launch lazygit in a tab),
+            <code>serve</code> (a Python <code>http.server</code> in a split),
+            and <code>sysmon</code> (htop/btop in a split).
+          </p>
+        </section>
+
+        <section class="docsection" id="ideas">
+          <p class="label">Inspiration</p>
+          <h2>Ideas.</h2>
+          <p>A handful of plugins worth building and sharing:</p>
+          <ul class="ideagrid">
+            <li>Git TUI launcher (lazygit, gitui)</li>
+            <li>Dev server in a split</li>
+            <li>System monitor (htop, btop)</li>
+            <li>Log tailer for the current project</li>
+            <li><code>docker ps</code> dashboard</li>
+            <li>Kubernetes context switcher</li>
+            <li>Project test runner</li>
+            <li>Scratch REPL in a tab</li>
+          </ul>
+          <div class="actions">
+            <a class="button primary" href="https://github.com/wess/prompt/tree/main/plugins">Browse the catalog</a>
+            <a class="button secondary" href="index.html#plugins">Back to overview</a>
+          </div>
+        </section>
+      </article>
+    </main>
+
+    <footer class="footer">
+      <span>Prompt 1.2.0</span>
+      <a href="https://github.com/wess/prompt">GitHub</a>
+      <a href="plugins.html">Plugin guide</a>
+      <a href="https://github.com/wess/prompt/releases">Releases</a>
+      <a href="https://github.com/wess/prompt/blob/main/docs/parity.md">Feature coverage</a>
+    </footer>
+
+    <script type="module" src="script.js"></script>
+  </body>
+</html>

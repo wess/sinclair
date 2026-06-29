@@ -1,0 +1,16 @@
+id = "gh"
+name = "GitHub CLI"
+version = "0.1.0"
+description = "GitHub pull request views via the gh CLI"
+
+[[command]]
+id = "prs"
+title = "List Pull Requests"
+run = "gh pr list"
+mode = "split-right"
+
+[[command]]
+id = "status"
+title = "PR Status"
+run = "gh pr status"
+mode = "split-right"

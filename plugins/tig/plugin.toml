@@ -1,0 +1,10 @@
+id = "tig"
+name = "tig"
+version = "0.1.0"
+description = "Browse git history with tig in a new tab"
+
+[[command]]
+id = "open"
+title = "Open tig"
+run = "tig"
+mode = "tab"

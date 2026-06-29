@@ -174,7 +174,7 @@ plugin directory or manifest directly:
 
 ```ini
 plugin = ~/dev/prompttools
-keybind = cmd+shift+l=plugin_command:tools/logs
+keybind = cmd+ctrl+l=plugin_command:tools/logs
 ```
 
 A plugin manifest contributes commands:
@@ -189,11 +189,14 @@ id = "logs"
 title = "Tail logs"
 run = "tail -f /tmp/app.log"
 mode = "split-right"
-keybind = "cmd+shift+l"
+keybind = "cmd+ctrl+l"
 ```
 
 Command modes are `pane`, `tab`, `split-right`, and `split-down`. A plugin
-keybinding is just a default; your config can override it or unbind it.
+keybinding is just a default; your config can override it or unbind it. A plugin
+binding overrides a built-in with the same trigger, so prefer the `cmd+ctrl+*`
+namespace to stay clear of the `cmd+shift+*` defaults. A ready-made catalog of
+plugins lives in [`plugins/`](plugins/).
 
 ## Macros
 
