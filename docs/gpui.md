@@ -27,3 +27,19 @@ needed for gpui on darwin.
 
 If the resolved zed rev ever changes, re-check zed's root `Cargo.toml`
 `[patch.crates-io]` section for updated fork revs.
+
+## guise + the gpui patch
+
+The UI component library `guise` (vendored at `vendor/guise`) tracks crates.io
+`gpui 0.2.2`, while we build gpui from the zed git rev above. To make the whole
+tree resolve a single gpui, the root `Cargo.toml` adds:
+
+```toml
+[patch.crates-io]
+gpui = { git = "https://github.com/zed-industries/zed", rev = "96285fc1" }
+```
+
+This redirects guise's crates.io `gpui ^0.2.2` onto our exact rev. `vendor/guise`
+is `exclude`d from our workspace (it is its own). When you bump the zed rev,
+rebuild guise against it (its `prompt-gpui-port` branch) and re-pin the
+submodule. See `docs/guise.md`.

@@ -165,5 +165,8 @@ Keep the vt/terminal layers free of gpui types — the boundary is the bridge.
 - `docs/parity.md` — terminal feature coverage and known gaps.
 - `docs/release.md` — signing, notarization, release cutting.
 - `docs/gpui.md` — the gpui/zed dependency recipe.
+- `docs/guise.md` — the guise component-library migration: how `vendor/guise` is
+  wired (the single-gpui patch), the theme bridge, and the surface-by-surface
+  port status.
 - `docs/relay.md` — the agent mesh: roles, teams/tiles, the `relay` CLI, and the
   MCP coordination tools.
