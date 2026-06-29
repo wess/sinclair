@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Command palette & quick open — Prompt docs</title>
+    <meta name="description" content="Launch any action or plugin in Prompt with the command palette (⌘⇧P) and the quick-open launcher (⌘P).">
+    <meta name="theme-color" content="#05070c">
+    <link rel="icon" href="icon.png">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="docs.css">
+  </head>
+  <body class="docs">
+    <a class="skip" href="#doc-main">Skip to content</a>
+    <main id="doc-main" class="doc-main">
+      <article class="doc-article" data-doc-page="palette">
+        <p class="kicker">Using Prompt</p>
+        <h1>Command palette &amp; quick open</h1>
+        <p class="lede">
+          Two keyboard launchers put every action and plugin a few keystrokes away —
+          so you never have to remember a shortcut you use once a month.
+        </p>
+
+        <h2>Quick open</h2>
+        <p>
+          Press <kbd>⌘P</kbd> (<code>quick_open</code>) for a centered, Spotlight-style
+          launcher. Type to fuzzy-filter, use <kbd>↑</kbd>/<kbd>↓</kbd> to move,
+          <kbd>↵</kbd> to run, and <kbd>Esc</kbd> to dismiss. It lists, in one place:
+        </p>
+        <ul>
+          <li>every built-in action (with its keybinding shown as a hint);</li>
+          <li>every command contributed by a plugin (as <code>Plugin name: Command</code>);</li>
+          <li>each plugin's panel (<code>Open … panel</code>); and</li>
+          <li><strong>Plugins: browse &amp; install</strong>, which opens the Plugins panel.</li>
+        </ul>
+        <p>
+          The list is rebuilt every time you open it, so a plugin you just installed
+          shows up immediately.
+        </p>
+        <div class="callout note">
+          <span class="label">Note</span>
+          <p>On Linux, <kbd>⌘</kbd> maps to <kbd>Ctrl</kbd> — so quick open is
+          <kbd>Ctrl+P</kbd> there.</p>
+        </div>
+
+        <h2>Command palette</h2>
+        <p>
+          Press <kbd>⌘⇧P</kbd> (<code>command_palette</code>) for the fuzzy command
+          palette over Prompt's full action catalog. Each row shows the action's
+          current keybinding, so the palette doubles as a way to learn shortcuts. Type
+          a subsequence of the label to filter (e.g. <code>nst</code> matches
+          “New Split”), then press <kbd>↵</kbd>.
+        </p>
+
+        <h2>Which one to use</h2>
+        <div class="tablewrap">
+          <table>
+            <thead>
+              <tr><th></th><th>Quick open <kbd>⌘P</kbd></th><th>Command palette <kbd>⌘⇧P</kbd></th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Built-in actions</td><td>Yes</td><td>Yes</td></tr>
+              <tr><td>Plugin commands &amp; panels</td><td>Yes</td><td>Plugin commands only</td></tr>
+              <tr><td>“Browse &amp; install plugins” entry</td><td>Yes</td><td>—</td></tr>
+              <tr><td>Built on</td><td>guise Spotlight overlay</td><td>The classic palette window</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          Reach for <strong>quick open</strong> as your everyday launcher (it knows about
+          plugins); the <strong>command palette</strong> remains a focused list of the
+          core action catalog.
+        </p>
+
+        <h2>Plugins panel</h2>
+        <p>
+          Both launchers can jump to the <strong>Plugins</strong> sidebar panel (the
+          ⧉ activity-bar icon), which lists your installed plugins — their commands
+          (click to run) and panels (click to open) — and an <strong>Available</strong>
+          section that installs catalog plugins with one click. See
+          <a href="plugins.html">Plugins</a> for the full story.
+        </p>
+
+        <div class="callout tip">
+          <span class="label">Tip</span>
+          <p>Rebind either launcher in your config — for example
+          <code>keybind = ctrl+space=quick_open</code>. See
+          <a href="keybindings.html">Keybindings &amp; actions</a>.</p>
+        </div>
+      </article>
+    </main>
+    <script type="module" src="docs.js"></script>
+  </body>
+</html>

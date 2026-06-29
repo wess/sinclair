@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>MCP & automation — Prompt docs</title>
+    <meta name="description" content="Drive Prompt from Claude and other MCP clients: the prompt mcp server, its tools, and how to connect.">
+    <meta name="theme-color" content="#05070c">
+    <link rel="icon" href="icon.png">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="docs.css">
+  </head>
+  <body class="docs">
+    <a class="skip" href="#doc-main">Skip to content</a>
+    <main id="doc-main" class="doc-main">
+      <article class="doc-article" data-doc-page="mcp">
+        <p class="kicker">Extending</p>
+        <h1>MCP &amp; automation</h1>
+        <p class="lede">
+          Prompt can expose your live terminal to AI tools over the Model Context
+          Protocol. Run <code>prompt mcp</code> and an MCP client — Claude Desktop,
+          Claude Code, or anything that speaks MCP — can open tabs, run commands, read
+          the screen, and more, all in your real window.
+        </p>
+
+        <h2>How it works</h2>
+        <p>
+          <code>prompt mcp</code> is a thin stdio server. It speaks the JSON-RPC dialect
+          MCP clients use and forwards every tool call to your already-running Prompt
+          window over a per-user socket. The stdio process stays trivial (no GUI); the
+          live window does the work. That means the agent acts in the same terminal you
+          are looking at.
+        </p>
+
+        <h2>Enable it</h2>
+        <p>
+          The MCP server is gated behind the AI settings (off by default). Turn it on in
+          <strong>Settings → AI</strong> (<kbd>⌘,</kbd>) or in your config:
+        </p>
+        <pre><code><span class="c"># ~/.config/prompt/config</span>
+ai-enabled = true
+mcp-server-enabled = true</code></pre>
+
+        <h2>Connect a client</h2>
+        <p>
+          Point your MCP client at the <code>prompt mcp</code> command. Most clients take
+          a small JSON entry naming the command to spawn:
+        </p>
+        <pre><code>{
+  "mcpServers": {
+    "prompt": { "command": "prompt", "args": ["mcp"] }
+  }
+}</code></pre>
+        <p>
+          With Claude Code you can add it from the CLI:
+        </p>
+        <pre><code>claude mcp add prompt -- prompt mcp</code></pre>
+        <div class="callout note">
+          <span class="label">Note</span>
+          <p>Keep a Prompt window open — <code>prompt mcp</code> bridges to the running
+          instance, so tools act on your live terminal. See
+          <a href="cli.html">CLI reference</a> for the command itself.</p>
+        </div>
+
+        <h2>Tools</h2>
+        <p>The server exposes these tools to the client:</p>
+        <div class="tablewrap">
+          <table>
+            <thead>
+              <tr><th>Tool</th><th>What it does</th><th>Key arguments</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>run_command</code></td><td>Type a shell command and run it.</td><td><code>text</code>; <code>target</code> = <code>pane</code> (default), <code>tab</code>, <code>split_right</code>, <code>split_down</code></td></tr>
+              <tr><td><code>read_screen</code></td><td>Read recent terminal text (scrollback + visible grid) from the focused pane.</td><td><code>lines</code> (optional)</td></tr>
+              <tr><td><code>send_input</code></td><td>Send raw text with no trailing newline (keystrokes / partial input).</td><td><code>text</code></td></tr>
+              <tr><td><code>new_tab</code></td><td>Open a new terminal tab.</td><td>—</td></tr>
+              <tr><td><code>split</code></td><td>Split the focused pane.</td><td><code>direction</code> = <code>right</code> | <code>down</code></td></tr>
+              <tr><td><code>list_panes</code></td><td>List panes in the active tab with titles and working directories.</td><td>—</td></tr>
+              <tr><td><code>list_tabs</code></td><td>List open tabs with titles and which is active.</td><td>—</td></tr>
+              <tr><td><code>focus_tab</code></td><td>Switch to the tab at a zero-based index.</td><td><code>index</code></td></tr>
+              <tr><td><code>notify</code></td><td>Post a desktop notification.</td><td><code>body</code>; <code>title</code> (optional)</td></tr>
+              <tr><td><code>list_macros</code></td><td>List saved command macros and what each replays.</td><td>—</td></tr>
+              <tr><td><code>run_macro</code></td><td>Replay a saved macro into the focused pane.</td><td><code>name</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h2>Beyond a single terminal</h2>
+        <p>
+          MCP lets one client drive one terminal. To coordinate <em>teams</em> of agents
+          that message each other and run in their own panes, Prompt ships a local relay
+          — see the <a href="agents.html">Agent mesh</a>. The same AI settings turn both
+          on.
+        </p>
+      </article>
+    </main>
+    <script type="module" src="docs.js"></script>
+  </body>
+</html>

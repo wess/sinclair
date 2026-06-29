@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Tabs, splits & layouts — Prompt docs</title>
+    <meta name="description" content="Tabs, recursive splits, directional focus, tile layouts, sidebars, and broadcast input in Prompt.">
+    <meta name="theme-color" content="#05070c">
+    <link rel="icon" href="icon.png">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="docs.css">
+  </head>
+  <body class="docs">
+    <a class="skip" href="#doc-main">Skip to content</a>
+    <main id="doc-main" class="doc-main">
+      <article class="doc-article" data-doc-page="workspace">
+        <p class="kicker">Using Prompt</p>
+        <h1>Tabs, splits &amp; layouts</h1>
+        <p class="lede">
+          Every pane in Prompt is its own shell — a full terminal with its own
+          process, scrollback, and working directory. You organize that work
+          with <strong>tabs</strong> and <strong>recursive splits</strong>:
+          stack related sessions side by side, nest them as deep as you like,
+          and snap them into reusable layouts. This page covers moving between
+          panes, resizing them, the tile presets, the sidebars, and typing into
+          many shells at once.
+        </p>
+
+        <div class="callout note">
+          <p>
+            Throughout this page, <kbd>⌘</kbd> is the modifier on macOS. On
+            Linux, read <kbd>⌘</kbd> as <kbd>⌃</kbd> (Ctrl). Every shortcut maps
+            to a <code>keybind</code> action you can remap — see
+            <a href="keybindings.html">Keybindings</a>.
+          </p>
+        </div>
+
+        <h2 id="tabs">Tabs</h2>
+        <p>
+          A tab is a workspace of one or more panes. Open a fresh one with
+          <kbd>⌘T</kbd> (<code>new_tab</code>). Move between them with
+          <kbd>⌘⇧]</kbd> for the next tab and <kbd>⌘⇧[</kbd> for the previous,
+          or jump straight to a tab by index with <kbd>⌘1</kbd> through
+          <kbd>⌘9</kbd> (<code>goto_tab:N</code>). To reorder the active tab,
+          bind <code>move_tab:DELTA</code> — a positive delta shifts it right, a
+          negative one left. Close the current tab with <kbd>⌘⌥W</kbd>
+          (<code>close_tab</code>).
+        </p>
+        <p>
+          The tab bar shows each tab's title, which by default tracks the
+          focused pane's working directory; when that directory is a git
+          repository, the current branch is shown alongside it. A background tab
+          that posts a notification grows a small yellow attention dot so you
+          can see at a glance which session wants you. Set a fixed label for the
+          active tab with <code>change_tab_title</code>, and add the
+          <code>tab-title-show-host</code> config option to keep the
+          <code>user@host</code> prefix in the title (handy over SSH).
+        </p>
+
+        <div class="tablewrap">
+          <table>
+            <thead>
+              <tr><th>Action</th><th>Default</th><th>What it does</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>new_tab</code></td><td><kbd>⌘T</kbd></td><td>Open a new tab</td></tr>
+              <tr><td><code>goto_tab:N</code></td><td><kbd>⌘1</kbd>–<kbd>⌘9</kbd></td><td>Jump to tab N</td></tr>
+              <tr><td><code>move_tab:DELTA</code></td><td>—</td><td>Reorder the active tab</td></tr>
+              <tr><td><code>change_tab_title</code></td><td>—</td><td>Set a custom tab label</td></tr>
+              <tr><td><code>close_tab</code></td><td><kbd>⌘⌥W</kbd></td><td>Close the current tab</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h2 id="splits">Splits</h2>
+        <p>
+          Inside a tab, split the focused pane to make room for another shell.
+          Split to the right with <kbd>⌘D</kbd> (<code>new_split:right</code>)
+          and downward with <kbd>⌘⇧D</kbd> (<code>new_split:down</code>); the
+          full set is <code>new_split:left|right|up|down</code>. Splits are
+          recursive, so each new pane can itself be split, nesting columns and
+          rows to any depth.
+        </p>
+        <p>
+          Move focus directionally with <kbd>⌘⌥</kbd> plus an arrow key
+          (<code>goto_split:up|down|left|right</code>), which jumps to the pane
+          in that direction. <code>goto_split:next</code> and
+          <code>goto_split:previous</code> cycle through every pane in order.
+        </p>
+        <p>
+          Resize by dragging a divider with the mouse, or nudge it from the
+          keyboard with <code>resize_split:DIR</code>. Press
+          <code>zoom_split</code> to temporarily maximize the focused pane so it
+          fills the whole tab — it's a toggle, so the same binding restores the
+          split. <code>equalize_splits</code> resets every divider in the tab to
+          an even 50/50. Whichever pane is not focused dims slightly so the
+          active shell stands out; tune that with the
+          <code>unfocused-split-opacity</code> config option.
+        </p>
+
+        <div class="tablewrap">
+          <table>
+            <thead>
+              <tr><th>Action</th><th>Default</th><th>What it does</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>new_split:right</code></td><td><kbd>⌘D</kbd></td><td>Split to the right</td></tr>
+              <tr><td><code>new_split:down</code></td><td><kbd>⌘⇧D</kbd></td><td>Split downward</td></tr>
+              <tr><td><code>goto_split:DIR</code></td><td><kbd>⌘⌥</kbd>+arrows</td><td>Move focus directionally</td></tr>
+              <tr><td><code>resize_split:DIR</code></td><td>—</td><td>Nudge the divider</td></tr>
+              <tr><td><code>zoom_split</code></td><td>—</td><td>Maximize the focused pane (toggle)</td></tr>
+              <tr><td><code>equalize_splits</code></td><td>—</td><td>Reset all dividers to 50/50</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h2 id="layouts">Tile layouts</h2>
+        <p>
+          Rather than splitting one pane at a time, a tile layout arranges
+          several panes in a single step. Prompt ships a set of presets:
+        </p>
+        <ul>
+          <li><strong>Two Columns</strong> and <strong>Three Columns</strong> — side-by-side panes</li>
+          <li><strong>Two Rows</strong> — stacked top and bottom</li>
+          <li><strong>4-pane Grid</strong> — a 2×2 grid</li>
+          <li><strong>Main + Bottom</strong> — a large pane over a wide one</li>
+          <li><strong>Main + Right</strong> — a large pane beside a narrow sidebar pane</li>
+        </ul>
+        <p>
+          Apply any preset from the <strong>Layouts</strong> sidebar panel or
+          the <strong>Workspace</strong> menu — both invoke
+          <code>tile:LAYOUT_ID</code>. To keep an arrangement you built by hand,
+          run <code>save_layout</code>: it captures the current tab's split tree
+          as a named custom layout, stored under
+          <code>~/.config/prompt/layouts/</code>. Saved layouts then appear
+          alongside the built-in presets, ready to re-apply in any tab.
+        </p>
+
+        <h2 id="sidebars">Sidebars</h2>
+        <p>
+          Prompt has VS Code-style drawers on the left and right edges, each
+          fronted by an activity bar of icons. Toggle a side with
+          <code>sidebar:SIDE[:PANEL]</code> — for example
+          <code>sidebar:left</code> opens the left drawer, and
+          <code>sidebar:right:relay</code> opens the right drawer directly to the
+          Relay panel. Triggering the action for the panel that's already active
+          collapses the drawer, so the same binding flips it open and shut.
+        </p>
+        <p>The built-in panels are:</p>
+        <div class="tablewrap">
+          <table>
+            <thead>
+              <tr><th>Panel</th><th>Shows</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Terminals</td><td>The tab and pane tree</td></tr>
+              <tr><td>Layouts</td><td>Tile presets plus your saved layouts</td></tr>
+              <tr><td>Relay</td><td>Server status and connected agents</td></tr>
+              <tr><td>Agents</td><td>Saved agent definitions</td></tr>
+              <tr><td>Plugins</td><td>Installed plugins and the installable catalog</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          Plugins can contribute their own sidebar panels as well — see
+          <a href="plugins.html">Plugins</a>.
+        </p>
+
+        <h2 id="broadcast">Broadcast input</h2>
+        <p>
+          Toggle broadcast input with <kbd>⌘⇧B</kbd>
+          (<code>toggle_broadcast</code>) and everything you type is mirrored to
+          every pane in the active tab, with a floating indicator to remind you
+          it's on. It's the fast way to run the same command across a row of
+          splits — restart a fleet of servers, tail several logs at once, or set
+          the same shell option everywhere.
+        </p>
+        <div class="callout tip">
+          <p>
+            Broadcast only fans out to the current tab's panes, so you can keep
+            unrelated sessions in other tabs safe from a wide command.
+          </p>
+        </div>
+
+        <h2 id="read-only-restore">Read-only &amp; restore</h2>
+        <p>
+          <code>toggle_read_only</code> locks a pane against input without
+          closing it — useful for a long-running process or a log you want to
+          watch without fat-fingering a keystroke into it. Re-running the action
+          unlocks it.
+        </p>
+        <p>
+          Turn on the <code>session-restore</code> config option and Prompt
+          reopens the previous window's tabs, splits, and working directories
+          the next time it launches, so you pick up exactly where you left off.
+          The <code>window-inherit-working-directory</code> option makes every
+          new tab and split open in the focused pane's current directory instead
+          of your home folder, which keeps related shells rooted in the same
+          project.
+        </p>
+        <div class="callout note">
+          <p>
+            <code>session-restore</code> and
+            <code>window-inherit-working-directory</code> are config options,
+            not keybinds — set them in your config file. See
+            <a href="configuration.html">Configuration</a>.
+          </p>
+        </div>
+      </article>
+    </main>
+    <script type="module" src="docs.js"></script>
+  </body>
+</html>

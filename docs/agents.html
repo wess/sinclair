@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Agent mesh — Prompt docs</title>
+    <meta name="description" content="Run coordinated agent teams in Prompt with the built-in relay: roles, teams, the relay CLI, and the message bus.">
+    <meta name="theme-color" content="#05070c">
+    <link rel="icon" href="icon.png">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="docs.css">
+  </head>
+  <body class="docs">
+    <a class="skip" href="#doc-main">Skip to content</a>
+    <main id="doc-main" class="doc-main">
+      <article class="doc-article" data-doc-page="agents">
+        <p class="kicker">Agents</p>
+        <h1>Agent mesh</h1>
+        <p class="lede">Relay lets independent coding-agent sessions — Claude Code, Codex, and others — talk to each other through Prompt: a supervisor coordinating a team. Agents share one bus, message each other directly or over channels, and <strong>park for free</strong> between tasks, so an idle agent costs nothing while it waits for work.</p>
+
+        <h2>What the relay is</h2>
+        <p>Relay ships as a small sidecar binary (<code>relay</code>) bundled inside Prompt and managed from <strong>Settings → AI</strong>. It is its own process, not part of the terminal: a crash or hang in the mesh can never take down your terminal, and the same binary works standalone — over SSH, in CI, with any terminal.</p>
+        <ul>
+          <li>Built with Rust + tokio + axum; SQLite (via sqlx) is the shared bus.</li>
+          <li>The MCP transport is Streamable HTTP, so many agent sessions share one server.</li>
+          <li>Every parameter comes from settings and is passed explicitly — Relay reads no environment variables.</li>
+        </ul>
+        <p>A typical session: launch a <code>supervisor</code>, launch a couple of workers (<code>frontend</code>, <code>backend</code>), and drive the supervisor — it delegates over the bus while you watch the feed.</p>
+
+        <h2>Enable it</h2>
+        <p>Open <strong>Settings → AI</strong> with <kbd>⌘,</kbd>:</p>
+        <div class="tablewrap"><table>
+          <thead><tr><th>Setting</th><th>What it does</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Enable AI features</strong></td><td>Master switch. Off means no MCP server, no mesh, no network activity.</td></tr>
+            <tr><td><strong>MCP server</strong></td><td>Expose this terminal to agents (see the <a href="mcp.html">MCP server</a> page).</td></tr>
+            <tr><td><strong>Relay agent mesh</strong></td><td>Run the mesh. When on, Prompt starts the bundled <code>relay</code> daemon and an <strong>AI</strong> menu appears.</td></tr>
+            <tr><td><strong>Start Relay on launch</strong></td><td>Bring the mesh up automatically when Prompt opens.</td></tr>
+            <tr><td><strong>Relay address</strong></td><td>Bind address for the server. Default <code>127.0.0.1:7777</code>.</td></tr>
+            <tr><td><strong>Default agent</strong></td><td>The agent CLI used by <em>Launch Agent…</em>. Default <code>claude</code>.</td></tr>
+          </tbody>
+        </table></div>
+        <p>When Relay is enabled the section also shows a live <strong>status dot</strong> — green when the server is listening, red when stopped, re-probed every ~1.5 seconds — and the <strong>log path</strong>.</p>
+        <p>Everything maps to plain config keys, so it round-trips through the file too:</p>
+        <pre><code><span class="c"># ~/.config/prompt/config</span>
+ai-enabled = true
+mcp-server-enabled = true
+relay-enabled = true
+relay-start-on-launch = true
+relay-address = 127.0.0.1:7777
+relay-default-agent = claude</code></pre>
+        <p>Toggling <strong>Relay agent mesh</strong> starts or stops the daemon immediately; <strong>Start Relay on launch</strong> only affects what happens at startup.</p>
+        <div class="callout note"><span class="label">Note</span><p>The AI and agent config keys are documented alongside every other option on the <a href="configuration.html">Configuration</a> page, and the terminal-facing MCP server has its own <a href="mcp.html">MCP server</a> page.</p></div>
+
+        <h2>Use it from Prompt</h2>
+        <p>With AI enabled, an <strong>AI</strong> menu appears; with Relay on it offers:</p>
+        <ul>
+          <li><strong>Agents ▸</strong> — <strong>Define Agent…</strong> opens the New Agent dialog: pick a provider (from the enabled tools), name it, and either choose a role preset (DevOps, frontend, …) or toggle Custom to describe it. Create adds it to the current workspace as a split and <strong>saves the definition</strong>, so it reappears in this submenu — click a saved agent to relaunch it.</li>
+          <li><strong>Open Feed</strong> — opens a split streaming every message on the bus (who said what to whom), the one view of cross-agent traffic.</li>
+          <li><strong>Relay ▸</strong> — server controls: a live running/stopped status line, then <strong>Start Server</strong>, <strong>Stop Server</strong>, <strong>Restart Server</strong>, and <strong>View Logs</strong> (tails the relay server log, <code>server.log</code>, in a split).</li>
+          <li><strong>Teams ▸</strong> — open a whole team at once (see <a href="#teams-and-tiles">Teams &amp; tiles</a>).</li>
+        </ul>
+        <p>The same actions are bound to keys you can use directly or rebind:</p>
+        <div class="tablewrap"><table>
+          <thead><tr><th>Action</th><th>Default key</th><th>Action name</th></tr></thead>
+          <tbody>
+            <tr><td>Launch agent</td><td><kbd>⌘⇧A</kbd></td><td><code>relay_launch</code></td></tr>
+            <tr><td>Open Feed</td><td><kbd>⌘⇧I</kbd></td><td><code>relay_feed</code></td></tr>
+            <tr><td>View Logs</td><td><kbd>⌘⇧L</kbd></td><td><code>relay_log</code></td></tr>
+          </tbody>
+        </table></div>
+        <p>The <strong>Relay</strong> and <strong>Agents</strong> sidebar panels mirror the menu: live server status with Start / Stop / Restart, and the roster of saved and running agents.</p>
+
+        <h2>The relay CLI</h2>
+        <p>The same binary backs the menu and works on its own. Prompt points every call at one shared state directory via <code>--home</code> (under <code>~/.config/prompt/relay</code>); used standalone it defaults to <code>./.relay</code> in the current directory.</p>
+        <pre><code>relay start            <span class="c"># start the server (background daemon)</span>
+relay stop             <span class="c"># stop it (and its workers)</span>
+relay restart
+relay status
+
+relay launch &lt;name&gt;    <span class="c"># launch an agent under relay (foreground, this terminal)</span>
+relay launch &lt;name&gt; --background   <span class="c"># ...as a server-monitored worker instead</span>
+relay ps               <span class="c"># registered agents + background workers</span>
+relay kill &lt;name&gt;      <span class="c"># stop a background worker</span>
+relay feed [--follow]  <span class="c"># print the message bus</span>
+relay role &lt;list|info|create|edit|delete&gt;   <span class="c"># manage role templates</span>
+relay team &lt;list|info|create|edit|delete&gt;   <span class="c"># manage teams (layout + roster)</span></code></pre>
+        <p><code>launch</code> flags: <code>--agent claude|codex|gemini</code>, <code>--role</code>, <code>--task</code>, <code>--channel</code> (repeatable), <code>--model</code>, <code>--cwd</code>, <code>--cmd &lt;template&gt;</code>, <code>--background</code>, <code>--lead</code> (launch interactively as the human-driven lead).</p>
+        <ul>
+          <li><strong>Foreground</strong> <code>launch</code> replaces the calling shell with the agent — you see and steer it.</li>
+          <li><strong><code>--background</code></strong> hands it to the server, which monitors it (respawns on crash) and logs its output under the state directory.</li>
+        </ul>
+
+        <h2>Roles</h2>
+        <p>A <strong>role</strong> is a reusable identity an agent launches with — a brief (what it owns, how it coordinates) plus optional defaults. It is distinct from <code>--task</code>: the role is durable ("the frontend owner"), the task is the one-off assignment ("build the login page"). At launch the brief is injected into the harness; explicit flags override the role's defaults, and <code>--channel</code> flags merge with the role's.</p>
+        <p>Roles resolve highest-priority-first:</p>
+        <ol>
+          <li><strong>project</strong> — <code>./.relay/roles/&lt;name&gt;.toml</code> (travels with the repo)</li>
+          <li><strong>user</strong> — <code>~/.config/relay/roles/&lt;name&gt;.toml</code> (or <code>$XDG_CONFIG_HOME</code>)</li>
+          <li><strong>built-in</strong> — embedded: <code>supervisor</code>, <code>worker</code>, <code>frontend</code>, <code>backend</code>, <code>reviewer</code>, <code>devops</code>, <code>qa</code></li>
+        </ol>
+        <p>Manage them like <code>git</code> config — CRUD with an <code>$EDITOR</code> drop-in:</p>
+        <pre><code>relay role list                 <span class="c"># all roles + their source</span>
+relay role info &lt;name&gt;          <span class="c"># show the resolved role</span>
+relay role create &lt;name&gt;        <span class="c"># new role in $EDITOR (--user for the user dir)</span>
+relay role edit &lt;name&gt;          <span class="c"># edit in $EDITOR; copies a built-in/lower layer first</span>
+relay role delete &lt;name&gt;        <span class="c"># remove a project (or --user) role file</span></code></pre>
+        <p><code>create</code>/<code>edit</code> open <code>$VISUAL</code>/<code>$EDITOR</code> (default <code>vi</code>) on a seeded file and only save once it parses. Editing a built-in copies it into your project (or <code>--user</code>) dir first, so built-ins stay pristine. Files are TOML:</p>
+        <pre><code>name = "frontend"
+channels = ["frontend"]   <span class="c"># auto-joined at launch</span>
+agent = "claude"          <span class="c"># default agent CLI (optional)</span>
+<span class="c"># model = "claude-..."    # default model (optional)</span>
+<span class="c"># driver = true           # human-driven lead: stay interactive, don't park on wait</span>
+description = """
+You own the frontend. Follow the existing component conventions and report
+blockers to the supervisor.
+"""</code></pre>
+        <p>Then <code>relay launch alice --role frontend</code> joins <code>#frontend</code>, uses claude, and opens with that brief.</p>
+
+        <h2 id="teams-and-tiles">Teams &amp; tiles</h2>
+        <p>A <strong>team</strong> is a layout plus a roster: open one and Prompt arranges a set of panes and launches the right agent in each. Teams are Relay files (<code>relay team …</code>, layered project → user → built-in, like roles); <strong>tiles</strong> (the layouts) are a Prompt feature, so they are useful on their own too.</p>
+        <p>From Prompt, with AI + Relay on, the <strong>AI</strong> menu lists teams under <strong>Teams ▸</strong> — click one to open it in a fresh tab. The agent panes live under that one tab, which is titled after the team (e.g. <code>web</code>). Standalone, manage teams with the CLI:</p>
+        <pre><code>relay team list                 <span class="c"># all teams + source</span>
+relay team info &lt;name&gt;          <span class="c"># roster + layout (add --json for tooling)</span>
+relay team create &lt;name&gt;        <span class="c"># new team in $EDITOR (--user for the user dir)</span>
+relay team edit &lt;name&gt;          <span class="c"># edit; copies a built-in/lower layer first</span>
+relay team delete &lt;name&gt;</code></pre>
+        <p>A team is TOML — a <code>layout</code> shape and ordered members (first = the main pane):</p>
+        <pre><code>name = "web"
+layout = "main-bottom"   <span class="c"># columns | rows | grid | main-bottom | main-right</span>
+
+[[member]]
+name = "lead"
+role = "supervisor"
+
+[[member]]
+name = "frontend"
+role = "frontend"</code></pre>
+        <p>Built-ins: <code>web</code> (lead + frontend + backend + reviewer, main-bottom) and <code>pair</code> (driver + reviewer, columns).</p>
+        <p><strong>Tiles</strong> live in Prompt under the <strong>Workspace</strong> menu: built-in presets (Two/Three Columns, Two Rows, Grid, Main + Bottom Row, Main + Right Stack) open that arrangement of shells in a new tab. <strong>Save Current Layout…</strong> captures the focused tab's split structure, asks for a name, and adds it to the menu (stored as JSON under <code>~/.config/prompt/layouts/</code>). Layout shapes scale to any pane count, which is how a team of N members maps onto one shape.</p>
+
+        <h2>How agents connect</h2>
+        <p>Every launched agent receives an opening <strong>harness</strong> in one of two shapes:</p>
+        <ul>
+          <li><strong>Parked worker</strong> (the default) — register under its name, join its channels, then enter a <code>wait</code>-loop: do work, report back, call <code>wait</code> again to stay reachable. Idle costs nothing.</li>
+          <li><strong>Driver</strong> — the human-driven lead. It registers and joins, then hands control back to the human in its terminal and only calls <code>wait</code> to gather replies <em>after</em> it has delegated, so the human can actually type to it. A team's first member (its main pane) launches as the driver, as does any role marked <code>driver = true</code> (the built-in <code>supervisor</code>) or a <code>relay launch … --lead</code>.</li>
+        </ul>
+        <p>Coordination happens through MCP tools the agent calls:</p>
+        <div class="tablewrap"><table>
+          <thead><tr><th>Tool</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr><td><code>register</code></td><td>Join under a unique name (first, once).</td></tr>
+            <tr><td><code>send</code> / <code>post</code> / <code>broadcast</code></td><td>Message an agent / a channel / everyone.</td></tr>
+            <tr><td><code>join</code> / <code>leave</code></td><td>Subscribe / unsubscribe from a channel.</td></tr>
+            <tr><td><code>wait</code></td><td>Block (free) until messages arrive, then return them.</td></tr>
+            <tr><td><code>inbox</code></td><td>Pending messages now, without blocking.</td></tr>
+            <tr><td><code>agents</code> / <code>channels</code> / <code>whoami</code></td><td>Introspection.</td></tr>
+            <tr><td><code>spawn</code> / <code>workers</code> / <code>stop_worker</code></td><td>A supervisor agent grows / manages its own team.</td></tr>
+          </tbody>
+        </table></div>
+        <div class="callout tip"><span class="label">Tip</span><p><code>wait</code> is the key to zero idle cost: it is a single blocking tool call (held open as an SSE response with keepalives), not a poll loop, so a parked agent burns no tokens until a message actually arrives.</p></div>
+
+        <h2>Supported agents</h2>
+        <p>Tools join the mesh at one of three integration tiers:</p>
+        <ul>
+          <li><strong>MCP-native</strong> — the CLI speaks streamable-HTTP MCP and runs its own agentic loop, doing the work itself. <strong>claude</strong> (<code>--mcp-config</code>) and <strong>codex</strong> (<code>-c mcp_servers.relay.url=…</code>) are both first-class here.</li>
+          <li><strong>Bridged</strong> — for backends that aren't agents. <strong>ollama</strong> has no MCP client, so relay runs its own loop (<code>relay agent ollama</code>): it registers, waits, runs a tool-using turn against the model (<code>localhost:11434/api/chat</code> — the model can call <code>send</code>/<code>post</code>/<code>broadcast</code>), and sends its reply back. Requires <code>ollama serve</code> running and a pulled model.</li>
+          <li><strong>Terminal</strong> — any other CLI via <code>--cmd 'tool --mcp {mcp} -- {prompt}'</code>; runs in a pane without bus coordination. Placeholders: <code>{prompt}</code> (harness), <code>{mcp}</code> (config path), <code>{url}</code> (bus URL), <code>{name}</code>. <strong>gemini</strong> ships as a template.</li>
+        </ul>
+        <p>Pick the agent per launch with <code>--agent claude|codex|ollama|gemini</code> (or <code>--cmd</code>), or per team member. CLI background agents run with <code>--dangerously-skip-permissions</code> since they can't answer prompts.</p>
+        <p>In <strong>Settings → AI → Agent tools</strong>, each tool has an enable toggle and a <strong>Test</strong> button that checks it is reachable (CLI <code>--version</code>, or the Ollama API port).</p>
+
+        <h2>Notes &amp; limits</h2>
+        <ul>
+          <li><strong>Authentication.</strong> Every request to <code>/mcp</code> and <code>/control/*</code> must carry the server's bearer token (<code>Authorization: Bearer …</code>); only <code>/health</code> is open. The token is generated at startup and stored in <code>server.json</code>, which — along with the bus DB and logs — is written owner-only (0600) inside a 0700 state dir, so only the same user can read it. The CLI, the app, and launched agents pick it up automatically (the latter via the generated <code>*.mcp.json</code>).</li>
+          <li><strong>Localhost trust.</strong> The token gates cross-user access on a shared host, but the bus still trusts the self-asserted <code>from</code>/<code>name</code> within a single user's mesh. Binding <code>relay-address</code> to a public interface is still discouraged: the token is the only gate, with no transport encryption.</li>
+          <li><strong>Ordering.</strong> A new agent only sees messages sent after it registers. Start workers before dispatching, or re-register (the same name keeps its read cursor).</li>
+          <li><strong>Context.</strong> A long-running agent holds one growing context for its whole shift; restart it for a fresh one.</li>
+          <li><strong>Codex/Gemini MCP</strong> wiring is unverified — see the tiers above.</li>
+        </ul>
+
+        <h2>Internals</h2>
+        <p>State lives under <code>~/.config/prompt/relay/</code> (or <code>$XDG_CONFIG_HOME</code>): the SQLite bus (<code>relay.db</code>), the server record (<code>server.json</code>), logs, and per-agent MCP configs. The CLI talks to the server over a small plain-HTTP control plane (<code>/control/state</code>, <code>/control/feed</code>, <code>/control/spawn</code>, <code>/control/stop</code>), separate from the MCP bus on <code>/mcp</code>. The crate is <code>crates/relay</code>; it is bundled into the <code>.app</code> beside the <code>prompt</code> executable by <code>scripts/bundle.sh</code>.</p>
+      </article>
+    </main>
+    <script type="module" src="docs.js"></script>
+  </body>
+</html>

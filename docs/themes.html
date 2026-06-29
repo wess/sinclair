@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Themes & appearance — Prompt docs</title>
+    <meta name="description" content="Prompt's 22 built-in themes, per-color overrides, fonts, cursor, and padding.">
+    <meta name="theme-color" content="#05070c">
+    <link rel="icon" href="icon.png">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="docs.css">
+  </head>
+  <body class="docs">
+    <a class="skip" href="#doc-main">Skip to content</a>
+    <main id="doc-main" class="doc-main">
+      <article class="doc-article" data-doc-page="themes">
+        <p class="kicker">Configuration</p>
+        <h1>Themes &amp; appearance</h1>
+        <p class="lede">
+          Prompt ships with 22 hand-tuned built-in themes, and layers
+          fine-grained control over individual colors, fonts, and the cursor on
+          top of whichever one you pick. Every setting here lives in your config
+          file and applies live the moment you save — no restart required.
+        </p>
+
+        <h2>Choosing a theme</h2>
+        <p>
+          Set the <code>theme</code> key in your config to any built-in name:
+        </p>
+        <pre><code>theme = tokyo night</code></pre>
+        <p>
+          Theme names are case-insensitive and ignore spaces, dashes, and
+          underscores, so <code>tokyo night</code>, <code>tokyo-night</code>,
+          and <code>TokyoNight</code> all select the same theme. If you prefer
+          to point and click, the GUI settings (<kbd>⌘,</kbd>) include a theme
+          picker that writes the same key for you.
+        </p>
+
+        <h2>Built-in themes</h2>
+        <p>
+          All 22 themes and the exact value to pass to <code>theme</code>:
+        </p>
+        <div class="tablewrap">
+          <table>
+            <thead>
+              <tr><th>Theme</th><th>Config value</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Dark</td><td><code>dark</code></td></tr>
+              <tr><td>Light</td><td><code>light</code></td></tr>
+              <tr><td>Ayu Dark</td><td><code>ayu dark</code></td></tr>
+              <tr><td>Catppuccin Latte</td><td><code>catppuccin latte</code></td></tr>
+              <tr><td>Catppuccin Mocha</td><td><code>catppuccin mocha</code></td></tr>
+              <tr><td>Dracula</td><td><code>dracula</code></td></tr>
+              <tr><td>Everforest</td><td><code>everforest</code></td></tr>
+              <tr><td>GitHub Dark</td><td><code>github dark</code></td></tr>
+              <tr><td>GitHub Light</td><td><code>github light</code></td></tr>
+              <tr><td>Gruvbox Dark</td><td><code>gruvbox dark</code></td></tr>
+              <tr><td>Gruvbox Light</td><td><code>gruvbox light</code></td></tr>
+              <tr><td>Kanagawa</td><td><code>kanagawa</code></td></tr>
+              <tr><td>Material Dark</td><td><code>material dark</code></td></tr>
+              <tr><td>Monokai</td><td><code>monokai</code></td></tr>
+              <tr><td>Nord</td><td><code>nord</code></td></tr>
+              <tr><td>One Dark</td><td><code>one dark</code></td></tr>
+              <tr><td>Palenight</td><td><code>palenight</code></td></tr>
+              <tr><td>Rose Pine</td><td><code>rose pine</code></td></tr>
+              <tr><td>Solarized Dark</td><td><code>solarized dark</code></td></tr>
+              <tr><td>Solarized Light</td><td><code>solarized light</code></td></tr>
+              <tr><td>Tokyo Night</td><td><code>tokyo night</code></td></tr>
+              <tr><td>Zenburn</td><td><code>zenburn</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h2>Per-color overrides</h2>
+        <p>
+          You don't have to take a theme as-is. Any of these keys layer your own
+          colors on top of the selected theme, so you can start from a base and
+          tweak just the parts you want.
+        </p>
+        <div class="tablewrap">
+          <table>
+            <thead>
+              <tr><th>Key</th><th>Overrides</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>background</code></td><td>Window/terminal background color.</td></tr>
+              <tr><td><code>foreground</code></td><td>Default text color.</td></tr>
+              <tr><td><code>cursor-color</code></td><td>Cursor fill color.</td></tr>
+              <tr><td><code>cursor-text</code></td><td>Color of text drawn under a block cursor.</td></tr>
+              <tr><td><code>selection-foreground</code></td><td>Text color inside a selection.</td></tr>
+              <tr><td><code>selection-background</code></td><td>Highlight color of a selection.</td></tr>
+              <tr><td><code>split-divider-color</code></td><td>Color of the dividers between splits.</td></tr>
+              <tr>
+                <td><code>palette</code></td>
+                <td>
+                  Repeatable. <code>N=#rrggbb</code> overrides a single ANSI
+                  index, <code>N</code> from 0–255 (0–7 standard, 8–15 bright,
+                  16–231 the 6×6×6 color cube, 232–255 grayscale ramp).
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <pre><code><span class="c"># start from a base theme, then override</span>
+theme = tokyo night
+
+background = #0b0e14
+cursor-color = #ffcc66
+
+<span class="c"># recolor ANSI red (index 1) and bright black (index 8)</span>
+palette = 1=#ff5555
+palette = 8=#5c6370</code></pre>
+
+        <h2>Fonts</h2>
+        <p>
+          Font keys control the typeface, size, and OpenType behavior of the
+          terminal text.
+        </p>
+        <div class="tablewrap">
+          <table>
+            <thead>
+              <tr><th>Key</th><th>Meaning</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>font-family</code></td><td>Repeatable. Each entry builds a fallback chain — the first is the primary face, later ones cover missing glyphs. Default <code>Menlo</code>.</td></tr>
+              <tr><td><code>font-size</code></td><td>Point size. Default <code>13</code>.</td></tr>
+              <tr><td><code>font-style</code></td><td>One of <code>normal</code>, <code>bold</code>, <code>italic</code>, <code>bold-italic</code>.</td></tr>
+              <tr><td><code>font-feature</code></td><td>Repeatable OpenType feature codes like <code>+liga</code>, <code>-calt</code>, <code>ss01</code>, or <code>cv01=2</code>, for ligatures and stylistic sets.</td></tr>
+              <tr><td><code>adjust-cell-width</code></td><td>Nudge cell width in pixels. May be negative.</td></tr>
+              <tr><td><code>adjust-cell-height</code></td><td>Nudge cell height in pixels. May be negative.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <pre><code>font-family = JetBrains Mono
+font-family = Menlo
+font-size = 14
+font-style = normal
+font-feature = +liga
+font-feature = cv01=2
+adjust-cell-height = 2</code></pre>
+        <div class="callout note">
+          Emoji and programming ligatures are both supported — turn ligatures on
+          (or off) per font with <code>font-feature</code>.
+        </div>
+
+        <h2>Cursor</h2>
+        <p>
+          Shape, blink, and color of the text cursor.
+        </p>
+        <div class="tablewrap">
+          <table>
+            <thead>
+              <tr><th>Key</th><th>Meaning</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>cursor-style</code></td><td>One of <code>block</code>, <code>bar</code>, <code>underline</code>.</td></tr>
+              <tr><td><code>cursor-style-blink</code></td><td>Boolean. Whether the cursor blinks.</td></tr>
+              <tr><td><code>cursor-color</code></td><td>Cursor fill color.</td></tr>
+              <tr><td><code>cursor-text</code></td><td>Color of the character under a block cursor.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <pre><code>cursor-style = bar
+cursor-style-blink = true
+cursor-color = #ffcc66
+cursor-text = #0b0e14</code></pre>
+
+        <h2>Padding &amp; window</h2>
+        <p>
+          Spacing and rendering options for the window and its splits.
+        </p>
+        <div class="tablewrap">
+          <table>
+            <thead>
+              <tr><th>Key</th><th>Meaning</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>window-padding-x</code></td><td>Horizontal inner padding in pixels. Default <code>2</code>.</td></tr>
+              <tr><td><code>window-padding-y</code></td><td>Vertical inner padding in pixels. Default <code>2</code>.</td></tr>
+              <tr><td><code>unfocused-split-opacity</code></td><td>Opacity of splits that don't have focus, <code>0.15</code>–<code>1.0</code>. Default <code>0.7</code>.</td></tr>
+              <tr><td><code>bold-is-bright</code></td><td>Boolean. Render bold text using the bright color variant.</td></tr>
+              <tr><td><code>minimum-contrast</code></td><td>Minimum contrast ratio <code>1</code>–<code>21</code>, default <code>1.0</code>. Raise it to force legible text over close-toned backgrounds.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <pre><code>window-padding-x = 8
+window-padding-y = 6
+unfocused-split-opacity = 0.6
+bold-is-bright = true
+minimum-contrast = 1.1</code></pre>
+
+        <div class="callout tip">
+          Every key on this page is documented alongside the rest of the
+          settings in the full
+          <a href="configuration.html">Configuration</a> reference.
+        </div>
+      </article>
+    </main>
+    <script type="module" src="docs.js"></script>
+  </body>
+</html>

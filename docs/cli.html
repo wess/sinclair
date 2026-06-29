@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CLI reference — Prompt docs</title>
+    <meta name="description" content="The prompt command's process modes: launching the GUI, the MCP server, desktop notifications, and the quick-terminal toggle.">
+    <meta name="theme-color" content="#05070c">
+    <link rel="icon" href="icon.png">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="docs.css">
+  </head>
+  <body class="docs">
+    <a class="skip" href="#doc-main">Skip to content</a>
+    <main id="doc-main" class="doc-main">
+      <article class="doc-article" data-doc-page="cli">
+        <p class="kicker">Reference</p>
+        <h1>CLI reference</h1>
+        <p class="lede">
+          The shipped binary is <code>prompt</code>. It dispatches on its arguments
+          before starting the GUI, so the same binary is the terminal, the MCP server,
+          a notifier, and a quick-terminal toggle.
+        </p>
+
+        <h2>Modes at a glance</h2>
+        <div class="tablewrap">
+          <table>
+            <thead>
+              <tr><th>Invocation</th><th>What it does</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>prompt</code></td><td>Load config and launch the GUI (opens a default window).</td></tr>
+              <tr><td><code>prompt mcp</code></td><td>Run the Model Context Protocol server over stdio, bridging tool calls into a running GUI instance.</td></tr>
+              <tr><td><code>prompt notify [--title T] &lt;message&gt;</code></td><td>Post a desktop notification.</td></tr>
+              <tr><td><code>prompt --toggle-quick</code></td><td>Tell a running instance to summon/hide the quick terminal, then exit.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h2>prompt</h2>
+        <p>
+          With no arguments, <code>prompt</code> reads your config
+          (<a href="configuration.html">Configuration</a>) and opens a window running
+          your login shell. Subsequent launches reuse the running app where appropriate.
+        </p>
+
+        <h2>prompt mcp</h2>
+        <p>
+          Runs a Model Context Protocol server on stdio and forwards each tool call to
+          the live terminal over Prompt's single-instance socket. Point an MCP client
+          (Claude Desktop, Claude Code, …) at this command to let it drive your
+          terminal. The full tool list and setup are on the
+          <a href="mcp.html">MCP &amp; automation</a> page.
+        </p>
+        <pre><code><span class="c"># what an MCP client runs under the hood</span>
+prompt mcp</code></pre>
+
+        <h2>prompt notify</h2>
+        <p>
+          Posts a native desktop notification. <code>--title</code> (or <code>-t</code>)
+          sets the title (default <code>Prompt</code>); the remaining arguments form the
+          body. This is handy for agent and build hooks that can't emit an OSC 9/777/99
+          escape themselves.
+        </p>
+        <pre><code>prompt notify "build finished"
+prompt notify --title "CI" "tests passed ✓"</code></pre>
+        <div class="callout note">
+          <span class="label">Note</span>
+          <p>From inside a shell session you can also trigger notifications directly with
+          OSC escape sequences (OSC 9 / 777 / 99) — <code>prompt notify</code> is the
+          out-of-band equivalent for tools that only have a shell command.</p>
+        </div>
+
+        <h2>prompt --toggle-quick</h2>
+        <p>
+          Signals a running instance to toggle the Quake-style quick terminal, then
+          exits. The app normally binds this to <kbd>⌘⌥T</kbd>
+          (<code>toggle_quick_terminal</code>); this flag exists so a Wayland compositor
+          (which can't deliver a global hotkey to the app directly) can bind a key to it:
+        </p>
+        <pre><code><span class="c"># example: a Sway/Hyprland-style global binding</span>
+bindsym $mod+grave exec prompt --toggle-quick</code></pre>
+
+        <div class="callout tip">
+          <span class="label">Tip</span>
+          <p>Everything <code>prompt</code> does beyond launching is also reachable from
+          inside the app — see <a href="productivity.html">Productivity</a> and
+          <a href="mcp.html">MCP &amp; automation</a>.</p>
+        </div>
+      </article>
+    </main>
+    <script type="module" src="docs.js"></script>
+  </body>
+</html>

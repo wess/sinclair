@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Prompt Designer — Prompt docs</title>
+    <meta name="description" content="Design your shell prompt visually with the Prompt Designer plugin and apply it to zsh or bash.">
+    <meta name="theme-color" content="#05070c">
+    <link rel="icon" href="icon.png">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="docs.css">
+  </head>
+  <body class="docs">
+    <a class="skip" href="#doc-main">Skip to content</a>
+    <main id="doc-main" class="doc-main">
+      <article class="doc-article" data-doc-page="designer">
+        <p class="kicker">Extending</p>
+        <h1>Prompt Designer</h1>
+        <p class="lede">
+          Design your shell prompt by clicking — pick a style, toggle segments, choose a
+          symbol and color, watch a live preview — then apply it to your shell. No
+          hand-editing of <code>PS1</code> escape codes. It ships as an
+          <a href="plugins.html">IPC panel plugin</a>.
+        </p>
+
+        <h2>Install</h2>
+        <p>
+          Open the <strong>Plugins</strong> panel (the ⧉ activity-bar icon), find
+          <strong>promptdesigner</strong> in the <em>Available</em> list, and click
+          <strong>Install</strong> — or copy the folder in manually:
+        </p>
+        <pre><code>cp -R plugins/promptdesigner ~/.config/prompt/plugins/promptdesigner</code></pre>
+        <div class="callout note">
+          <span class="label">Requires</span>
+          <p><code>bun</code> on your <code>PATH</code>. Works with <code>zsh</code> and
+          <code>bash</code>.</p>
+        </div>
+
+        <h2>Using it</h2>
+        <p>
+          Open the designer panel from the activity bar (the ✎ icon). It gives you:
+        </p>
+        <ul>
+          <li><strong>Presets</strong> — Minimal, Classic, Arrow — a one-click starting point.</li>
+          <li><strong>Segments</strong> — toggle <code>user@host</code>, the working directory, the git branch, and the time.</li>
+          <li><strong>Symbol</strong> — choose the prompt character (<code>❯ ➜ $ λ »</code>).</li>
+          <li><strong>Color</strong> — pick the accent color.</li>
+          <li><strong>Preview</strong> — a live, plain-text approximation of the result.</li>
+        </ul>
+        <p>
+          When it looks right, click <strong>Apply</strong>. Your choices persist in
+          <code>~/.config/prompt-designer/design.json</code>, so the panel always opens
+          on your current design.
+        </p>
+
+        <h2>How Apply works</h2>
+        <p>Applying is deliberately transparent and reversible:</p>
+        <ol>
+          <li>The generated prompt — a proper <code>PROMPT</code> (zsh) or <code>PS1</code>
+            (bash), including a small git-branch helper — is written to
+            <code>~/.config/prompt-designer/prompt.sh</code>.</li>
+          <li>A single <strong>managed block</strong> is added to your
+            <code>~/.zshrc</code> or <code>~/.bashrc</code> that sources that file. The
+            block is idempotent — re-applying rewrites <code>prompt.sh</code> and never
+            duplicates the block.</li>
+          <li>Apply also <code>source</code>s the file in the focused pane, so the new
+            prompt appears immediately — no need to open a new shell.</li>
+        </ol>
+        <pre><code><span class="c"># the managed block added to your rc file</span>
+# &gt;&gt;&gt; prompt-designer &gt;&gt;&gt;
+[ -f "$HOME/.config/prompt-designer/prompt.sh" ] &amp;&amp; source "$HOME/.config/prompt-designer/prompt.sh"
+# &lt;&lt;&lt; prompt-designer &lt;&lt;&lt;</code></pre>
+        <div class="callout tip">
+          <span class="label">Tip</span>
+          <p>The rc file is written atomically (temp file + rename), so an interrupted
+          write can't corrupt your shell startup file.</p>
+        </div>
+
+        <h2>Removing it</h2>
+        <p>
+          Click <strong>Remove from shell</strong> in the panel — it strips the managed
+          block from your rc file. New shells return to your previous prompt; the
+          generated <code>prompt.sh</code> and your <code>design.json</code> are left in
+          place so you can re-apply later.
+        </p>
+
+        <div class="callout note">
+          <span class="label">Note</span>
+          <p>The designer only ever edits its own managed block and its files under
+          <code>~/.config/prompt-designer/</code>; the rest of your rc is untouched.</p>
+        </div>
+      </article>
+    </main>
+    <script type="module" src="docs.js"></script>
+  </body>
+</html>

@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Terminal coverage — Prompt docs</title>
+    <meta name="description" content="What Prompt's VT core supports: controls, SGR, modes, input, OSC, images, and known gaps.">
+    <meta name="theme-color" content="#05070c">
+    <link rel="icon" href="icon.png">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="docs.css">
+  </head>
+  <body class="docs">
+    <a class="skip" href="#doc-main">Skip to content</a>
+    <main id="doc-main" class="doc-main">
+      <article class="doc-article" data-doc-page="coverage">
+        <p class="kicker">Reference</p>
+        <h1>Terminal coverage</h1>
+        <p class="lede">A feature-by-feature map of Prompt's terminal support, as of phases 1–12. The VT core is built and tested in isolation (the <code>vt</code> crate), free of any I/O or GUI types; this page tracks what that core and the surrounding layers support, plus the known gaps that remain.</p>
+
+        <p>Status key: <strong>✓</strong> implemented, <strong>◑</strong> partial (works for the common case, with documented limits), <strong>✗</strong> not yet.</p>
+
+        <h2>Terminal emulation (VT)</h2>
+        <div class="tablewrap">
+          <table>
+            <thead>
+              <tr><th>Area</th><th>Status</th><th>Notes</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>C0/C1 controls, ESC dispatch</td><td>✓</td><td>BEL/BS/HT/LF/VT/FF/CR/SO/SI, ESC 7/8/D/E/H/M/c/=/&gt;, SCS, DECALN</td></tr>
+              <tr><td>CSI cursor/erase/scroll/insert</td><td>✓</td><td>CUU…CUP, ED/EL/ECH, IL/DL/ICH/DCH, SU/SD, REP, DECSTBM</td></tr>
+              <tr><td>SGR (colors + attributes)</td><td>✓</td><td>16/256/truecolor (semicolon + colon forms), underline styles, all attrs</td></tr>
+              <tr><td>Modes (DEC private + ANSI)</td><td>✓</td><td>DECAWM/DECTCEM/DECOM/IRM, 47/1047/1048/1049, bracketed paste</td></tr>
+              <tr><td>Charsets (G0/G1, DEC special)</td><td>✓</td><td>line-drawing via SCS + SO/SI</td></tr>
+              <tr><td>Scrollback + alt screen</td><td>✓</td><td>ring buffer, content-anchored offset, no scrollback on alt</td></tr>
+              <tr><td>Wide characters</td><td>✓</td><td>width 2 + spacer cells</td></tr>
+              <tr><td>Combining characters</td><td>◑</td><td>one inline combining mark per cell (covers diacritics; stacked marks beyond the first are dropped)</td></tr>
+              <tr><td>Reflow on resize</td><td>✓</td><td>rejoins <code>wrapped</code> lines and re-wraps at the new width, cursor follows, overflow → scrollback</td></tr>
+              <tr><td>Damage tracking</td><td>✓</td><td>per-row + full-escalation (renderer does not yet clip to it)</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h2>Input</h2>
+        <div class="tablewrap">
+          <table>
+            <thead>
+              <tr><th>Area</th><th>Status</th><th>Notes</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Legacy xterm key encoding</td><td>✓</td><td>modifiers, cursor/tilde/function keys, app cursor/keypad</td></tr>
+              <tr><td>Mouse reporting</td><td>✓</td><td>X10/normal/button/any + SGR (1000/1002/1003/1006), alt-scroll</td></tr>
+              <tr><td>Bracketed paste</td><td>✓</td><td></td></tr>
+              <tr><td>Kitty keyboard protocol</td><td>◑</td><td>negotiation + disambiguation encoding; <strong>press-only</strong> (no release/repeat events from the host, so event-type/alternate-key/associated-text flags are tracked but not encoded)</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h2>OSC / clipboard / links</h2>
+        <div class="tablewrap">
+          <table>
+            <thead>
+              <tr><th>Area</th><th>Status</th><th>Notes</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Title (OSC 0/2) + title stack</td><td>✓</td><td></td></tr>
+              <tr><td>Palette OSC 4 / 104, cursor OSC 12 / 112</td><td>✓</td><td></td></tr>
+              <tr><td>Dynamic color <em>queries</em> (OSC 4/10/11/12 <code>?</code>)</td><td>✓</td><td>answered from theme via <code>set_report_colors</code></td></tr>
+              <tr><td>OSC 7 cwd reporting</td><td>✓</td><td>inherited by new splits, tabs, and windows; defaults to <code>$HOME</code> when unknown</td></tr>
+              <tr><td>OSC 52 clipboard</td><td>✓</td><td>base64 decode → system clipboard</td></tr>
+              <tr><td>Desktop notifications (OSC 9 / 777 / 99)</td><td>✓</td><td>native banner + per-tab attention indicator; cleared on focus</td></tr>
+              <tr><td>OSC 8 hyperlinks</td><td>✓</td><td>interned per-cell, underlined, cmd-click opens</td></tr>
+              <tr><td>URL detection (no OSC 8)</td><td>✓</td><td>cmd-click opens detected URLs</td></tr>
+              <tr><td>Focus reporting (?1004)</td><td>✓</td><td></td></tr>
+              <tr><td>Synchronized output (?2026)</td><td>✓</td><td>frame-gated with a 150 ms stuck-sync timeout</td></tr>
+              <tr><td>XTGETTCAP, DA1/DA2, DSR</td><td>✓</td><td></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h2>Shell integration</h2>
+        <div class="tablewrap">
+          <table>
+            <thead>
+              <tr><th>Area</th><th>Status</th><th>Notes</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Semantic prompts (OSC 133)</td><td>✓</td><td>A marks prompt rows (into scrollback)</td></tr>
+              <tr><td>Jump-to-prompt</td><td>✓</td><td><code>jump_to_prompt:N</code>, default cmd+up/down</td></tr>
+              <tr><td>Auto-injected shell scripts</td><td>✓</td><td><code>shell-integration</code> injects OSC 133/7 hooks via env (zsh ZDOTDIR, fish vendor_conf.d, bash PROMPT_COMMAND); no rc edits</td></tr>
+              <tr><td>sudo / title helpers</td><td>✗</td><td>part of the shell scripts above</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h2>Fonts &amp; rendering</h2>
+        <div class="tablewrap">
+          <table>
+            <thead>
+              <tr><th>Area</th><th>Status</th><th>Notes</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Font family + size</td><td>✓</td><td>live-reloadable</td></tr>
+              <tr><td>Fallback chain</td><td>✓</td><td>repeated <code>font-family</code></td></tr>
+              <tr><td>Emoji</td><td>✓</td><td>via fallback chain + system fallback</td></tr>
+              <tr><td>Ligatures</td><td>✓</td><td>run shaping + <code>calt</code></td></tr>
+              <tr><td>Font features</td><td>✓</td><td><code>+liga</code>/<code>-calt</code>/<code>ss01</code>/<code>cv01=2</code></td></tr>
+              <tr><td>Box-drawing / blocks</td><td>◑</td><td>light lines/junctions, blocks, shades, eighths drawn custom; heavy/double/dashed/rounded fall back to font</td></tr>
+              <tr><td>Cursor styles (DECSCUSR)</td><td>✓</td><td>block/bar/underline, config default</td></tr>
+              <tr><td>Images (sixel)</td><td>✓</td><td>sixel decoded (RGB/HLS palette, RLE, raster attrs) and GPU-composited, anchored to the grid so it scrolls with text</td></tr>
+              <tr><td>Images (kitty graphics)</td><td>✗</td><td>APC <code>_G</code> is not delivered by the pinned vte 0.13 (no APC callback); needs a vte bump/fork</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h2>UI / workspace</h2>
+        <div class="tablewrap">
+          <table>
+            <thead>
+              <tr><th>Area</th><th>Status</th><th>Notes</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Tabs</td><td>✓</td><td>bar, activate, close, move, goto N</td></tr>
+              <tr><td>Splits</td><td>✓</td><td>binary tree, directional focus, divider drag</td></tr>
+              <tr><td>Selection (cell/word/line)</td><td>✓</td><td>copy, copy-on-select, bracketed paste</td></tr>
+              <tr><td>Scrollback view + indicator</td><td>✓</td><td></td></tr>
+              <tr><td>Search in scrollback</td><td>✓</td><td>cmd+f overlay with editable query (caret, cursor keys), live highlight, n/N nav</td></tr>
+              <tr><td>Config (<code>key = value</code>)</td><td>✓</td><td>full option set, diagnostics</td></tr>
+              <tr><td>Live config reload</td><td>✓</td><td>theme/font/padding/cursor/keybinds</td></tr>
+              <tr><td>Settings panel (GUI)</td><td>✓</td><td>cmd+, modal: click controls (theme/font size+style/cursor/padding/scrollback/copy-on-select) plus editable text fields (font family, shell, foreground, background) via a built-in text-input widget; all written back to the config file</td></tr>
+              <tr><td>Text-input widget</td><td>✓</td><td><code>textedit</code> model (insert/delete/cursor, unicode) + in-panel field with caret; also backs the search query</td></tr>
+              <tr><td>Keybindings (<code>trigger = action</code>)</td><td>✓</td><td>config-driven, defaults + user overrides + unbind</td></tr>
+              <tr><td>Command palette</td><td>✓</td><td>cmd+shift+p fuzzy launcher over the action catalog, shows keybinds</td></tr>
+              <tr><td>Broadcast input</td><td>✓</td><td>cmd+shift+b mirrors typed keys to every pane in the tab (floating indicator)</td></tr>
+              <tr><td>Session restore</td><td>✓</td><td><code>session-restore</code> saves tabs/splits/cwds on quit, rebuilds on launch</td></tr>
+              <tr><td>Session recording</td><td>✓</td><td>record a pane to an asciinema v2 <code>.cast</code> (cmd+shift+r); plays with <code>asciinema play</code>, embeddable</td></tr>
+              <tr><td>Per-tab context</td><td>✓</td><td>each tab shows the focused pane's git branch + working directory</td></tr>
+              <tr><td>Agent attention</td><td>✓</td><td>OSC 9/777/99 (or <code>prompt notify</code>) post a native banner and light up the tab</td></tr>
+              <tr><td>Scripting API (MCP + socket)</td><td>✓</td><td><code>prompt mcp</code> exposes run_command, send_input, read_screen, new_tab, split, list_tabs/panes, focus_tab, notify</td></tr>
+              <tr><td>Themes</td><td>✓</td><td>22 builtin schemes + overrides</td></tr>
+              <tr><td>Native macOS menu bar</td><td>✓</td><td>Prompt/File/Edit/View/Workspace/Window menus (plus AI when enabled), items reuse config actions (shortcuts shown); includes an About panel (icon, version, release date)</td></tr>
+              <tr><td>Custom window titlebar</td><td>✓</td><td>transparent native bar; app-drawn strip with tabs folded in and drag-to-move. macOS keeps the traffic lights; Linux draws its own minimize/maximize/close + resize edges (client-side decorations)</td></tr>
+              <tr><td>macOS status-bar (tray) item</td><td>✗</td><td>NSStatusBar is not exposed by the UI layer; needs custom native code</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h2>Prioritized remaining gaps</h2>
+        <ol>
+          <li><strong>Kitty graphics protocol</strong> — blocked on the pinned vte 0.13, whose <code>Perform</code> has no APC callback; needs a vte bump/fork to capture <code>ESC _ G … ST</code>. (Sixel already works.)</li>
+          <li><strong>Stacked combining marks</strong> — only the first combining mark per cell is kept; full grapheme clusters / ZWJ emoji need spillover storage.</li>
+          <li><strong>Damage-clipped rendering</strong> — shape only dirty rows for big-throughput wins.</li>
+          <li><strong>Kitty release/repeat events</strong> — needs key-up delivery from the host layer.</li>
+          <li><strong>Heavy/double/dashed/rounded box-drawing</strong> — extend <code>boxdraw</code> geometry.</li>
+          <li><strong>macOS status-bar (tray) item</strong> — needs native NSStatusBar code.</li>
+        </ol>
+      </article>
+    </main>
+    <script type="module" src="docs.js"></script>
+  </body>
+</html>

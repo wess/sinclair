@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Productivity — Prompt docs</title>
+    <meta name="description" content="Search, shell integration, macros, session recording, notifications, and the quick terminal in Prompt.">
+    <meta name="theme-color" content="#05070c">
+    <link rel="icon" href="icon.png">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="docs.css">
+  </head>
+  <body class="docs">
+    <a class="skip" href="#doc-main">Skip to content</a>
+    <main id="doc-main" class="doc-main">
+      <article class="doc-article" data-doc-page="productivity">
+        <p class="kicker">Using Prompt</p>
+        <h1>Productivity</h1>
+        <p class="lede">Beyond drawing a fast grid, Prompt ships the features that make day-to-day terminal work quicker: searching scrollback, jumping between prompts, recording and replaying commands, capturing sessions, native notifications, and a drop-down quick terminal always a keystroke away.</p>
+
+        <h2>Search</h2>
+        <p>Press <kbd>⌘F</kbd> (<code>toggle_search</code>) to open an in-place search overlay over the current pane's scrollback. As you type, every match is highlighted live and the view scrolls to the nearest hit. The query is fully editable — a caret tracks your position and the cursor keys move through it — and a case toggle switches between case-insensitive and case-sensitive matching. Use the next/previous controls to walk through matches in order; press <kbd>⎋</kbd> to dismiss the overlay and return to the buffer.</p>
+
+        <h2>Semantic search</h2>
+        <p><kbd>⌘⇧F</kbd> (<code>toggle_semantic_search</code>) searches at a higher level: instead of matching raw text lines, it searches across logical prompt/output blocks — each command you ran and the output it produced. This makes it easy to find "the command that printed this" rather than scrolling line by line.</p>
+        <div class="callout note"><span class="label">Note</span><p>Semantic search relies on knowing where commands begin and end, so it requires shell integration (below) to be active.</p></div>
+
+        <h2>Shell integration</h2>
+        <p>Shell integration is on by default (the <code>shell-integration</code> config key). Prompt injects OSC 133 prompt marks and OSC 7 working-directory reporting into zsh, bash, and fish purely through environment variables — it never edits your <code>.zshrc</code>, <code>.bashrc</code>, or fish config. Those marks let Prompt understand the structure of your session, which powers jump-to-prompt, working-directory inheritance for new tabs and splits, semantic search, and the pacing of macro replay.</p>
+        <div class="callout note"><span class="label">Note</span><p>The integration is transparent and reversible: it is just an environment injection, so nothing is written to your shell startup files and setting <code>shell-integration = false</code> turns it off completely.</p></div>
+
+        <h2>Jump to prompt</h2>
+        <p>With shell integration active, <kbd>⌘↑</kbd> and <kbd>⌘↓</kbd> (<code>jump_to_prompt:-1</code> and <code>jump_to_prompt:1</code>) move the viewport between shell prompts recorded in the scrollback. This is the fastest way to skip back over a long block of output to the command that produced it, or forward again to the latest prompt.</p>
+
+        <h2>Macros</h2>
+        <p>A macro records a sequence of typed commands and replays them on demand. The <code>macro_record</code> action starts and stops capturing the commands you type; while recording, a floating pill shows the state with a red <code>● REC</code> indicator. Replay a saved macro with the <code>macro:NAME</code> action, bound to a key of your choosing.</p>
+        <p>Macros are stored as plain text under <code>~/.config/prompt/macros/&lt;name&gt;.macro</code> — one command per line, with <code>#</code> comment lines — so you can edit them by hand or check them into version control. Replay paces itself off shell-integration prompt marks, waiting for each command's prompt before sending the next rather than blasting them all at once.</p>
+        <pre><code><span class="c"># ~/.config/prompt/config</span>
+keybind = cmd+shift+m=macro_record
+keybind = cmd+shift+1=macro:deploy</code></pre>
+        <pre><code><span class="c"># ~/.config/prompt/macros/deploy.macro</span>
+<span class="c"># one command per line</span>
+git pull --rebase
+cargo build --release
+./scripts/deploy.sh</code></pre>
+
+        <h2>Session recording</h2>
+        <p>Recording captures a pane to an asciinema v2 <code>.cast</code> file. Toggle it with <code>toggle_recording</code> (default <kbd>⌘⇧R</kbd>); a blue indicator shows while capture is running. Play the result back with <code>asciinema play &lt;file&gt;.cast</code> or embed it on a page.</p>
+        <div class="callout tip"><span class="label">Tip</span><p>Recording and macros are two distinct features. Recording produces a <code>.cast</code> screencast of everything that happened in a pane; macros replay a list of commands you typed. Use recording to show a session, macros to repeat one.</p></div>
+
+        <h2>Notifications</h2>
+        <p>Commands can raise native desktop banners. A program can emit OSC 9, OSC 777, or OSC 99 escape sequences itself, or you can post a banner from the command line with <code>prompt notify [--title T] &lt;message&gt;</code> — handy for agent hooks and scripts that cannot emit an escape sequence directly. See the <a href="cli.html">CLI</a> page for <code>prompt notify</code>.</p>
+        <p>When a background tab posts a notification, it shows a yellow attention dot until you focus it, so you can see at a glance which session needs you.</p>
+
+        <h2>Quick terminal</h2>
+        <p>The quick terminal is a Quake-style drop-down pane that slides in over your screen and tucks away again. Toggle it with <kbd>⌘⌥T</kbd> (<code>toggle_quick_terminal</code>). On Wayland, where a global hotkey is owned by the compositor, you can summon it from a compositor keybind that runs <code>prompt --toggle-quick</code> — this signals the running instance and exits. See the <a href="cli.html">CLI</a> page for that flag.</p>
+
+        <h2>Clipboard</h2>
+        <p>Copy with <kbd>⌘C</kbd> and paste with <kbd>⌘V</kbd>. Enable <code>copy-on-select</code> in the config to automatically copy any selection to the clipboard the moment you make it. Remote programs can set your clipboard through OSC 52, and <code>clipboard-paste-protection</code> warns you before pasting content that looks risky — for example multi-line text or shell control characters.</p>
+      </article>
+    </main>
+    <script type="module" src="docs.js"></script>
+  </body>
+</html>

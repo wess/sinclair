@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Configuration — Prompt docs</title>
+    <meta name="description" content="Prompt's config file: location, format, every option, and live reload.">
+    <meta name="theme-color" content="#05070c">
+    <link rel="icon" href="icon.png">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="docs.css">
+  </head>
+  <body class="docs">
+    <a class="skip" href="#doc-main">Skip to content</a>
+    <main id="doc-main" class="doc-main">
+      <article class="doc-article" data-doc-page="configuration">
+        <p class="kicker">Configuration</p>
+        <h1>Configuration</h1>
+        <p class="lede">Prompt reads a single plain-text config file of <code>key = value</code> lines. Appearance and keybindings reload the instant you save it — no restart required.</p>
+
+        <h2>Where the config lives</h2>
+        <p>Prompt loads its config from <code>$XDG_CONFIG_HOME/prompt/config</code>, falling back to <code>~/.config/prompt/config</code> when <code>XDG_CONFIG_HOME</code> is unset. The file is created on demand, so you can start from an empty file (or none at all) and add only the keys you care about.</p>
+        <p>If you would rather not edit text by hand, open the built-in GUI settings with <kbd>⌘,</kbd> and the same options are exposed there.</p>
+
+        <h2>Format</h2>
+        <p>The file is INI-style: one <code>key = value</code> per line. Lines beginning with <code>#</code> are comments and are ignored, as are blank lines. Whitespace around the key and value is trimmed.</p>
+        <p>Most keys take a single value, where the last assignment wins. A handful of keys are <em>repeatable</em>: each occurrence accumulates into a list rather than overwriting the previous one. The repeatable keys are <code>font-family</code>, <code>font-feature</code>, <code>keybind</code>, <code>palette</code>, <code>plugin</code>, and <code>agent-custom</code>.</p>
+        <p>Bad lines never abort the load. An unknown key, a malformed value, or a typo becomes a friendly diagnostic surfaced on startup, and the rest of the file is applied normally.</p>
+        <pre><code><span class="c"># ~/.config/prompt/config</span>
+font-family = JetBrains Mono
+font-family = Menlo          <span class="c"># fallback chain, in order</span>
+font-size = 14.0
+font-feature = +liga
+font-feature = ss01
+
+theme = Catppuccin Mocha
+cursor-style = bar
+copy-on-select = true
+scrollback-limit = 50000</code></pre>
+
+        <h2>Live reload</h2>
+        <p>Prompt watches the config file. Appearance settings (fonts, theme, colors, padding, cursor) and keybindings take effect the moment you save — there is no need to quit and relaunch.</p>
+        <div class="callout tip"><span class="label">Tip</span><p>Keep the config open in a split next to a live terminal and tweak fonts or themes interactively — each save redraws immediately.</p></div>
+
+        <h2>Options</h2>
+        <p>Every supported key is listed below, grouped by area. Keybindings have their own syntax and reference; see the <a href="keybindings.html">Keybindings</a> page for the <code>keybind</code> option.</p>
+
+        <h3>Fonts &amp; text</h3>
+        <div class="tablewrap"><table>
+          <thead><tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>font-family</code></td><td>string (repeatable)</td><td><code>Menlo</code></td><td>Primary font; repeat to build a fallback chain in order of preference.</td></tr>
+            <tr><td><code>font-size</code></td><td>float</td><td><code>13.0</code></td><td>Font size in points.</td></tr>
+            <tr><td><code>font-style</code></td><td>enum <code>normal</code>|<code>bold</code>|<code>italic</code>|<code>bold-italic</code></td><td><code>normal</code></td><td>Base style applied to the default text.</td></tr>
+            <tr><td><code>font-feature</code></td><td>string (repeatable)</td><td>none</td><td>OpenType feature codes, e.g. <code>+liga</code>, <code>-calt</code>, <code>ss01</code>, <code>cv01=2</code>.</td></tr>
+            <tr><td><code>adjust-cell-width</code></td><td>int</td><td><code>0</code></td><td>Pixels added to (or removed from) each cell's width.</td></tr>
+            <tr><td><code>adjust-cell-height</code></td><td>int</td><td><code>0</code></td><td>Pixels added to (or removed from) each cell's height.</td></tr>
+          </tbody>
+        </table></div>
+
+        <h3>Theme &amp; colors</h3>
+        <div class="tablewrap"><table>
+          <thead><tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>theme</code></td><td>string</td><td><code>Dark</code></td><td>Built-in or custom theme name. Matching is case-, space-, dash-, and underscore-insensitive.</td></tr>
+            <tr><td><code>background</code></td><td>hex</td><td>none</td><td>Override the theme background color.</td></tr>
+            <tr><td><code>foreground</code></td><td>hex</td><td>none</td><td>Override the theme foreground color.</td></tr>
+            <tr><td><code>bold-is-bright</code></td><td>bool</td><td><code>false</code></td><td>Render bold text using the bright ANSI palette variant.</td></tr>
+            <tr><td><code>minimum-contrast</code></td><td>float</td><td><code>1.0</code></td><td>Minimum foreground/background contrast ratio. Clamped to <code>1..=21</code>.</td></tr>
+            <tr><td><code>split-divider-color</code></td><td>hex</td><td>none</td><td>Color of the divider between splits.</td></tr>
+            <tr><td><code>unfocused-split-opacity</code></td><td>float</td><td><code>0.7</code></td><td>Opacity of splits that are not focused. Clamped to <code>0.15..=1.0</code>.</td></tr>
+            <tr><td><code>palette</code></td><td>string (repeatable)</td><td>none</td><td>Override a single ANSI color as <code>N=#rrggbb</code>, where <code>N</code> is index 0–255.</td></tr>
+          </tbody>
+        </table></div>
+
+        <h3>Cursor</h3>
+        <div class="tablewrap"><table>
+          <thead><tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>cursor-style</code></td><td>enum <code>block</code>|<code>bar</code>|<code>underline</code></td><td><code>block</code></td><td>Shape of the text cursor.</td></tr>
+            <tr><td><code>cursor-style-blink</code></td><td>bool</td><td><code>true</code></td><td>Whether the cursor blinks.</td></tr>
+            <tr><td><code>cursor-color</code></td><td>hex</td><td>none</td><td>Override the cursor color.</td></tr>
+            <tr><td><code>cursor-text</code></td><td>hex</td><td>none</td><td>Color of the glyph under the cursor.</td></tr>
+            <tr><td><code>selection-foreground</code></td><td>hex</td><td>none</td><td>Text color within a selection.</td></tr>
+            <tr><td><code>selection-background</code></td><td>hex</td><td>none</td><td>Background color of a selection.</td></tr>
+          </tbody>
+        </table></div>
+
+        <h3>Window &amp; padding</h3>
+        <div class="tablewrap"><table>
+          <thead><tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>window-padding-x</code></td><td>int</td><td><code>2</code></td><td>Horizontal padding (pixels) between the grid and the window edge.</td></tr>
+            <tr><td><code>window-padding-y</code></td><td>int</td><td><code>2</code></td><td>Vertical padding (pixels) between the grid and the window edge.</td></tr>
+            <tr><td><code>window-width</code></td><td>int (cells)</td><td><code>0</code> (80)</td><td>Initial window width in cells; <code>0</code> means 80.</td></tr>
+            <tr><td><code>window-height</code></td><td>int (cells)</td><td><code>0</code> (24)</td><td>Initial window height in cells; <code>0</code> means 24.</td></tr>
+            <tr><td><code>title</code></td><td>string</td><td>none</td><td>Fixed window title; overrides the title set by the running program.</td></tr>
+            <tr><td><code>quit-after-last-window-closed</code></td><td>bool</td><td><code>false</code></td><td>Quit the app once the last window closes.</td></tr>
+            <tr><td><code>window-inherit-working-directory</code></td><td>bool</td><td><code>true</code></td><td>New windows inherit the working directory of the focused surface.</td></tr>
+            <tr><td><code>mouse-scroll-multiplier</code></td><td>float</td><td><code>1.0</code></td><td>Scroll speed multiplier. Clamped to <code>0.01..=10000</code>.</td></tr>
+            <tr><td><code>mouse-hide-while-typing</code></td><td>bool</td><td><code>false</code></td><td>Hide the mouse cursor while you type.</td></tr>
+            <tr><td><code>macos-option-as-alt</code></td><td>enum <code>auto</code>|<code>left</code>|<code>right</code>|<code>true</code>|<code>false</code></td><td><code>auto</code></td><td>Treat the macOS Option key as Alt for key encoding.</td></tr>
+          </tbody>
+        </table></div>
+
+        <h3>Shell &amp; behavior</h3>
+        <div class="tablewrap"><table>
+          <thead><tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>command</code></td><td>string (shell path)</td><td>none (login shell)</td><td>Program to run instead of the default login shell.</td></tr>
+            <tr><td><code>working-directory</code></td><td>string</td><td>none (<code>$HOME</code>)</td><td>Initial working directory for new surfaces.</td></tr>
+            <tr><td><code>copy-on-select</code></td><td>bool</td><td><code>false</code></td><td>Copy selected text to the clipboard automatically.</td></tr>
+            <tr><td><code>confirm-close-surface</code></td><td>bool</td><td><code>true</code></td><td>Prompt before closing a surface that has a running process.</td></tr>
+            <tr><td><code>confirm-quit</code></td><td>bool</td><td><code>true</code></td><td>Prompt before quitting the application.</td></tr>
+          </tbody>
+        </table></div>
+
+        <h3>Clipboard &amp; scrollback</h3>
+        <div class="tablewrap"><table>
+          <thead><tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>clipboard-read</code></td><td>enum <code>allow</code>|<code>ask</code>|<code>deny</code></td><td><code>ask</code></td><td>Policy for programs reading the clipboard.</td></tr>
+            <tr><td><code>clipboard-write</code></td><td>enum <code>allow</code>|<code>ask</code>|<code>deny</code></td><td><code>allow</code></td><td>Policy for programs writing the clipboard.</td></tr>
+            <tr><td><code>clipboard-paste-protection</code></td><td>bool</td><td><code>false</code></td><td>Warn before pasting potentially unsafe content.</td></tr>
+            <tr><td><code>scrollback-limit</code></td><td>int (lines)</td><td><code>10000</code></td><td>Maximum number of scrollback lines retained.</td></tr>
+          </tbody>
+        </table></div>
+
+        <h3>Shell integration &amp; sessions</h3>
+        <div class="tablewrap"><table>
+          <thead><tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>shell-integration</code></td><td>bool</td><td><code>true</code></td><td>Inject OSC 133 prompt marks and OSC 7 cwd reporting into zsh/bash/fish via environment — no rc-file edits.</td></tr>
+            <tr><td><code>session-restore</code></td><td>bool</td><td><code>false</code></td><td>Restore windows and splits from the previous run.</td></tr>
+            <tr><td><code>tab-title-show-host</code></td><td>bool</td><td><code>false</code></td><td>Show the hostname in tab titles.</td></tr>
+          </tbody>
+        </table></div>
+
+        <h3>Plugins</h3>
+        <div class="tablewrap"><table>
+          <thead><tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>plugin</code></td><td>string (repeatable)</td><td>none</td><td>Path to a plugin directory or a <code>plugin.toml</code> file. <code>~</code> expands to the home directory.</td></tr>
+          </tbody>
+        </table></div>
+
+        <h3>AI &amp; relay</h3>
+        <div class="tablewrap"><table>
+          <thead><tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>ai-enabled</code></td><td>bool</td><td><code>false</code></td><td>Master switch for AI features.</td></tr>
+            <tr><td><code>mcp-server-enabled</code></td><td>bool</td><td><code>false</code></td><td>Expose Prompt's MCP server for tool calls.</td></tr>
+            <tr><td><code>relay-enabled</code></td><td>bool</td><td><code>false</code></td><td>Enable the agent mesh relay integration.</td></tr>
+            <tr><td><code>relay-start-on-launch</code></td><td>bool</td><td><code>false</code></td><td>Start the relay daemon when the app launches.</td></tr>
+            <tr><td><code>relay-address</code></td><td>string</td><td><code>127.0.0.1:7777</code></td><td>Address the relay server listens on.</td></tr>
+            <tr><td><code>relay-default-agent</code></td><td>string</td><td><code>claude</code></td><td>Default agent launched into a relay split.</td></tr>
+          </tbody>
+        </table></div>
+
+        <h3>Agents</h3>
+        <div class="tablewrap"><table>
+          <thead><tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>agent-claude</code></td><td>bool</td><td><code>true</code></td><td>Enable the Claude Code agent.</td></tr>
+            <tr><td><code>agent-codex</code></td><td>bool</td><td><code>false</code></td><td>Enable the Codex agent.</td></tr>
+            <tr><td><code>agent-ollama</code></td><td>bool</td><td><code>false</code></td><td>Enable the Ollama agent.</td></tr>
+            <tr><td><code>agent-gemini</code></td><td>bool</td><td><code>false</code></td><td>Enable the Gemini agent.</td></tr>
+            <tr><td><code>agent-claude-path</code></td><td>string</td><td>none</td><td>Explicit path to the Claude Code executable.</td></tr>
+            <tr><td><code>agent-codex-path</code></td><td>string</td><td>none</td><td>Explicit path to the Codex executable.</td></tr>
+            <tr><td><code>agent-gemini-path</code></td><td>string</td><td>none</td><td>Explicit path to the Gemini executable.</td></tr>
+            <tr><td><code>agent-custom</code></td><td>string (repeatable)</td><td>none</td><td>Custom agent as <code>label|command template</code>, with <code>{prompt}</code>, <code>{mcp}</code>, <code>{url}</code>, and <code>{name}</code> placeholders.</td></tr>
+          </tbody>
+        </table></div>
+
+        <h2>AI &amp; relay note</h2>
+        <div class="callout note"><span class="label">Note</span><p>All AI, relay, and agent options default to off. Turn them on only when you intend to use them — see the <a href="agents.html">Agent mesh</a> and <a href="mcp.html">MCP</a> pages for setup and details.</p></div>
+      </article>
+    </main>
+    <script type="module" src="docs.js"></script>
+  </body>
+</html>
