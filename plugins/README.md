@@ -141,6 +141,8 @@ You can always run any command from the command palette regardless of keybind.
 
 ## Learn more
 
+- Ideas worth building: [ideas.md](./ideas.md) — today's command model plus what
+  the planned plugin API (event hooks, host capabilities, column UI) unlocks.
 - Tutorial: <https://github.com/wess/prompt/blob/main/docs/plugins.html>
 - Project docs: <https://github.com/wess/prompt>
 
