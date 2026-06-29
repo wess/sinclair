@@ -7,6 +7,7 @@ mod bridge;
 mod colors;
 mod element;
 mod font;
+mod guisetheme;
 mod help;
 mod ipc;
 mod keys;
@@ -20,6 +21,7 @@ mod palette;
 mod pointer;
 mod quick;
 mod relay;
+mod relaywatch;
 mod reload;
 mod rename;
 mod root;
@@ -65,22 +67,16 @@ fn notify_args(args: &[String]) -> (String, String) {
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
 
-    // `prompt --toggle-quick` just signals the running instance (used by a
-    // Wayland compositor keybind to summon the quick terminal) and exits.
     if args.iter().any(|a| a == "--toggle-quick") {
         ipc::send_toggle();
         return;
     }
 
-    // `prompt mcp` runs a Model Context Protocol server on stdio, bridging
-    // tool calls into the running instance over the single-instance socket.
     if args.first().map(String::as_str) == Some("mcp") {
         mcpbridge::run_stdio();
         return;
     }
 
-    // `prompt notify [--title T] <message>` posts a desktop notification, for
-    // agent hooks that can't emit an OSC 9/777/99 escape themselves.
     if args.first().map(String::as_str) == Some("notify") {
         let (title, body) = notify_args(&args[1..]);
         view::notify_command(&title, &body);
@@ -93,21 +89,14 @@ fn main() {
     }
 
     let app = gpui_platform::application();
-    // macOS keeps the app alive after the last window closes; clicking the
-    // dock icon (or relaunching) should bring a fresh window back.
     app.on_reopen(|cx| {
         if cx.windows().is_empty() {
             spawn_window(cx);
         }
     });
     app.run(move |cx: &mut App| {
-        // Keybindings come from config (defaults + user overrides) and are
-        // bound by the workspace view, which owns the resolved table.
-        // Startup has no pane to inherit from; defaults to home.
         open_default_window(opts, cx);
         cx.activate(true);
-        // Two summon paths for the quick terminal: an in-process global
-        // hotkey (macOS/X11) and a socket the compositor can poke (Wayland).
         quick::install_global_hotkey(cx);
         ipc::listen(cx);
     });
@@ -126,6 +115,7 @@ fn spawn_window(cx: &mut App) {
 /// Derive appearance from `opts` and open one default-sized window.
 fn open_default_window(opts: config::Options, cx: &mut App) {
     let colors = Rc::new(colors::from_config(&opts));
+    guisetheme::install(&colors, cx);
     let font = font::build(&opts);
     let font_size = px(opts.font_size.max(1.0));
     let cell = metrics::measure(cx.text_system(), &font, font_size);
@@ -161,10 +151,6 @@ pub fn open_window(
     };
     let (width, height) = metrics::pixel_size(cols, rows, pad, cell);
     let bounds = Bounds::centered(None, size(px(width), px(height)), cx);
-    // Transparent native title bar so our own `titlebar` strip is the whole
-    // chrome (tabs folded in). The macOS traffic lights stay, repositioned;
-    // Linux gets client-side decorations so we can draw controls + resize.
-    // `mut` is used only on Linux (client-side decorations) below.
     #[cfg_attr(not(target_os = "linux"), allow(unused_mut))]
     let mut options = WindowOptions {
         window_bounds: Some(WindowBounds::Windowed(bounds)),
@@ -173,8 +159,6 @@ pub fn open_window(
             appears_transparent: true,
             traffic_light_position: Some(point(px(9.0), px(9.0))),
         }),
-        // Matches the `.desktop` StartupWMClass so Linux associates the window
-        // with our icon in the taskbar/dock.
         app_id: Some("prompt".into()),
         ..Default::default()
     };
