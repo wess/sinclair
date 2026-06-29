@@ -1,4 +1,4 @@
-//! Manages the bundled `relay` sidecar — the agent mesh. Prompt never runs the
+//! Manages the bundled `relay` sidecar, the agent mesh. Prompt never runs the
 //! mesh in-process; it starts/stops the bundled binary as a detached daemon and
 //! launches agents into splits. Every parameter comes from settings, passed
 //! explicitly on the command line (no environment variables).
@@ -52,7 +52,7 @@ pub fn launch_saved_command(opts: &config::Options, name: &str) -> Option<String
 
 /// The bundled `relay` binary: prefer a sibling of the running executable
 /// (inside the app bundle / target dir), else fall back to PATH.
-fn binary() -> String {
+pub(crate) fn binary() -> String {
     if let Ok(exe) = std::env::current_exe() {
         if let Some(dir) = exe.parent() {
             let cand = dir.join("relay");
@@ -154,11 +154,24 @@ pub fn restart(opts: &config::Options) {
     });
 }
 
-/// Reconcile the daemon with current settings after a config reload.
+/// The address the running daemon is bound to, from its record.
+fn bound_addr() -> Option<String> {
+    let bytes = std::fs::read(home().join("server.json")).ok()?;
+    let v: serde_json::Value = serde_json::from_slice(&bytes).ok()?;
+    v["addr"].as_str().map(str::to_string)
+}
+
+/// Reconcile the daemon with current settings after a config reload. A bare
+/// `start` early-returns when a daemon is already up, so when the configured
+/// address has changed under a live daemon we restart to rebind.
 pub fn on_reload(opts: &config::Options) {
     let _ = std::fs::create_dir_all(home());
     if enabled(opts) {
-        run_bg(start_args(opts));
+        if running() && bound_addr().as_deref() != Some(opts.relay_address.as_str()) {
+            restart(opts);
+        } else {
+            run_bg(start_args(opts));
+        }
     } else {
         run_bg(vec!["--home".into(), home_str(), "stop".into()]);
     }
@@ -286,23 +299,35 @@ pub fn launch_agent_command(
     task: Option<&str>,
 ) -> String {
     let r = resolve_provider(opts, provider);
-    let mut s = format!("\"{}\" --home \"{}\" launch {name}", binary(), home_str());
+    let mut s = format!(
+        "{} --home {} launch {}",
+        sh_quote(&binary()),
+        sh_quote(&home_str()),
+        sh_quote(name)
+    );
     if let Some(agent) = &r.agent {
-        s.push_str(&format!(" --agent {agent}"));
+        s.push_str(&format!(" --agent {}", sh_quote(agent)));
     }
     if let Some(bin) = &r.bin {
-        s.push_str(&format!(" --bin \"{}\"", bin.replace('"', "\\\"")));
+        s.push_str(&format!(" --bin {}", sh_quote(bin)));
     }
     if let Some(tmpl) = &r.custom {
-        s.push_str(&format!(" --cmd \"{}\"", tmpl.replace('"', "\\\"")));
+        s.push_str(&format!(" --cmd {}", sh_quote(tmpl)));
     }
     if let Some(r) = role.filter(|r| !r.is_empty()) {
-        s.push_str(&format!(" --role {r}"));
+        s.push_str(&format!(" --role {}", sh_quote(r)));
     }
     if let Some(t) = task.filter(|t| !t.is_empty()) {
-        s.push_str(&format!(" --task \"{}\"", t.replace('"', "'")));
+        s.push_str(&format!(" --task {}", sh_quote(t)));
     }
     keep_open(s)
+}
+
+/// Single-quote a value for safe interpolation into a `/bin/sh -c` string:
+/// wrap it in single quotes and escape any embedded single quote, making the
+/// content inert to the shell (no word-splitting, globbing, or `$()`/`;`).
+fn sh_quote(s: &str) -> String {
+    format!("'{}'", s.replace('\'', "'\\''"))
 }
 
 /// Wrap a launch command so a failure leaves the pane open with the reason
@@ -354,7 +379,7 @@ pub fn team_info(name: &str) -> Option<(String, Vec<(String, String)>)> {
 }
 
 /// Shell command that launches one team member in a pane. The team's first
-/// member is the human-driven `lead` — it stays interactive instead of parking
+/// member is the human-driven `lead`, it stays interactive instead of parking
 /// on the `wait`-loop, so the human can steer it.
 pub fn launch_member(member: &str, role: &str, lead: bool) -> String {
     let flag = if lead { " --lead" } else { "" };
@@ -421,3 +446,7 @@ pub fn running() -> bool {
         })
         .unwrap_or(false)
 }
+
+#[cfg(test)]
+#[path = "../tests/relay.rs"]
+mod tests;

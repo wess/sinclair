@@ -4,15 +4,20 @@ use crate::db;
 use crate::spawn;
 use crate::state::App;
 use axum::extract::{Query, State};
+use axum::response::sse::{Event, KeepAlive, Sse};
+use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde::Deserialize;
 use serde_json::{json, Value};
+use std::convert::Infallible;
 use std::sync::atomic::Ordering;
+use std::time::Duration;
 
 pub fn routes() -> Router<App> {
     Router::new()
         .route("/control/state", get(state))
+        .route("/control/events", get(events))
         .route("/control/feed", get(feed))
         .route("/control/spawn", post(spawn_worker))
         .route("/control/stop", post(stop_worker))
@@ -21,7 +26,6 @@ pub fn routes() -> Router<App> {
         .route("/control/send", post(send))
 }
 
-// --- Bus access for non-MCP participants (e.g. the Ollama bridge) ------------
 
 #[derive(Deserialize)]
 struct RegisterReq {
@@ -37,6 +41,7 @@ async fn register(State(app): State<App>, Json(r): Json<RegisterReq>) -> Json<Va
     for ch in &r.channels {
         let _ = db::subscribe(&app.db, &r.name, ch).await;
     }
+    app.bump();
     Json(json!({ "ok": ok }))
 }
 
@@ -71,6 +76,12 @@ async fn send(State(app): State<App>, Json(r): Json<SendReq>) -> Json<Value> {
 }
 
 async fn state(State(app): State<App>) -> Json<Value> {
+    Json(snapshot(&app).await)
+}
+
+/// The `{agents, workers}` roster, shared by `/control/state` (one-shot) and
+/// `/control/events` (streamed).
+async fn snapshot(app: &App) -> Value {
     let agents = db::list_agents(&app.db)
         .await
         .unwrap_or_default()
@@ -92,7 +103,29 @@ async fn state(State(app): State<App>) -> Json<Value> {
         }));
     }
 
-    Json(json!({ "agents": agents, "workers": workers }))
+    json!({ "agents": agents, "workers": workers })
+}
+
+/// Live status stream: emits the current snapshot immediately, then a fresh one
+/// every time the roster or a worker changes (see `App::bump`). Keepalive pings
+/// hold the connection open through quiet periods.
+async fn events(State(app): State<App>) -> Response {
+    let mut rx = app.events.subscribe();
+    let stream = async_stream::stream! {
+        let data = serde_json::to_string(&snapshot(&app).await).unwrap_or_default();
+        yield Ok::<Event, Infallible>(Event::default().event("state").data(data));
+        while rx.changed().await.is_ok() {
+            let data = serde_json::to_string(&snapshot(&app).await).unwrap_or_default();
+            yield Ok::<Event, Infallible>(Event::default().event("state").data(data));
+        }
+    };
+    Sse::new(stream)
+        .keep_alive(
+            KeepAlive::new()
+                .interval(Duration::from_secs(15))
+                .text("keepalive"),
+        )
+        .into_response()
 }
 
 #[derive(Deserialize)]

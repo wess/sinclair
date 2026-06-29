@@ -8,6 +8,7 @@ pub mod ps;
 pub mod role;
 pub mod server;
 pub mod team;
+pub mod watch;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -36,10 +37,12 @@ enum Cmd {
     #[command(hide = true)]
     Serve(ServeArgs),
 
-    /// Launch an agent under relay — wired to the bus, MCP, and wait-loop harness.
+    /// Launch an agent under relay, wired to the bus, MCP, and wait-loop harness.
     Launch(LaunchArgs),
     /// List registered agents and background workers.
     Ps,
+    /// Stream live status as newline-delimited JSON (used by the app sidebar).
+    Watch,
     /// Stop a background worker by name.
     Kill { name: String },
     /// Print the message bus (use --follow to stream).
@@ -215,6 +218,7 @@ pub async fn run(cli: Cli) -> Result<()> {
         Cmd::Status => server::status(),
         Cmd::Launch(a) => launch::launch(a).await,
         Cmd::Ps => ps::ps(),
+        Cmd::Watch => watch::watch(),
         Cmd::Kill { name } => ps::kill(&name),
         Cmd::Feed { follow } => feed::feed(follow),
         Cmd::Role { action } => role::run(action),

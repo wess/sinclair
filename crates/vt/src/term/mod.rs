@@ -138,7 +138,6 @@ impl Terminal {
 
     /// Drive the parser with bytes read from the pty.
     pub fn feed(&mut self, bytes: &[u8]) {
-        // vte 0.13's `advance` takes a single byte.
         for &byte in bytes {
             self.parser.advance(&mut self.inner, byte);
         }
@@ -268,7 +267,6 @@ impl Terminal {
     /// changes) escalate to full damage.
     pub fn take_damage(&mut self) -> Damage {
         if std::mem::take(&mut self.inner.full_damage) {
-            // Everything repaints; drop stale per-row damage on both grids.
             self.inner.primary.grid.take_damage();
             self.inner.alt.grid.take_damage();
             return Damage::Full;
@@ -467,8 +465,6 @@ impl Terminal {
         if row >= self.rows() {
             return None;
         }
-        // Build the row's text and a char-index -> column map, skipping
-        // wide spacers (a wide glyph occupies its head column plus one).
         let cells = &self.visible_row(row).cells;
         let mut chars: Vec<char> = Vec::with_capacity(cells.len());
         let mut col_of: Vec<usize> = Vec::with_capacity(cells.len());
@@ -492,7 +488,7 @@ impl Terminal {
 
     /// Global indices of rows marked as shell prompts (OSC 133;A), sorted
     /// oldest first. Index space matches the viewport: `0..scrollback.len()`
-    /// are history rows, `scrollback.len()..` are live-grid rows — so the
+    /// are history rows, `scrollback.len()..` are live-grid rows - so the
     /// top viewport row is `scrollback.len() - display_offset`. Used for
     /// jump-to-prompt.
     pub fn prompt_lines(&self) -> Vec<usize> {

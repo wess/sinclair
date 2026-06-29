@@ -3,7 +3,7 @@
 //! Recording works at the shell-command level: as the user types at a prompt
 //! the recorder accumulates printable text into the current line, and each
 //! submitted line (Enter) becomes one captured command. This deliberately
-//! ignores cursor movement and other control input — it captures *what was
+//! ignores cursor movement and other control input - it captures *what was
 //! typed*, segmented on Enter, which is the honest unit a "command macro"
 //! replays. The caller feeds plain key descriptions so this stays decoupled
 //! from any input encoder.
@@ -64,8 +64,6 @@ impl Recorder {
             }
             _ => {
                 if let Some(text) = text {
-                    // Only printable text contributes; control runs (escape
-                    // sequences, arrows) carry no command text.
                     if !text.is_empty() && !text.chars().any(char::is_control) {
                         self.line.push_str(text);
                     }

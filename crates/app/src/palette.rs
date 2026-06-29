@@ -131,7 +131,6 @@ impl PaletteView {
                 crate::textkeys::Outcome::Submit => self.run(window, cx),
                 crate::textkeys::Outcome::Cancel => window.remove_window(),
                 crate::textkeys::Outcome::Edited => {
-                    // A new filter can shrink the list; keep the cursor in range.
                     self.selected = 0;
                     cx.notify();
                     cx.stop_propagation();
@@ -158,7 +157,6 @@ impl Render for PaletteView {
                     .child(SharedString::from("No matching commands")),
             );
         }
-        // A window of ROWS around the selection so long lists stay in view.
         let start = selected.saturating_sub(ROWS - 1);
         for (vis, &idx) in matches.iter().enumerate().skip(start).take(ROWS) {
             let it = &self.items[idx];

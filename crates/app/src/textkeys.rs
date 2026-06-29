@@ -6,9 +6,9 @@ use crate::textedit::TextEdit;
 use gpui::Keystroke;
 
 pub enum Outcome {
-    /// Enter — the caller should commit.
+    /// Enter, the caller should commit.
     Submit,
-    /// Escape — the caller should dismiss.
+    /// Escape, the caller should dismiss.
     Cancel,
     /// The field changed; redraw.
     Edited,
@@ -42,7 +42,6 @@ pub fn apply(edit: &mut TextEdit, ks: &Keystroke) -> Outcome {
             }
             return Outcome::Edited;
         }
-        // Single-line: vertical motion collapses to line ends.
         "up" => {
             edit.home();
             return Outcome::Edited;
@@ -79,7 +78,6 @@ pub fn apply(edit: &mut TextEdit, ks: &Keystroke) -> Outcome {
             }
             return Outcome::Edited;
         }
-        // Emacs-style line kill, common in macOS text fields.
         "k" if m.control => {
             edit.delete_to_end();
             return Outcome::Edited;
@@ -94,8 +92,6 @@ pub fn apply(edit: &mut TextEdit, ks: &Keystroke) -> Outcome {
         }
         _ => {}
     }
-    // Plain typed text (incl. Option+letter for accented chars). Cmd/Ctrl combos
-    // are left for the caller (window shortcuts).
     if !m.platform && !m.control {
         if let Some(t) = ks.key_char.as_deref().filter(|t| !t.is_empty()) {
             edit.insert(t);

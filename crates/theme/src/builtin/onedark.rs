@@ -1,4 +1,4 @@
-//! One Dark — Atom One Dark terminal palette.
+//! One Dark - Atom One Dark terminal palette.
 
 use crate::rgb::Rgb;
 use crate::scheme::Scheme;

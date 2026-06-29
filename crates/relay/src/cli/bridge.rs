@@ -1,6 +1,6 @@
 //! Bridge runtime: makes a non-agentic backend (Ollama) a mesh participant.
-//! Relay drives the loop — register, wait for a message, run an agentic
-//! tool-using turn against the model, report back — over the plain-HTTP control
+//! Relay drives the loop, register, wait for a message, run an agentic
+//! tool-using turn against the model, report back, over the plain-HTTP control
 //! plane (no MCP client needed).
 
 use super::{http, AgentArgs};

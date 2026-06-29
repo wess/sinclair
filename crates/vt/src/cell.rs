@@ -97,7 +97,7 @@ impl Cell {
         (self.zw != '\0').then_some(self.zw).into_iter()
     }
 
-    /// Push `ch` followed by any combining marks onto `out` — the cell's full
+    /// Push `ch` followed by any combining marks onto `out` - the cell's full
     /// grapheme as text.
     pub fn write_grapheme(&self, out: &mut String) {
         out.push(self.ch);

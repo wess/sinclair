@@ -11,8 +11,6 @@ pub fn apply(opts: &mut Options, key: &str, val: &str) -> Result<(), String> {
     let empty = val.is_empty();
     match key {
         "font-family" => {
-            // Empty resets the chain; otherwise each entry appends a
-            // fallback (the first becomes the primary font).
             if empty {
                 opts.font_family = d.font_family;
             } else {

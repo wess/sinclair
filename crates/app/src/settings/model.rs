@@ -263,7 +263,6 @@ impl Num {
     /// The current value formatted for display.
     pub fn display(self, o: &Options) -> String {
         let v = self.current(o);
-        // Window dimensions of 0 mean "follow the default grid".
         if matches!(self, Num::WindowWidth | Num::WindowHeight) && v == 0.0 {
             return "auto".to_string();
         }
@@ -283,7 +282,6 @@ fn fmt_num(v: f32, is_int: bool) -> String {
     if is_int {
         format!("{}", v.round() as i64)
     } else {
-        // f32's `{}` already renders the shortest round-tripping decimal.
         format!("{v}")
     }
 }
@@ -477,7 +475,6 @@ impl Field {
     }
 
     pub fn value(self, o: &Options) -> String {
-        // String-typed (non-optional) fields.
         match self {
             Field::RelayAddress => return o.relay_address.clone(),
             Field::RelayDefaultAgent => return o.relay_default_agent.clone(),
@@ -497,7 +494,8 @@ impl Field {
             Field::ClaudePath => &o.agent_claude_path,
             Field::CodexPath => &o.agent_codex_path,
             Field::GeminiPath => &o.agent_gemini_path,
-            Field::RelayAddress | Field::RelayDefaultAgent => unreachable!(),
+            Field::RelayAddress => return o.relay_address.clone(),
+            Field::RelayDefaultAgent => return o.relay_default_agent.clone(),
         };
         opt.clone().unwrap_or_default()
     }

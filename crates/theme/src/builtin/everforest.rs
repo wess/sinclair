@@ -1,4 +1,4 @@
-//! Everforest (dark, medium) — sainnhe/everforest palette.
+//! Everforest (dark, medium) - sainnhe/everforest palette.
 
 use crate::rgb::Rgb;
 use crate::scheme::Scheme;

@@ -110,7 +110,6 @@ fn colon_color(sub: &[u16]) -> Option<Color> {
     match sub.first()? {
         2 => {
             let rest = &sub[1..];
-            // A 4+ value payload carries a leading colorspace id; skip it.
             let rgb = if rest.len() >= 4 {
                 &rest[1..4]
             } else {

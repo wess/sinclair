@@ -89,7 +89,6 @@ impl Pty {
     }
 }
 
-// The master OwnedFd closes itself when Pty drops; no explicit Drop needed.
 
 #[cfg(all(test, unix))]
 #[path = "../tests/session.rs"]

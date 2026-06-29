@@ -11,10 +11,9 @@ use std::time::Duration;
 /// timeout or when not blocking and the inbox is empty).
 pub async fn await_messages(app: &App, name: &str, block: bool, max_wait: Duration) -> Vec<Message> {
     let deadline = tokio::time::Instant::now() + max_wait;
+    let signal = app.waiter(name).await;
     loop {
-        // Arm the wake signal before querying, so a message inserted during the
-        // query still wakes us.
-        let notified = app.notify.notified();
+        let notified = signal.notified();
         tokio::pin!(notified);
         notified.as_mut().enable();
 
@@ -31,6 +30,9 @@ pub async fn await_messages(app: &App, name: &str, block: bool, max_wait: Durati
         if !block {
             return Vec::new();
         }
+        let Ok(_permit) = app.waits.try_acquire() else {
+            return Vec::new();
+        };
         tokio::select! {
             _ = &mut notified => continue,
             _ = tokio::time::sleep_until(deadline) => return Vec::new(),
@@ -47,6 +49,14 @@ pub async fn deliver(
     body: &str,
 ) -> anyhow::Result<i64> {
     let id = db::insert_message(&app.db, from, kind, target, body).await?;
-    app.wake();
+    match (kind, target) {
+        ("direct", Some(to)) => app.wake_one(to).await,
+        ("channel", Some(channel)) => {
+            for agent in db::channel_subs(&app.db, channel).await.unwrap_or_default() {
+                app.wake_one(&agent).await;
+            }
+        }
+        _ => app.wake_all().await,
+    }
     Ok(id)
 }

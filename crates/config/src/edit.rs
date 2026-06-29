@@ -38,7 +38,6 @@ pub fn set_list(text: &str, key: &str, values: &[String]) -> String {
                 }
                 emitted = true;
             }
-            // Drop the original line; the block above replaces all of them.
         } else {
             out.push_str(line);
             out.push('\n');

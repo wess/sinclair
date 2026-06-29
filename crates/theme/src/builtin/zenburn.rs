@@ -1,4 +1,4 @@
-//! Zenburn — Jani Nurminen's low-contrast palette (terminal port).
+//! Zenburn - Jani Nurminen's low-contrast palette (terminal port).
 
 use crate::rgb::Rgb;
 use crate::scheme::Scheme;

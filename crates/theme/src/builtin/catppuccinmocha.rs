@@ -1,4 +1,4 @@
-//! Catppuccin Mocha — official catppuccin palette (terminal mapping).
+//! Catppuccin Mocha - official catppuccin palette (terminal mapping).
 
 use crate::rgb::Rgb;
 use crate::scheme::Scheme;

@@ -26,12 +26,73 @@ const POLL: Duration = Duration::from_millis(60);
 /// How long the server waits for a client to send its request line.
 const READ_TIMEOUT: Duration = Duration::from_millis(500);
 
-/// Per-user socket path: `$XDG_RUNTIME_DIR` on Linux, the temp dir otherwise.
+/// Directory that holds the socket: `$XDG_RUNTIME_DIR` (already a private
+/// per-user dir on Linux) when set, otherwise a per-user subdirectory of the
+/// temp dir, never the shared temp root itself, which any local user can write.
+fn socket_dir() -> PathBuf {
+    if let Some(dir) = std::env::var_os("XDG_RUNTIME_DIR") {
+        return PathBuf::from(dir);
+    }
+    let uid = unsafe { libc::getuid() };
+    std::env::temp_dir().join(format!("prompt-{uid}"))
+}
+
+/// Per-user socket path under [`socket_dir`].
 fn socket_path() -> PathBuf {
-    let dir = std::env::var_os("XDG_RUNTIME_DIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(std::env::temp_dir);
-    dir.join("prompt-quick.sock")
+    socket_dir().join("prompt-quick.sock")
+}
+
+/// Make sure the socket's directory exists and is private to us: a real
+/// directory (not a symlink), owned by this uid, with no group/other access.
+/// Returns false if it can't be made safe, we then refuse to listen rather
+/// than expose a world-reachable control socket.
+fn ensure_private_dir(dir: &Path) -> bool {
+    use std::os::unix::fs::{DirBuilderExt, MetadataExt, PermissionsExt};
+    if !dir.exists() {
+        let _ = std::fs::DirBuilder::new().mode(0o700).create(dir);
+    }
+    let Ok(meta) = std::fs::symlink_metadata(dir) else {
+        return false;
+    };
+    if !meta.is_dir() || meta.uid() != unsafe { libc::getuid() } {
+        return false;
+    }
+    if meta.permissions().mode() & 0o077 != 0 {
+        let _ = std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o700));
+    }
+    true
+}
+
+/// The connecting peer's uid, via the platform's socket-credential call.
+/// `None` if the kernel won't report it.
+fn peer_uid(stream: &UnixStream) -> Option<u32> {
+    use std::os::unix::io::AsRawFd;
+    let fd = stream.as_raw_fd();
+    #[cfg(target_os = "macos")]
+    {
+        let mut uid: libc::uid_t = 0;
+        let mut gid: libc::gid_t = 0;
+        (unsafe { libc::getpeereid(fd, &mut uid, &mut gid) } == 0).then_some(uid)
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let mut cred = libc::ucred {
+            pid: 0,
+            uid: 0,
+            gid: 0,
+        };
+        let mut len = std::mem::size_of::<libc::ucred>() as libc::socklen_t;
+        let rc = unsafe {
+            libc::getsockopt(
+                fd,
+                libc::SOL_SOCKET,
+                libc::SO_PEERCRED,
+                (&mut cred as *mut libc::ucred).cast(),
+                &mut len,
+            )
+        };
+        (rc == 0).then_some(cred.uid)
+    }
 }
 
 /// Client: ask a running instance to toggle the quick terminal. Returns
@@ -96,6 +157,9 @@ pub fn listen(cx: &mut App) {
 /// Read one request from `stream`, dispatch it against app state, and write
 /// the response back.
 async fn serve(stream: UnixStream, cx: &gpui::AsyncApp) {
+    if peer_uid(&stream) != Some(unsafe { libc::getuid() }) {
+        return;
+    }
     let _ = stream.set_nonblocking(false);
     let _ = stream.set_read_timeout(Some(READ_TIMEOUT));
     let mut line = String::new();
@@ -120,16 +184,23 @@ async fn serve(stream: UnixStream, cx: &gpui::AsyncApp) {
         .and_then(|()| stream.flush());
 }
 
-/// Bind the socket, clearing a stale file left by a crashed instance.
+/// Bind the socket inside a private directory, clearing a stale file left by a
+/// crashed instance, and lock the socket to owner-only access.
 fn bind(path: &Path) -> Option<UnixListener> {
-    match UnixListener::bind(path) {
-        Ok(listener) => Some(listener),
-        // Exists: if nobody is listening it is stale — remove and retry, else
-        // another live instance owns it and will service requests.
+    if let Some(dir) = path.parent() {
+        if !ensure_private_dir(dir) {
+            return None;
+        }
+    }
+    let listener = match UnixListener::bind(path) {
+        Ok(listener) => listener,
         Err(_) if UnixStream::connect(path).is_err() => {
             let _ = std::fs::remove_file(path);
-            UnixListener::bind(path).ok()
+            UnixListener::bind(path).ok()?
         }
-        Err(_) => None,
-    }
+        Err(_) => return None,
+    };
+    use std::os::unix::fs::PermissionsExt;
+    let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600));
+    Some(listener)
 }

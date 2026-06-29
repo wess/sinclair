@@ -1,4 +1,4 @@
-//! Rose Pine (main) — official rose-pine terminal palette.
+//! Rose Pine (main) - official rose-pine terminal palette.
 
 use crate::rgb::Rgb;
 use crate::scheme::Scheme;

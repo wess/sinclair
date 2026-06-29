@@ -5,7 +5,7 @@
 //! A [`Point`] is `(line, col)` where `line: isize` is absolute to content:
 //! line 0 is the top row of the live grid, positive lines go down the live
 //! grid, and negative lines reach into scrollback (-1 is the newest history
-//! row, `-scrollback_len` the oldest) — the same scheme as
+//! row, `-scrollback_len` the oldest) - the same scheme as
 //! [`Grid::absolute_row`]. A viewport row `i` rendered at display offset
 //! `o` therefore has line `i as isize - o as isize`.
 //!
@@ -185,7 +185,7 @@ pub fn text(grid: &Grid, sel: &Selection) -> String {
             }
         }
         if row.wrapped && line != end.line {
-            continue; // soft wrap: the logical line continues
+            continue;
         }
         logical.truncate(logical.trim_end().len());
         out.push_str(&logical);
@@ -204,7 +204,6 @@ fn is_word(grid: &Grid, p: Point, extra: &[char]) -> bool {
     let Some(cell) = row.cells.get(p.col) else {
         return false;
     };
-    // A wide spacer belongs to the wide char before it.
     let cell = if cell.is_wide_spacer() && p.col > 0 {
         &row.cells[p.col - 1]
     } else {

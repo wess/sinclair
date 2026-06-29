@@ -7,7 +7,7 @@ use std::time::Duration;
 
 /// Max time a single `wait` call parks before returning empty (safety net for
 /// transport timeouts). The agent's protocol is to call `wait` again.
-const WAIT_MAX: Duration = Duration::from_secs(1500); // 25 min
+const WAIT_MAX: Duration = Duration::from_secs(1500);
 
 /// JSON-Schema tool list returned by `tools/list`.
 pub fn list() -> Value {
@@ -135,11 +135,11 @@ pub async fn call(app: &App, session: &str, name: &str, args: &Value) -> Value {
             return fail(format!("register failed: {e}"));
         }
         app.bind(session, agent).await;
+        app.bump();
         let roster = roster_text(app).await;
         return text(format!("registered as '{agent}'.\n{roster}"));
     }
 
-    // Every other tool requires an established identity.
     let Some(me) = app.name_of(session).await else {
         return fail("not registered on this connection — call 'register' first");
     };
@@ -231,7 +231,7 @@ pub async fn call(app: &App, session: &str, name: &str, args: &Value) -> Value {
             });
             let keep_alive = args.get("keep_alive").and_then(Value::as_bool).unwrap_or(true);
 
-            let mcp_str = match crate::cli::paths::write_mcp_config(&app.endpoint, wname) {
+            let mcp_str = match crate::cli::paths::write_mcp_config(&app.endpoint, wname, &app.token) {
                 Ok(p) => p,
                 Err(e) => return fail(format!("spawn failed: {e}")),
             };

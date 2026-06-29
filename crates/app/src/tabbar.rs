@@ -6,7 +6,7 @@ use gpui::{div, px, ClickEvent, Context, MouseButton, SharedString, WindowContro
 use theme::Rgb;
 
 use crate::colors::{self, Colors};
-use crate::root::WorkspaceView;
+use crate::root::{TabBarMenu, WorkspaceView};
 
 /// Linear mix of two colors: `t` 0 is `a`, 1 is `b`. Clamped.
 pub fn blend(a: Rgb, b: Rgb, t: f32) -> Rgb {
@@ -42,10 +42,9 @@ pub fn visible_split(n: usize, active: usize, max_visible: usize) -> (Vec<usize>
     if n <= max_visible {
         return ((0..n).collect(), Vec::new());
     }
-    let show = max_visible.saturating_sub(1).max(1); // reserve a slot for `…`
+    let show = max_visible.saturating_sub(1).max(1);
     let mut visible: Vec<usize> = (0..show).collect();
     if !visible.contains(&active) {
-        // Keep the active tab reachable inline by taking the last visible slot.
         if let Some(last) = visible.last_mut() {
             *last = active;
         }
@@ -59,10 +58,12 @@ pub fn visible_split(n: usize, active: usize, max_visible: usize) -> (Vec<usize>
 /// inactive tabs are dimmed and brighten on hover. When more tabs exist than
 /// `max_visible` slots, the overflow folds into a trailing `…` button (which
 /// opens a dropdown); a final + opens a new tab.
+#[allow(clippy::too_many_arguments)]
 pub fn tabs(
     tabs: &[TabInfo],
     active: usize,
     max_visible: usize,
+    open_menu: Option<TabBarMenu>,
     colors: &Colors,
     font: &gpui::Font,
     font_size: gpui::Pixels,
@@ -79,8 +80,6 @@ pub fn tabs(
     let (visible, overflow) = visible_split(tabs.len(), active, max_visible);
 
     let mut row = div()
-        // Fill the whole strip so the tabs stretch and the trailing controls
-        // sit at the right edge instead of wherever the tab text happens to end.
         .flex_1()
         .flex()
         .flex_row()
@@ -98,18 +97,10 @@ pub fn tabs(
                 .items_center()
                 .gap(px(6.0))
                 .h_full()
-                // Grow to share the strip width evenly, capped so a lone tab
-                // doesn't span the entire bar. A high grow weight (vs the
-                // drag filler's 1) means the tabs claim space first: when they
-                // overflow they fill the strip and the `…`/`+` sit flush right;
-                // only once every tab hits its max width does the filler take
-                // the slack.
                 .flex_grow(100.0)
                 .min_w(px(100.0))
                 .max_w(px(240.0))
                 .px(px(10.0))
-                // The bottom border is normally transparent (steady baseline);
-                // a tab needing attention shows the accent here.
                 .border_b_2()
                 .border_color(if info.attention {
                     attention
@@ -162,7 +153,6 @@ pub fn tabs(
                 )
         }));
 
-    // The overflow `…` button: a count of hidden tabs, opening the dropdown.
     if !overflow.is_empty() {
         let n = overflow.len();
         row = row.child(
@@ -184,27 +174,6 @@ pub fn tabs(
         );
     }
 
-    row = row.child(
-        div()
-            .id("newtab")
-            .flex()
-            .items_center()
-            .justify_center()
-            .w(px(34.0))
-            .h_full()
-            .text_color(dim)
-            .hover(|s| s.bg(hover).text_color(fg))
-            .on_click(cx.listener(|this, _: &ClickEvent, window, cx| {
-                this.newtab(window, cx);
-            }))
-            .child(SharedString::from("+")),
-    );
-
-    // The leftover space to the right of the controls is the window drag
-    // handle. It lives in this same flex row (not a sibling container) so the
-    // tabs above can stretch first; it only claims space once the tabs hit
-    // their max width. gpui ignores `window_control_area(Drag)` on macOS, so
-    // the move is started explicitly on mouse-down (as on Linux).
     let mut filler = div()
         .id("titlebar-drag")
         .flex_1()
@@ -227,7 +196,46 @@ pub fn tabs(
             }
         });
     }
-    row.child(filler)
+    row = row.child(filler);
+
+    // Trailing button section: new (+) and split-into-column, each opening a
+    // dropdown of choices. The active button (open menu) stays highlighted.
+    let mut sep = fg;
+    sep.a = 0.18;
+
+    let button = move |id: &'static str, glyph: &'static str, menu: TabBarMenu| {
+        let open = open_menu == Some(menu);
+        div()
+            .id(id)
+            .flex()
+            .items_center()
+            .justify_center()
+            .w(px(34.0))
+            .h_full()
+            .text_color(if open { fg } else { dim })
+            .when(open, |s| s.bg(hover))
+            .hover(|s| s.bg(hover).text_color(fg))
+            .on_click(cx.listener(move |this, _: &ClickEvent, _window, cx| {
+                this.toggle_trailing_menu(menu, cx);
+            }))
+            .child(SharedString::from(glyph))
+    };
+
+    row.child(
+        div()
+            .flex()
+            .flex_row()
+            .items_center()
+            .h_full()
+            .border_l_1()
+            .border_color(sep)
+            .child(button("newtab", "+", TabBarMenu::New))
+            .child(
+                button("splitcolumn", "\u{25eb}", TabBarMenu::Split)
+                    .border_l_1()
+                    .border_color(sep),
+            ),
+    )
 }
 
 #[cfg(test)]

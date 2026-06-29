@@ -11,8 +11,6 @@ pub fn encode_key(key: &str, text: Option<&str>, mods: Mods, state: TermState) -
     if mods.cmd {
         return None;
     }
-    // Kitty keyboard protocol intercepts the keys it disambiguates; others
-    // fall through to legacy encoding below.
     if state.kitty_flags != 0 {
         if let Some(bytes) = kitty::encode(key, mods, state.kitty_flags) {
             return Some(bytes);

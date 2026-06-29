@@ -1,4 +1,4 @@
-//! Dracula — official terminal palette (draculatheme.com).
+//! Dracula - official terminal palette (draculatheme.com).
 
 use crate::rgb::Rgb;
 use crate::scheme::Scheme;

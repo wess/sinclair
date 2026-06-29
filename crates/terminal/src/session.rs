@@ -162,11 +162,9 @@ impl Session {
             return;
         };
         if let Ok(mut pty) = self.pty.lock() {
-            // Best effort: fails harmlessly when the child already exited.
             let _ = pty.kill();
         }
         let _ = handle.join();
-        // Dropping the Session afterwards drops the last master fds.
     }
 }
 
@@ -187,13 +185,11 @@ fn read_loop(
     recorder: Arc<Mutex<Option<cast::Recorder>>>,
     events: Sender<Event>,
 ) {
-    let mut buf = [0u8; 8192];
+    let mut buf = [0u8; 65536];
     loop {
         match output.read(&mut buf) {
-            // EOF: every slave-side fd is closed (macOS reports this).
             Ok(0) => break,
             Ok(n) => {
-                // Tap the raw output for an active recording before emulation.
                 if let Ok(mut rec) = recorder.lock() {
                     if let Some(rec) = rec.as_mut() {
                         let _ = rec.output(&buf[..n]);
@@ -202,7 +198,6 @@ fn read_loop(
                 apply_chunk(&buf[..n], &mut replies, &term, &pending, &events);
             }
             Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
-            // Linux reports EIO instead of EOF once the child is gone.
             Err(_) => break,
         }
     }
@@ -219,9 +214,6 @@ fn apply_chunk(
 ) {
     let (reply, title, bell, clipboard, notification) = {
         let mut term = term.lock().unwrap_or_else(|e| e.into_inner());
-        // Contain any parser panic on untrusted pty bytes: it neither poisons
-        // the lock nor kills the reader thread — at worst one chunk is dropped
-        // and the next one still processes. (Release builds unwind by default.)
         let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| term.feed(chunk)));
         (
             term.take_output(),
@@ -232,7 +224,6 @@ fn apply_chunk(
         )
     };
     if !reply.is_empty() {
-        // DSR/DA/query answers back to the child; ignore a dying pty.
         let _ = replies.write_all(&reply);
     }
     if let Some(title) = title {
@@ -253,8 +244,6 @@ fn apply_chunk(
             body: note.body,
         });
     }
-    // Coalesce: queue a Wakeup only when none is pending; the embedder
-    // re-arms via with_term/clear_wakeup.
     if !pending.swap(true, Ordering::SeqCst) {
         let _ = events.send(Event::Wakeup);
     }

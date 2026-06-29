@@ -1,4 +1,4 @@
-//! Kanagawa (wave) — rebelot/kanagawa.nvim terminal palette.
+//! Kanagawa (wave) - rebelot/kanagawa.nvim terminal palette.
 
 use crate::rgb::Rgb;
 use crate::scheme::Scheme;

@@ -237,8 +237,16 @@ button that checks it's reachable (CLI `--version`, or the Ollama API port).
 
 ## Notes & limits
 
-- **Localhost trust.** The bus and control plane assume a trusted local machine.
-  Don't bind `relay-address` to a public interface without adding auth.
+- **Authentication.** Every request to `/mcp` and `/control/*` must carry the
+  server's bearer token (`Authorization: Bearer …`); only `/health` is open. The
+  token is generated at startup and stored in `server.json`, which — along with
+  the bus DB and logs — is written owner-only (0600) inside a 0700 state dir, so
+  only the same user can read it. The CLI, the app, and launched agents pick it
+  up automatically (the latter via the generated `*.mcp.json`).
+- **Localhost trust.** The token gates cross-user access on a shared host, but
+  the bus still trusts the self-asserted `from`/`name` within a single user's
+  mesh. Binding `relay-address` to a public interface is still discouraged: the
+  token is the only gate, with no transport encryption.
 - **Ordering.** A new agent only sees messages sent after it registers. Start
   workers before dispatching, or re-register (the same name keeps its read
   cursor).

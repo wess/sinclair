@@ -1,4 +1,4 @@
-//! Solarized Light — Ethan Schoonover's canonical palette.
+//! Solarized Light - Ethan Schoonover's canonical palette.
 
 use crate::rgb::Rgb;
 use crate::scheme::Scheme;

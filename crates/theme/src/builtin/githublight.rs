@@ -1,4 +1,4 @@
-//! GitHub Light (default) — primer/github-vscode-theme terminal colors.
+//! GitHub Light (default) - primer/github-vscode-theme terminal colors.
 
 use crate::rgb::Rgb;
 use crate::scheme::Scheme;

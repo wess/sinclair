@@ -11,8 +11,6 @@ pub async fn launch(a: LaunchArgs) -> Result<()> {
     let endpoint = paths::endpoint(&info.addr);
     let name = resolve_name(a.name.as_deref())?;
 
-    // Resolve the role (project → user → built-in); its fields are defaults that
-    // explicit flags override.
     let role = role::resolve(&a.role);
     let brief = role.as_ref().map(|r| r.description.clone()).unwrap_or_default();
     let mut channels = role.as_ref().map(|r| r.channels.clone()).unwrap_or_default();
@@ -36,11 +34,8 @@ pub async fn launch(a: LaunchArgs) -> Result<()> {
             .map(|p| p.display().to_string())
             .unwrap_or_else(|_| ".".into())
     });
-    // The lead/supervisor is driven by the human in its terminal, so it launches
-    // interactively instead of parking on the `wait`-loop. Background workers are
-    // never interactive (no human attached).
     let interactive = !a.background && (a.lead || role.as_ref().is_some_and(|r| r.driver));
-    let mcp = paths::write_mcp_config(&endpoint, &name)?;
+    let mcp = paths::write_mcp_config(&endpoint, &name, &info.token)?;
     let prompt = agent::harness_prompt(&name, &a.role, &brief, &channels, a.task.as_deref(), interactive);
 
     let mut built = agent::build(&agent::Spec {
@@ -57,9 +52,6 @@ pub async fn launch(a: LaunchArgs) -> Result<()> {
         skip_perms: a.background,
     })?;
 
-    // An explicit --bin overrides the resolved program for built-in agents
-    // (not for --cmd templates, which carry their own program, nor the ollama
-    // bridge, which runs this relay executable).
     if let Some(bin) = a.bin.as_deref().map(str::trim).filter(|b| !b.is_empty()) {
         if a.cmd.is_none() && agent_name != "ollama" {
             built.program = bin.to_string();
@@ -94,7 +86,6 @@ pub async fn launch(a: LaunchArgs) -> Result<()> {
     } else {
         let label = if a.cmd.is_some() { "custom" } else { agent_name.as_str() };
         println!("launching {label} as '{name}' on {endpoint} …");
-        // exec replaces this process with the agent CLI; only returns on failure.
         let err = Command::new(&built.program)
             .args(&built.args)
             .current_dir(&cwd)

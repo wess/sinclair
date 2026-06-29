@@ -196,34 +196,34 @@ pub struct Options {
     pub plugin: Vec<String>,
     /// File key: `keybind`, raw strings (accumulated, parsed later).
     pub keybind: Vec<String>,
-    /// File key: `ai-enabled` — master switch for all AI features.
+    /// File key: `ai-enabled` - master switch for all AI features.
     pub ai_enabled: bool,
-    /// File key: `mcp-server-enabled` — expose this terminal to agents over MCP.
+    /// File key: `mcp-server-enabled` - expose this terminal to agents over MCP.
     pub mcp_server_enabled: bool,
-    /// File key: `relay-enabled` — run the Relay agent mesh.
+    /// File key: `relay-enabled` - run the Relay agent mesh.
     pub relay_enabled: bool,
-    /// File key: `relay-start-on-launch` — start Relay when Prompt launches.
+    /// File key: `relay-start-on-launch` - start Relay when Prompt launches.
     pub relay_start_on_launch: bool,
-    /// File key: `relay-address` — bind address for the Relay server.
+    /// File key: `relay-address` - bind address for the Relay server.
     pub relay_address: String,
-    /// File key: `relay-default-agent` — default agent CLI for launches.
+    /// File key: `relay-default-agent` - default agent CLI for launches.
     pub relay_default_agent: String,
-    /// File key: `agent-claude` — Claude Code available as an agent.
+    /// File key: `agent-claude` - Claude Code available as an agent.
     pub agent_claude: bool,
-    /// File key: `agent-codex` — Codex available as an agent.
+    /// File key: `agent-codex` - Codex available as an agent.
     pub agent_codex: bool,
-    /// File key: `agent-ollama` — Ollama available as a (bridged) agent.
+    /// File key: `agent-ollama` - Ollama available as a (bridged) agent.
     pub agent_ollama: bool,
-    /// File key: `agent-gemini` — Gemini available as an agent.
+    /// File key: `agent-gemini` - Gemini available as an agent.
     pub agent_gemini: bool,
-    /// File key: `agent-claude-path` — explicit path to the `claude` binary
+    /// File key: `agent-claude-path` - explicit path to the `claude` binary
     /// (overrides PATH lookup). Empty means search PATH.
     pub agent_claude_path: Option<String>,
-    /// File key: `agent-codex-path` — explicit path to the `codex` binary.
+    /// File key: `agent-codex-path` - explicit path to the `codex` binary.
     pub agent_codex_path: Option<String>,
-    /// File key: `agent-gemini-path` — explicit path to the `gemini` binary.
+    /// File key: `agent-gemini-path` - explicit path to the `gemini` binary.
     pub agent_gemini_path: Option<String>,
-    /// File key: `agent-custom` (repeatable) — user-defined agent tools, each
+    /// File key: `agent-custom` (repeatable) - user-defined agent tools, each
     /// `label|command template`, where the template may use `{prompt}`, `{mcp}`,
     /// `{url}`, and `{name}` placeholders.
     pub agent_custom: Vec<String>,

@@ -47,6 +47,28 @@ impl Scrollback {
         self.rows.push_back(row);
     }
 
+    /// Append a copy of `row`, recycling the evicted front row's buffer when
+    /// the ring is at its limit. Instead of allocating a clone of `row` and
+    /// freeing the dropped front row, the front row is popped and overwritten
+    /// in place (reusing its `Vec<Cell>` capacity), then pushed to the back -
+    /// no per-line alloc/free once at steady state. Result is identical to
+    /// `push(row.clone())`.
+    pub(crate) fn push_recycled(&mut self, row: &Row) {
+        if self.limit == 0 {
+            return;
+        }
+        if self.rows.len() == self.limit {
+            let mut recycled = self
+                .rows
+                .pop_front()
+                .expect("len == limit > 0 implies a front row");
+            recycled.copy_from(row);
+            self.rows.push_back(recycled);
+        } else {
+            self.rows.push_back(row.clone());
+        }
+    }
+
     /// Row by age: index 0 is the oldest stored row.
     pub fn get(&self, index: usize) -> Option<&Row> {
         self.rows.get(index)

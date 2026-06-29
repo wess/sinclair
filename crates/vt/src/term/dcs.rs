@@ -65,18 +65,20 @@ pub(crate) fn unhook(inner: &mut Inner) {
     }
 }
 
-/// Answer one XTGETTCAP capability. `cap` is the hex-encoded name as the
-/// program sent it; the reply echoes that hex verbatim.
+/// Answer one XTGETTCAP capability. `cap` is the hex-encoded name the program
+/// sent. Only valid-hex queries are answered, and the reply re-encodes the
+/// decoded name rather than echoing the request bytes - echoing the raw bytes
+/// would let a hostile program send control characters (newlines included)
+/// straight back into the pty, where the shell reads them as typed input.
 fn reply_cap(inner: &mut Inner, cap: &[u8]) {
-    let name = hex_decode(cap);
-    let hex = String::from_utf8_lossy(cap);
-    let (flag, body) = match name.as_deref().and_then(lookup) {
-        // Known with a value: `1+r <hexname>=<hexvalue>`.
+    let Some(name) = hex_decode(cap) else {
+        return;
+    };
+    let hex = hex_encode(&name);
+    let (flag, body) = match lookup(&name) {
         Some(Some(value)) => (b'1', format!("{hex}={}", hex_encode(value.as_bytes()))),
-        // Known boolean: `1+r <hexname>`.
-        Some(None) => (b'1', hex.to_string()),
-        // Unknown: `0+r <hexname>`.
-        None => (b'0', hex.to_string()),
+        Some(None) => (b'1', hex),
+        None => (b'0', hex),
     };
     inner.output.extend_from_slice(b"\x1bP");
     inner.output.push(flag);

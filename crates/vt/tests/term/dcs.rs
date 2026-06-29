@@ -75,6 +75,15 @@ fn xtgettcap_multiple_caps() {
 }
 
 #[test]
+fn xtgettcap_non_hex_query_is_not_echoed() {
+    let mut t = Terminal::new(10, 3, 0);
+    // A non-hex payload (here containing a newline) must not be reflected back
+    // into the pty: a reply carrying control bytes would be read as shell input.
+    t.feed(b"\x1bP+qZZ\nrm\x1b\\");
+    assert!(t.take_output().is_empty());
+}
+
+#[test]
 fn non_xtgettcap_dcs_ignored() {
     let mut t = Terminal::new(10, 3, 0);
     t.feed(b"\x1bPsomething\x1b\\ok");

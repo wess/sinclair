@@ -247,8 +247,6 @@ impl Element for SplitsElement {
             }
         }
 
-        // Mark focus by lightly dimming every pane except the focused one,
-        // rather than drawing a border around the active terminal.
         if frame.panes.len() > 1 {
             for &(pane, bounds) in &frame.panes {
                 if pane != self.focused {
@@ -257,7 +255,6 @@ impl Element for SplitsElement {
             }
         }
 
-        // Divider drag start.
         let drag = self.drag.clone();
         let hitboxes: Vec<(SplitId, Axis, Hitbox)> = frame
             .dividers
@@ -280,7 +277,6 @@ impl Element for SplitsElement {
             }
         });
 
-        // Click focuses the pane under the pointer.
         let root = self.root.clone();
         let panes = frame.panes.clone();
         let focused = self.focused;
@@ -300,7 +296,6 @@ impl Element for SplitsElement {
             }
         });
 
-        // Divider drag adjusts the split ratio.
         let drag = self.drag.clone();
         let root = self.root.clone();
         let tree = self.tree.clone();
@@ -325,7 +320,6 @@ impl Element for SplitsElement {
                 .ok();
         });
 
-        // Release ends the drag.
         let drag = self.drag.clone();
         window.on_mouse_event(move |_: &MouseUpEvent, phase, _window, _cx| {
             if phase == DispatchPhase::Bubble {

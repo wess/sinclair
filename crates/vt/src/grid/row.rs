@@ -50,6 +50,16 @@ impl Row {
         self.cells.resize(cols, blank);
     }
 
+    /// Overwrite this row's contents with `src`, reusing the existing cell
+    /// buffer's allocation instead of replacing it. `Vec::clone_from` keeps
+    /// the current capacity when it can, so a recycled row takes no new heap
+    /// allocation. The result is identical to cloning `src`.
+    pub(crate) fn copy_from(&mut self, src: &Row) {
+        self.cells.clone_from(&src.cells);
+        self.wrapped = src.wrapped;
+        self.prompt = src.prompt;
+    }
+
     /// Row contents as text, skipping wide spacers, right-trimmed.
     /// Includes any combining marks. Primarily for tests and debugging.
     pub fn text(&self) -> String {

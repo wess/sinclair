@@ -194,7 +194,6 @@ fn nearestnode(node: &Node, pane: PaneId, axis: Axis) -> Option<SplitId> {
     } else {
         return None;
     };
-    // A deeper split of the right axis is closer to the pane, so it wins.
     nearestnode(child, pane, axis).or(if *a == axis { Some(*id) } else { None })
 }
 

@@ -1,4 +1,4 @@
-//! Gruvbox Dark (medium) — morhetz/gruvbox canonical palette.
+//! Gruvbox Dark (medium) - morhetz/gruvbox canonical palette.
 
 use crate::rgb::Rgb;
 use crate::scheme::Scheme;

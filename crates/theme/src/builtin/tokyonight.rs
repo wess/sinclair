@@ -1,4 +1,4 @@
-//! Tokyo Night (night variant) — folke/tokyonight.nvim palette.
+//! Tokyo Night (night variant) - folke/tokyonight.nvim palette.
 
 use crate::rgb::Rgb;
 use crate::scheme::Scheme;

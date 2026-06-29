@@ -2,7 +2,7 @@
 //!
 //! Damage policy: every mutable row/cell access marks that row dirty.
 //! Scrolling (any region), resizing, and scrollback clearing escalate to
-//! full damage — rows shift wholesale and renderers repaint everything on
+//! full damage - rows shift wholesale and renderers repaint everything on
 //! those events anyway.
 
 pub mod damage;
@@ -112,7 +112,7 @@ impl Grid {
         }
         if save {
             for i in top..top + n {
-                self.scrollback.push(self.lines[i].clone());
+                self.scrollback.push_recycled(&self.lines[i]);
             }
         }
         self.lines[top..=bottom].rotate_left(n);
@@ -144,7 +144,7 @@ impl Grid {
     ///
     /// When the width changes on a screen with scrollback (the primary
     /// screen), soft-wrapped logical lines are rejoined and re-wrapped at the
-    /// new width — content reflows instead of being truncated. The alternate
+    /// new width - content reflows instead of being truncated. The alternate
     /// screen (no scrollback) and height-only changes use a plain
     /// truncate/pad, matching what full-screen apps expect.
     pub fn resize(&mut self, cols: usize, rows: usize, cursor: (usize, usize)) -> (usize, usize) {
@@ -181,8 +181,6 @@ impl Grid {
     /// wrap boundary (a rare split renders one column off).
     fn reflow(&mut self, cols: usize, rows: usize, cursor: (usize, usize)) -> (usize, usize) {
         let (cur_row, cur_col) = cursor;
-        // Content extends to the cursor or the last non-blank live row,
-        // whichever is lower; rows below that are unused screen padding.
         let last_content = self
             .lines
             .iter()
@@ -190,14 +188,10 @@ impl Grid {
             .unwrap_or(0);
         let content_end = cur_row.max(last_content);
 
-        // The full ordered run of rows: scrollback (oldest first) then the
-        // live content rows. The cursor sits at this combined index.
         let mut combined: Vec<Row> = self.scrollback.iter().cloned().collect();
         let cursor_combined = combined.len() + cur_row;
         combined.extend(self.lines[..=content_end].iter().cloned());
 
-        // Group into logical lines (a run joined by `wrapped`), tracking which
-        // logical line the cursor lands in and its column offset there.
         let mut logicals: Vec<(Vec<Cell>, bool)> = Vec::new();
         let mut cur_logical = 0usize;
         let mut cur_offset = 0usize;
@@ -219,8 +213,6 @@ impl Grid {
                 }
             }
             let has_cursor = (start..i).contains(&cursor_combined);
-            // Trim the trailing blank padding of a hard-ended line, but never
-            // past the cursor column on its own line.
             let mut end = cells.len();
             while end > 0 && cells[end - 1] == Cell::default() {
                 end -= 1;
@@ -236,7 +228,6 @@ impl Grid {
             logicals.push((cells, prompt));
         }
 
-        // Re-wrap each logical line into `cols`-wide rows.
         let mut out: Vec<Row> = Vec::new();
         let mut cur_flat_row = 0usize;
         let mut cur_new_col = 0usize;
@@ -262,7 +253,6 @@ impl Grid {
             }
         }
 
-        // The last `rows` rows stay live; the rest become scrollback.
         let live_start = out.len().saturating_sub(rows);
         self.scrollback.clear();
         for row in out.drain(..live_start) {

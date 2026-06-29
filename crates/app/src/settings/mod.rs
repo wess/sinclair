@@ -20,7 +20,7 @@ const HEIGHT: f32 = 810.0;
 
 /// What the single active text editor is bound to.
 #[derive(Clone, PartialEq)]
-enum EditTarget {
+pub(crate) enum EditTarget {
     /// A scalar free-text option.
     Field(Field),
     /// An existing entry of a repeated option.
@@ -153,8 +153,6 @@ impl SettingsView {
         cx.notify();
     }
 
-    // --- Macros ------------------------------------------------------------
-
     /// The trigger currently bound to replay this macro, if any.
     fn macro_shortcut(&self, name: &str) -> Option<String> {
         let action = config::Action::MacroReplay(name.to_string());
@@ -222,8 +220,6 @@ impl SettingsView {
         cx.notify();
     }
 
-    // --- Control actions ---------------------------------------------------
-
     fn toggle(&mut self, b: Bool, cx: &mut Context<Self>) {
         write_config(b.key(), &(!b.get(&self.opts)).to_string());
         self.reload();
@@ -241,8 +237,6 @@ impl SettingsView {
         self.reload();
         cx.notify();
     }
-
-    // --- Editing -----------------------------------------------------------
 
     fn begin_edit(&mut self, target: EditTarget, window: &mut Window, cx: &mut Context<Self>) {
         match target {
@@ -272,7 +266,6 @@ impl SettingsView {
 
     fn start_new_item(&mut self, kind: ListKind, window: &mut Window, cx: &mut Context<Self>) {
         self.editing = Some((EditTarget::NewItem(kind), TextEdit::new("")));
-        // A new keybind starts armed: just press the chord.
         self.capturing = kind == ListKind::Keybind;
         window.focus(&self.focus, cx);
         cx.notify();
@@ -342,8 +335,6 @@ impl SettingsView {
 
     fn key_down(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
         let ks = &event.keystroke;
-        // While armed, every chord (even cmd+w) is captured as the trigger;
-        // Escape cancels.
         if self.capturing {
             if ks.key == "escape" {
                 self.capturing = false;

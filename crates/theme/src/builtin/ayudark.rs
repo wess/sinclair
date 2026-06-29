@@ -1,4 +1,4 @@
-//! Ayu Dark — ayu-theme/ayu-colors terminal palette.
+//! Ayu Dark - ayu-theme/ayu-colors terminal palette.
 
 use crate::rgb::Rgb;
 use crate::scheme::Scheme;

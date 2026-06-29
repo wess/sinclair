@@ -221,6 +221,9 @@ fn to_config_round_trips() {
         Action::RelayStart,
         Action::RelayStop,
         Action::RelayRestart,
+        Action::Tile("grid-4".into()),
+        Action::Sidebar("left".into()),
+        Action::Sidebar("right:relay".into()),
         Action::Quit,
         Action::Unbound,
     ];

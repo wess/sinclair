@@ -6,6 +6,9 @@ use crate::sgr;
 
 use super::Inner;
 
+/// Most saved titles the XTWINOPS stack keeps (matches xterm's default).
+const TITLE_STACK_MAX: usize = 10;
+
 /// Handle a complete CSI sequence. Unknown sequences are ignored.
 pub(crate) fn dispatch(
     inner: &mut Inner,
@@ -14,7 +17,6 @@ pub(crate) fn dispatch(
     action: char,
 ) {
     let private = intermediates.contains(&b'?');
-    // First subparameter of each parameter; enough for everything but SGR.
     let p: Vec<u16> = params
         .iter()
         .map(|s| s.first().copied().unwrap_or(0))
@@ -48,11 +50,9 @@ pub(crate) fn dispatch(
         ('Z', []) => inner.tab_backward(count(&p, 0)),
         ('b', []) => inner.repeat_last(count(&p, 0)),
         ('c', []) if arg(&p, 0, 0) == 0 => {
-            // DA1: report VT220-class with sixel-less feature set.
             inner.output.extend_from_slice(b"\x1b[?62;22c");
         }
         ('c', [b'>']) => {
-            // DA2: terminal type 0 ("VT100"), firmware version, ROM 0.
             inner.output.extend_from_slice(b"\x1b[>0;276;0c");
         }
         ('d', []) => inner.set_row(count(&p, 0) - 1),
@@ -84,7 +84,6 @@ pub(crate) fn dispatch(
         ('r', []) => inner.set_scroll_region(arg(&p, 0, 0), arg(&p, 1, 0)),
         ('s', []) => inner.save_cursor(),
         ('u', []) => inner.restore_cursor(),
-        // Kitty keyboard protocol negotiation.
         ('u', [b'?']) => {
             let flags = inner.screen().kitty.current();
             inner
@@ -99,8 +98,9 @@ pub(crate) fn dispatch(
             inner.screen_mut().kitty.set(flags, mode);
         }
         ('t', []) => match arg(&p, 0, 0) {
-            // XTWINOPS title stack.
-            22 => inner.title_stack.push(inner.title.clone()),
+            22 if inner.title_stack.len() < TITLE_STACK_MAX => {
+                inner.title_stack.push(inner.title.clone());
+            }
             23 => {
                 if let Some(title) = inner.title_stack.pop() {
                     inner.title = title;

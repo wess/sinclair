@@ -128,12 +128,10 @@ pub fn tools() -> Vec<mcp::Tool> {
 
 /// Server side: run one op against the active workspace and return its result.
 pub fn handle(op: &str, args: &Value, cx: &mut App) -> Result<Value, String> {
-    // The quick-terminal toggle needs no workspace and predates the tool set.
     if op == "toggle_quick" {
         crate::quick::toggle(cx);
         return Ok(json!({ "ok": true }));
     }
-    // Notifications post natively and need no workspace.
     if op == "notify" {
         let body = args.get("body").and_then(Value::as_str).unwrap_or_default();
         let title = args.get("title").and_then(Value::as_str).unwrap_or("Prompt");

@@ -28,7 +28,7 @@ pub struct Spec<'a> {
 /// `wait`, costing nothing until a teammate sends it work. A `driver` (the
 /// human-facing lead of a team, or a supervisor launched on its own) instead
 /// stays interactive: it registers, then hands control back to the human in its
-/// terminal and only calls `wait` to gather replies *after* it has delegated —
+/// terminal and only calls `wait` to gather replies *after* it has delegated, 
 /// never parking the human out of their own session.
 pub fn harness_prompt(
     name: &str,
@@ -156,6 +156,8 @@ fn codex(spec: &Spec) -> Launch {
 fn ollama(spec: &Spec) -> Result<Launch> {
     let exe = std::env::current_exe()?.to_string_lossy().into_owned();
     let mut args = vec![
+        "--home".into(),
+        super::paths::abs_dir().to_string_lossy().into_owned(),
         "agent".into(),
         "ollama".into(),
         "--name".into(),
@@ -178,7 +180,6 @@ fn ollama(spec: &Spec) -> Result<Launch> {
     Ok(Launch { program: exe, args })
 }
 
-// NOTE: gemini MCP wiring is best-effort — adjust here or pass --cmd.
 fn gemini_template() -> &'static str {
     "gemini --mcp-config {mcp} --prompt {prompt}"
 }
@@ -211,14 +212,12 @@ mod tests {
         let p = harness_prompt("backend", "backend", "", &[], None, false);
         assert!(p.contains("Call `wait` to receive work"));
         assert!(p.contains("Never stop the wait-loop"));
-        // A parked worker must not be told to defer to a human.
         assert!(!p.contains("human in this terminal"));
     }
 
     #[test]
     fn driver_harness_stays_interactive() {
         let p = harness_prompt("lead", "supervisor", "", &[], None, true);
-        // The lead registers but does not park: it waits for the human, not `wait`.
         assert!(p.contains("do NOT call `wait` yet"));
         assert!(p.contains("human in this terminal"));
         assert!(!p.contains("Never stop the wait-loop"));

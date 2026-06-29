@@ -50,9 +50,6 @@ mod imp {
                     | NSWindowCollectionBehavior::FullScreenAuxiliary
                     | NSWindowCollectionBehavior::Stationary,
             );
-            // A dropdown terminal has no window chrome: hide the traffic
-            // lights so there is no close affordance (dismiss via the hotkey,
-            // double-Escape, or `exit`).
             for button in [
                 NSWindowButton::CloseButton,
                 NSWindowButton::MiniaturizeButton,
@@ -83,7 +80,7 @@ mod imp {
 
     type CFTypeRef = *const c_void;
     type CFStringRef = *const c_void;
-    const UTF8: u32 = 0x0800_0100; // kCFStringEncodingUTF8
+    const UTF8: u32 = 0x0800_0100;
 
     // SAFETY: standard system framework symbols. `TISCopy*` returns a +1
     // reference we release; `TISGetInputSourceProperty` returns a borrowed
@@ -118,12 +115,10 @@ mod imp {
 
     /// Copy a `CFStringRef` into an owned `String`.
     unsafe fn cfstring_to_string(s: CFStringRef) -> Option<String> {
-        // Fast path: a direct UTF-8 pointer when CoreFoundation has one.
         let ptr = CFStringGetCStringPtr(s, UTF8);
         if !ptr.is_null() {
             return CStr::from_ptr(ptr).to_str().ok().map(str::to_owned);
         }
-        // Fallback: render into a temporary buffer (up to 4 bytes/char + NUL).
         let cap = (CFStringGetLength(s) * 4 + 1).max(16);
         let mut buf = vec![0 as c_char; cap as usize];
         if CFStringGetCString(s, buf.as_mut_ptr(), cap, UTF8) != 0 {
@@ -137,8 +132,6 @@ mod imp {
     /// Must be called on the main thread (gpui guarantees this for the
     /// `handle.update`/render closures we call it from).
     fn with_nswindow(window: &Window, f: impl FnOnce(&NSWindow)) {
-        // `Window` has an inherent `window_handle()` returning gpui's own
-        // handle, so reach the raw-window-handle trait method by UFCS.
         let Ok(handle) = HasWindowHandle::window_handle(window) else {
             return;
         };

@@ -13,13 +13,11 @@ use crate::screen::Screen;
 use super::Inner;
 
 impl Inner {
-    // --- printing ---------------------------------------------------------
 
     /// Write one already-charset-mapped character at the cursor.
     pub(crate) fn write_char(&mut self, c: char) {
         let width = c.width().unwrap_or(0);
         if width == 0 {
-            // Combining mark / joiner: attach to the base cell just written.
             self.attach_combining(c);
             return;
         }
@@ -33,7 +31,6 @@ impl Inner {
         }
         self.screen_mut().cursor.pending_wrap = false;
 
-        // A wide char that cannot fit before the right margin.
         if width == 2 && self.screen().cursor.col + 1 >= cols {
             if autowrap {
                 self.wrap_line();
@@ -46,7 +43,6 @@ impl Inner {
             self.insert_blank(width);
         }
 
-        // Printing into a selected row invalidates the selection.
         let row = self.screen().cursor.row;
         self.selection_clear_row(row);
 
@@ -76,9 +72,6 @@ impl Inner {
 
         let next = col + width;
         if next >= cols {
-            // The last cell was overwritten: any previous soft-wrap
-            // continuation is stale. `wrap_line` re-sets the flag if the
-            // line actually continues.
             scr.grid.row_mut(row).wrapped = false;
             scr.cursor.col = cols - 1;
             scr.cursor.pending_wrap = autowrap;
@@ -87,7 +80,7 @@ impl Inner {
         }
     }
 
-    /// Attach a zero-width mark to the base cell — the last printed glyph,
+    /// Attach a zero-width mark to the base cell - the last printed glyph,
     /// which sits left of the cursor (or under it when a wrap is pending).
     /// Steps onto the wide head when the base is a 2-column character.
     fn attach_combining(&mut self, c: char) {
@@ -154,7 +147,6 @@ impl Inner {
         self.linefeed();
     }
 
-    // --- line movement / scrolling ----------------------------------------
 
     /// LF/VT/FF/IND: move down, scrolling at the bottom margin.
     pub(crate) fn linefeed(&mut self) {
@@ -218,7 +210,6 @@ impl Inner {
         }
     }
 
-    // --- cursor movement ---------------------------------------------------
 
     pub(crate) fn cursor_up(&mut self, n: usize) {
         let scr = self.screen_mut();
@@ -293,7 +284,6 @@ impl Inner {
         scr.cursor.pending_wrap = false;
     }
 
-    // --- tabs ---------------------------------------------------------------
 
     pub(crate) fn tab_forward(&mut self, n: usize) {
         let scr = self.screen_mut();
@@ -309,7 +299,6 @@ impl Inner {
         }
     }
 
-    // --- erase / edit --------------------------------------------------------
 
     /// ED: erase in display (0 below, 1 above, 2 all, 3 scrollback).
     /// Clears the selection when the erased band intersects it; ED 3 also
@@ -328,8 +317,8 @@ impl Inner {
             _ => {}
         }
         match mode {
-            2 => self.images.retain(|i| i.line < 0), // keep scrolled-back images
-            3 => self.images.retain(|i| i.line >= 0), // keep on-screen images
+            2 => self.images.retain(|i| i.line < 0),
+            3 => self.images.retain(|i| i.line >= 0),
             _ => {}
         }
         let scr = self.screen_mut();
@@ -341,7 +330,6 @@ impl Inner {
                 for c in ccol..cols {
                     *scr.grid.cell_mut(crow, c) = blank;
                 }
-                // Blanked to the end: the row no longer continues.
                 scr.grid.row_mut(crow).wrapped = false;
                 for r in crow + 1..rows {
                     scr.grid.row_mut(r).fill(blank);
@@ -361,7 +349,6 @@ impl Inner {
                 }
                 scr.grid.damage_full();
             }
-            // clear_scrollback escalates to full damage itself.
             3 => scr.grid.clear_scrollback(),
             _ => {}
         }
@@ -484,7 +471,6 @@ impl Inner {
         }
     }
 
-    // --- saved cursor / regions / reset ---------------------------------------
 
     /// DECSC.
     pub(crate) fn save_cursor(&mut self) {
@@ -569,7 +555,6 @@ impl Inner {
         scr.cursor.pending_wrap = false;
     }
 
-    // --- alternate screen ------------------------------------------------------
 
     /// Entering the alternate screen resets the display offset (alt has no
     /// scrollback) and drops the selection (it pointed at primary content).
@@ -600,7 +585,6 @@ impl Inner {
         self.modes.remove(Modes::ALT_SCREEN);
     }
 
-    // --- responses ----------------------------------------------------------------
 
     /// DSR 6: cursor position report, origin-mode adjusted.
     pub(crate) fn report_cursor(&mut self) {

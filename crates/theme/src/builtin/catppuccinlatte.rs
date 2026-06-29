@@ -1,4 +1,4 @@
-//! Catppuccin Latte — official catppuccin palette (terminal mapping).
+//! Catppuccin Latte - official catppuccin palette (terminal mapping).
 
 use crate::rgb::Rgb;
 use crate::scheme::Scheme;

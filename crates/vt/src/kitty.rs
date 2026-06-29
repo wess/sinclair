@@ -23,7 +23,7 @@ pub mod flags {
 const MAX_DEPTH: usize = 16;
 
 /// A screen's stack of enhancement flag sets. The current flags are the
-/// top of the stack (0 — legacy mode — when empty).
+/// top of the stack (0 - legacy mode - when empty).
 #[derive(Debug, Clone, Default)]
 pub struct KittyKeyboard {
     stack: Vec<u8>,

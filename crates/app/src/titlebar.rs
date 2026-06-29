@@ -9,7 +9,7 @@ use gpui::prelude::*;
 use gpui::{div, px, Context, Window, WindowControlArea};
 
 use crate::colors::{self, Colors};
-use crate::root::WorkspaceView;
+use crate::root::{TabBarMenu, WorkspaceView};
 use crate::tabbar;
 
 /// macOS traffic-light clearance, with a little breathing room before the
@@ -27,6 +27,7 @@ pub fn bar(
     tabs: &[tabbar::TabInfo],
     active: usize,
     max_visible: usize,
+    open_menu: Option<TabBarMenu>,
     colors: &Colors,
     font: &gpui::Font,
     font_size: gpui::Pixels,
@@ -48,15 +49,10 @@ pub fn bar(
         .flex_row()
         .items_center()
         .bg(barbg)
-        // Whole bar is a platform drag region (native drag on macOS).
         .window_control_area(WindowControlArea::Drag)
         .pl(lead)
-        // The tab strip fills the bar width and carries the trailing drag
-        // handle itself, so the tabs stretch and the controls sit flush right.
-        .child(tabbar::tabs(tabs, active, max_visible, colors, font, font_size, cx));
+        .child(tabbar::tabs(tabs, active, max_visible, open_menu, colors, font, font_size, cx));
 
-    // Linux/Windows have no native window buttons under a transparent bar, so
-    // draw our own at the trailing edge.
     #[cfg(target_os = "linux")]
     let bar = bar.child(window_controls(colors));
 

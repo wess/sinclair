@@ -13,13 +13,10 @@ pub(crate) fn dispatch(inner: &mut Inner, params: &[&[u8]], bell_terminated: boo
         return;
     };
     match cmd {
-        // Window title (0 also sets the icon name; we only track the title).
         0 | 2 => {
-            inner.title = rejoin(&params[1..]);
+            inner.title = sanitize_title(&rejoin(&params[1..]));
             inner.title_changed = true;
         }
-        // Palette entries: 4;index;spec-or-? [;index;spec-or-? ...].
-        // `?` queries; anything else sets.
         4 => {
             for pair in params[1..].chunks(2) {
                 let [idx, spec] = pair else { continue };
@@ -36,18 +33,14 @@ pub(crate) fn dispatch(inner: &mut Inner, params: &[&[u8]], bell_terminated: boo
                     }
                 } else if let Some(rgb) = parse_color_spec(&String::from_utf8_lossy(spec)) {
                     inner.palette[idx as usize] = Some(rgb);
-                    // Recolors any cell using the index: full damage.
                     inner.full_damage = true;
                 }
             }
         }
-        // Working directory, as a file:// URL or plain path.
         7 => {
             let s = rejoin(&params[1..]);
             inner.cwd = (!s.is_empty()).then_some(s);
         }
-        // Hyperlink: `8 ; params ; URI`. An empty URI closes the link.
-        // The URI may contain `;`, so rejoin everything past the params.
         8 => {
             let uri = rejoin(&params[2..]);
             let hid = if uri.is_empty() {
@@ -58,21 +51,14 @@ pub(crate) fn dispatch(inner: &mut Inner, params: &[&[u8]], bell_terminated: boo
             };
             inner.screen_mut().cursor.pen.hyperlink = hid;
         }
-        // Shell integration semantic prompts (OSC 133). `A`
-        // marks the start of a prompt; that row becomes a jump target.
-        // `B`/`C`/`D` (command start / output / end) are accepted but not
-        // yet acted on.
         133 => {
             if params.get(1).and_then(|p| p.first()) == Some(&b'A') {
                 let row = inner.screen().cursor.row;
                 inner.screen_mut().grid.row_mut(row).prompt = true;
             }
         }
-        // Dynamic foreground / background: query only (the theme owns the
-        // actual colors; dynamic set is not yet plumbed to the renderer).
         10 => dynamic_query(inner, params.get(1), bell_terminated, 10, report_fg),
         11 => dynamic_query(inner, params.get(1), bell_terminated, 11, report_bg),
-        // Cursor color: set, or query (override beats the theme cursor).
         12 => {
             if params.get(1) == Some(&b"?".as_slice()) {
                 if let Some(rgb) = inner.cursor_color.or_else(|| report_cursor(inner)) {
@@ -85,8 +71,6 @@ pub(crate) fn dispatch(inner: &mut Inner, params: &[&[u8]], bell_terminated: boo
                 }
             }
         }
-        // Clipboard set (OSC 52). `52;<kind>;<base64>`; data `?` is a query
-        // we cannot answer (no system clipboard read here), so it's ignored.
         52 => {
             let kind = params
                 .get(1)
@@ -108,7 +92,6 @@ pub(crate) fn dispatch(inner: &mut Inner, params: &[&[u8]], bell_terminated: boo
                 }
             }
         }
-        // Reset palette entries (all when no indices given).
         104 => {
             if params.len() <= 1 {
                 inner.palette = [None; 256];
@@ -121,13 +104,10 @@ pub(crate) fn dispatch(inner: &mut Inner, params: &[&[u8]], bell_terminated: boo
             }
             inner.full_damage = true;
         }
-        // Reset cursor color.
         112 => {
             inner.cursor_color = None;
             inner.full_damage = true;
         }
-        // Desktop notification (iTerm2 OSC 9): `9;<text>`. ConEmu's numeric
-        // subcommands (`9;4;...` progress and friends) are not notifications.
         9 => {
             let conemu = params.len() > 2
                 && params
@@ -137,7 +117,6 @@ pub(crate) fn dispatch(inner: &mut Inner, params: &[&[u8]], bell_terminated: boo
                 notify(inner, None, rejoin(&params[1..]));
             }
         }
-        // urxvt notify protocol: `777;notify;<title>;<body>`.
         777 => {
             if params.get(1) == Some(&b"notify".as_slice()) {
                 let title = params
@@ -147,9 +126,6 @@ pub(crate) fn dispatch(inner: &mut Inner, params: &[&[u8]], bell_terminated: boo
                 notify(inner, title, rejoin(&params[3..]));
             }
         }
-        // kitty desktop notification (OSC 99): `99;<metadata>;<payload>`. We
-        // handle the common single-chunk case and treat the payload as the
-        // body; chunking, base64, identifiers, and actions are not supported.
         99 => {
             notify(inner, None, rejoin(&params[2..]));
         }
@@ -229,6 +205,12 @@ fn link_id_param(field: Option<&&[u8]>) -> Option<String> {
     })
 }
 
+/// Drop control characters from a window title before it reaches the host UI,
+/// so a program can't smuggle newlines or escape bytes into the title bar.
+fn sanitize_title(title: &str) -> String {
+    title.chars().filter(|c| !c.is_control()).collect()
+}
+
 /// Rebuild a value that vte split on `;` (titles may legitimately contain it).
 fn rejoin(params: &[&[u8]]) -> String {
     params
@@ -266,10 +248,6 @@ pub(crate) fn parse_color_spec(spec: &str) -> Option<(u8, u8, u8)> {
         return Some((r, g, b));
     }
     if let Some(hex) = spec.strip_prefix('#') {
-        // Reject non-ASCII so the byte slices below always land on char
-        // boundaries: a multi-byte codepoint with byte length 3/6/12 (e.g. from
-        // a crafted OSC color) would otherwise split mid-codepoint and panic,
-        // poisoning the term lock and crashing the app.
         if !hex.is_ascii() {
             return None;
         }

@@ -35,11 +35,9 @@ fn match_at(s: &[char]) -> Option<usize> {
     while len < s.len() && is_url_char(s[len]) {
         len += 1;
     }
-    // Need at least one char of authority/path after the scheme.
     if len == scheme_len {
         return None;
     }
-    // Trim trailing sentence punctuation and an unbalanced closing paren.
     while len > scheme_len && is_trailing(s[len - 1]) {
         if s[len - 1] == ')' && balanced_paren(&s[scheme_len..len]) {
             break;

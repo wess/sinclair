@@ -1,4 +1,4 @@
-//! Monokai — Wimer Hazenberg's palette (base16 terminal mapping).
+//! Monokai - Wimer Hazenberg's palette (base16 terminal mapping).
 
 use crate::rgb::Rgb;
 use crate::scheme::Scheme;

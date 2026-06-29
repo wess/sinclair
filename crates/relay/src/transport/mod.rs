@@ -28,7 +28,6 @@ pub async fn handle(State(app): State<App>, headers: HeaderMap, body: Bytes) -> 
         return Json(err(Value::Null, -32700, "parse error")).into_response();
     };
 
-    // Batch requests: handle inline, no streaming.
     if let Value::Array(items) = value {
         let session = incoming_session.unwrap_or_default();
         let mut out = Vec::new();

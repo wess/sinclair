@@ -1,7 +1,7 @@
 //! Linux display-server integration for the quick terminal.
 //!
 //! NOTE: this module is written against the gpui and x11rb APIs but is NOT
-//! compiled on the macOS development host — cross-building the Linux GUI
+//! compiled on the macOS development host, cross-building the Linux GUI
 //! dependencies needs a Linux toolchain plus wayland/xcb/xkbcommon dev
 //! libraries. It must be validated with a real Linux build.
 //!
@@ -71,7 +71,6 @@ fn x11_overlay(window: &Window) -> Result<(), Box<dyn Error>> {
         Ok(conn.intern_atom(false, name)?.reply()?.atom)
     };
 
-    // Always-on-top and present on every workspace.
     let wm_state = atom(b"_NET_WM_STATE")?;
     let above = atom(b"_NET_WM_STATE_ABOVE")?;
     let sticky = atom(b"_NET_WM_STATE_STICKY")?;
@@ -91,7 +90,6 @@ fn x11_overlay(window: &Window) -> Result<(), Box<dyn Error>> {
         &[0xFFFF_FFFF],
     )?;
 
-    // Borderless: Motif hints with the decorations flag set and no decorations.
     let motif = atom(b"_MOTIF_WM_HINTS")?;
     conn.change_property32(PropMode::REPLACE, win, motif, motif, &[2, 0, 0, 0, 0])?;
 

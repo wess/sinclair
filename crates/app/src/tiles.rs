@@ -70,7 +70,7 @@ pub fn generate(shape: &str, n: usize) -> Layout {
         "grid" => grid(n),
         "main-bottom" => main(Ax::V, n),
         "main-right" => main(Ax::H, n),
-        _ => stack(Ax::H, n), // "columns"
+        _ => stack(Ax::H, n),
     }
 }
 
@@ -219,7 +219,6 @@ mod tests {
 
     #[test]
     fn main_bottom_is_top_over_row() {
-        // One leaf on top (ratio 0.6), three columns below.
         match generate("main-bottom", 4) {
             Layout::Split { axis, first, second, .. } => {
                 assert!(matches!(axis, Ax::V));

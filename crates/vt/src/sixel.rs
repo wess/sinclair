@@ -71,7 +71,6 @@ pub fn decode(data: &[u8]) -> Option<Image> {
     let mut pixels: Vec<Option<Rgb>> = Vec::new();
     let mut width = 0usize;
     let mut height = 0usize;
-    // Cursor: x in pixels, `band` is the current six-pixel row (y = band*6).
     let mut x = 0usize;
     let mut band = 0usize;
     let mut color = 0usize;
@@ -84,8 +83,6 @@ pub fn decode(data: &[u8]) -> Option<Image> {
      -> bool {
         let w = (*width).max(max_x);
         let h = (*height).max(max_y);
-        // Bound both dimensions and the total area so one crafted DCS payload
-        // can't force a huge (hundreds of MB) allocation.
         if w > MAX_DIM || h > MAX_DIM || w.saturating_mul(h) > MAX_AREA {
             return false;
         }
@@ -107,7 +104,6 @@ pub fn decode(data: &[u8]) -> Option<Image> {
         let b = data[i];
         match b {
             b'"' => {
-                // Raster attributes: Pan;Pad;Ph;Pv — reserve Ph x Pv.
                 let (params, next) = read_params(data, i + 1);
                 i = next;
                 if let (Some(&ph), Some(&pv)) = (params.get(2), params.get(3)) {
@@ -118,7 +114,6 @@ pub fn decode(data: &[u8]) -> Option<Image> {
                 continue;
             }
             b'#' => {
-                // Color: #Pc selects; #Pc;Pu;Px;Py;Pz defines.
                 let (params, next) = read_params(data, i + 1);
                 i = next;
                 if let Some(&pc) = params.first() {
@@ -131,7 +126,6 @@ pub fn decode(data: &[u8]) -> Option<Image> {
                 continue;
             }
             b'!' => {
-                // Run length: !Pn <sixel>
                 let (params, next) = read_params(data, i + 1);
                 let n = params.first().copied().unwrap_or(0).max(1) as usize;
                 i = next;
@@ -167,7 +161,6 @@ pub fn decode(data: &[u8]) -> Option<Image> {
                 x += 1;
                 i += 1;
             }
-            // Whitespace and anything else: skip.
             _ => i += 1,
         }
     }
@@ -224,7 +217,6 @@ fn hls_to_rgb(h: u16, l: u16, s: u16) -> Rgb {
     let l = (l.min(100) as f32) / 100.0;
     let s = (s.min(100) as f32) / 100.0;
     let c = (1.0 - (2.0 * l - 1.0).abs()) * s;
-    // Sixel hue 0 is blue; offset by 240 degrees to map onto standard HSL.
     let hp = ((h + 240.0) % 360.0) / 60.0;
     let xx = c * (1.0 - (hp % 2.0 - 1.0).abs());
     let (r1, g1, b1) = match hp as u32 {

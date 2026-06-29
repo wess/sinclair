@@ -26,11 +26,9 @@ pub fn serve(tools: Vec<Tool>, handler: &Handler<'_>) {
             continue;
         }
         let Ok(msg) = serde_json::from_str::<Value>(trimmed) else {
-            // A malformed line cannot carry an id to answer; skip it.
             continue;
         };
         if let Some(reply) = dispatch(&msg, &tools, &server_info, handler) {
-            // Best effort: a broken pipe means the client went away.
             if writeln!(stdout, "{reply}").and_then(|()| stdout.flush()).is_err() {
                 break;
             }
@@ -41,7 +39,6 @@ pub fn serve(tools: Vec<Tool>, handler: &Handler<'_>) {
 /// Produce the reply for one message, or `None` for notifications (no id).
 fn dispatch(msg: &Value, tools: &[Tool], server_info: &Value, handler: &Handler<'_>) -> Option<String> {
     let method = msg.get("method").and_then(Value::as_str).unwrap_or_default();
-    // Notifications carry no id and never get a reply.
     let id = msg.get("id").cloned()?;
 
     let outcome = match method {

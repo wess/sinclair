@@ -23,7 +23,7 @@ pub struct Clipboard {
     pub data: Vec<u8>,
 }
 
-/// A desktop notification a program requested via OSC 9 / 777 / 99 — used to
+/// A desktop notification a program requested via OSC 9 / 777 / 99 - used to
 /// surface "an agent needs attention". The host posts it natively and lights
 /// up the pane/tab.
 #[derive(Debug, Clone, PartialEq, Eq)]

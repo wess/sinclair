@@ -58,7 +58,6 @@ pub fn sanitize_name(input: &str) -> Option<String> {
             _ => {}
         }
     }
-    // Collapse runs of '-' and trim leading/trailing separators for tidiness.
     let collapsed: String = out
         .split('-')
         .filter(|seg| !seg.is_empty())

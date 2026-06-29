@@ -68,12 +68,13 @@ pub async fn launch(app: &App, spec: Spec) -> Result<String> {
         .lock()
         .await
         .insert(spec.name.clone(), worker.clone());
+    app.bump();
 
-    tokio::spawn(monitor(spec, worker));
+    tokio::spawn(monitor(app.clone(), spec, worker));
     Ok(log_path)
 }
 
-async fn monitor(spec: Spec, worker: Worker) {
+async fn monitor(app: App, spec: Spec, worker: Worker) {
     loop {
         if worker.stop.load(Ordering::SeqCst) {
             break;
@@ -87,6 +88,7 @@ async fn monitor(spec: Spec, worker: Worker) {
             Ok(f) => f,
             Err(e) => {
                 *worker.status.lock().await = format!("log open failed: {e}");
+                app.bump();
                 return;
             }
         };
@@ -94,6 +96,7 @@ async fn monitor(spec: Spec, worker: Worker) {
             Ok(f) => f,
             Err(e) => {
                 *worker.status.lock().await = format!("log clone failed: {e}");
+                app.bump();
                 return;
             }
         };
@@ -110,20 +113,27 @@ async fn monitor(spec: Spec, worker: Worker) {
             Err(e) => {
                 *worker.status.lock().await =
                     format!("spawn failed: {e} (is `{}` on PATH?)", spec.program);
+                app.bump();
                 return;
             }
         };
-        worker.pid.store(child.id().unwrap_or(0), Ordering::SeqCst);
+        let pid = child.id().unwrap_or(0);
+        worker.pid.store(pid, Ordering::SeqCst);
+        crate::cli::paths::record_worker_pid(pid);
         *worker.status.lock().await = "running".into();
+        app.bump();
 
         let exit = child.wait().await;
+        crate::cli::paths::forget_worker_pid(pid);
 
         if worker.stop.load(Ordering::SeqCst) {
             *worker.status.lock().await = "stopped".into();
+            app.bump();
             break;
         }
         let code = exit.ok().and_then(|s| s.code()).unwrap_or(-1);
         *worker.status.lock().await = format!("exited({code})");
+        app.bump();
 
         if !spec.keep_alive {
             break;
@@ -131,6 +141,7 @@ async fn monitor(spec: Spec, worker: Worker) {
         let n = worker.restarts.fetch_add(1, Ordering::SeqCst) + 1;
         if n > MAX_RESTARTS {
             *worker.status.lock().await = format!("gave up after {MAX_RESTARTS} restarts");
+            app.bump();
             break;
         }
         tokio::time::sleep(std::time::Duration::from_secs(3)).await;

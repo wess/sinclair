@@ -1,4 +1,4 @@
-//! Material Dark (oceanic) — Material Theme terminal palette.
+//! Material Dark (oceanic) - Material Theme terminal palette.
 
 use crate::rgb::Rgb;
 use crate::scheme::Scheme;

@@ -73,7 +73,7 @@ pub fn route_wheel(mode: MouseMode, shift: bool, alt_screen: bool, alt_scroll: b
     }
 }
 
-/// Fold a wheel delta (in lines, possibly fractional — trackpad pixel
+/// Fold a wheel delta (in lines, possibly fractional - trackpad pixel
 /// deltas divided by the cell height) into the accumulator and take out
 /// the whole lines. A direction change drops the leftover fraction so
 /// reversals respond immediately.

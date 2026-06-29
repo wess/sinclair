@@ -1,7 +1,7 @@
 //! Quick Terminal: a Quake-style dropdown terminal.
 //!
 //! - Summoned by a global hotkey (default cmd+alt+t) even when Prompt is not
-//!   the focused application — registered via Carbon `RegisterEventHotKey`,
+//!   the focused application, registered via Carbon `RegisterEventHotKey`,
 //!   which needs no Accessibility permission.
 //! - Floats above every other app and Space (see [`crate::appkit`]).
 //! - A single instance whose shell persists across toggles: toggling hides
@@ -101,8 +101,6 @@ pub fn install_global_hotkey(cx: &mut App) {
                 fire = true;
             }
         }
-        // A toggle and autohide must not run in the same tick, or a freshly
-        // shown window could be hidden immediately.
         if fire {
             cx.update(toggle);
         } else {
@@ -113,8 +111,8 @@ pub fn install_global_hotkey(cx: &mut App) {
 }
 
 /// Quake-style autohide: once the window has been seen active, hide it the
-/// moment it loses focus (the user clicked another app or window). macOS only
-/// — it relies on the overlay hide/show that other platforms stub out.
+/// moment it loses focus (the user clicked another app or window). macOS only;
+/// it relies on the overlay hide/show that other platforms stub out.
 #[cfg(not(target_os = "macos"))]
 fn autohide(_cx: &mut App) {}
 
@@ -124,7 +122,6 @@ fn autohide(cx: &mut App) {
         return;
     };
     let Ok(true) = handle.update(cx, |_, window, _| appkit::is_visible(window)) else {
-        // Closed or hidden: re-arm for the next time it is shown.
         if seen_active {
             QuickWindow::set(cx, Some(handle), false);
         }
@@ -146,12 +143,10 @@ fn autohide(cx: &mut App) {
 /// no focused workspace.
 pub fn toggle(cx: &mut App) {
     if let (Some(handle), _) = QuickWindow::current(cx) {
-        // Alive (possibly hidden) if the handle still resolves to a window.
         if handle.is_active(cx).is_some() {
             toggle_alive(handle, cx);
             return;
         }
-        // The window was closed out from under us; reopen below.
         QuickWindow::set(cx, None, false);
     }
     open(cx);
@@ -170,7 +165,6 @@ fn toggle_alive(handle: WindowHandle<QuickTerminalView>, cx: &mut App) {
         cx.activate(true);
         handle
             .update(cx, |this, window, cx| {
-                // Re-assert overlay level in case it was reset, then reveal.
                 appkit::make_overlay(window);
                 appkit::show(window);
                 window.focus(&this.view.focus_handle(cx), cx);
@@ -223,7 +217,6 @@ fn open(cx: &mut App) {
         y: opts.window_padding_y as f32,
     };
 
-    // Spawn the shell up front so a failure aborts before opening a window.
     let options = session::options(&opts, COLS, ROWS, None);
     let (sh, events) = match Session::spawn(options) {
         Ok(pair) => pair,
@@ -238,6 +231,7 @@ fn open(cx: &mut App) {
     let copy_on_select = opts.copy_on_select;
     let option_as_alt = opts.macos_option_as_alt;
     let paste_protection = opts.clipboard_paste_protection;
+    let clipboard_write = opts.clipboard_write;
 
     let bounds = dropdown_bounds(cx);
     let handle = cx.open_window(
@@ -268,6 +262,7 @@ fn open(cx: &mut App) {
                     copy_on_select,
                     option_as_alt,
                     paste_protection,
+                    clipboard_write,
                     fallback,
                     window,
                     cx,
@@ -323,6 +318,7 @@ impl QuickTerminalView {
         copy_on_select: bool,
         option_as_alt: config::OptionAsAlt,
         paste_protection: bool,
+        clipboard_write: config::ClipboardAccess,
         fallback: String,
         window: &mut gpui::Window,
         cx: &mut Context<Self>,
@@ -339,13 +335,13 @@ impl QuickTerminalView {
                 copy_on_select,
                 option_as_alt,
                 paste_protection,
+                clipboard_write,
                 fallback,
                 window,
                 cx,
             )
         });
 
-        // Pump child output into the view, as the workspace does for panes.
         let weak = view.downgrade();
         let mut events: UnboundedReceiver<Event> = bridge::forward(events);
         window
@@ -358,7 +354,6 @@ impl QuickTerminalView {
             })
             .detach();
 
-        // Close the window for good when the shell exits.
         let subscription = cx.subscribe_in(
             &view,
             window,
@@ -401,9 +396,8 @@ impl QuickTerminalView {
             Some(prev) if now.duration_since(prev) <= DOUBLE_ESC => {
                 self.last_esc = None;
                 self.dismiss(window);
-                cx.stop_propagation(); // swallow the second Escape
+                cx.stop_propagation();
             }
-            // First Escape: record it and let it reach the shell.
             _ => self.last_esc = Some(now),
         }
     }

@@ -1,4 +1,4 @@
-//! asciinema v2 `.cast` recording — a terminal session captured as a stream of
+//! asciinema v2 `.cast` recording - a terminal session captured as a stream of
 //! timestamped output events, replayable with `asciinema play` and embeddable.
 //!
 //! The format is one JSON object header line followed by one JSON array per
@@ -60,9 +60,7 @@ impl Recorder {
         self.pending.extend_from_slice(bytes);
         let emit = match std::str::from_utf8(&self.pending) {
             Ok(_) => self.pending.len(),
-            // No `error_len` means the buffer ends mid-sequence: hold the tail.
             Err(e) if e.error_len().is_none() => e.valid_up_to(),
-            // Real invalid bytes: flush everything now (lossy).
             Err(_) => self.pending.len(),
         };
         if emit == 0 {

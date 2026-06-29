@@ -28,7 +28,6 @@ pub fn options(
     session.spawn.cwd = inherit
         .or_else(|| opts.working_directory.as_ref().map(PathBuf::from))
         .or_else(home);
-    // Inject OSC 133 / OSC 7 shell integration into the spawned shell.
     if opts.shell_integration {
         let program = session.spawn.argv.first().cloned().unwrap_or_default();
         session
@@ -41,7 +40,7 @@ pub fn options(
 
 /// The user's home directory, the default working directory when no pane cwd
 /// is inherited and the config sets none. Without it the child would inherit
-/// the launcher's cwd — e.g. `/` when Prompt is opened from Finder.
+/// the launcher's cwd, e.g. `/` when Prompt is opened from Finder.
 fn home() -> Option<PathBuf> {
     std::env::var_os("HOME")
         .filter(|h| !h.is_empty())

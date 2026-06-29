@@ -3,6 +3,10 @@ use anyhow::Result;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 use sqlx::SqlitePool;
 
+/// Cap on retained messages. Readers track a cursor by id, so dropping the
+/// oldest already-delivered rows keeps the on-disk file from growing forever.
+const MESSAGE_RETENTION: i64 = 10_000;
+
 pub async fn open(path: &str) -> Result<SqlitePool> {
     let opts = SqliteConnectOptions::new()
         .filename(path)
@@ -61,6 +65,14 @@ async fn migrate(pool: &SqlitePool) -> Result<()> {
     )
     .execute(pool)
     .await?;
+
+    sqlx::query("CREATE INDEX IF NOT EXISTS idx_messages_target ON messages(target, id)")
+        .execute(pool)
+        .await?;
+
+    sqlx::query("CREATE INDEX IF NOT EXISTS idx_subs_channel ON subs(channel)")
+        .execute(pool)
+        .await?;
 
     Ok(())
 }
@@ -125,7 +137,17 @@ pub async fn insert_message(
     .bind(now())
     .execute(pool)
     .await?;
+    prune_messages(pool).await?;
     Ok(res.last_insert_rowid())
+}
+
+/// Trim the table to the most recent `MESSAGE_RETENTION` rows.
+async fn prune_messages(pool: &SqlitePool) -> Result<()> {
+    sqlx::query("DELETE FROM messages WHERE id <= (SELECT MAX(id) FROM messages) - ?1")
+        .bind(MESSAGE_RETENTION)
+        .execute(pool)
+        .await?;
+    Ok(())
 }
 
 pub async fn cursor_of(pool: &SqlitePool, name: &str) -> Result<i64> {
@@ -214,6 +236,15 @@ pub async fn unsubscribe(pool: &SqlitePool, agent: &str, channel: &str) -> Resul
         .execute(pool)
         .await?;
     Ok(())
+}
+
+/// Agents currently subscribed to `channel` (for targeted wakeups).
+pub async fn channel_subs(pool: &SqlitePool, channel: &str) -> Result<Vec<String>> {
+    let rows: Vec<(String,)> = sqlx::query_as("SELECT agent FROM subs WHERE channel = ?1")
+        .bind(channel)
+        .fetch_all(pool)
+        .await?;
+    Ok(rows.into_iter().map(|r| r.0).collect())
 }
 
 pub async fn subs_of(pool: &SqlitePool, agent: &str) -> Result<Vec<String>> {

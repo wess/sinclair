@@ -1,7 +1,7 @@
 //! Kitty keyboard protocol key encoding.
 //!
-//! This intercepts only the keys the protocol *disambiguates* — Escape and
-//! ctrl/alt-modified or all-keys-mode text keys — emitting the `CSI
+//! This intercepts only the keys the protocol *disambiguates* - Escape and
+//! ctrl/alt-modified or all-keys-mode text keys - emitting the `CSI
 //! codepoint ; modifiers u` form. Everything else (plain text, arrows,
 //! function keys, …) returns `None` so the legacy encoder handles it
 //! unchanged; in kitty mode those still produce valid (unambiguous) escape
@@ -23,9 +23,6 @@ use crate::Mods;
 pub(crate) fn encode(key: &str, mods: Mods, flags: u8) -> Option<Vec<u8>> {
     let codepoint = csi_u_codepoint(key)?;
     let all_keys = flags & kitty_flags::REPORT_ALL_KEYS_AS_ESCAPE_CODES != 0;
-    // Escape is always disambiguated; other text/special keys only when a
-    // ctrl/alt modifier (which would otherwise collapse to a control byte
-    // or ESC-prefix) is held, or when all keys are requested as escapes.
     let force = all_keys || key == "escape" || mods.ctrl || mods.alt;
     force.then(|| csi_u(codepoint, mods))
 }

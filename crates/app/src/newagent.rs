@@ -135,7 +135,6 @@ impl NewAgentView {
 
     fn key_down(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
         let ks = &event.keystroke;
-        // Standard macOS/Linux close shortcut for the modal window.
         if ks.modifiers.platform && ks.key == "w" {
             window.remove_window();
             cx.stop_propagation();
@@ -261,8 +260,6 @@ enum Cycle {
 
 /// One arrow of a [`NewAgentView::cycle`] stepper.
 fn step_button(glyph: &str, which: Cycle, dir: i32, cx: &mut Context<NewAgentView>) -> gpui::Stateful<gpui::Div> {
-    // Stable, unique id per (control, direction) — Provider and Role steppers
-    // render together, so the id must distinguish them.
     let id = match (which, dir < 0) {
         (Cycle::Provider, true) => "step-provider-prev",
         (Cycle::Provider, false) => "step-provider-next",

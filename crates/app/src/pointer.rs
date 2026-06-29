@@ -16,6 +16,25 @@ use terminal::Session;
 use crate::metrics::{self, CellSize, Padding};
 use crate::mouse::{self, MouseState, WheelRoute};
 
+/// URL schemes Prompt will hand to the OS. OSC 8 lets a program aim a link
+/// anywhere while showing innocuous text, so anything outside this set, most
+/// dangerously `javascript:`, `data:`, and custom app-handler schemes, is
+/// refused instead of being passed to `open_url`.
+const OPENABLE_SCHEMES: &[&str] = &["http", "https", "ftp", "ftps", "file", "mailto", "tel"];
+
+/// Whether `url` carries a scheme we are willing to open. A real scheme is
+/// non-empty, holds no path separator (otherwise the `:` was inside a path),
+/// and appears in [`OPENABLE_SCHEMES`].
+fn openable(url: &str) -> bool {
+    let Some((scheme, _)) = url.split_once(':') else {
+        return false;
+    };
+    if scheme.is_empty() || scheme.contains('/') {
+        return false;
+    }
+    OPENABLE_SCHEMES.contains(&scheme.to_ascii_lowercase().as_str())
+}
+
 /// Everything a pointer event needs, captured at paint time.
 #[derive(Clone)]
 pub struct Pointer {
@@ -101,8 +120,6 @@ pub fn down(p: &Pointer, e: &MouseDownEvent, window: &mut Window, _cx: &mut App)
         .with_term(|t| t.start_selection(select_mode, point));
     let mut s = p.state.borrow_mut();
     s.selecting = true;
-    // Multi-clicks select a word/line outright; a single click only keeps
-    // its selection if it turns into a drag.
     s.dragged = e.click_count > 1;
     s.pressed = Some(cell);
     drop(s);
@@ -113,7 +130,6 @@ pub fn moved(p: &Pointer, e: &MouseMoveEvent, window: &mut Window, _cx: &mut App
     let m = mods(&e.modifiers);
 
     if p.state.borrow().selecting && e.pressed_button == Some(gpui::MouseButton::Left) {
-        // Auto-scroll while dragging past the vertical content edges.
         let top = p.bounds.origin.y + px(p.pad.y);
         let bottom = p.bounds.origin.y + p.bounds.size.height - px(p.pad.y);
         let scroll: isize = if e.position.y < top {
@@ -150,7 +166,7 @@ pub fn moved(p: &Pointer, e: &MouseMoveEvent, window: &mut Window, _cx: &mut App
     }
     let cell = cell_at(p, e.position);
     if p.state.borrow().last_motion == Some(cell) {
-        return; // coalesce duplicate-cell motion
+        return;
     }
     report(
         p,
@@ -166,7 +182,6 @@ pub fn moved(p: &Pointer, e: &MouseMoveEvent, window: &mut Window, _cx: &mut App
 pub fn up(p: &Pointer, e: &MouseUpEvent, window: &mut Window, cx: &mut App) {
     let m = mods(&e.modifiers);
 
-    // A reported press owes the pty its release, wherever it lands.
     let held = p.state.borrow().report_button;
     if let Some(btn) = held {
         if button(e.button) == Some(btn) {
@@ -179,8 +194,6 @@ pub fn up(p: &Pointer, e: &MouseUpEvent, window: &mut Window, cx: &mut App) {
         return;
     }
 
-    // Cmd+click opens an OSC 8 hyperlink under the pointer, or a detected
-    // URL when there is no explicit hyperlink.
     if e.button == gpui::MouseButton::Left && m.cmd {
         let (row, col) = cell_at(p, e.position);
         let url = p.session.with_term(|t| {
@@ -192,7 +205,11 @@ pub fn up(p: &Pointer, e: &MouseUpEvent, window: &mut Window, cx: &mut App) {
                 .or_else(|| t.visible_url_at(row, col))
         });
         if let Some(url) = url {
-            cx.open_url(&url);
+            if openable(&url) {
+                cx.open_url(&url);
+            } else {
+                eprintln!("prompt: refused to open link with disallowed scheme: {url}");
+            }
             p.session.with_term(|t| t.clear_selection());
             let mut s = p.state.borrow_mut();
             s.selecting = false;
@@ -214,7 +231,6 @@ pub fn up(p: &Pointer, e: &MouseUpEvent, window: &mut Window, cx: &mut App) {
         s.dragged
     };
     if !dragged {
-        // Plain click: clear any selection (including the one-cell start).
         p.session.with_term(|t| t.clear_selection());
         window.refresh();
         return;
@@ -237,7 +253,6 @@ pub fn wheel(p: &Pointer, e: &ScrollWheelEvent, window: &mut Window, _cx: &mut A
     if matches!(e.touch_phase, TouchPhase::Started) {
         p.state.borrow_mut().wheel = 0.0;
     }
-    // Normalize to lines: trackpads send pixels, wheels send lines.
     let delta = match e.delta {
         ScrollDelta::Lines(l) => l.y,
         ScrollDelta::Pixels(d) => f32::from(d.y) / p.cell.height,
@@ -273,9 +288,12 @@ pub fn wheel(p: &Pointer, e: &ScrollWheelEvent, window: &mut Window, _cx: &mut A
             let _ = p.session.write(&bytes);
         }
         WheelRoute::Display => {
-            // Positive wheel delta scrolls back into history.
             p.session.with_term(|t| t.scroll_display(lines as isize));
             window.refresh();
         }
     }
 }
+
+#[cfg(test)]
+#[path = "../tests/pointer.rs"]
+mod tests;

@@ -147,7 +147,6 @@ pub fn run(action: RoleCmd) -> Result<()> {
 
 fn list(as_json: bool) -> Result<()> {
     use std::collections::BTreeMap;
-    // Lowest priority first so higher layers overwrite the source.
     let mut seen: BTreeMap<String, Source> = BTreeMap::new();
     for (n, _) in BUILTINS {
         seen.insert((*n).to_string(), Source::Builtin);
@@ -224,8 +223,6 @@ fn create(name: &str, user: bool) -> Result<()> {
 
 fn edit(name: &str, user: bool) -> Result<()> {
     let target = file_in(&dir(user), name);
-    // Seed from the target if present, else the resolved role (copy-on-write
-    // from a lower layer / built-in), else a fresh scaffold.
     let seed = std::fs::read_to_string(&target)
         .ok()
         .or_else(|| resolve(name).map(serialize))

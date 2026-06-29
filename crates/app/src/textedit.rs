@@ -1,5 +1,5 @@
 //! Pure single-line text-editing model: a string plus a char-index cursor,
-//! with the operations an input field needs. No UI — fully unit-testable;
+//! with the operations an input field needs. No UI, fully unit-testable;
 //! the settings panel drives it from key events and renders from `split`.
 
 /// An editable line of text with a cursor.

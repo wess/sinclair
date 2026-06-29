@@ -1,4 +1,4 @@
-//! Palenight — Material Palenight terminal palette.
+//! Palenight - Material Palenight terminal palette.
 
 use crate::rgb::Rgb;
 use crate::scheme::Scheme;

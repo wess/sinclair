@@ -7,7 +7,7 @@
 //! - **zsh**: `ZDOTDIR` points at our dir; our startup files re-source the
 //!   user's real ones, then install `precmd`/`preexec` hooks.
 //! - **fish**: `XDG_DATA_DIRS` gains our `vendor_conf.d`, which fish auto-loads.
-//! - **bash**: `PROMPT_COMMAND` sources our snippet each prompt (best-effort —
+//! - **bash**: `PROMPT_COMMAND` sources our snippet each prompt (best-effort,
 //!   a `PROMPT_COMMAND` set later in `.bashrc` can still win).
 
 use std::path::{Path, PathBuf};
@@ -135,7 +135,6 @@ fn env_overrides(
     match shell {
         Shell::Zsh => {
             let mut v = vec![("ZDOTDIR".to_string(), d)];
-            // Remember the user's real ZDOTDIR so our scripts can chain to it.
             if let Some(orig) = env("ZDOTDIR").filter(|s| !s.is_empty()) {
                 v.push(("PROMPT_ZDOTDIR".to_string(), orig));
             }

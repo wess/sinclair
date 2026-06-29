@@ -32,8 +32,6 @@ pub fn keystroke(mods: config::Mods, key: &str) -> Option<String> {
         s.push_str("shift-");
     }
     if mods.cmd {
-        // `secondary` resolves to Command on macOS and Control elsewhere,
-        // so a single `cmd+...` config binding is correct on every platform.
         s.push_str("secondary-");
     }
     s.push_str(&key);
@@ -60,16 +58,16 @@ pub fn shortcut_glyphs(mods: config::Mods, key: &str) -> Option<String> {
     }
     let mut s = String::new();
     if mods.ctrl {
-        s.push('\u{2303}'); // ⌃
+        s.push('\u{2303}');
     }
     if mods.alt {
-        s.push('\u{2325}'); // ⌥
+        s.push('\u{2325}');
     }
     if mods.shift {
-        s.push('\u{21e7}'); // ⇧
+        s.push('\u{21e7}');
     }
     if mods.cmd {
-        s.push('\u{2318}'); // ⌘
+        s.push('\u{2318}');
     }
     s.push_str(&key_glyph(key));
     Some(s)

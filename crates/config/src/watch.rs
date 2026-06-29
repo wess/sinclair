@@ -41,7 +41,6 @@ pub fn watch(
         let slice = Duration::from_millis(20);
         let mut last = mtime(&path);
         loop {
-            // Sleep in short slices so drop is responsive.
             let mut waited = Duration::ZERO;
             while waited < interval {
                 if flag.load(Ordering::Relaxed) {

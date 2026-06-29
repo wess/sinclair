@@ -10,7 +10,7 @@ pub enum Outcome {
     Now(Value),
     /// A tool call to run, possibly long-lived, streamed over SSE.
     Tool { id: Value, name: String, args: Value },
-    /// A notification — no response body, just 202.
+    /// A notification, no response body, just 202.
     Accepted,
 }
 
@@ -46,7 +46,6 @@ pub fn route(req: RpcRequest) -> Outcome {
             }
             Outcome::Tool { id, name, args }
         }
-        // notifications/* and anything else without an id need no reply.
         _ if req.id.is_none() => Outcome::Accepted,
         other => Outcome::Now(err(id, -32601, &format!("method not found: {other}"))),
     }

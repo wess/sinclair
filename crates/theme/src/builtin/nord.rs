@@ -1,4 +1,4 @@
-//! Nord — official terminal mapping (nordtheme.com, nord0..nord15).
+//! Nord - official terminal mapping (nordtheme.com, nord0..nord15).
 
 use crate::rgb::Rgb;
 use crate::scheme::Scheme;
