@@ -35,9 +35,15 @@ config = { path = "../config" }
 futures = "0.3"
 global-hotkey = "0.8"
 image = "0.25"
+libc = "0.2"
 smallvec = "1"
 gpui = { git = "https://github.com/zed-industries/zed", rev = "96285fc1" }
 gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "96285fc1", features = ["font-kit", "wayland", "x11"] }
+# Mantine-inspired gpui component library (vendored submodule so we can
+# co-evolve it). default-features=false drops the wry/webview backend. Its
+# `gpui = "0.2.2"` (crates.io) is redirected to our exact zed rev by the
+# root [patch.crates-io], so the whole tree shares one gpui.
+guise-ui = { path = "../../vendor/guise/crates/guise", default-features = false }
 input = { path = "../input" }
 macros = { path = "../macros" }
 mcp = { path = "../mcp" }

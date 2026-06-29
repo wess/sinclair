@@ -1,0 +1,3 @@
+[submodule "vendor/guise"]
+	path = vendor/guise
+	url = https://github.com/wess/guise
