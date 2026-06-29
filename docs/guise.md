@@ -42,11 +42,14 @@ Done:
 - About panel ported to guise.
 - IPC plugin side panels render entirely with guise components.
 - Side drawers' typography (section headers, empty-state notes) on guise `Text`.
+- cmd+P quick-open is a guise `Spotlight` (commands + plugin commands + panels);
+  see `root/quickopen.rs`.
 
 Remaining (incremental, surface by surface; keep the build green and behavior
 identical at each step):
 
-- Command palette → `Spotlight` (stateful entity; restructure `palette.rs`).
+- Replace the legacy cmd+shift+P window palette (`palette.rs`) with `Spotlight`
+  too (the quick-open already proves the pattern).
 - Settings panel controls → guise inputs (`settings/ui/*`).
 - Custom `textedit` widget → `TextInput` / `TextArea`.
 - Dialogs (`rename`, save-layout, `newagent`) → `Modal`.

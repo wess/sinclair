@@ -161,6 +161,8 @@ pub enum Action {
     MacroReplay(String),
     /// Open the fuzzy command palette.
     CommandPalette,
+    /// Open the guise Spotlight quick-open (commands + plugins).
+    QuickOpen,
     /// Toggle the settings panel.
     ToggleSettings,
     /// Open the documentation window.
@@ -206,6 +208,10 @@ pub enum Action {
     Tile(String),
     /// Save the current tab's layout as a named custom tile.
     SaveLayout,
+    /// Show/toggle a side drawer. Payload is `side` (`left`/`right`, toggles the
+    /// side with its default panel) or `side:panel` (e.g. `left:relay`) to show
+    /// a specific panel; re-selecting the active panel collapses that side.
+    Sidebar(String),
     /// Open a Relay team by name (tiled agents).
     OpenTeam(String),
     /// Launch a previously-saved agent by name.
@@ -218,8 +224,6 @@ pub enum Action {
 impl Action {
     /// Parse `name` or `name:param`. Unknown names or bad params are errors.
     pub fn parse(s: &str) -> Result<Self, String> {
-        // `raw` keeps the parameter untrimmed: for `text:`/`esc:` payloads
-        // whitespace is significant (e.g. `text: ` sends a literal space).
         let (name, param, raw) = match s.split_once(':') {
             Some((n, p)) => (n.trim().to_ascii_lowercase(), Some(p.trim()), Some(p)),
             None => (s.trim().to_ascii_lowercase(), None, None),
@@ -301,6 +305,7 @@ impl Action {
                 }
             }
             "command_palette" => only(Self::CommandPalette, &name, param),
+            "quick_open" => only(Self::QuickOpen, &name, param),
             "open_settings" | "toggle_settings" => only(Self::ToggleSettings, &name, param),
             "show_help" | "help" => only(Self::ShowHelp, &name, param),
             "toggle_fullscreen" => only(Self::ToggleFullscreen, &name, param),
@@ -328,6 +333,7 @@ impl Action {
             "relay_restart" => only(Self::RelayRestart, &name, param),
             "tile" => Ok(Self::Tile(req(&name, param)?.to_string())),
             "save_layout" => only(Self::SaveLayout, &name, param),
+            "sidebar" => Ok(Self::Sidebar(req(&name, param)?.to_string())),
             "open_team" => Ok(Self::OpenTeam(req(&name, param)?.to_string())),
             "agent_def" => Ok(Self::AgentDef(req(&name, param)?.to_string())),
             "quit" => only(Self::Quit, &name, param),
@@ -380,12 +386,14 @@ impl Action {
             Self::RelayRestart => "relay_restart".into(),
             Self::Tile(s) => format!("tile:{s}"),
             Self::SaveLayout => "save_layout".into(),
+            Self::Sidebar(s) => format!("sidebar:{s}"),
             Self::OpenTeam(s) => format!("open_team:{s}"),
             Self::AgentDef(s) => format!("agent_def:{s}"),
             Self::PluginCommand(s) => format!("plugin_command:{s}"),
             Self::MacroRecord => "macro_record".into(),
             Self::MacroReplay(s) => format!("macro:{s}"),
             Self::CommandPalette => "command_palette".into(),
+            Self::QuickOpen => "quick_open".into(),
             Self::ToggleSettings => "toggle_settings".into(),
             Self::ShowHelp => "show_help".into(),
             Self::ToggleFullscreen => "toggle_fullscreen".into(),
@@ -479,8 +487,6 @@ fn encode_text(bytes: &[u8]) -> String {
     for &b in bytes {
         match b {
             b'\\' => out.push_str("\\\\"),
-            // Escape space: the keybind line parser trims whole values, so a
-            // literal edge space would not survive a config-file round-trip.
             b' ' => out.push_str("\\x20"),
             0x21..=0x7e => out.push(b as char),
             _ => out.push_str(&format!("\\x{b:02x}")),

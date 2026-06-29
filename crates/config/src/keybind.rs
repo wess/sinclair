@@ -158,8 +158,6 @@ pub fn parse_trigger(s: &str) -> Result<(Mods, String), String> {
     if s.is_empty() {
         return Err("empty trigger".to_string());
     }
-    // The key is whatever follows the last `+`; a trailing `++` (or a bare
-    // `+`) means the key itself is `+`.
     let (mods_part, key_part) = if s == "+" {
         ("", "+")
     } else if s.ends_with("++") {
@@ -306,13 +304,12 @@ pub fn default_keybinds() -> Vec<Keybind> {
         kb(cmd_shift, "g", Action::ComposeCommand),
         kb(cmd_shift, "b", Action::ToggleBroadcast),
         kb(cmd_shift, "p", Action::CommandPalette),
+        kb(cmd, "p", Action::QuickOpen),
         kb(cmd_shift, "r", Action::ToggleRecording),
         kb(cmd, "up", Action::JumpToPrompt(-1)),
         kb(cmd, "down", Action::JumpToPrompt(1)),
         kb(cmd, ",", Action::ToggleSettings),
         kb(cmd_alt, "t", Action::ToggleQuickTerminal),
-        // AI / Relay (only act when AI is enabled, but always bound so the
-        // shortcut shows in the menu and stays editable).
         kb(cmd_shift, "a", Action::RelayLaunch),
         kb(cmd_shift, "i", Action::RelayFeed),
         kb(cmd_shift, "l", Action::RelayLog),
@@ -321,30 +318,18 @@ pub fn default_keybinds() -> Vec<Keybind> {
     for n in 1..=9 {
         binds.push(kb(cmd, &n.to_string(), Action::GotoTab(n as i32)));
     }
-    // macOS readline navigation. Option moves by word, Command by line, the
-    // standard macOS shell editing sequences (`text:`/`esc:`).
-    // Cmd chords never reach the pty on their own (see
-    // `input::encode_key`), so they are bound here; Option chords are bound
-    // too so word motion works regardless of `macos-option-as-alt`. Scoped to
-    // macOS: elsewhere `cmd` resolves to Control, where these would shadow the
-    // shell's own Ctrl-A/Ctrl-W bindings.
     #[cfg(target_os = "macos")]
     {
         let alt = Mods {
             alt: true,
             ..Mods::default()
         };
-        // Cmd+Left/Right -> start/end of line (Ctrl-A / Ctrl-E).
         binds.push(kb(cmd, "left", Action::SendText(vec![0x01])));
         binds.push(kb(cmd, "right", Action::SendText(vec![0x05])));
-        // Cmd+Backspace -> delete to start of line (Ctrl-U).
         binds.push(kb(cmd, "backspace", Action::SendText(vec![0x15])));
-        // Option+Left/Right -> word back/forward (ESC b / ESC f).
         binds.push(kb(alt, "left", Action::SendText(vec![0x1b, b'b'])));
         binds.push(kb(alt, "right", Action::SendText(vec![0x1b, b'f'])));
-        // Option+Backspace -> delete previous word (ESC DEL).
         binds.push(kb(alt, "backspace", Action::SendText(vec![0x1b, 0x7f])));
-        // Cmd+A -> select the whole buffer.
         binds.push(kb(cmd, "a", Action::SelectAll));
     }
     binds

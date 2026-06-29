@@ -12,6 +12,7 @@ mod menus;
 mod panes;
 mod persist;
 mod pluginpanel;
+mod quickopen;
 mod render;
 mod sidebar;
 mod tabs;
@@ -261,6 +262,8 @@ pub struct WorkspaceView {
     catalog: Option<Vec<String>>,
     /// Status line for the Plugins panel (last fetch/install result).
     catalog_status: Option<String>,
+    /// The guise Spotlight quick-open overlay (cmd+P), rebuilt each open.
+    spotlight: Option<Entity<guise::Spotlight>>,
     /// Configured font size, restored by `reset_font_size`.
     base_font_size: gpui::Pixels,
     /// Config-file watcher; kept alive so live reload keeps working.
@@ -314,6 +317,7 @@ impl WorkspaceView {
             plugin_panels: HashMap::new(),
             catalog: None,
             catalog_status: None,
+            spotlight: None,
             _watch: None,
         };
         this.applykeybinds(cx);
