@@ -1,0 +1,12 @@
+id = "sysinfo"
+name = "System"
+version = "0.1.0"
+description = "A live panel with host load and disk, plus a monitor shortcut"
+
+[runtime]
+command = "bun run plugin.ts"
+
+[panel]
+id = "sysinfo"
+title = "System"
+icon = "❖"

@@ -11,6 +11,7 @@ mod mcp;
 mod menus;
 mod panes;
 mod persist;
+mod pluginpanel;
 mod render;
 mod sidebar;
 mod tabs;
@@ -166,6 +167,8 @@ pub enum SidebarPanel {
     Relay,
     /// Saved agent definitions you can launch.
     Agents,
+    /// A plugin-contributed panel, by index into [`WorkspaceView::plugin_panel_defs`].
+    Plugin(usize),
 }
 
 impl SidebarPanel {
@@ -184,6 +187,7 @@ impl SidebarPanel {
             SidebarPanel::Layouts => "layouts",
             SidebarPanel::Relay => "relay",
             SidebarPanel::Agents => "agents",
+            SidebarPanel::Plugin(_) => "plugin",
         }
     }
 
@@ -198,6 +202,7 @@ impl SidebarPanel {
             SidebarPanel::Layouts => "Layouts",
             SidebarPanel::Relay => "Relay",
             SidebarPanel::Agents => "Agents",
+            SidebarPanel::Plugin(_) => "Plugin",
         }
     }
 
@@ -208,27 +213,9 @@ impl SidebarPanel {
             SidebarPanel::Layouts => "\u{25f0}",   // ◰ tiles
             SidebarPanel::Relay => "\u{21c4}",     // ⇄ connections
             SidebarPanel::Agents => "\u{25c8}",    // ◈ agents
+            SidebarPanel::Plugin(_) => "\u{25c9}", // ◉ plugin
         }
     }
-}
-
-/// Parse a [`Action::Sidebar`] payload: `"left"`/`"right"` (side only, default
-/// panel) or `"left:relay"` (side + panel).
-pub fn parse_sidebar(payload: &str) -> Option<(SidebarSide, Option<SidebarPanel>)> {
-    let (side, panel) = match payload.split_once(':') {
-        Some((s, p)) => (s.trim(), Some(p.trim())),
-        None => (payload.trim(), None),
-    };
-    let side = match side {
-        "left" => SidebarSide::Left,
-        "right" => SidebarSide::Right,
-        _ => return None,
-    };
-    let panel = match panel {
-        None => None,
-        Some(p) => Some(SidebarPanel::from_id(p)?),
-    };
-    Some((side, panel))
 }
 
 pub struct WorkspaceView {
@@ -261,6 +248,8 @@ pub struct WorkspaceView {
     left_panel: Option<SidebarPanel>,
     /// Active panel in the right drawer; `None` = right drawer hidden.
     right_panel: Option<SidebarPanel>,
+    /// Last block-tree response per plugin panel id, refreshed on open/action.
+    plugin_panels: HashMap<String, crate::pluginhost::Response>,
     /// Configured font size, restored by `reset_font_size`.
     base_font_size: gpui::Pixels,
     /// Config-file watcher; kept alive so live reload keeps working.
@@ -311,6 +300,7 @@ impl WorkspaceView {
             trailing_menu: None,
             left_panel: None,
             right_panel: None,
+            plugin_panels: HashMap::new(),
             _watch: None,
         };
         this.applykeybinds(cx);

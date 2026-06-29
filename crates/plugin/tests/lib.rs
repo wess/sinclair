@@ -15,6 +15,8 @@ fn keybind_entries_use_plugin_actions() {
             mode: CommandMode::Tab,
             keybind: Some("cmd+shift+t".to_string()),
         }],
+        runtime: None,
+        panel: None,
     }];
     assert_eq!(
         keybinds(&plugins),

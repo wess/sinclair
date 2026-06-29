@@ -34,10 +34,11 @@ A persistent panel in a side drawer, redrawn from a JSON block tree, with button
 that fire `panel_action` events back to the plugin.
 
 - **git** — branch, ahead/behind, staged/unstaged files for the current repo;
-  click to stage, unstage, commit, switch branch. *(ui.sidebar, terminal.run,
-  events: dir_changed, command_finished)*
-- **containers** — live `docker`/`podman` list with start/stop/logs actions,
-  instead of just launching a TUI. *(ui.sidebar, net/local socket, events:interval)*
+  click to stage, fetch, log. *(shipped: [git/](./git/))*
+- **containers** — live `docker`/`podman` list with stats/prune actions, instead
+  of just launching a TUI. *(shipped: [docker/](./docker/))*
+- **system** — host load and disk for the focused pane, monitor shortcut.
+  *(shipped: [sysinfo/](./sysinfo/))*
 - **kubernetes** — pods/contexts/namespaces with quick switch and log tail.
   *(ui.sidebar, events:interval)*
 - **tests** — a pass/fail tree parsed from the last test run; click a failure to

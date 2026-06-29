@@ -1,0 +1,12 @@
+id = "docker"
+name = "Docker"
+version = "0.1.0"
+description = "A live panel listing running containers, with a stats shortcut"
+
+[runtime]
+command = "bun run plugin.ts"
+
+[panel]
+id = "docker"
+title = "Docker"
+icon = "❑"

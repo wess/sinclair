@@ -18,6 +18,7 @@ mod metrics;
 mod mouse;
 mod newagent;
 mod palette;
+mod pluginhost;
 mod pointer;
 mod quick;
 mod relay;

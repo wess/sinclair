@@ -139,14 +139,53 @@ You can always run any command from the command palette regardless of keybind.
 - [ ] No secrets, tokens, or credentials baked into `run`.
 - [ ] No destructive or irreversible commands.
 
+## IPC plugins (live panels)
+
+Beyond the declarative command model, a plugin can be an **IPC plugin**: it
+contributes a side-drawer panel rendered from a block tree. Prompt invokes the
+plugin's `[runtime]` once per event (serverless-style), passing a JSON request
+on stdin and reading a JSON response on stdout:
+
+```toml
+id = "git"
+name = "Git"
+
+[runtime]
+command = "bun run plugin.ts"   # any language; reads stdin, writes stdout
+
+[panel]
+id = "git"
+title = "Git"
+icon = "⎇"                       # activity-bar glyph
+```
+
+Request: `{ "kind": "render" | "action", "panel", "action"?, "cwd"? }`.
+Response: `{ "title"?, "blocks": [...], "run"?: [{ "text", "target"? }] }`.
+
+Block types: `section`, `text` (`dimmed?`), `divider`, `kv`, `badge` (`color?`),
+`button` (`id`, `variant?`), and `row` (`children`). A `button` click sends an
+`action` request with its `id`; `run` directives are executed in the focused
+terminal (`pane` | `tab` | `split_right` | `split_down`). See
+[`git/plugin.ts`](./git/plugin.ts) for a complete example.
+
 ## Learn more
 
 - Ideas worth building: [ideas.md](./ideas.md) — today's command model plus what
-  the planned plugin API (event hooks, host capabilities, column UI) unlocks.
+  the plugin API (event hooks, host capabilities, column UI) unlocks.
 - Tutorial: <https://github.com/wess/prompt/blob/main/docs/plugins.html>
 - Project docs: <https://github.com/wess/prompt>
 
 ## Example plugins in this catalog
+
+IPC panel plugins (live side-drawer panels):
+
+| Plugin                  | What it does                                        | Requires        |
+| ----------------------- | --------------------------------------------------- | --------------- |
+| [git](./git/)           | Live branch/changes panel with stage/fetch/log      | `bun`, `git`    |
+| [sysinfo](./sysinfo/)   | Host load + disk panel with a monitor shortcut      | `bun`           |
+| [docker](./docker/)     | Running-containers panel with stats/prune actions   | `bun`, `docker` |
+
+Command plugins (run a shell command in a pane/tab/split):
 
 | Plugin                       | What it does                                   | Requires         |
 | ---------------------------- | ---------------------------------------------- | ---------------- |

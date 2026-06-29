@@ -21,6 +21,30 @@ pub struct Plugin {
     pub description: Option<String>,
     pub path: PathBuf,
     pub commands: Vec<Command>,
+    /// `[runtime]`: an executable the app invokes (over JSON on stdin/stdout)
+    /// to render panels and handle actions. Present makes this an IPC plugin.
+    pub runtime: Option<Runtime>,
+    /// `[panel]`: a side-drawer panel this plugin contributes.
+    pub panel: Option<Panel>,
+}
+
+/// `[runtime]` — how to launch the plugin's function host.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Runtime {
+    /// Command line to spawn; split on whitespace into program + args.
+    pub command: String,
+}
+
+/// `[panel]` — a contributed side-drawer panel rendered from the plugin's
+/// block-tree responses.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Panel {
+    /// Stable id used in render/action requests and the activity-bar payload.
+    pub id: String,
+    /// Header/title shown for the panel.
+    pub title: String,
+    /// Single-glyph activity-bar icon.
+    pub icon: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -64,6 +88,12 @@ struct RawPlugin {
     version: Option<String>,
     description: Option<String>,
     commands: Vec<RawCommand>,
+    has_runtime: bool,
+    runtime_command: Option<String>,
+    has_panel: bool,
+    panel_id: Option<String>,
+    panel_title: Option<String>,
+    panel_icon: Option<String>,
 }
 
 #[derive(Default)]
@@ -79,6 +109,8 @@ struct RawCommand {
 enum Section {
     Plugin,
     Command(usize),
+    Runtime,
+    Panel,
 }
 
 pub fn parse(path: PathBuf, text: &str) -> (Option<Plugin>, Vec<Diagnostic>) {
@@ -100,6 +132,16 @@ pub fn parse(path: PathBuf, text: &str) -> (Option<Plugin>, Vec<Diagnostic>) {
             section = Section::Command(raw.commands.len() - 1);
             continue;
         }
+        if trimmed == "[runtime]" {
+            raw.has_runtime = true;
+            section = Section::Runtime;
+            continue;
+        }
+        if trimmed == "[panel]" {
+            raw.has_panel = true;
+            section = Section::Panel;
+            continue;
+        }
         if trimmed.starts_with('[') {
             diags.push(diag(&path, line, "unknown section"));
             continue;
@@ -119,6 +161,8 @@ pub fn parse(path: PathBuf, text: &str) -> (Option<Plugin>, Vec<Diagnostic>) {
             Section::Command(index) => {
                 commandkey(&mut raw.commands[index], key, &val, &path, line, &mut diags)
             }
+            Section::Runtime => runtimekey(&mut raw, key, &val, &path, line, &mut diags),
+            Section::Panel => panelkey(&mut raw, key, &val, &path, line, &mut diags),
         }
     }
 
@@ -181,8 +225,45 @@ fn build(raw: RawPlugin, path: &std::path::Path, diags: &mut Vec<Diagnostic>) ->
         };
         commands.push(command);
     }
+    let name = raw.name.unwrap_or_else(|| id.clone());
+    let runtime = if raw.has_runtime {
+        match raw.runtime_command.filter(|s| !s.trim().is_empty()) {
+            Some(command) => Some(Runtime { command }),
+            None => {
+                diags.push(diag(path, 0, "[runtime] requires a `command`"));
+                None
+            }
+        }
+    } else {
+        None
+    };
+    let panel = if raw.has_panel {
+        let panel_id = raw.panel_id.filter(|s| !s.trim().is_empty());
+        if let Some(ref pid) = panel_id {
+            if !validid(pid) {
+                diags.push(diag(
+                    path,
+                    0,
+                    "panel id must use lowercase letters, numbers, `.` or `-`",
+                ));
+            }
+        }
+        Some(Panel {
+            id: panel_id.unwrap_or_else(|| id.clone()),
+            title: raw
+                .panel_title
+                .filter(|s| !s.trim().is_empty())
+                .unwrap_or_else(|| name.clone()),
+            icon: raw
+                .panel_icon
+                .filter(|s| !s.trim().is_empty())
+                .unwrap_or_else(|| "\u{25c9}".to_string()),
+        })
+    } else {
+        None
+    };
     Some(Plugin {
-        name: raw.name.unwrap_or_else(|| id.clone()),
+        name,
         version: raw.version.unwrap_or_else(|| "0.0.0".to_string()),
         description: raw.description.filter(|s| !s.trim().is_empty()),
         path: path
@@ -191,7 +272,39 @@ fn build(raw: RawPlugin, path: &std::path::Path, diags: &mut Vec<Diagnostic>) ->
             .unwrap_or_else(|| PathBuf::from(".")),
         id,
         commands,
+        runtime,
+        panel,
     })
+}
+
+fn runtimekey(
+    raw: &mut RawPlugin,
+    key: &str,
+    val: &str,
+    path: &std::path::Path,
+    line: usize,
+    diags: &mut Vec<Diagnostic>,
+) {
+    match key {
+        "command" => raw.runtime_command = Some(val.to_string()),
+        _ => diags.push(diag(path, line, &format!("unknown runtime key `{key}`"))),
+    }
+}
+
+fn panelkey(
+    raw: &mut RawPlugin,
+    key: &str,
+    val: &str,
+    path: &std::path::Path,
+    line: usize,
+    diags: &mut Vec<Diagnostic>,
+) {
+    match key {
+        "id" => raw.panel_id = Some(val.to_string()),
+        "title" => raw.panel_title = Some(val.to_string()),
+        "icon" => raw.panel_icon = Some(val.to_string()),
+        _ => diags.push(diag(path, line, &format!("unknown panel key `{key}`"))),
+    }
 }
 
 fn buildcommand(

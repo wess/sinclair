@@ -8,7 +8,7 @@ mod load;
 mod manifest;
 
 pub use load::{defaultdir, load};
-pub use manifest::{parse, Command, CommandMode, Diagnostic, Plugin};
+pub use manifest::{parse, Command, CommandMode, Diagnostic, Panel, Plugin, Runtime};
 
 /// The manifest filename inside a plugin directory.
 pub const MANIFEST: &str = "plugin.toml";
