@@ -279,6 +279,7 @@ pub fn default_keybinds() -> Vec<Keybind> {
     let mut binds = vec![
         kb(cmd, "n", Action::NewWindow),
         kb(cmd, "t", Action::NewTab),
+        kb(cmd_shift, "t", Action::NewContainerTab),
         kb(cmd, "w", Action::CloseSurface),
         kb(cmd_alt, "w", Action::CloseTab),
         kb(cmd_shift, "w", Action::CloseWindow),

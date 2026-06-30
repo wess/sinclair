@@ -1,5 +1,34 @@
 use super::*;
 use gpui::prelude::*;
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+/// Monotonic counter for naming persistent container tabs uniquely within a
+/// run (`prompt-<os>-<n>`).
+static CONTAINER_SEQ: AtomicUsize = AtomicUsize::new(0);
+
+/// Lowercase a profile label into a container-name-safe slug: alphanumerics
+/// kept, every other run collapsed to a single `-`, edges trimmed.
+fn slug(label: &str) -> String {
+    let mut out = String::with_capacity(label.len());
+    let mut dash = false;
+    for ch in label.chars() {
+        if ch.is_ascii_alphanumeric() {
+            out.push(ch.to_ascii_lowercase());
+            dash = false;
+        } else if !out.is_empty() && !dash {
+            out.push('-');
+            dash = true;
+        }
+    }
+    while out.ends_with('-') {
+        out.pop();
+    }
+    if out.is_empty() {
+        "os".to_string()
+    } else {
+        out
+    }
+}
 
 impl WorkspaceView {
     /// Handle one MCP bridge op against this workspace, returning the JSON
@@ -163,6 +192,44 @@ impl WorkspaceView {
         options.spawn = commandspawn(&self.opts, command);
         options.spawn.cwd = cwd;
         self.spawn(options, window, cx)
+    }
+
+    /// Launch `profile` as a container-backed tab. Resolves the engine, builds
+    /// the run target (honoring the global/per-profile lifecycle), spawns it,
+    /// and labels the tab with the OS name.
+    pub(crate) fn launch_container(
+        &mut self,
+        profile: &container::Profile,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(engine) = container::Engine::resolve(self.opts.container_engine.as_deref()) else {
+            eprintln!("prompt: no container engine available (install Docker or Podman)");
+            return;
+        };
+        let n = CONTAINER_SEQ.fetch_add(1, Ordering::Relaxed) + 1;
+        let name = Some(format!("prompt-{}-{n}", slug(&profile.label)));
+        let target =
+            container::Target::from_profile(engine, profile, self.opts.container_persist, name);
+        if let Some(id) = self.spawn_container(&target, window, cx) {
+            self.tabs.new_tab(id);
+            let index = self.tabs.active_index();
+            self.rename_tab(index, &profile.label, cx);
+            self.focusactive(window, cx);
+            cx.notify();
+        }
+    }
+
+    /// Spawn a pane whose backing process is the container `target`'s `engine
+    /// run …` argv. The argv is run directly (no shell wrapper) via
+    /// [`Self::spawn_tab_argv`], inheriting the focused pane's cwd.
+    pub(crate) fn spawn_container(
+        &mut self,
+        target: &container::Target,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Option<PaneId> {
+        self.spawn_tab_argv(target.argv(), window, cx)
     }
 
     pub(crate) fn splitcommand(

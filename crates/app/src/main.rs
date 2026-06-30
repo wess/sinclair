@@ -18,6 +18,7 @@ mod mcpbridge;
 mod metrics;
 mod mouse;
 mod newagent;
+mod ospicker;
 mod pluginhost;
 mod pointer;
 mod quick;

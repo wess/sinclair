@@ -312,6 +312,27 @@ pub fn apply(opts: &mut Options, key: &str, val: &str) -> Result<(), String> {
                 opts.plugin.push(val.to_string());
             }
         }
+        "container" => {
+            if empty {
+                opts.container = d.container;
+            } else {
+                opts.container.push(val.to_string());
+            }
+        }
+        "container-engine" => {
+            opts.container_engine = if empty {
+                d.container_engine
+            } else {
+                Some(val.to_string())
+            };
+        }
+        "container-persist" => {
+            opts.container_persist = if empty {
+                d.container_persist
+            } else {
+                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+            };
+        }
         "keybind" => {
             if empty {
                 opts.keybind = d.keybind;

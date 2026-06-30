@@ -5,6 +5,7 @@
 //! themselves only know their own session.
 
 mod boot;
+mod containers;
 mod dialogs;
 mod dispatch;
 mod layout;
@@ -171,15 +172,18 @@ pub enum SidebarPanel {
     Agents,
     /// Installed plugins + the installable catalog.
     Plugins,
+    /// Running containers (Docker/Podman): attach or spin up new OS tabs.
+    Containers,
     /// A plugin-contributed panel, by index into [`WorkspaceView::plugin_panel_defs`].
     Plugin(usize),
 }
 
 impl SidebarPanel {
     /// Panels in activity-bar order.
-    pub const ALL: [SidebarPanel; 5] = [
+    pub const ALL: [SidebarPanel; 6] = [
         SidebarPanel::Terminals,
         SidebarPanel::Layouts,
+        SidebarPanel::Containers,
         SidebarPanel::Relay,
         SidebarPanel::Agents,
         SidebarPanel::Plugins,
@@ -190,6 +194,7 @@ impl SidebarPanel {
         match self {
             SidebarPanel::Terminals => "terminals",
             SidebarPanel::Layouts => "layouts",
+            SidebarPanel::Containers => "containers",
             SidebarPanel::Relay => "relay",
             SidebarPanel::Agents => "agents",
             SidebarPanel::Plugins => "plugins",
@@ -206,6 +211,7 @@ impl SidebarPanel {
         match self {
             SidebarPanel::Terminals => "Terminals",
             SidebarPanel::Layouts => "Layouts",
+            SidebarPanel::Containers => "Containers",
             SidebarPanel::Relay => "Relay",
             SidebarPanel::Agents => "Agents",
             SidebarPanel::Plugins => "Plugins",
@@ -218,6 +224,7 @@ impl SidebarPanel {
         match self {
             SidebarPanel::Terminals => "\u{25a3}", // ▣ panes
             SidebarPanel::Layouts => "\u{25f0}",   // ◰ tiles
+            SidebarPanel::Containers => "\u{2756}", // ❖ containers
             SidebarPanel::Relay => "\u{21c4}",     // ⇄ connections
             SidebarPanel::Agents => "\u{25c8}",    // ◈ agents
             SidebarPanel::Plugins => "\u{29c9}",   // ⧉ plugins
@@ -270,6 +277,13 @@ pub struct WorkspaceView {
     /// The active in-window dialog (rename, new agent), as a guise Modal
     /// overlay. `None` when no dialog is open.
     modal: Option<gpui::AnyView>,
+    /// Cached running containers for the Containers panel, refreshed when the
+    /// panel opens or on its refresh action (running `docker ps` is I/O, so it
+    /// is never done during render).
+    containers: Vec<container::Running>,
+    /// Map of container id → the tab pane attached to it, so re-selecting a
+    /// running container focuses its existing tab instead of opening a second.
+    container_tabs: HashMap<String, PaneId>,
     /// Configured font size, restored by `reset_font_size`.
     base_font_size: gpui::Pixels,
     /// Config-file watcher; kept alive so live reload keeps working.
@@ -326,6 +340,8 @@ impl WorkspaceView {
             catalog_loading: false,
             spotlight: None,
             modal: None,
+            containers: Vec::new(),
+            container_tabs: HashMap::new(),
             _watch: None,
         };
         this.applykeybinds(cx);

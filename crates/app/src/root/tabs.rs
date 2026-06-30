@@ -60,6 +60,10 @@ impl WorkspaceView {
         if next == Some(SidebarPanel::Plugins) && self.catalog.is_none() {
             self.fetch_catalog(cx);
         }
+        // Refresh the running-container list whenever the Containers panel opens.
+        if next == Some(SidebarPanel::Containers) {
+            self.refresh_containers();
+        }
         self.setmenus(cx);
         cx.notify();
     }

@@ -33,6 +33,7 @@ impl WorkspaceView {
         let body = match panel {
             SidebarPanel::Terminals => self.panel_terminals(cx),
             SidebarPanel::Layouts => self.panel_layouts(cx),
+            SidebarPanel::Containers => self.panel_containers(cx),
             SidebarPanel::Relay => self.panel_relay(cx),
             SidebarPanel::Agents => self.panel_agents(cx),
             SidebarPanel::Plugins => self.panel_pluginlist(cx),
@@ -245,6 +246,56 @@ impl WorkspaceView {
             self.sidebar_row(("sb-savelayout", 0usize), "Save Current Layout…".into(), false, false, false)
                 .on_click(cx.listener(|this, _: &gpui::ClickEvent, window, cx| {
                     this.open_save_layout(window, cx);
+                })),
+        );
+        body.into_any_element()
+    }
+
+    /// Containers panel: the running Docker/Podman containers. Click a row to
+    /// attach a tab (focusing an existing one if already open); the header row
+    /// spins up a fresh OS tab via the picker, and a refresh row re-lists.
+    fn panel_containers(&self, cx: &mut Context<Self>) -> AnyElement {
+        let mut body = self.sidebar_body("sb-containers");
+        let engine = self.container_engine();
+
+        let Some(engine) = engine else {
+            return body
+                .child(self.sidebar_note(
+                    "No container engine found. Install Docker or Podman to manage containers.",
+                ))
+                .into_any_element();
+        };
+
+        body = body.child(self.sidebar_section(&format!("Running \u{00b7} {}", engine.label())));
+        if self.containers.is_empty() {
+            body = body.child(self.sidebar_note("No running containers."));
+        } else {
+            body = body.child(self.sidebar_note("Double-click to attach a shell."));
+            for (i, c) in self.containers.iter().enumerate() {
+                let running = c.clone();
+                let active = self
+                    .container_tabs
+                    .get(&c.id)
+                    .is_some_and(|pid| self.panes.contains_key(pid));
+                let name = if c.name.is_empty() { c.id.clone() } else { c.name.clone() };
+                let label = format!("{name}  \u{00b7}  {}", c.image);
+                body = body.child(
+                    self.sidebar_row(("sb-ctr", i), label, false, active, false)
+                        // Double-click attaches (opens/focuses the container's tab).
+                        .on_click(cx.listener(move |this, ev: &gpui::ClickEvent, window, cx| {
+                            if ev.click_count() == 2 {
+                                this.attach_container(&running, window, cx);
+                            }
+                        })),
+                );
+            }
+        }
+
+        body = body.child(
+            self.sidebar_row(("sb-ctr-refresh", 0usize), "\u{21bb} Refresh".into(), false, false, false)
+                .on_click(cx.listener(|this, _: &gpui::ClickEvent, _w, cx| {
+                    this.refresh_containers();
+                    cx.notify();
                 })),
         );
         body.into_any_element()

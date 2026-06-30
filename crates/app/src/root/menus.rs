@@ -196,6 +196,7 @@ impl WorkspaceView {
             vec![
                 self.pick(a, "New Window", Action::NewWindow),
                 self.pick(a, "New Tab", Action::NewTab),
+                self.pick(a, "New OS Tab\u{2026}", Action::NewContainerTab),
                 Some(MenuItem::separator()),
                 Some(self.pick_checked(a, "Record Session", Action::ToggleRecording, recording)),
                 Some(MenuItem::separator()),

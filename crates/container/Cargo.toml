@@ -1,0 +1,8 @@
+[package]
+autotests = false
+name = "container"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]

@@ -194,6 +194,17 @@ pub struct Options {
     pub palette: Vec<(u8, String)>,
     /// File key: `plugin`, repeated plugin directories or manifest paths.
     pub plugin: Vec<String>,
+    /// File key: `container`, repeated `label | image | command | lifecycle`
+    /// entries (raw strings, parsed by the `container` crate). Each adds or
+    /// overrides an OS profile offered by the "New OS Tab" picker.
+    pub container: Vec<String>,
+    /// File key: `container-engine` - `docker`, `podman`, or `auto` (the
+    /// default, `None`, which detects whichever is installed).
+    pub container_engine: Option<String>,
+    /// File key: `container-persist` - default lifecycle for container tabs.
+    /// When false (default) a fresh container is removed on tab close; when
+    /// true it is kept. Per-profile `persist`/`ephemeral` overrides this.
+    pub container_persist: bool,
     /// File key: `keybind`, raw strings (accumulated, parsed later).
     pub keybind: Vec<String>,
     /// File key: `ai-enabled` - master switch for all AI features.
@@ -293,6 +304,9 @@ impl Default for Options {
             tab_title_show_host: false,
             palette: Vec::new(),
             plugin: Vec::new(),
+            container: Vec::new(),
+            container_engine: None,
+            container_persist: false,
             keybind: Vec::new(),
             ai_enabled: false,
             mcp_server_enabled: false,

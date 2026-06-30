@@ -161,6 +161,9 @@ pub enum Action {
     /// Open a fresh top-level window.
     NewWindow,
     NewTab,
+    /// Open the OS picker to launch a container-backed tab (a fresh Debian,
+    /// Ubuntu, … userland). See the `container` crate.
+    NewContainerTab,
     CloseSurface,
     /// Close the current tab and all its panes.
     CloseTab,
@@ -293,6 +296,7 @@ impl Action {
         match name.as_str() {
             "new_window" => only(Self::NewWindow, &name, param),
             "new_tab" => only(Self::NewTab, &name, param),
+            "new_container_tab" | "new_os_tab" => only(Self::NewContainerTab, &name, param),
             "close_surface" => only(Self::CloseSurface, &name, param),
             "close_tab" => only(Self::CloseTab, &name, param),
             "close_window" => only(Self::CloseWindow, &name, param),
@@ -416,6 +420,7 @@ impl Action {
         match self {
             Self::NewWindow => "new_window".into(),
             Self::NewTab => "new_tab".into(),
+            Self::NewContainerTab => "new_container_tab".into(),
             Self::CloseSurface => "close_surface".into(),
             Self::CloseTab => "close_tab".into(),
             Self::CloseWindow => "close_window".into(),

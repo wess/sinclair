@@ -48,6 +48,7 @@ impl WorkspaceView {
         match action {
             Action::NewWindow => self.newwindow(cx),
             Action::NewTab => self.newtab(window, cx),
+            Action::NewContainerTab => self.open_os_picker(window, cx),
             Action::CloseSurface => self.closepane(self.tabs.focused(), window, cx),
             Action::CloseTab => self.closetab(self.tabs.active_index(), window, cx),
             Action::CloseWindow => self.close_window(window, cx),

@@ -5,6 +5,7 @@ members = [
     "crates/app",
     "crates/cast",
     "crates/config",
+    "crates/container",
     "crates/input",
     "crates/macros",
     "crates/mcp",
@@ -34,7 +35,7 @@ async-task = { git = "https://github.com/smol-rs/async-task.git", rev = "b4486cd
 block = { path = "thirdparty/block" }
 
 [workspace.package]
-version = "1.4.0"
+version = "1.5.0"
 edition = "2021"
 license = "Apache-2.0"
 
