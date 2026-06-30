@@ -1,5 +1,5 @@
 use crate::grid::damage::Damage;
-use crate::selection::{Point, SelectionMode};
+use crate::selection::{Point, SelectionAdjust, SelectionMode};
 use crate::term::Terminal;
 
 fn p(line: isize, col: usize) -> Point {
@@ -190,6 +190,61 @@ fn resize_and_ris_clear_selection() {
     t.start_selection(SelectionMode::Cell, p(0, 0));
     t.feed(b"\x1bc");
     assert!(t.selection().is_none());
+}
+
+#[test]
+fn adjust_selection_without_selection_is_noop() {
+    let mut t = Terminal::new(10, 3, 0);
+    t.feed(b"abcde");
+    assert!(!t.adjust_selection(SelectionAdjust::Right));
+    assert!(t.selection().is_none());
+}
+
+#[test]
+fn adjust_selection_extends_extent() {
+    let mut t = Terminal::new(10, 3, 0);
+    t.feed(b"abcde");
+    t.start_selection(SelectionMode::Cell, p(0, 1));
+    // Anchor at (0,1); extend the moving end right twice.
+    assert!(t.adjust_selection(SelectionAdjust::Right));
+    assert!(t.adjust_selection(SelectionAdjust::Right));
+    let sel = t.selection().unwrap();
+    assert_eq!(sel.start(), p(0, 1));
+    assert_eq!(sel.end(), p(0, 3));
+    // Pull it back left past the anchor; start now precedes it.
+    assert!(t.adjust_selection(SelectionAdjust::Left));
+    assert!(t.adjust_selection(SelectionAdjust::Left));
+    assert!(t.adjust_selection(SelectionAdjust::Left));
+    let sel = t.selection().unwrap();
+    assert_eq!(sel.start(), p(0, 0));
+    assert_eq!(sel.end(), p(0, 1));
+}
+
+#[test]
+fn adjust_selection_left_wraps_to_prior_row() {
+    let mut t = Terminal::new(4, 3, 0);
+    t.feed(b"abcd\r\nwxyz");
+    t.start_selection(SelectionMode::Cell, p(1, 0));
+    assert!(t.adjust_selection(SelectionAdjust::Left));
+    let sel = t.selection().unwrap();
+    // Wrapped from (1,0) to the last column of the row above.
+    assert_eq!(sel.start(), p(0, 3));
+    assert_eq!(sel.end(), p(1, 0));
+}
+
+#[test]
+fn adjust_selection_up_reveals_scrollback() {
+    let mut t = Terminal::new(4, 2, 10);
+    // Push several lines into scrollback, leaving the view at the bottom.
+    t.feed(b"l1\r\nl2\r\nl3\r\nl4\r\nl5");
+    assert_eq!(t.display_offset(), 0);
+    t.start_selection(SelectionMode::Cell, p(1, 0));
+    // Walk the moving end up into history; the view scrolls to follow.
+    for _ in 0..3 {
+        assert!(t.adjust_selection(SelectionAdjust::Up));
+    }
+    assert!(t.display_offset() > 0);
+    assert!(t.selection().unwrap().start().line < 0);
 }
 
 #[test]

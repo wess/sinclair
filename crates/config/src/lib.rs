@@ -9,7 +9,7 @@ pub mod parse;
 pub mod value;
 pub mod watch;
 
-pub use action::{Action, ResizeDir, SplitDirection, SplitFocus};
+pub use action::{Action, ResizeDir, SelectAdjust, SplitDirection, SplitFocus};
 pub use edit::{set_list, upsert};
 pub use keybind::{
     default_keybinds, diff_from_defaults, format_trigger, parse_keybind, resolve, Keybind, Mods,

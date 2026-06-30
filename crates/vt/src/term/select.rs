@@ -18,7 +18,7 @@
 //! - alt-screen switches, resize, and RIS always clear it.
 
 use crate::grid::Grid;
-use crate::selection::{self, Point, Selection, SelectionMode};
+use crate::selection::{self, Point, Selection, SelectionAdjust, SelectionMode};
 
 use super::{Inner, Terminal};
 
@@ -56,6 +56,35 @@ impl Terminal {
     pub fn clear_selection(&mut self) {
         if self.inner.selection.take().is_some() {
             self.inner.full_damage = true;
+        }
+    }
+
+    /// Nudge the selection's moving end one step in `dir`, keeping the
+    /// anchor fixed, and scroll the view to keep the new end visible.
+    /// Returns `false` (a no-op) when there is no selection, which is the
+    /// host's cue to fall through to the key's normal escape sequence,
+    /// the same "performable" semantics Ghostty uses for shift+navigation.
+    pub fn adjust_selection(&mut self, dir: SelectionAdjust) -> bool {
+        let Some(caret) = self.inner.selection.as_ref().map(|s| s.extent_caret()) else {
+            return false;
+        };
+        let page = self.rows();
+        let point = selection::adjust_point(&self.inner.screen().grid, caret, dir, page);
+        self.update_selection(point);
+        self.reveal_line(point.line);
+        true
+    }
+
+    /// Scroll the view (display offset) the minimum amount needed for
+    /// absolute `line` to fall inside the viewport.
+    fn reveal_line(&mut self, line: isize) {
+        let rows = self.rows() as isize;
+        let offset = self.display_offset() as isize;
+        // Visible content lines span [-offset, rows - 1 - offset].
+        if line < -offset {
+            self.set_display_offset((-line).max(0) as usize);
+        } else if line > rows - 1 - offset {
+            self.set_display_offset((rows - 1 - line).max(0) as usize);
         }
     }
 

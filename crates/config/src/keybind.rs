@@ -1,7 +1,7 @@
 //! Keybind parsing: `keybind = trigger=action` where the trigger is
 //! modifiers and a key joined by `+`.
 
-use crate::action::{Action, SplitDirection, SplitFocus};
+use crate::action::{Action, SelectAdjust, SplitDirection, SplitFocus};
 use crate::parse::Diagnostic;
 
 /// Modifier keys in a trigger.
@@ -317,6 +317,26 @@ pub fn default_keybinds() -> Vec<Keybind> {
     ];
     for n in 1..=9 {
         binds.push(kb(cmd, &n.to_string(), Action::GotoTab(n as i32)));
+    }
+    // Shift+navigation extends an active selection (the macOS / Ghostty
+    // convention). With no selection the action is a no-op and the key
+    // falls through to its standard escape sequence, so TUI apps still see
+    // `CSI 1;2D` etc. Cross-platform: shift is never remapped.
+    let shift = Mods {
+        shift: true,
+        ..Mods::default()
+    };
+    for (key, dir) in [
+        ("left", SelectAdjust::Left),
+        ("right", SelectAdjust::Right),
+        ("up", SelectAdjust::Up),
+        ("down", SelectAdjust::Down),
+        ("home", SelectAdjust::Home),
+        ("end", SelectAdjust::End),
+        ("page_up", SelectAdjust::PageUp),
+        ("page_down", SelectAdjust::PageDown),
+    ] {
+        binds.push(kb(shift, key, Action::AdjustSelection(dir)));
     }
     #[cfg(target_os = "macos")]
     {

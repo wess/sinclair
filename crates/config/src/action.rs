@@ -96,6 +96,48 @@ impl SplitFocus {
     }
 }
 
+/// Direction the selection's moving end travels for `adjust_selection`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SelectAdjust {
+    Left,
+    Right,
+    Up,
+    Down,
+    Home,
+    End,
+    PageUp,
+    PageDown,
+}
+
+impl SelectAdjust {
+    fn parse(s: &str) -> Option<Self> {
+        match s.to_ascii_lowercase().as_str() {
+            "left" => Some(Self::Left),
+            "right" => Some(Self::Right),
+            "up" => Some(Self::Up),
+            "down" => Some(Self::Down),
+            "home" => Some(Self::Home),
+            "end" => Some(Self::End),
+            "page_up" => Some(Self::PageUp),
+            "page_down" => Some(Self::PageDown),
+            _ => None,
+        }
+    }
+
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Left => "left",
+            Self::Right => "right",
+            Self::Up => "up",
+            Self::Down => "down",
+            Self::Home => "home",
+            Self::End => "end",
+            Self::PageUp => "page_up",
+            Self::PageDown => "page_down",
+        }
+    }
+}
+
 /// A keybind action. Names like `new_tab`, `goto_tab:3`,
 /// `increase_font_size:1`, `unbind`, ...
 #[derive(Debug, Clone, PartialEq)]
@@ -128,6 +170,10 @@ pub enum Action {
     Paste,
     /// Select the entire terminal buffer (scrollback + screen).
     SelectAll,
+    /// Extend the active selection's moving end one step. With no active
+    /// selection the binding is a no-op and the key falls through to its
+    /// normal escape sequence (matching Ghostty's shift+navigation).
+    AdjustSelection(SelectAdjust),
     /// Write raw bytes straight to the pty. Built from
     /// `text:<chars>` (literal, with `\xNN`/`\e`/`\n`… escapes) and
     /// `esc:<chars>` (an ESC prefix plus those chars). Used for the macOS
@@ -268,6 +314,12 @@ impl Action {
             "copy_to_clipboard" | "copy" => only(Self::Copy, &name, param),
             "paste_from_clipboard" | "paste" => only(Self::Paste, &name, param),
             "select_all" => only(Self::SelectAll, &name, param),
+            "adjust_selection" => {
+                let p = req(&name, param)?;
+                let dir = SelectAdjust::parse(p)
+                    .ok_or_else(|| format!("invalid adjust_selection direction `{p}`"))?;
+                Ok(Self::AdjustSelection(dir))
+            }
             "text" => Ok(Self::SendText(decode_text(req(&name, raw)?)?)),
             "esc" => {
                 let mut bytes = vec![0x1b];
@@ -364,6 +416,7 @@ impl Action {
             Self::Copy => "copy_to_clipboard".into(),
             Self::Paste => "paste_from_clipboard".into(),
             Self::SelectAll => "select_all".into(),
+            Self::AdjustSelection(d) => format!("adjust_selection:{}", d.as_str()),
             Self::SendText(bytes) => format!("text:{}", encode_text(bytes)),
             Self::IncreaseFontSize(a) => font_size_action("increase_font_size", *a),
             Self::DecreaseFontSize(a) => font_size_action("decrease_font_size", *a),

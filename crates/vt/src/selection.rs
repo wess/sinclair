@@ -51,6 +51,21 @@ pub enum SelectionMode {
     Line,
 }
 
+/// One step of keyboard selection adjustment, moving the selection's
+/// extent (its moving end). Mirrors the directions a shift+navigation key
+/// would move a text caret.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SelectionAdjust {
+    Left,
+    Right,
+    Up,
+    Down,
+    Home,
+    End,
+    PageUp,
+    PageDown,
+}
+
 /// An active selection: mode plus the expanded anchor and extent spans.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Selection {
@@ -88,6 +103,14 @@ impl Selection {
         self.anchor.1.max(self.extent.1)
     }
 
+    /// The moving end of the selection: the point keyboard adjustment
+    /// nudges, leaving the anchor fixed. For cell mode the extent is a
+    /// single point; for word/line modes this is the far edge of the
+    /// expanded extent span.
+    pub fn extent_caret(&self) -> Point {
+        self.extent.1
+    }
+
     /// Whether `p` falls inside the selection, treating it as a stream
     /// range: partial first/last rows, full rows in between.
     pub fn contains(&self, p: Point) -> bool {
@@ -113,6 +136,38 @@ pub fn clamp_point(grid: &Grid, p: Point) -> Point {
     let min_line = -(grid.scrollback().len() as isize);
     let max_line = grid.rows() as isize - 1;
     Point::new(p.line.clamp(min_line, max_line), p.col.min(grid.cols() - 1))
+}
+
+/// One keyboard step of the selection caret in `dir`, clamped to content.
+/// `page` is the viewport height in rows (for `PageUp`/`PageDown`). Left
+/// and Right wrap across row edges; the rest move within their column or
+/// to the row ends.
+pub fn adjust_point(grid: &Grid, caret: Point, dir: SelectionAdjust, page: usize) -> Point {
+    let cols = grid.cols().max(1);
+    let page = page.max(1) as isize;
+    let moved = match dir {
+        SelectionAdjust::Left => {
+            if caret.col > 0 {
+                Point::new(caret.line, caret.col - 1)
+            } else {
+                Point::new(caret.line - 1, cols - 1)
+            }
+        }
+        SelectionAdjust::Right => {
+            if caret.col + 1 < cols {
+                Point::new(caret.line, caret.col + 1)
+            } else {
+                Point::new(caret.line + 1, 0)
+            }
+        }
+        SelectionAdjust::Up => Point::new(caret.line - 1, caret.col),
+        SelectionAdjust::Down => Point::new(caret.line + 1, caret.col),
+        SelectionAdjust::Home => Point::new(caret.line, 0),
+        SelectionAdjust::End => Point::new(caret.line, cols - 1),
+        SelectionAdjust::PageUp => Point::new(caret.line - page, caret.col),
+        SelectionAdjust::PageDown => Point::new(caret.line + page, caret.col),
+    };
+    clamp_point(grid, moved)
 }
 
 /// Expand `p` to the word around it: a run of word characters

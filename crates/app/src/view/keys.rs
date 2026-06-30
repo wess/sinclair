@@ -117,12 +117,7 @@ impl TerminalView {
                 rec.0.key(&keystroke.key, keystroke.key_char.as_deref());
             });
         }
-        let state = self.session.with_term(|term| input::TermState {
-            cursor_keys_app: term.cursor_keys_app(),
-            keypad_app: term.keypad_app(),
-            bracketed_paste: term.bracketed_paste(),
-            kitty_flags: term.kitty_keyboard_flags(),
-        });
+        let state = self.term_state();
         let (mods, text) = self.resolve_option(keystroke, mods);
         if let Some(bytes) = input::encode_key(&keystroke.key, text, mods, state) {
             self.scroll_to_bottom(cx);
@@ -135,6 +130,16 @@ impl TerminalView {
             }
             cx.stop_propagation();
         }
+    }
+
+    /// Snapshot the terminal modes `encode_key` needs to spell a keystroke.
+    pub(crate) fn term_state(&self) -> input::TermState {
+        self.session.with_term(|term| input::TermState {
+            cursor_keys_app: term.cursor_keys_app(),
+            keypad_app: term.keypad_app(),
+            bracketed_paste: term.bracketed_paste(),
+            kitty_flags: term.kitty_keyboard_flags(),
+        })
     }
 
     /// Apply the `macos-option-as-alt` policy, returning the effective

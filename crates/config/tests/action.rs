@@ -202,6 +202,8 @@ fn to_config_round_trips() {
         Action::Copy,
         Action::Paste,
         Action::SelectAll,
+        Action::AdjustSelection(SelectAdjust::Left),
+        Action::AdjustSelection(SelectAdjust::PageDown),
         Action::SendText(vec![0x01]),
         Action::SendText(vec![0x1b, b'b']),
         Action::SendText(vec![0x1b, 0x7f]),
@@ -245,6 +247,13 @@ fn text_and_esc_decode_escapes() {
         Action::parse("esc:b"),
         Ok(Action::SendText(vec![0x1b, b'b']))
     );
+    // adjust_selection takes a direction; a bad one and a missing one error.
+    assert_eq!(
+        Action::parse("adjust_selection:page_up"),
+        Ok(Action::AdjustSelection(SelectAdjust::PageUp))
+    );
+    assert!(Action::parse("adjust_selection:sideways").is_err());
+    assert!(Action::parse("adjust_selection").is_err());
     // Whitespace in a text:/esc: payload is significant and not trimmed away.
     assert_eq!(Action::parse("text: "), Ok(Action::SendText(vec![0x20])));
     assert_eq!(

@@ -136,6 +136,43 @@ impl TerminalView {
         cx.write_to_clipboard(ClipboardItem::new_string(text));
     }
 
+    /// Extend the active selection one step in `dir`. With no active
+    /// selection this falls through to the key's normal escape sequence, so
+    /// shift+navigation extends a selection when one exists and otherwise
+    /// behaves exactly as if unbound, matching Ghostty's "performable"
+    /// shift+navigation.
+    pub fn adjust_selection(&mut self, dir: config::SelectAdjust, cx: &mut Context<Self>) {
+        // `key` (gpui's spelling, used only on the fall-through) cannot be
+        // derived from `config::SelectAdjust::as_str`, which spells the paged
+        // keys `page_up`/`page_down` rather than `pageup`/`pagedown`.
+        let (vtdir, key) = match dir {
+            config::SelectAdjust::Left => (vt::SelectionAdjust::Left, "left"),
+            config::SelectAdjust::Right => (vt::SelectionAdjust::Right, "right"),
+            config::SelectAdjust::Up => (vt::SelectionAdjust::Up, "up"),
+            config::SelectAdjust::Down => (vt::SelectionAdjust::Down, "down"),
+            config::SelectAdjust::Home => (vt::SelectionAdjust::Home, "home"),
+            config::SelectAdjust::End => (vt::SelectionAdjust::End, "end"),
+            config::SelectAdjust::PageUp => (vt::SelectionAdjust::PageUp, "pageup"),
+            config::SelectAdjust::PageDown => (vt::SelectionAdjust::PageDown, "pagedown"),
+        };
+        if self.session.with_term(|term| term.adjust_selection(vtdir)) {
+            cx.notify();
+            return;
+        }
+        // No selection: send the key's standard sequence so shells and TUI
+        // apps behave as if the binding didn't exist. The default trigger is
+        // shift+<key>, so that is what we reproduce.
+        let mods = input::Mods {
+            shift: true,
+            alt: false,
+            ctrl: false,
+            cmd: false,
+        };
+        if let Some(bytes) = input::encode_key(key, None, mods, self.term_state()) {
+            self.send_text(&bytes, cx);
+        }
+    }
+
     /// Select the entire buffer, every scrollback row plus the live screen,
     /// so it can be copied. Mirrors a top-left to bottom-right cell drag.
     pub fn select_all(&mut self, cx: &mut Context<Self>) {
