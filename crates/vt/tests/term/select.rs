@@ -260,3 +260,47 @@ fn contains_matches_renderer_view() {
     assert!(sel.contains(p(2, 0)));
     assert!(!sel.contains(p(2, 1)));
 }
+
+#[test]
+fn word_right_extends_by_word() {
+    let mut t = Terminal::new(20, 3, 0);
+    t.feed(b"foo bar baz");
+    t.start_selection(SelectionMode::Cell, p(0, 0));
+    assert!(t.adjust_selection(SelectionAdjust::WordRight));
+    assert_eq!(t.selection_text().as_deref(), Some("foo"));
+    assert!(t.adjust_selection(SelectionAdjust::WordRight));
+    assert_eq!(t.selection_text().as_deref(), Some("foo bar"));
+}
+
+#[test]
+fn word_left_extends_by_word() {
+    let mut t = Terminal::new(20, 3, 0);
+    t.feed(b"foo bar baz");
+    t.start_selection(SelectionMode::Cell, p(0, 10));
+    assert!(t.adjust_selection(SelectionAdjust::WordLeft));
+    assert_eq!(t.selection_text().as_deref(), Some("baz"));
+    assert!(t.adjust_selection(SelectionAdjust::WordLeft));
+    assert_eq!(t.selection_text().as_deref(), Some("bar baz"));
+}
+
+#[test]
+fn extend_selection_starts_at_cursor() {
+    let mut t = Terminal::new(20, 3, 0);
+    t.feed(b"hello world");
+    assert!(t.selection().is_none());
+    // No selection yet: extend begins one at the cursor, then grows a word.
+    t.extend_selection(SelectionAdjust::WordLeft);
+    assert_eq!(t.selection_text().as_deref(), Some("world"));
+}
+
+#[test]
+fn word_motion_crosses_rows() {
+    let mut t = Terminal::new(6, 3, 0);
+    t.feed(b"foo\r\nbar");
+    // From the start of "bar", a word-left step crosses up to "foo".
+    t.start_selection(SelectionMode::Cell, p(1, 0));
+    assert!(t.adjust_selection(SelectionAdjust::WordLeft));
+    let sel = t.selection().unwrap();
+    assert_eq!(sel.start(), p(0, 0));
+    assert_eq!(sel.end(), p(1, 0));
+}

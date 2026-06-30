@@ -69,10 +69,28 @@ impl Terminal {
             return false;
         };
         let page = self.rows();
-        let point = selection::adjust_point(&self.inner.screen().grid, caret, dir, page);
+        let point = selection::adjust_point(
+            &self.inner.screen().grid,
+            caret,
+            dir,
+            page,
+            &self.inner.word_chars,
+        );
         self.update_selection(point);
         self.reveal_line(point.line);
         true
+    }
+
+    /// Extend the selection one step in `dir`, beginning one at the cursor
+    /// first when none exists — so a keyboard combo can start a selection
+    /// from the caret (the macOS convention for ⇧⌘ navigation), rather than
+    /// no-op'ing like [`adjust_selection`].
+    pub fn extend_selection(&mut self, dir: SelectionAdjust) {
+        if self.inner.selection.is_none() {
+            let (row, col) = self.cursor_pos();
+            self.start_selection(SelectionMode::Cell, Point::new(row as isize, col));
+        }
+        self.adjust_selection(dir);
     }
 
     /// Scroll the view (display offset) the minimum amount needed for

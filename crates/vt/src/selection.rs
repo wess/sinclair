@@ -64,6 +64,10 @@ pub enum SelectionAdjust {
     End,
     PageUp,
     PageDown,
+    /// Extend to the start of the previous word (⌘⇧← on macOS).
+    WordLeft,
+    /// Extend to the end of the next word (⌘⇧→ on macOS).
+    WordRight,
 }
 
 /// An active selection: mode plus the expanded anchor and extent spans.
@@ -139,10 +143,17 @@ pub fn clamp_point(grid: &Grid, p: Point) -> Point {
 }
 
 /// One keyboard step of the selection caret in `dir`, clamped to content.
-/// `page` is the viewport height in rows (for `PageUp`/`PageDown`). Left
-/// and Right wrap across row edges; the rest move within their column or
-/// to the row ends.
-pub fn adjust_point(grid: &Grid, caret: Point, dir: SelectionAdjust, page: usize) -> Point {
+/// `page` is the viewport height in rows (for `PageUp`/`PageDown`); `extra`
+/// is the word-character set (for `WordLeft`/`WordRight`). Left and Right
+/// wrap across row edges; the rest move within their column or to the row
+/// ends; the word motions jump to the next/previous word boundary.
+pub fn adjust_point(
+    grid: &Grid,
+    caret: Point,
+    dir: SelectionAdjust,
+    page: usize,
+    extra: &[char],
+) -> Point {
     let cols = grid.cols().max(1);
     let page = page.max(1) as isize;
     let moved = match dir {
@@ -166,8 +177,50 @@ pub fn adjust_point(grid: &Grid, caret: Point, dir: SelectionAdjust, page: usize
         SelectionAdjust::End => Point::new(caret.line, cols - 1),
         SelectionAdjust::PageUp => Point::new(caret.line - page, caret.col),
         SelectionAdjust::PageDown => Point::new(caret.line + page, caret.col),
+        SelectionAdjust::WordLeft => return word_step(grid, caret, false, extra),
+        SelectionAdjust::WordRight => return word_step(grid, caret, true, extra),
     };
     clamp_point(grid, moved)
+}
+
+/// Move `caret` one word in `right`'s direction: skip any non-word cells,
+/// then ride to the far edge of the word (its end going right, its start
+/// going left). Crosses row boundaries within existing content, matching
+/// the per-cell Left/Right wrap, so word selection flows across lines.
+/// Returns `caret` unchanged at the content edge.
+fn word_step(grid: &Grid, caret: Point, right: bool, extra: &[char]) -> Point {
+    let cols = grid.cols().max(1);
+    let step = |p: Point| -> Option<Point> {
+        if right {
+            if p.col + 1 < cols {
+                Some(Point::new(p.line, p.col + 1))
+            } else {
+                grid.absolute_row(p.line + 1).map(|_| Point::new(p.line + 1, 0))
+            }
+        } else if p.col > 0 {
+            Some(Point::new(p.line, p.col - 1))
+        } else {
+            grid.absolute_row(p.line - 1)
+                .map(|_| Point::new(p.line - 1, cols - 1))
+        }
+    };
+    let Some(mut q) = step(caret) else {
+        return caret;
+    };
+    while !is_word(grid, q, extra) {
+        match step(q) {
+            Some(p) => q = p,
+            None => return q,
+        }
+    }
+    while let Some(p) = step(q) {
+        if is_word(grid, p, extra) {
+            q = p;
+        } else {
+            break;
+        }
+    }
+    q
 }
 
 /// Expand `p` to the word around it: a run of word characters

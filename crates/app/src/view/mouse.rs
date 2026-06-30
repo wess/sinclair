@@ -154,7 +154,20 @@ impl TerminalView {
             config::SelectAdjust::End => (vt::SelectionAdjust::End, "end"),
             config::SelectAdjust::PageUp => (vt::SelectionAdjust::PageUp, "pageup"),
             config::SelectAdjust::PageDown => (vt::SelectionAdjust::PageDown, "pagedown"),
+            config::SelectAdjust::WordLeft => (vt::SelectionAdjust::WordLeft, ""),
+            config::SelectAdjust::WordRight => (vt::SelectionAdjust::WordRight, ""),
         };
+        // Word motions (⌘⇧←/→) begin a selection at the cursor when none
+        // exists and always act — cmd is a GUI-only modifier, never sent to
+        // the pty, so there's nothing to fall through to.
+        if matches!(
+            dir,
+            config::SelectAdjust::WordLeft | config::SelectAdjust::WordRight
+        ) {
+            self.session.with_term(|term| term.extend_selection(vtdir));
+            cx.notify();
+            return;
+        }
         if self.session.with_term(|term| term.adjust_selection(vtdir)) {
             cx.notify();
             return;

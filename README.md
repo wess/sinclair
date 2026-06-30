@@ -294,6 +294,7 @@ agents — are in [`docs/relay.md`](docs/relay.md).
 | ⌘C / ⌘V | Copy / paste |
 | ⌘A † | Select all (scrollback + screen) |
 | ⇧ arrows | Extend the selection (falls through to the app when none) |
+| ⌘⇧ ← / → | Extend the selection by a word (starts at the cursor) |
 | ⌘← / ⌘→ † | Jump to start / end of line |
 | ⌥← / ⌥→ † | Jump back / forward a word |
 | ⌘⌫ / ⌥⌫ † | Delete to line start / delete previous word |

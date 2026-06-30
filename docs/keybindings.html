@@ -83,6 +83,8 @@ keybind = cmd+shift+j=plugin_command:git/status</code></pre>
               <tr><td><kbd>⌘</kbd><kbd>⌥</kbd><kbd>→</kbd></td><td><code>goto_split:right</code></td><td>Focus the pane to the right</td></tr>
               <tr><td><kbd>⌘</kbd><kbd>C</kbd></td><td><code>copy_to_clipboard</code></td><td>Copy the selection</td></tr>
               <tr><td><kbd>⌘</kbd><kbd>V</kbd></td><td><code>paste_from_clipboard</code></td><td>Paste from the clipboard</td></tr>
+              <tr><td><kbd>⇧</kbd> arrows</td><td><code>adjust_selection:&lt;dir&gt;</code></td><td>Extend the selection by a cell (falls through to the app when none)</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>←</kbd> / <kbd>→</kbd></td><td><code>adjust_selection:word_left</code> / <code>word_right</code></td><td>Extend the selection by a word (starts at the cursor)</td></tr>
               <tr><td><kbd>⌘</kbd><kbd>+</kbd></td><td><code>increase_font_size:1</code></td><td>Increase the font size</td></tr>
               <tr><td><kbd>⌘</kbd><kbd>=</kbd></td><td><code>increase_font_size:1</code></td><td>Increase the font size</td></tr>
               <tr><td><kbd>⌘</kbd><kbd>-</kbd></td><td><code>decrease_font_size:1</code></td><td>Decrease the font size</td></tr>
@@ -153,6 +155,7 @@ keybind = cmd+shift+j=plugin_command:git/status</code></pre>
               <tr><td><code>copy_to_clipboard</code> <span class="c">(copy)</span></td><td>—</td><td>Copy the selection</td></tr>
               <tr><td><code>paste_from_clipboard</code> <span class="c">(paste)</span></td><td>—</td><td>Paste from the clipboard</td></tr>
               <tr><td><code>select_all</code></td><td>—</td><td>Select all terminal text</td></tr>
+              <tr><td><code>adjust_selection</code></td><td><code>left</code>, <code>right</code>, <code>up</code>, <code>down</code>, <code>home</code>, <code>end</code>, <code>page_up</code>, <code>page_down</code>, <code>word_left</code>, <code>word_right</code></td><td>Extend the selection's moving end (word_* jump by word and start at the cursor)</td></tr>
               <tr><td><code>text</code></td><td><code>BYTES</code>: C-escapes <code>\n \r \t \e \0 \\ \xNN</code></td><td>Send literal bytes to the terminal</td></tr>
               <tr><td><code>esc</code></td><td><code>BYTES</code>: C-escapes <code>\n \r \t \e \0 \\ \xNN</code></td><td>Send an escape sequence (prefixed with ESC) to the terminal</td></tr>
               <tr><td><code>increase_font_size</code></td><td><code>AMOUNT</code> (optional)</td><td>Increase the font size by AMOUNT (default 1)</td></tr>

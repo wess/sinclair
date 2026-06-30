@@ -338,6 +338,19 @@ pub fn default_keybinds() -> Vec<Keybind> {
     ] {
         binds.push(kb(shift, key, Action::AdjustSelection(dir)));
     }
+    // Cmd+Shift+Left/Right extends the selection by a whole word (macOS), and
+    // begins one at the cursor when none exists. Cmd is a GUI-only modifier
+    // (never sent to the pty), so there's nothing to fall through to.
+    binds.push(kb(
+        cmd_shift,
+        "left",
+        Action::AdjustSelection(SelectAdjust::WordLeft),
+    ));
+    binds.push(kb(
+        cmd_shift,
+        "right",
+        Action::AdjustSelection(SelectAdjust::WordRight),
+    ));
     #[cfg(target_os = "macos")]
     {
         let alt = Mods {

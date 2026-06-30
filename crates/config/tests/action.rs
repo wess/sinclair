@@ -204,6 +204,8 @@ fn to_config_round_trips() {
         Action::SelectAll,
         Action::AdjustSelection(SelectAdjust::Left),
         Action::AdjustSelection(SelectAdjust::PageDown),
+        Action::AdjustSelection(SelectAdjust::WordLeft),
+        Action::AdjustSelection(SelectAdjust::WordRight),
         Action::SendText(vec![0x01]),
         Action::SendText(vec![0x1b, b'b']),
         Action::SendText(vec![0x1b, 0x7f]),
@@ -251,6 +253,10 @@ fn text_and_esc_decode_escapes() {
     assert_eq!(
         Action::parse("adjust_selection:page_up"),
         Ok(Action::AdjustSelection(SelectAdjust::PageUp))
+    );
+    assert_eq!(
+        Action::parse("adjust_selection:word_left"),
+        Ok(Action::AdjustSelection(SelectAdjust::WordLeft))
     );
     assert!(Action::parse("adjust_selection:sideways").is_err());
     assert!(Action::parse("adjust_selection").is_err());
