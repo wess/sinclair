@@ -212,6 +212,12 @@ impl WorkspaceView {
         let target =
             container::Target::from_profile(engine, profile, self.opts.container_persist, name);
         if let Some(id) = self.spawn_container(&target, window, cx) {
+            // Ephemeral containers are force-removed when their tab closes.
+            if !target.persist {
+                if let Some(name) = &target.name {
+                    self.kill_on_close.insert(id, name.clone());
+                }
+            }
             self.tabs.new_tab(id);
             let index = self.tabs.active_index();
             self.rename_tab(index, &profile.label, cx);

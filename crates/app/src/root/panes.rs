@@ -133,6 +133,7 @@ impl WorkspaceView {
     /// last pane there, or quit when it is the last pane of the last tab.
     pub(crate) fn closepane(&mut self, pane: PaneId, window: &mut Window, cx: &mut Context<Self>) {
         self.zoomed = false;
+        self.on_pane_closed(pane);
         let Some(index) = self.tabindex(pane) else {
             return;
         };
@@ -172,6 +173,7 @@ impl WorkspaceView {
         }
         self.tabs.close_tab(index);
         for pane in removed {
+            self.on_pane_closed(pane);
             self.panes.remove(&pane);
         }
         self.focusactive(window, cx);

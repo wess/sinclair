@@ -37,26 +37,6 @@ impl WorkspaceView {
         cx.notify();
     }
 
-    /// Open the "New OS Tab" dialog: an in-window modal listing OS images to
-    /// run fresh. Bad config profiles are reported to stderr and skipped.
-    pub(crate) fn open_os_picker(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let available = self.container_engine().is_some();
-        let (profiles, errors) = container::profiles(&self.opts.container);
-        for error in &errors {
-            eprintln!("prompt: container profile {error}");
-        }
-        let text = colors::hsla(self.colors.fg);
-        let surface = colors::hsla(crate::tabbar::blend(self.colors.bg, self.colors.fg, 0.08));
-        let workspace = cx.entity().downgrade();
-        let view = cx.new(|cx| {
-            crate::ospicker::OsPickerDialog::new(
-                workspace, available, profiles, text, surface, window, cx,
-            )
-        });
-        self.modal = Some(view.into());
-        cx.notify();
-    }
-
     /// Dismiss the active in-window dialog and refocus the active pane.
     pub(crate) fn close_modal(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.modal.take().is_some() {

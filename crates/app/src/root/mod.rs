@@ -284,6 +284,11 @@ pub struct WorkspaceView {
     /// Map of container id → the tab pane attached to it, so re-selecting a
     /// running container focuses its existing tab instead of opening a second.
     container_tabs: HashMap<String, PaneId>,
+    /// Panes whose on-the-fly (run-fresh) container should be force-removed when
+    /// the pane closes (value is the container name). Only ephemeral containers
+    /// — `container-persist = false` — are tracked here; persistent ones are
+    /// left running.
+    kill_on_close: HashMap<PaneId, String>,
     /// Configured font size, restored by `reset_font_size`.
     base_font_size: gpui::Pixels,
     /// Config-file watcher; kept alive so live reload keeps working.
@@ -342,6 +347,7 @@ impl WorkspaceView {
             modal: None,
             containers: Vec::new(),
             container_tabs: HashMap::new(),
+            kill_on_close: HashMap::new(),
             _watch: None,
         };
         this.applykeybinds(cx);

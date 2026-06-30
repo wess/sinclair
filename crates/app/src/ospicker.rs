@@ -1,220 +1,234 @@
-//! In-window "New OS Tab" dialog: a centered card over a dimming backdrop,
-//! listing OS images to run fresh as a container-backed tab plus a field for an
-//! arbitrary image.
+//! "New OS Tab" picker — a small standalone window (like Settings) listing OS
+//! images to run fresh as a container-backed tab, plus a field for an arbitrary
+//! image. A real window (rather than an in-window overlay) avoids clipping and
+//! does not depend on guise's `deferred` draw pass.
 //!
-//! Unlike guise's `Modal`, this is rendered as a plain (non-`deferred`) overlay
-//! — the host adds it as the last child of the window root, so it paints on top
-//! without relying on the deferred draw pass. Clicking a row launches that OS;
-//! typing an image and pressing Return runs it directly; Esc / ⌘W / backdrop
-//! click cancels.
+//! Selecting an image launches the container on the main workspace window and
+//! closes the picker.
 
 use gpui::prelude::*;
 use gpui::{
-    div, px, ClickEvent, Context, Entity, FontWeight, Hsla, KeyDownEvent, MouseButton,
-    Subscription, WeakEntity, Window,
+    bounds, div, point, px, size, App, ClickEvent, Context, Entity, FocusHandle, FontWeight,
+    KeyDownEvent, MouseButton, Subscription, TitlebarOptions, Window, WindowBounds,
+    WindowControlArea, WindowOptions,
 };
 
 use guise::{TextInput, TextInputEvent};
 
+use crate::colors::hsla;
 use crate::root::WorkspaceView;
 
-pub struct OsPickerDialog {
-    workspace: WeakEntity<WorkspaceView>,
+const WIDTH: f32 = 380.0;
+const HEIGHT: f32 = 440.0;
+const BG: theme::Rgb = theme::Rgb::new(35, 42, 44);
+const ROW_BG: theme::Rgb = theme::Rgb::new(49, 56, 58);
+const BORDER: theme::Rgb = theme::Rgb::new(76, 84, 88);
+const TEXT: theme::Rgb = theme::Rgb::new(242, 244, 246);
+const DIM: theme::Rgb = theme::Rgb::new(150, 158, 162);
+
+/// Open the picker window, centered over `parent`.
+pub fn open(parent: &Window, cx: &mut App) {
+    let center = parent.bounds().center();
+    let where_ = bounds(
+        center - point(px(WIDTH / 2.0), px(HEIGHT / 2.0)),
+        size(px(WIDTH), px(HEIGHT)),
+    );
+    let handle = cx.open_window(
+        WindowOptions {
+            window_bounds: Some(WindowBounds::Windowed(where_)),
+            is_resizable: true,
+            titlebar: Some(TitlebarOptions {
+                title: Some("New OS Tab".into()),
+                appears_transparent: true,
+                traffic_light_position: Some(point(px(12.0), px(12.0))),
+            }),
+            ..Default::default()
+        },
+        |window, cx| {
+            window.set_window_title("New OS Tab");
+            cx.new(|cx| OsPickerView::new(window, cx))
+        },
+    );
+    // Make the new window the key window so its text field receives input.
+    if let Ok(handle) = handle {
+        handle
+            .update(cx, |view, window, cx| {
+                window.activate_window();
+                window.focus(&view.input.read(cx).focus_handle(), cx);
+            })
+            .ok();
+    }
+}
+
+/// Run `profile` in a new tab on the main workspace window, then close `picker`.
+fn launch(app: &mut App, profile: container::Profile, picker: &mut Window) {
+    if let Some(handle) = app
+        .windows()
+        .into_iter()
+        .find_map(|w| w.downcast::<WorkspaceView>())
+    {
+        handle
+            .update(app, |ws, window, cx| ws.launch_container(&profile, window, cx))
+            .ok();
+    }
+    picker.remove_window();
+}
+
+/// Resolve typed text to a profile: empty → first profile; a matching
+/// label/image → that profile; otherwise a one-off profile for the typed image.
+fn resolve(text: &str, profiles: &[container::Profile]) -> Option<container::Profile> {
+    if text.is_empty() {
+        return profiles.first().cloned();
+    }
+    Some(
+        profiles
+            .iter()
+            .find(|p| p.label.eq_ignore_ascii_case(text) || p.image.eq_ignore_ascii_case(text))
+            .cloned()
+            .unwrap_or_else(|| container::Profile {
+                label: text.to_string(),
+                image: text.to_string(),
+                command: "bash".to_string(),
+                persist: None,
+            }),
+    )
+}
+
+pub struct OsPickerView {
     available: bool,
     profiles: Vec<container::Profile>,
     input: Entity<TextInput>,
-    /// Foreground text and elevated surface, resolved from the active theme by
-    /// the host so the card matches the terminal colors.
-    text: Hsla,
-    surface: Hsla,
+    focus: FocusHandle,
     _submit: Subscription,
 }
 
-impl OsPickerDialog {
-    pub fn new(
-        workspace: WeakEntity<WorkspaceView>,
-        available: bool,
-        profiles: Vec<container::Profile>,
-        text: Hsla,
-        surface: Hsla,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> Self {
-        let input = cx.new(|cx| {
-            TextInput::new(cx).placeholder("or type an image, e.g. debian:bookworm")
-        });
+impl OsPickerView {
+    fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
+        let (opts, _) = config::load();
+        let available = container::Engine::resolve(opts.container_engine.as_deref()).is_some();
+        let (profiles, _) = container::profiles(&opts.container);
+
+        let input = cx
+            .new(|cx| TextInput::new(cx).placeholder("or type an image, e.g. debian:bookworm"));
+        let focus = cx.focus_handle();
         window.focus(&input.read(cx).focus_handle(), cx);
 
         let submit = {
-            let me = cx.entity().downgrade();
+            let profiles = profiles.clone();
             window.subscribe(&input, cx, move |_input, event, window, app| {
                 if let TextInputEvent::Submit(text) = event {
-                    let text = text.clone();
-                    me.update(app, |this, cx| this.submit(&text, window, cx)).ok();
+                    if let Some(p) = resolve(text.trim(), &profiles) {
+                        launch(app, p, window);
+                    }
                 }
             })
         };
 
         Self {
-            workspace,
             available,
             profiles,
             input,
-            text,
-            surface,
+            focus,
             _submit: submit,
         }
     }
 
-    /// Launch `profile` in a new tab, then dismiss.
-    fn launch(&self, profile: container::Profile, window: &mut Window, cx: &mut Context<Self>) {
-        self.workspace
-            .update(cx, |ws, cx| {
-                ws.launch_container(&profile, window, cx);
-                ws.close_modal(window, cx);
-            })
-            .ok();
-    }
-
-    /// Return in the field: run the typed image (or the matching profile), or
-    /// the first profile when the field is empty.
-    fn submit(&mut self, text: &str, window: &mut Window, cx: &mut Context<Self>) {
-        let text = text.trim();
-        let profile = if text.is_empty() {
-            self.profiles.first().cloned()
-        } else {
-            Some(
-                self.profiles
-                    .iter()
-                    .find(|p| {
-                        p.label.eq_ignore_ascii_case(text) || p.image.eq_ignore_ascii_case(text)
-                    })
-                    .cloned()
-                    .unwrap_or_else(|| container::Profile {
-                        label: text.to_string(),
-                        image: text.to_string(),
-                        command: "bash".to_string(),
-                        persist: None,
-                    }),
-            )
-        };
-        match profile {
-            Some(p) => self.launch(p, window, cx),
-            None => self.cancel(window, cx),
+    fn key_down(&mut self, event: &KeyDownEvent, window: &mut Window, _cx: &mut Context<Self>) {
+        if event.keystroke.key == "escape" {
+            window.remove_window();
         }
-    }
-
-    fn cancel(&self, window: &mut Window, cx: &mut Context<Self>) {
-        self.workspace
-            .update(cx, |ws, cx| ws.close_modal(window, cx))
-            .ok();
-    }
-
-    fn on_key(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
-        let ks = &event.keystroke;
-        if ks.key == "escape" || (ks.modifiers.platform && ks.key == "w") {
-            self.cancel(window, cx);
-            cx.stop_propagation();
-        }
-    }
-
-    /// Text color at a given alpha, for borders/hover/dimming.
-    fn faded(&self, alpha: f32) -> Hsla {
-        let mut c = self.text;
-        c.a = alpha;
-        c
     }
 }
 
-impl Render for OsPickerDialog {
+impl Render for OsPickerView {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let scrim = gpui::hsla(0.0, 0.0, 0.0, 0.55);
-        let border = self.faded(0.12);
-        let hover = self.faded(0.08);
-        let dim = self.faded(0.6);
-
-        let mut card = div()
-            .w(px(420.0))
-            .max_h(px(520.0))
+        let root = div()
+            .size_full()
             .flex()
             .flex_col()
+            .track_focus(&self.focus)
+            .on_key_down(cx.listener(Self::key_down))
+            .bg(hsla(BG))
+            .text_color(hsla(TEXT))
+            .pt(px(34.0)) // clear the transparent titlebar
+            .px(px(16.0))
+            .pb(px(16.0))
             .gap(px(10.0))
-            .bg(self.surface)
-            .text_color(self.text)
-            .text_size(px(13.0))
-            .rounded(px(10.0))
-            .border_1()
-            .border_color(border)
-            .p(px(18.0))
-            .shadow_lg()
-            // Clicks inside the card must not fall through to the backdrop.
-            .on_mouse_down(MouseButton::Left, |_ev, _window, cx| cx.stop_propagation())
+            .child(drag_strip())
             .child(
                 div()
-                    .text_size(px(16.0))
+                    .text_size(px(15.0))
                     .font_weight(FontWeight::BOLD)
                     .child("New OS Tab"),
             );
 
-        if self.available {
-            let mut list = div().flex().flex_col().gap(px(2.0)).child(
-                div()
-                    .text_size(px(11.0))
-                    .text_color(dim)
-                    .pb(px(2.0))
-                    .child("RUN FRESH"),
-            );
-            for (i, p) in self.profiles.iter().enumerate() {
-                let profile = p.clone();
-                let me = cx.entity().downgrade();
-                list = list.child(
-                    div()
-                        .id(("os-row", i))
-                        .flex()
-                        .items_center()
-                        .px(px(10.0))
-                        .py(px(7.0))
-                        .rounded(px(6.0))
-                        .hover(move |s| s.bg(hover))
-                        .on_click(move |_ev: &ClickEvent, window, app| {
-                            let profile = profile.clone();
-                            me.update(app, |this, cx| this.launch(profile, window, cx)).ok();
-                        })
-                        .child(format!("{}  \u{00b7}  {}", p.label, p.image)),
-                );
-            }
-            card = card
-                .child(list)
-                .child(self.input.clone())
+        if !self.available {
+            return root
                 .child(
                     div()
-                        .text_size(px(12.0))
-                        .text_color(dim)
-                        .child("Click an image or press Return \u{2022} Esc to cancel"),
-                );
-        } else {
-            card = card.child(
+                        .text_size(px(13.0))
+                        .child("No container engine found. Install Docker or Podman."),
+                )
+                .into_any_element();
+        }
+
+        let mut list = div()
+            .id("os-list")
+            .flex_1()
+            .min_h(px(0.0))
+            .overflow_y_scroll()
+            .flex()
+            .flex_col()
+            .gap(px(5.0));
+        for (i, p) in self.profiles.iter().enumerate() {
+            let profile = p.clone();
+            list = list.child(
                 div()
+                    .id(("os-row", i))
+                    .flex()
+                    .items_center()
+                    .px(px(12.0))
+                    .py(px(9.0))
+                    .rounded(px(7.0))
+                    .bg(hsla(ROW_BG))
+                    .border_1()
+                    .border_color(hsla(BORDER))
+                    .hover(|s| s.border_color(hsla(TEXT)))
                     .text_size(px(13.0))
-                    .child("No container engine found. Install Docker or Podman to launch OS tabs."),
+                    .on_click(move |_ev: &ClickEvent, window, app| {
+                        launch(app, profile.clone(), window);
+                    })
+                    .child(format!("{}  \u{00b7}  {}", p.label, p.image)),
             );
         }
 
-        div().on_key_down(cx.listener(Self::on_key)).child(
+        root.child(
             div()
-                .id("os-backdrop")
-                .absolute()
-                .top_0()
-                .left_0()
-                .size_full()
-                .flex()
-                .items_center()
-                .justify_center()
-                .bg(scrim)
-                .on_click(cx.listener(|this, _ev: &ClickEvent, window, cx| {
-                    this.cancel(window, cx);
-                }))
-                .child(card),
+                .text_size(px(11.0))
+                .text_color(hsla(DIM))
+                .child("RUN FRESH"),
         )
+        .child(list)
+        .child(self.input.clone())
+        .child(
+            div()
+                .text_size(px(11.0))
+                .text_color(hsla(DIM))
+                .child("Click an image or press Return \u{2022} Esc to cancel"),
+        )
+        .into_any_element()
     }
+}
+
+/// Drag handle across the transparent titlebar so the window can be moved.
+fn drag_strip() -> impl IntoElement {
+    let lead = if cfg!(target_os = "macos") { 70.0 } else { 0.0 };
+    div()
+        .absolute()
+        .top_0()
+        .left(px(lead))
+        .w(px(WIDTH - lead))
+        .h(px(28.0))
+        .window_control_area(WindowControlArea::Drag)
+        .on_mouse_down(MouseButton::Left, |_, window, _| window.start_window_move())
 }

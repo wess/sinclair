@@ -12,12 +12,27 @@ fn profile(persist: Option<bool>) -> Profile {
 
 #[test]
 fn ephemeral_argv() {
-    let t = Target::from_profile(Engine::Docker, &profile(None), false, Some("ignored".to_string()));
+    // Ephemeral containers keep a name too, so the tab can remove them on close.
+    let t = Target::from_profile(
+        Engine::Docker,
+        &profile(None),
+        false,
+        Some("prompt-debian-1".to_string()),
+    );
     assert!(!t.persist);
-    assert_eq!(t.name, None); // name dropped for ephemeral
+    assert_eq!(t.name.as_deref(), Some("prompt-debian-1"));
     assert_eq!(
         t.argv(),
-        vec!["docker", "run", "--rm", "-it", "debian:latest", "bash"]
+        vec![
+            "docker",
+            "run",
+            "--rm",
+            "-it",
+            "--name",
+            "prompt-debian-1",
+            "debian:latest",
+            "bash"
+        ]
     );
 }
 

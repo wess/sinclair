@@ -19,21 +19,21 @@ pub struct Target {
 
 impl Target {
     /// Build a target from a chosen profile. `default_persist` applies when the
-    /// profile does not pin its own lifecycle. `name` is attached only when the
-    /// container persists.
+    /// profile does not pin its own lifecycle. `name` is kept for both
+    /// lifecycles: persistent containers reuse it later, ephemeral ones are
+    /// removed by it when their tab closes.
     pub fn from_profile(
         engine: Engine,
         profile: &Profile,
         default_persist: bool,
         name: Option<String>,
     ) -> Self {
-        let persist = profile.persist.unwrap_or(default_persist);
         Self {
             engine,
             image: profile.image.clone(),
             command: profile.command.clone(),
-            persist,
-            name: if persist { name } else { None },
+            persist: profile.persist.unwrap_or(default_persist),
+            name,
         }
     }
 

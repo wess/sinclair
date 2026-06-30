@@ -12,6 +12,23 @@ impl WorkspaceView {
         container::Engine::resolve(self.opts.container_engine.as_deref())
     }
 
+    /// Called when a pane is about to be removed: force-remove its on-the-fly
+    /// container (if it was an ephemeral run-fresh tab) and drop any attach
+    /// mapping pointing at it. Runs `docker rm -f <name>` detached, so a closing
+    /// tab does not block on the engine.
+    pub(crate) fn on_pane_closed(&mut self, pane: PaneId) {
+        if let Some(name) = self.kill_on_close.remove(&pane) {
+            if let Some(engine) = self.container_engine() {
+                let _ = std::process::Command::new(engine.binary())
+                    .args(["rm", "-f", &name])
+                    .stdout(std::process::Stdio::null())
+                    .stderr(std::process::Stdio::null())
+                    .spawn();
+            }
+        }
+        self.container_tabs.retain(|_, p| *p != pane);
+    }
+
     /// Re-run `docker ps` and cache the result. Blocking I/O, so only call this
     /// on explicit user action (panel open / refresh), never during render.
     pub(crate) fn refresh_containers(&mut self) {
