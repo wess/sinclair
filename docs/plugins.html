@@ -32,9 +32,9 @@ plugin = /path/to/your/plugin-dir</code></pre>
         <h2>Installing from the catalog</h2>
         <p>The catalog is this repository's <code>plugins/</code> folder, browsable directly inside Prompt. Open the <strong>Plugins panel</strong> from the activity bar (the <span aria-hidden="true">⧉</span> icon), browse the <em>Available</em> list, and click <strong>Install</strong>. Prompt downloads the plugin into <code>~/.config/prompt/plugins/</code> and loads it.</p>
         <p>To install manually, copy or symlink a catalog folder into your plugins directory:</p>
-        <pre><code>cp -R plugins/lazygit ~/.config/prompt/plugins/lazygit
+        <pre><code>cp -R plugins/git ~/.config/prompt/plugins/git
 <span class="c"># or, to track the catalog as it updates:</span>
-ln -s "$PWD/plugins/lazygit" ~/.config/prompt/plugins/lazygit</code></pre>
+ln -s "$PWD/plugins/git" ~/.config/prompt/plugins/git</code></pre>
         <div class="callout note"><span class="label">Note</span><p>Use <code>$XDG_CONFIG_HOME/prompt/plugins/</code> instead of <code>~/.config/prompt/plugins/</code> if you have <code>XDG_CONFIG_HOME</code> set.</p></div>
 
         <h2>Command plugins</h2>
@@ -75,7 +75,7 @@ ln -s "$PWD/plugins/lazygit" ~/.config/prompt/plugins/lazygit</code></pre>
         </table></div>
 
         <h3>A complete example</h3>
-        <p>This is the shipped <code>lazygit</code> plugin — a one-command manifest that launches the lazygit TUI in a new tab:</p>
+        <p>For example, a one-command manifest that launches the lazygit TUI in a new tab:</p>
         <pre><code><span class="c"># plugins/lazygit/plugin.toml</span>
 id = "lazygit"
 name = "LazyGit"
@@ -247,10 +247,11 @@ console.log(JSON.stringify({ title: "Hello", blocks }));</code></pre>
         <div class="callout tip"><span class="label">Tip</span><p>The runtime can be any program, not just Bun — anything that reads a JSON line on stdin and prints a JSON line on stdout. See <code>plugins/git/plugin.ts</code> in the repo for a complete example that reads real git state and wires up stage, fetch, and a <code>run</code> directive. For the full step-by-step build of all four plugin types, see the <a href="plugintutorial.html">Plugin development tutorial</a>.</p></div>
 
         <h2>Example plugins</h2>
-        <p>The catalog ships every kind. A webview surface and a trigger:</p>
+        <p>Every plugin in the catalog is "involved" — a web view, a live panel, or an event hook. Web views and a trigger:</p>
         <div class="tablewrap"><table>
           <thead><tr><th>Plugin</th><th>What it does</th><th>Requires</th></tr></thead>
           <tbody>
+            <tr><td><code>notes</code></td><td>A lightweight Obsidian — a markdown vault, file tree, and editor in a tab.</td><td><code>bun</code></td></tr>
             <tr><td><code>dashboard</code></td><td>A webview panel that runs commands and calls its own runtime.</td><td><code>bun</code></td></tr>
             <tr><td><code>alert</code></td><td>A trigger that desktop-notifies when a command exits non-zero.</td><td>&mdash;</td></tr>
           </tbody>
@@ -265,23 +266,7 @@ console.log(JSON.stringify({ title: "Hello", blocks }));</code></pre>
             <tr><td><code>promptdesigner</code></td><td>Design your shell prompt and apply it to your shell. See the <a href="designer.html">Prompt Designer</a> page.</td><td><code>bun</code></td></tr>
           </tbody>
         </table></div>
-        <p>Command plugins (run a shell command in a pane, tab, or split):</p>
-        <div class="tablewrap"><table>
-          <thead><tr><th>Plugin</th><th>What it does</th><th>Requires</th></tr></thead>
-          <tbody>
-            <tr><td><code>lazygit</code></td><td>Launch the lazygit TUI in a new tab.</td><td><code>lazygit</code></td></tr>
-            <tr><td><code>lazydocker</code></td><td>Launch the lazydocker TUI in a new tab.</td><td><code>lazydocker</code></td></tr>
-            <tr><td><code>k9s</code></td><td>Open the k9s Kubernetes UI in a new tab.</td><td><code>k9s</code></td></tr>
-            <tr><td><code>tig</code></td><td>Browse git history with tig in a new tab.</td><td><code>tig</code></td></tr>
-            <tr><td><code>gh</code></td><td>GitHub PR list / status in a split.</td><td><code>gh</code></td></tr>
-            <tr><td><code>gitlog</code></td><td>Pretty git commit graph in the focused pane.</td><td><code>git</code></td></tr>
-            <tr><td><code>serve</code></td><td>Serve the current directory over HTTP.</td><td><code>python3</code></td></tr>
-            <tr><td><code>ports</code></td><td>List processes listening on local ports.</td><td><code>lsof</code></td></tr>
-            <tr><td><code>repl</code></td><td>Open a Python / Node / Bun REPL in a split.</td><td>runtime of choice</td></tr>
-            <tr><td><code>sysmon</code></td><td>Open a system monitor (htop / btop) in a split.</td><td><code>htop</code> / <code>btop</code></td></tr>
-            <tr><td><code>weather</code></td><td>Show the local weather in the focused pane.</td><td><code>curl</code></td></tr>
-          </tbody>
-        </table></div>
+        <p>The declarative command model is still fully supported (see above) — it's just not something worth shipping as a standalone catalog example.</p>
 
         <h2>Publishing to the catalog</h2>
         <p>Prompt keeps a community catalog at the root of the repository. To share your plugin, open a pull request against <a href="https://github.com/wess/prompt">github.com/wess/prompt</a> that adds your folder under <code>plugins/</code>:</p>

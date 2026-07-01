@@ -13,9 +13,9 @@ refer to that model.
 These need nothing new — a `plugin.toml` that runs a shell command in a pane,
 tab, or split. Several already ship in this catalog.
 
-- **lazygit / lazydocker / k9s / tig** — launch a TUI in a tab. *(shipped)*
+- **lazygit / lazydocker / k9s / tig** — launch a TUI in a tab.
 - **serve / ports / sysmon / gitlog / repl / gh / weather** — one-shot helpers in
-  a pane or split. *(shipped)*
+  a pane or split.
 - **scripts** — read `package.json` / `Cargo.toml` and expose each script as a
   command (generated manifest).
 - **ssh hosts** — one command per saved host that opens a tab and connects.

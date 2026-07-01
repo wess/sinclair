@@ -259,6 +259,7 @@ Webview plugins (HTML/JS surfaces):
 
 | Plugin                    | What it does                                          | Requires |
 | ------------------------- | ---------------------------------------------------- | -------- |
+| [notes](./notes/)         | A lightweight Obsidian: a markdown vault + editor tab | `bun`    |
 | [dashboard](./dashboard/) | HTML panel that runs commands + calls the runtime    | `bun`    |
 
 Trigger plugins (event hooks, no UI):
@@ -267,18 +268,6 @@ Trigger plugins (event hooks, no UI):
 | --------------------- | -------------------------------------------------------- | -------- |
 | [alert](./alert/)     | Desktop-notify when a command exits non-zero             | —        |
 
-Command plugins (run a shell command in a pane/tab/split):
-
-| Plugin                       | What it does                                   | Requires         |
-| ---------------------------- | ---------------------------------------------- | ---------------- |
-| [lazygit](./lazygit/)        | Launch the lazygit TUI in a new tab            | `lazygit`        |
-| [lazydocker](./lazydocker/)  | Launch the lazydocker TUI in a new tab         | `lazydocker`     |
-| [k9s](./k9s/)                | Open the k9s Kubernetes UI in a new tab        | `k9s`            |
-| [tig](./tig/)                | Browse git history with tig in a new tab       | `tig`            |
-| [gh](./gh/)                  | GitHub PR list / status in a split             | `gh`             |
-| [gitlog](./gitlog/)          | Pretty git commit graph in the focused pane    | `git`            |
-| [serve](./serve/)            | Serve the current directory over HTTP          | `python3`        |
-| [ports](./ports/)            | List processes listening on local ports        | `lsof`           |
-| [repl](./repl/)              | Open a Python / Node / Bun REPL in a split     | runtime of choice |
-| [sysmon](./sysmon/)          | Open a system monitor (htop / btop) in a split | `htop`/`btop`    |
-| [weather](./weather/)        | Show the local weather in the focused pane     | `curl`           |
+Every example plugin here is "involved" — a live panel, a web view, or an event
+hook. The declarative command model still exists (see the schema above); it's
+just not something worth shipping as a catalog example on its own.
