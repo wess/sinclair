@@ -42,6 +42,10 @@ exactly how you work.
   command actions and default keybindings.
 - **Macros** — record the commands you type, name them, and replay them with a
   keybinding; replay paces itself off shell-integration prompt marks.
+- **Recording & export** — capture a pane to an asciinema `.cast` (⌘⇧R), then
+  export it to a GIF or MP4/MOV/WebM from the File menu or with `prompt export`;
+  on macOS it can render through the app's own text system for the same
+  ligatures, fonts, and box-drawing you see on screen.
 - **MCP server** — `prompt mcp` exposes the running terminal to Model Context
   Protocol clients (Claude Desktop, Claude Code) so an agent can run commands,
   read the screen, replay macros, and switch tabs.

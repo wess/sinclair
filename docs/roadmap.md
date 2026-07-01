@@ -262,3 +262,14 @@ Conventions (non-negotiable):
   ends, Option+←/→ by word, Cmd/Option+Backspace to delete line/word, Ctrl+A/E/K,
   Esc to dismiss, Cmd+W to close. `TextEdit` gained word/line nav + delete ops
   (unit-tested).
+- 2026-07-01: recording export (1.6.0). New `export` crate renders an asciinema
+  `.cast` to GIF or MP4/MOV/WebM: a `cast::Reader` (the recorder's inverse), an
+  idle-cap/speed timeline, replay through `vt`, a software rasterizer (bundled
+  JetBrains Mono) plus a global-palette GIF encoder and an ffmpeg video encoder.
+  `prompt export` drives it from the CLI; **Export Recording** (File menu +
+  command palette, `export_recording`) runs it in the background on the latest
+  recording and notifies when the file is ready. On macOS an optional fidelity
+  renderer (`app/fidelity.rs`) shapes and rasterizes through gpui's CoreText text
+  system for ligatures, exact fonts, and box-drawing geometry. Also fixed the New
+  OS Tab picker: focus the image field on open (deferred to first paint) and
+  match its colors to the guise theme so it no longer looks disabled.

@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>CLI reference — Prompt docs</title>
-    <meta name="description" content="The prompt command's process modes: launching the GUI, the MCP server, desktop notifications, and the quick-terminal toggle.">
+    <meta name="description" content="The prompt command's process modes: launching the GUI, the MCP server, desktop notifications, recording export, and the quick-terminal toggle.">
     <meta name="theme-color" content="#05070c">
     <link rel="icon" href="icon.png">
     <link rel="stylesheet" href="style.css">
@@ -32,6 +32,7 @@
               <tr><td><code>prompt</code></td><td>Load config and launch the GUI (opens a default window).</td></tr>
               <tr><td><code>prompt mcp</code></td><td>Run the Model Context Protocol server over stdio, bridging tool calls into a running GUI instance.</td></tr>
               <tr><td><code>prompt notify [--title T] &lt;message&gt;</code></td><td>Post a desktop notification.</td></tr>
+              <tr><td><code>prompt export &lt;in.cast&gt; &lt;out.gif|mp4|mov|webm&gt;</code></td><td>Render a session recording to a GIF or video file.</td></tr>
               <tr><td><code>prompt --toggle-quick</code></td><td>Tell a running instance to summon/hide the quick terminal, then exit.</td></tr>
             </tbody>
           </table>
@@ -69,6 +70,32 @@ prompt notify --title "CI" "tests passed ✓"</code></pre>
           <p>From inside a shell session you can also trigger notifications directly with
           OSC escape sequences (OSC 9 / 777 / 99) — <code>prompt notify</code> is the
           out-of-band equivalent for tools that only have a shell command.</p>
+        </div>
+
+        <h2>prompt export</h2>
+        <p>
+          Renders a session recording — a <code>.cast</code> captured with
+          <code>toggle_recording</code> — to a shareable file. The output format is
+          chosen by the extension: <code>.gif</code> needs no external tools, while
+          <code>.mp4</code>, <code>.mov</code>, and <code>.webm</code> are encoded with
+          ffmpeg (which must be on <code>PATH</code>).
+        </p>
+        <pre><code>prompt export session.cast demo.gif
+prompt export session.cast demo.mp4 --fidelity --fps 30</code></pre>
+        <p>
+          Timing and layout are tunable: <code>--fps</code>, <code>--speed</code>,
+          <code>--idle-cap</code> (collapse long idle gaps, default 2s),
+          <code>--tail</code>, <code>--font-px</code>, <code>--cols</code>/<code>--rows</code>,
+          and <code>--theme</code>. On macOS, <code>--fidelity</code> renders through the
+          app's gpui text system for ligatures, exact fonts, and box-drawing geometry
+          (<code>--scale</code> sets the device-pixel scale); other platforms fall back to
+          the bundled software renderer.
+        </p>
+        <div class="callout tip">
+          <span class="label">Tip</span>
+          <p>Inside the app, <em>Export Recording</em> (in the File menu and the command
+          palette) runs this in the background on your most recent recording and posts a
+          notification when the file is ready.</p>
         </div>
 
         <h2>prompt --toggle-quick</h2>
