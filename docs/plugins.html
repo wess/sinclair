@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Plugins — Prompt docs</title>
-    <meta name="description" content="Build Prompt plugins: command plugins, live IPC panels, the JSON protocol, and the installable catalog.">
+    <meta name="description" content="Build Prompt plugins: command plugins, live IPC panels, webview surfaces, event triggers, the JSON protocol, and the installable catalog.">
     <meta name="theme-color" content="#05070c">
     <link rel="icon" href="icon.png">
     <link rel="stylesheet" href="style.css">
@@ -16,7 +16,8 @@
       <article class="doc-article" data-doc-page="plugins">
         <p class="kicker">Extending</p>
         <h1>Plugins</h1>
-        <p class="lede">A Prompt plugin is just a folder with a <code>plugin.toml</code> inside. There are two kinds: <strong>declarative command plugins</strong> that contribute shell commands you can run in a pane, tab, or split, and <strong>live IPC panels</strong> that paint a side-drawer UI from a JSON block tree and run any program you like to produce it. Both are plain folders — no build step, nothing to compile.</p>
+        <p class="lede">A Prompt plugin is just a folder with a <code>plugin.toml</code> inside. There are three kinds: <strong>declarative command plugins</strong> that contribute shell commands you can run in a pane, tab, or split; <strong>live IPC panels</strong> that paint a side-drawer UI from a JSON block tree; and <strong>webview plugins</strong> that host their own HTML/JS surface in a panel, window, or tab. Any of them can also add <strong>event triggers</strong> that react to terminal events. All are plain folders — no build step, nothing to compile.</p>
+        <div class="callout tip"><span class="label">New to plugins?</span><p>This page is the reference. For a hands-on, build-it-yourself walkthrough of all four types — plus the protocol, host capabilities, debugging, and publishing — start with the <a href="plugintutorial.html">Plugin development tutorial</a>.</p></div>
 
         <h2>Where plugins live</h2>
         <p>On launch, Prompt scans a per-user plugins directory. Each plugin is its own subfolder containing a single <code>plugin.toml</code>:</p>
@@ -153,6 +154,51 @@ icon = "⎇"                       <span class="c"># activity-bar glyph</span></
         </table></div>
         <p>Button <code>variant</code> is one of <code>filled</code>, <code>light</code>, <code>outline</code>, <code>subtle</code>, <code>default</code>, <code>transparent</code>, or <code>white</code>.</p>
 
+        <h2>Webview plugins</h2>
+        <p>When a block tree isn't enough, a plugin can host a <strong>web view</strong> — a native OS web view (WKWebView on macOS, WebView2 on Windows, WebKitGTK on Linux) running arbitrary HTML/JS. Add a <code>[webview]</code> table:</p>
+        <pre><code>[webview]
+id = "dashboard"
+title = "Dashboard"
+icon = "◱"                 <span class="c"># activity-bar / tab glyph</span>
+placement = "panel"        <span class="c"># panel | window | tab</span>
+entry = "index.html"       <span class="c"># a file in the plugin dir (file://) …</span>
+<span class="c"># url = "https://…"        # … or a URL instead of entry (exactly one)</span></code></pre>
+        <p>Open it from the command palette (<em>Open &lt;title&gt;</em>), the right sidebar (for <code>placement = "panel"</code>), or the <code>open_webview:&lt;id&gt;</code> action. <code>placement = "tab"</code> opens in a window for now, until tab hosting lands.</p>
+
+        <h3>The <code>window.Prompt</code> bridge</h3>
+        <p>Prompt injects a small JavaScript bridge into the page so it can drive the terminal and call back to the plugin:</p>
+        <div class="tablewrap"><table>
+          <thead><tr><th>Call</th><th>Does</th></tr></thead>
+          <tbody>
+            <tr><td><code>Prompt.runCommand(text, target?)</code></td><td>Runs a command in the focused terminal.</td></tr>
+            <tr><td><code>Prompt.readScreen(lines?)</code></td><td>Reads the visible screen; resolves <code>{ text }</code>.</td></tr>
+            <tr><td><code>Prompt.invoke(method, params?)</code></td><td>Returns a Promise. Built-in methods (the same capabilities as <code>run</code> directives) are handled by the app; anything else is forwarded to the plugin's <code>[runtime]</code>.</td></tr>
+            <tr><td><code>Prompt.postMessage(data)</code></td><td>Fire-and-forget message to the runtime.</td></tr>
+            <tr><td><code>Prompt.onMessage(cb)</code></td><td>Receive pushes from the host.</td></tr>
+          </tbody>
+        </table></div>
+        <p>An <code>invoke</code> of a non-built-in method reaches the runtime as a <code>message</code> request — <code>{ "kind": "message", "panel", "method", "params"?, "cwd"? }</code> — and the runtime's <code>{ "result": … }</code> resolves the page's promise. The <a href="https://github.com/wess/prompt/tree/main/plugins/dashboard">dashboard</a> example ships an HTML page plus a runtime that answers a <code>ping</code>.</p>
+
+        <h2>Trigger plugins</h2>
+        <p>A plugin doesn't need any UI at all — it can just <strong>react to events</strong>. Add one or more <code>[[trigger]]</code> tables, each hooking an event and running one action:</p>
+        <pre><code>[[trigger]]
+on = "command_finished"    <span class="c"># the event to hook</span>
+when = "nonzero"           <span class="c"># optional filter</span>
+notify = "A command failed"  <span class="c"># one action: notify | run | invoke</span></code></pre>
+        <div class="tablewrap"><table>
+          <thead><tr><th>Event</th><th>Fires when</th><th><code>when</code> filter</th></tr></thead>
+          <tbody>
+            <tr><td><code>bell</code></td><td>a BEL is received</td><td>&mdash;</td></tr>
+            <tr><td><code>title_changed</code></td><td>the title changes</td><td>substring of the title</td></tr>
+            <tr><td><code>notify</code></td><td>a notification is requested (OSC 9/777/99)</td><td>substring of the body</td></tr>
+            <tr><td><code>exit</code></td><td>the pane's process exits</td><td>exit-code class</td></tr>
+            <tr><td><code>command_finished</code></td><td>a command finishes (OSC 133 <code>D</code>)</td><td>exit-code class</td></tr>
+            <tr><td><code>dir_changed</code></td><td>the cwd changes (OSC 7)</td><td>substring of the path</td></tr>
+          </tbody>
+        </table></div>
+        <p><code>command_finished</code> and <code>dir_changed</code> need shell integration enabled. The exit-code filter is <code>any</code>, <code>zero</code>/<code>success</code>, or <code>nonzero</code>/<code>failure</code>.</p>
+        <p>Each trigger runs exactly one action: <code>notify = "…"</code> (a desktop notification); <code>run = "…"</code> with an optional <code>target</code> (<code>background</code> — the default, detached — or <code>pane</code>/<code>tab</code>/<code>split_right</code>/<code>split_down</code>, run with the focused pane's cwd); or <code>invoke = "method"</code>, which calls the plugin's <code>[runtime]</code> with the event payload and runs any <code>run</code> directives it returns. See <a href="https://github.com/wess/prompt/tree/main/plugins/alert">alert</a> for a complete example.</p>
+
         <h2>Write your first plugin</h2>
         <p>Build a tiny IPC panel that shows the current directory and a refresh button.</p>
         <ol>
@@ -198,10 +244,18 @@ console.log(JSON.stringify({ title: "Hello", blocks }));</code></pre>
             <p>The folder already sits in <code>~/.config/prompt/plugins/</code>, so relaunch Prompt, open the Plugins activity bar, and click the <span aria-hidden="true">👋</span> panel. Clicking <strong>Refresh</strong> re-invokes <code>plugin.ts</code> with an <code>action</code> request — branch on <code>req.kind</code> to handle it.</p>
           </li>
         </ol>
-        <div class="callout tip"><span class="label">Tip</span><p>The runtime can be any program, not just Bun — anything that reads a JSON line on stdin and prints a JSON line on stdout. See <code>plugins/git/plugin.ts</code> in the repo for a complete example that reads real git state and wires up stage, fetch, and a <code>run</code> directive.</p></div>
+        <div class="callout tip"><span class="label">Tip</span><p>The runtime can be any program, not just Bun — anything that reads a JSON line on stdin and prints a JSON line on stdout. See <code>plugins/git/plugin.ts</code> in the repo for a complete example that reads real git state and wires up stage, fetch, and a <code>run</code> directive. For the full step-by-step build of all four plugin types, see the <a href="plugintutorial.html">Plugin development tutorial</a>.</p></div>
 
         <h2>Example plugins</h2>
-        <p>The catalog ships both kinds. Live IPC panels:</p>
+        <p>The catalog ships every kind. A webview surface and a trigger:</p>
+        <div class="tablewrap"><table>
+          <thead><tr><th>Plugin</th><th>What it does</th><th>Requires</th></tr></thead>
+          <tbody>
+            <tr><td><code>dashboard</code></td><td>A webview panel that runs commands and calls its own runtime.</td><td><code>bun</code></td></tr>
+            <tr><td><code>alert</code></td><td>A trigger that desktop-notifies when a command exits non-zero.</td><td>&mdash;</td></tr>
+          </tbody>
+        </table></div>
+        <p>Live IPC panels:</p>
         <div class="tablewrap"><table>
           <thead><tr><th>Plugin</th><th>What it does</th><th>Requires</th></tr></thead>
           <tbody>

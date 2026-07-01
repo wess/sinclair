@@ -168,6 +168,75 @@ Block types: `section`, `text` (`dimmed?`), `divider`, `kv`, `badge` (`color?`),
 terminal (`pane` | `tab` | `split_right` | `split_down`). See
 [`git/plugin.ts`](./git/plugin.ts) for a complete example.
 
+## Webview plugins (HTML/JS surfaces)
+
+For a full custom UI, a plugin can contribute a **web view** — a native OS web
+view (WKWebView / WebView2 / WebKitGTK) hosting arbitrary HTML/JS. Add a
+`[webview]` section:
+
+```toml
+[webview]
+id = "dashboard"
+title = "Dashboard"
+icon = "◱"                 # activity-bar / tab glyph
+placement = "panel"        # panel | window | tab
+entry = "index.html"       # a file in the plugin dir (file://) …
+# url = "https://…"        # … or a URL instead of `entry` (exactly one)
+```
+
+Open it from the command palette ("Open <title>"), the right sidebar (for
+`placement = "panel"`), or bind the `open_webview:<id>` action. `placement =
+"tab"` currently opens in a window until tab hosting lands.
+
+**The `window.Prompt` bridge.** The page talks to Prompt through an injected
+global:
+
+- `Prompt.runCommand(text, target?)` — run a command in the focused terminal.
+- `Prompt.readScreen(lines?)` — read the visible screen; resolves `{ text }`.
+- `Prompt.invoke(method, params?)` — returns a Promise. Built-in methods (the
+  same capabilities as `run` directives: `run_command`, `read_screen`,
+  `send_input`, `new_tab`, `split`, `list_panes`, `list_tabs`, `focus_tab`,
+  `run_macro`, …) are handled by the app; any other method is forwarded to the
+  plugin's `[runtime]` as a `message` request, and its `result` resolves the
+  promise.
+- `Prompt.postMessage(data)` — fire-and-forget message to the runtime.
+- `Prompt.onMessage(cb)` — receive pushes from the host.
+
+A `message` request is `{ "kind": "message", "panel", "method", "params"?,
+"cwd"? }`; reply with `{ "result": … }`. See [`dashboard/`](./dashboard/) for a
+complete example (HTML + runtime).
+
+## Trigger plugins (event hooks)
+
+Plugins can also just **react to events** — no UI, no manual command. Add one or
+more `[[trigger]]` tables:
+
+```toml
+[[trigger]]
+on = "command_finished"    # bell | title_changed | notify | exit | command_finished | dir_changed
+when = "nonzero"           # optional filter (see below)
+notify = "A command failed"  # one action: notify | run | invoke
+```
+
+**Events.** `bell`, `title_changed`, `notify`, and `exit` fire out of the box.
+`command_finished` (with exit code) and `dir_changed` need **shell integration**
+enabled (OSC 133 / OSC 7).
+
+**`when` filter (optional).** For `exit` / `command_finished`: `any`,
+`zero`/`success`, or `nonzero`/`failure`. For `title_changed` / `notify` /
+`dir_changed`: a substring the title / body / path must contain. Ignored for
+`bell`.
+
+**Action (exactly one).**
+
+- `notify = "…"` — a desktop notification.
+- `run = "…"` with optional `target` — `background` (default, detached), `pane`,
+  `tab`, `split_right`, or `split_down`. Runs with the focused pane's cwd.
+- `invoke = "method"` — call the plugin's `[runtime]` with the event payload
+  (`{ event, … }`); any `run` directives it returns are executed.
+
+See [`alert/`](./alert/) for a complete example.
+
 ## Learn more
 
 - Ideas worth building: [ideas.md](./ideas.md) — today's command model plus what
@@ -185,6 +254,18 @@ IPC panel plugins (live side-drawer panels):
 | [sysinfo](./sysinfo/)               | Host load + disk panel with a monitor shortcut      | `bun`           |
 | [docker](./docker/)                 | Running-containers panel with stats/prune actions   | `bun`, `docker` |
 | [promptdesigner](./promptdesigner/) | Design your shell prompt and apply it to your shell | `bun`           |
+
+Webview plugins (HTML/JS surfaces):
+
+| Plugin                    | What it does                                          | Requires |
+| ------------------------- | ---------------------------------------------------- | -------- |
+| [dashboard](./dashboard/) | HTML panel that runs commands + calls the runtime    | `bun`    |
+
+Trigger plugins (event hooks, no UI):
+
+| Plugin                | What it does                                              | Requires |
+| --------------------- | -------------------------------------------------------- | -------- |
+| [alert](./alert/)     | Desktop-notify when a command exits non-zero             | —        |
 
 Command plugins (run a shell command in a pane/tab/split):
 

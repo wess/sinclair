@@ -31,6 +31,7 @@ const MANIFEST = [
     title: "Extending",
     pages: [
       { slug: "plugins", title: "Plugins", href: "plugins.html" },
+      { slug: "plugintutorial", title: "Plugin tutorial", href: "plugintutorial.html" },
       { slug: "designer", title: "Prompt Designer", href: "designer.html" },
       { slug: "mcp", title: "MCP & automation", href: "mcp.html" },
     ],

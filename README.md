@@ -38,8 +38,10 @@ exactly how you work.
 - **Search** — ⌘F opens an incremental search across scrollback with live
   match highlighting and next/previous navigation.
 - **Themes** — 22 built-in schemes with full per-color overrides.
-- **Plugins** — load `plugin.toml` manifests from your config directory to add
-  command actions and default keybindings.
+- **Plugins** — `plugin.toml` manifests that add command actions, live
+  side-drawer panels, HTML/JS webview surfaces, and event triggers that react to
+  terminal events. No build step; install from a shared catalog. See the
+  [plugin tutorial](https://wess.github.io/prompt/plugintutorial.html).
 - **Macros** — record the commands you type, name them, and replay them with a
   keybinding; replay paces itself off shell-integration prompt marks.
 - **Recording & export** — capture a pane to an asciinema `.cast` (⌘⇧R), then
@@ -201,8 +203,23 @@ keybind = "cmd+ctrl+l"
 Command modes are `pane`, `tab`, `split-right`, and `split-down`. A plugin
 keybinding is just a default; your config can override it or unbind it. A plugin
 binding overrides a built-in with the same trigger, so prefer the `cmd+ctrl+*`
-namespace to stay clear of the `cmd+shift+*` defaults. A ready-made catalog of
-plugins lives in [`plugins/`](plugins/).
+namespace to stay clear of the `cmd+shift+*` defaults.
+
+Beyond commands, a plugin can contribute:
+
+- **Live panels** — a `[runtime]` (any program that speaks JSON over stdio) plus
+  a `[panel]`, rendered as a side-drawer UI from a block tree with clickable
+  actions (see `plugins/git`).
+- **Webview surfaces** — a `[webview]` hosting your own HTML/JS in a panel,
+  window, or tab, wired to the terminal through a `window.Prompt` bridge (see
+  `plugins/dashboard`).
+- **Event triggers** — `[[trigger]]` tables that run an action (notify, run a
+  command, or call the runtime) when a terminal event fires: command finished,
+  directory changed, bell, exit, and more (see `plugins/alert`).
+
+A ready-made catalog of plugins lives in [`plugins/`](plugins/), and the full
+build-it-yourself guide is the
+[plugin development tutorial](https://wess.github.io/prompt/plugintutorial.html).
 
 ## Macros
 
@@ -342,6 +359,8 @@ Override any color in config (`background`, `foreground`,
 
 ## Documentation
 
+- [Full documentation site](https://wess.github.io/prompt/) — install, configuration,
+  keybindings, themes, plugins, and the [plugin development tutorial](https://wess.github.io/prompt/plugintutorial.html).
 - [`docs/relay.md`](docs/relay.md) — the Relay agent mesh: setup, CLI, and tools.
 - [`docs/roadmap.md`](docs/roadmap.md) — what's built and what's planned.
 - [`docs/parity.md`](docs/parity.md) — feature coverage and known gaps.
