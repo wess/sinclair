@@ -44,7 +44,8 @@ jobs:
             libvulkan1 \
             libwayland-dev \
             libx11-xcb-dev \
-            libxkbcommon-x11-dev
+            libxkbcommon-x11-dev \
+            libwebkit2gtk-4.1-dev
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
