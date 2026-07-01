@@ -16,6 +16,7 @@ mod persist;
 mod pluginpanel;
 mod quickopen;
 mod render;
+mod savebuffer;
 mod sidebar;
 mod tabs;
 
@@ -274,7 +275,7 @@ pub struct WorkspaceView {
     catalog_loading: bool,
     /// The guise Spotlight quick-open overlay (cmd+P), rebuilt each open.
     spotlight: Option<Entity<guise::Spotlight>>,
-    /// The active in-window dialog (rename, new agent), as a guise Modal
+    /// The active in-window dialog (rename), as a guise Modal
     /// overlay. `None` when no dialog is open.
     modal: Option<gpui::AnyView>,
     /// Cached running containers for the Containers panel, refreshed when the

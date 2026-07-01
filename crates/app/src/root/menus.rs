@@ -198,6 +198,8 @@ impl WorkspaceView {
                 self.pick(a, "New Tab", Action::NewTab),
                 self.pick(a, "New OS Tab\u{2026}", Action::NewContainerTab),
                 Some(MenuItem::separator()),
+                self.pick(a, "Save Buffer\u{2026}", Action::SaveBuffer),
+                Some(MenuItem::separator()),
                 Some(self.pick_checked(a, "Record Session", Action::ToggleRecording, recording)),
                 self.pick(a, "Export Recording as GIF", Action::ExportRecording("gif".into())),
                 self.pick(a, "Export Recording as MP4", Action::ExportRecording("mp4".into())),

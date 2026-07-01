@@ -283,6 +283,7 @@ pub fn default_keybinds() -> Vec<Keybind> {
         kb(cmd, "w", Action::CloseSurface),
         kb(cmd_alt, "w", Action::CloseTab),
         kb(cmd_shift, "w", Action::CloseWindow),
+        kb(cmd, "s", Action::SaveBuffer),
         kb(cmd_alt_shift, "w", Action::CloseAllWindows),
         kb(cmd, "d", Action::NewSplit(SplitDirection::Right)),
         kb(cmd_shift, "d", Action::NewSplit(SplitDirection::Down)),

@@ -340,3 +340,31 @@ fn title_stack_pop_signals_change() {
     t.feed(b"\x1b[23;0t");
     assert_eq!(t.take_title_changed(), Some("first".to_string()));
 }
+
+#[test]
+fn buffer_text_includes_scrollback_and_screen() {
+    let mut t = Terminal::new(4, 2, 10);
+    t.feed(b"a\r\nb\r\nc\r\nd"); // a, b in scrollback; c, d on screen
+    assert_eq!(t.buffer_text(), "a\nb\nc\nd\n");
+}
+
+#[test]
+fn buffer_text_drops_trailing_blank_rows() {
+    let mut t = Terminal::new(4, 3, 10);
+    t.feed(b"hi"); // one row of content, two blank rows below
+    assert_eq!(t.buffer_text(), "hi\n");
+}
+
+#[test]
+fn buffer_text_empty_when_blank() {
+    let t = Terminal::new(4, 3, 10);
+    assert_eq!(t.buffer_text(), "");
+}
+
+#[test]
+fn buffer_text_is_independent_of_scroll_offset() {
+    let mut t = Terminal::new(4, 2, 10);
+    t.feed(b"a\r\nb\r\nc\r\nd");
+    t.set_display_offset(2); // scrolled up into history
+    assert_eq!(t.buffer_text(), "a\nb\nc\nd\n");
+}

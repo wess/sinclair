@@ -152,15 +152,12 @@ impl WorkspaceView {
             Action::ExportRecording(fmt) => {
                 self.onfocused(cx, |v, cx| v.export_recording(&fmt, cx))
             }
+            Action::SaveBuffer => self.save_buffer(cx),
             Action::ToggleQuickTerminal => crate::quick::toggle(cx),
             Action::RelayFeed => {
                 self.splitcommand(&crate::relay::feed_command(), Axis::Vertical, false, window, cx)
             }
-            Action::RelayLaunch => {
-                let providers = crate::relay::enabled_agents(&self.opts);
-                let roles = crate::relay::role_list();
-                self.open_new_agent(providers, roles, window, cx);
-            }
+            Action::RelayLaunch => crate::agentpicker::open(window, cx),
             Action::RelayLog => {
                 self.splitcommand(&crate::relay::log_command(), Axis::Vertical, false, window, cx)
             }

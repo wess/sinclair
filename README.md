@@ -46,6 +46,8 @@ exactly how you work.
   export it to a GIF or MP4/MOV/WebM from the File menu or with `prompt export`;
   on macOS it can render through the app's own text system for the same
   ligatures, fonts, and box-drawing you see on screen.
+- **Save buffer** — write the focused terminal's whole buffer (scrollback and
+  screen) to a text file from **File → Save Buffer…** (⌘S).
 - **MCP server** — `prompt mcp` exposes the running terminal to Model Context
   Protocol clients (Claude Desktop, Claude Code) so an agent can run commands,
   read the screen, replay macros, and switch tabs.
@@ -260,8 +262,10 @@ inside the terminal process.
 Turn it on under **Settings → AI**: enable AI features, enable the Relay mesh,
 and optionally start it on launch. An **AI** menu then appears:
 
-- **Launch Agent…** — opens a split, prompts for a name, and runs your default
-  agent there, wired to the bus and a register → `wait`-loop harness.
+- **Agents ▸ Define Agent…** — opens a small window to pick a provider, name the
+  agent, and choose a role preset or a custom brief, then runs it in a split
+  wired to the bus and a register → `wait`-loop harness. Agents you define
+  reappear in the same submenu for one-click relaunch.
 - **Open Feed** — streams every message on the bus in a split.
 - **Relay ▸** — server controls: shows whether the server is running, then
   Start / Stop / Restart it and **View Logs** (tails the server log in a split).
@@ -291,6 +295,7 @@ agents — are in [`docs/relay.md`](docs/relay.md).
 | ⌘N / ⌘T | New window / new tab |
 | ⌘W | Close pane |
 | ⌘⌥W / ⌘⇧W / ⌘⌥⇧W | Close tab / window / all windows |
+| ⌘S | Save the focused terminal's buffer to a text file |
 | ⌘1…⌘9 | Go to tab |
 | ⌘⇧[ / ⌘⇧] | Previous / next tab |
 | ⌘D / ⌘⇧D | Split right / down |

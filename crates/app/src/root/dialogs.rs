@@ -1,4 +1,4 @@
-//! In-window dialog overlays (rename, new agent): opening them, and the shared
+//! In-window dialog overlays (rename): opening them, and the shared
 //! `close_modal` that dismisses whichever is active and restores focus to the
 //! active pane.
 
@@ -16,23 +16,6 @@ impl WorkspaceView {
         let root = cx.entity().downgrade();
         let view =
             cx.new(|cx| crate::rename::RenameDialog::new(root, target, &initial, window, cx));
-        self.modal = Some(view.into());
-        cx.notify();
-    }
-
-    /// Open the "New Agent" dialog with the given providers and role presets.
-    pub(crate) fn open_new_agent(
-        &mut self,
-        providers: Vec<String>,
-        roles: Vec<String>,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let workspace = cx.entity().downgrade();
-        let opts = self.opts.clone();
-        let view = cx.new(|cx| {
-            crate::newagent::NewAgentDialog::new(workspace, opts, providers, roles, window, cx)
-        });
         self.modal = Some(view.into());
         cx.notify();
     }

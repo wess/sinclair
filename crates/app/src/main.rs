@@ -1,6 +1,7 @@
 //! Prompt: a terminal emulator. Tabs of split panes, one shell per pane.
 
 mod about;
+mod agentpicker;
 mod appkit;
 mod boxdraw;
 mod bridge;
@@ -20,7 +21,6 @@ mod linux;
 mod mcpbridge;
 mod metrics;
 mod mouse;
-mod newagent;
 mod ospicker;
 mod pluginhost;
 mod pointer;

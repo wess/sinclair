@@ -300,6 +300,11 @@ impl TerminalView {
             .with_term(|term| term.cwd().map(str::to_string))
     }
 
+    /// The pane's whole buffer (scrollback + screen) as plain text.
+    pub fn buffer_text(&self) -> String {
+        self.session.with_term(|term| term.buffer_text())
+    }
+
     /// Apply one session event; called from the bridge task.
     pub fn apply(&mut self, event: Event, cx: &mut Context<Self>) {
         match event {

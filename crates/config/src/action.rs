@@ -258,6 +258,9 @@ pub enum Action {
     /// Render the most recent `.cast` recording to a shareable file. The
     /// payload is the output extension: `gif` (default), `mp4`, `mov`, or `webm`.
     ExportRecording(String),
+    /// Save the focused terminal's whole buffer (scrollback + screen) to a text
+    /// file chosen via the native save dialog.
+    SaveBuffer,
     /// Toggle the Quake-style dropdown quick terminal.
     ToggleQuickTerminal,
     /// Open the Relay agent-mesh feed in a split.
@@ -400,6 +403,7 @@ impl Action {
             "export_recording" => {
                 Ok(Self::ExportRecording(param.unwrap_or("gif").to_string()))
             }
+            "save_buffer" => only(Self::SaveBuffer, &name, param),
             "toggle_quick_terminal" | "quick_terminal" => {
                 only(Self::ToggleQuickTerminal, &name, param)
             }
@@ -489,6 +493,7 @@ impl Action {
             Self::ToggleBroadcast => "toggle_broadcast".into(),
             Self::ToggleRecording => "toggle_recording".into(),
             Self::ExportRecording(fmt) => format!("export_recording:{fmt}"),
+            Self::SaveBuffer => "save_buffer".into(),
             Self::ToggleQuickTerminal => "toggle_quick_terminal".into(),
             Self::Quit => "quit".into(),
             Self::Unbound => "unbind".into(),

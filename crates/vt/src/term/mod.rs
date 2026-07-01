@@ -215,6 +215,33 @@ impl Terminal {
         (0..self.rows()).map(move |i| self.visible_row(i))
     }
 
+    /// The whole buffer as plain text: every scrollback row followed by the
+    /// live screen, one right-trimmed row per line, with trailing blank lines
+    /// dropped and a single trailing newline when non-empty. Independent of the
+    /// current selection and scroll position. Dumps whichever screen is active,
+    /// so on the alternate screen only its rows appear (it has no scrollback).
+    pub fn buffer_text(&self) -> String {
+        let grid = &self.inner.screen().grid;
+        let sb = grid.scrollback();
+        let mut lines: Vec<String> = Vec::with_capacity(sb.len() + grid.rows());
+        for i in 0..sb.len() {
+            if let Some(row) = sb.get(i) {
+                lines.push(row.text());
+            }
+        }
+        for r in 0..grid.rows() {
+            lines.push(grid.row(r).text());
+        }
+        while lines.last().is_some_and(|l| l.is_empty()) {
+            lines.pop();
+        }
+        if lines.is_empty() {
+            return String::new();
+        }
+        lines.push(String::new()); // trailing newline
+        lines.join("\n")
+    }
+
     /// How far the view is scrolled back into history (0 = live bottom).
     pub fn display_offset(&self) -> usize {
         self.inner.display_offset

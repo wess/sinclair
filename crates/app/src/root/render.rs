@@ -119,7 +119,7 @@ impl Render for WorkspaceView {
             base = base.child(spot.clone());
         }
 
-        // The active in-window dialog (rename / new agent), if any.
+        // The active in-window dialog (rename), if any.
         if let Some(modal) = self.modal.as_ref() {
             base = base.child(modal.clone());
         }
