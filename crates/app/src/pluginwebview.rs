@@ -194,6 +194,23 @@ impl PluginWebView {
     }
 }
 
+impl PluginWebView {
+    /// The webview surface's title, for the tab/pane label.
+    pub fn title(&self) -> String {
+        self.plugin
+            .webview
+            .as_ref()
+            .map(|w| w.title.clone())
+            .unwrap_or_else(|| self.plugin.name.clone())
+    }
+}
+
+impl gpui::Focusable for PluginWebView {
+    fn focus_handle(&self, _cx: &gpui::App) -> FocusHandle {
+        self.focus.clone()
+    }
+}
+
 impl Render for PluginWebView {
     fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
         div()

@@ -61,11 +61,30 @@ impl WorkspaceView {
         self.panes.insert(
             id,
             Pane {
-                view,
-                _subscription: subscription,
+                content: PaneContent::Terminal(view),
+                _subscription: Some(subscription),
             },
         );
         Some(id)
+    }
+
+    /// Create a pane hosting a plugin web view (no terminal, no event bridge),
+    /// register it, and return its id. Used for `[webview] placement = "tab"`.
+    pub(crate) fn spawn_webview_pane(
+        &mut self,
+        plugin: plugin::Plugin,
+        cx: &mut Context<Self>,
+    ) -> PaneId {
+        let view = cx.new(|cx| crate::pluginwebview::PluginWebView::new(plugin, cx));
+        let id = self.ids.next();
+        self.panes.insert(
+            id,
+            Pane {
+                content: PaneContent::Webview(view),
+                _subscription: None,
+            },
+        );
+        id
     }
 
     /// Spawn a pane inheriting the focused pane's working directory.
@@ -73,7 +92,7 @@ impl WorkspaceView {
         let inherit = self
             .panes
             .get(&self.tabs.focused())
-            .and_then(|pane| pane.view.read(cx).cwd())
+            .and_then(|pane| pane.content.cwd(cx))
             .and_then(|osc| session::cwdpath(&osc));
         let options = session::options(&self.opts, SPAWN_COLS, SPAWN_ROWS, inherit);
         self.spawn(options, window, cx)
@@ -112,8 +131,8 @@ impl WorkspaceView {
             if id == source {
                 continue;
             }
-            if let Some(pane) = self.panes.get(&id) {
-                pane.view.update(cx, |view, cx| view.send_text(bytes, cx));
+            if let Some(v) = self.panes.get(&id).and_then(|p| p.content.as_terminal()) {
+                v.update(cx, |view, cx| view.send_text(bytes, cx));
             }
         }
     }
@@ -125,7 +144,9 @@ impl WorkspaceView {
         cx.set_global(Broadcast(!on));
         self.setmenus(cx);
         for pane in self.panes.values() {
-            pane.view.update(cx, |_v, cx| cx.notify());
+            if let Some(v) = pane.content.as_terminal() {
+                v.update(cx, |_v, cx| cx.notify());
+            }
         }
         cx.notify();
     }
@@ -207,7 +228,7 @@ impl WorkspaceView {
         let cwd = self
             .panes
             .get(&self.tabs.focused())
-            .and_then(|pane| pane.view.read(cx).cwd())
+            .and_then(|pane| pane.content.cwd(cx))
             .and_then(|osc| session::cwdpath(&osc));
         crate::open_window(
             self.opts.clone(),

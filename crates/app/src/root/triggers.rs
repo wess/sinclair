@@ -34,7 +34,7 @@ impl WorkspaceView {
         let cwd = self
             .panes
             .get(&pane)
-            .and_then(|p| p.view.read(cx).cwd_path());
+            .and_then(|p| p.content.cwd_path(cx));
         for (plugin, trigger) in matched {
             self.run_trigger(&plugin, &trigger.action, ev, cwd.as_deref(), window, cx);
         }

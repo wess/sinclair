@@ -31,7 +31,7 @@ use config::{Action, Keybind, ResizeDir, SplitDirection, SplitFocus};
 use futures::StreamExt;
 use gpui::prelude::*;
 use gpui::{
-    anchored, deferred, div, point, px, size, AnyElement, App, Context, Entity,
+    anchored, deferred, div, point, px, size, AnyElement, App, Context, Entity, Focusable,
     KeyBinding, Menu, MenuItem, MouseButton, MouseDownEvent, SharedString, Subscription,
     WeakEntity, Window,
 };
@@ -140,9 +140,92 @@ const SPAWN_ROWS: usize = 24;
 /// Fraction a divider moves per "Resize Split" step.
 const RESIZE_STEP: f32 = 0.05;
 
+/// What a pane hosts: a terminal, or a plugin web view (in a tab). The shared
+/// read surface below lets the workspace treat panes uniformly; terminal-only
+/// operations match on the variant (or go through `WorkspaceView::onfocused`,
+/// which only acts on `Terminal`).
+enum PaneContent {
+    Terminal(Entity<TerminalView>),
+    Webview(Entity<crate::pluginwebview::PluginWebView>),
+}
+
+impl PaneContent {
+    fn focus_handle(&self, cx: &App) -> gpui::FocusHandle {
+        match self {
+            PaneContent::Terminal(v) => v.focus_handle(cx),
+            PaneContent::Webview(v) => v.focus_handle(cx),
+        }
+    }
+
+    fn title(&self, cx: &App) -> String {
+        match self {
+            PaneContent::Terminal(v) => v.read(cx).title().to_string(),
+            PaneContent::Webview(v) => v.read(cx).title(),
+        }
+    }
+
+    fn needs_attention(&self, cx: &App) -> bool {
+        match self {
+            PaneContent::Terminal(v) => v.read(cx).needs_attention(),
+            PaneContent::Webview(_) => false,
+        }
+    }
+
+    fn cwd(&self, cx: &App) -> Option<String> {
+        match self {
+            PaneContent::Terminal(v) => v.read(cx).cwd(),
+            PaneContent::Webview(_) => None,
+        }
+    }
+
+    fn cwd_path(&self, cx: &App) -> Option<std::path::PathBuf> {
+        match self {
+            PaneContent::Terminal(v) => v.read(cx).cwd_path(),
+            PaneContent::Webview(_) => None,
+        }
+    }
+
+    fn is_recording(&self, cx: &App) -> bool {
+        match self {
+            PaneContent::Terminal(v) => v.read(cx).is_recording(),
+            PaneContent::Webview(_) => false,
+        }
+    }
+
+    fn is_read_only(&self, cx: &App) -> bool {
+        match self {
+            PaneContent::Terminal(v) => v.read(cx).is_read_only(),
+            PaneContent::Webview(_) => false,
+        }
+    }
+
+    fn has_running_process(&self, cx: &App) -> bool {
+        match self {
+            PaneContent::Terminal(v) => v.read(cx).has_running_process(),
+            PaneContent::Webview(_) => false,
+        }
+    }
+
+    fn element(&self) -> AnyElement {
+        match self {
+            PaneContent::Terminal(v) => v.clone().into_any_element(),
+            PaneContent::Webview(v) => v.clone().into_any_element(),
+        }
+    }
+
+    /// The terminal view, when this pane is a terminal (for terminal-only work).
+    fn as_terminal(&self) -> Option<&Entity<TerminalView>> {
+        match self {
+            PaneContent::Terminal(v) => Some(v),
+            PaneContent::Webview(_) => None,
+        }
+    }
+}
+
 struct Pane {
-    view: Entity<TerminalView>,
-    _subscription: Subscription,
+    content: PaneContent,
+    /// The terminal event bridge; `None` for webview panes (they emit none).
+    _subscription: Option<Subscription>,
 }
 
 /// Which trailing tab-bar button dropdown is open, if any.
@@ -448,8 +531,9 @@ impl WorkspaceView {
             clipboard_write: self.opts.clipboard_write,
         };
         for pane in self.panes.values() {
-            pane.view
-                .update(cx, |view, cx| view.set_appearance(&appearance, cx));
+            if let Some(v) = pane.content.as_terminal() {
+                v.update(cx, |view, cx| view.set_appearance(&appearance, cx));
+            }
         }
     }
 

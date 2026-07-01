@@ -206,9 +206,9 @@ impl WorkspaceView {
                     })),
             );
             for pid in tab.tree.panes() {
-                let view = self.panes.get(&pid).map(|p| p.view.read(cx));
-                let title = view.as_ref().map(|v| v.title().to_string()).unwrap_or_default();
-                let attention = view.as_ref().is_some_and(|v| v.needs_attention());
+                let pane = self.panes.get(&pid);
+                let title = pane.map(|p| p.content.title(cx)).unwrap_or_default();
+                let attention = pane.is_some_and(|p| p.content.needs_attention(cx));
                 body = body.child(
                     self.sidebar_row(("sb-pane", row), title, true, pid == focused, attention)
                         .on_click(cx.listener(move |this, _: &gpui::ClickEvent, window, cx| {

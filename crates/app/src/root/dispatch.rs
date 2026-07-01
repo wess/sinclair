@@ -2,14 +2,20 @@ use super::*;
 use gpui::prelude::*;
 
 impl WorkspaceView {
-    /// Run something on the focused pane's view.
+    /// Run something on the focused pane's terminal view. No-op when the focused
+    /// pane is a web view — this single guard makes every terminal-only action
+    /// (copy, paste, search, scroll, recording, …) skip webview panes.
     pub(crate) fn onfocused(
         &self,
         cx: &mut Context<Self>,
         f: impl FnOnce(&mut TerminalView, &mut Context<TerminalView>),
     ) {
-        if let Some(pane) = self.panes.get(&self.tabs.focused()) {
-            pane.view.update(cx, |view, cx| f(view, cx));
+        if let Some(v) = self
+            .panes
+            .get(&self.tabs.focused())
+            .and_then(|pane| pane.content.as_terminal())
+        {
+            v.update(cx, |view, cx| f(view, cx));
         }
     }
 

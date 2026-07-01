@@ -122,7 +122,7 @@ impl WorkspaceView {
     fn any_process_running(&self, cx: &App) -> bool {
         self.panes
             .values()
-            .any(|p| p.view.read(cx).has_running_process())
+            .any(|p| p.content.has_running_process(cx))
     }
 
     /// Persist this window's tabs/splits/cwds for the next launch.
@@ -133,6 +133,17 @@ impl WorkspaceView {
         let tabs = (0..self.tabs.len())
             .filter_map(|i| {
                 let tab = self.tabs.get(i)?;
+                // Webview panes can't round-trip through the terminal-only
+                // restore path, so drop any tab that contains one rather than
+                // mis-restore it as a shell. `try_restore` clamps the active
+                // index, so a dropped tab is safe.
+                if tab.tree.panes().iter().any(|id| {
+                    self.panes
+                        .get(id)
+                        .is_some_and(|p| p.content.as_terminal().is_none())
+                }) {
+                    return None;
+                }
                 let cwds = tab
                     .tree
                     .panes()
@@ -140,7 +151,7 @@ impl WorkspaceView {
                     .map(|id| {
                         self.panes
                             .get(id)
-                            .and_then(|p| p.view.read(cx).cwd())
+                            .and_then(|p| p.content.cwd(cx))
                             .and_then(|osc| session::cwdpath(&osc))
                             .map(|p| p.to_string_lossy().into_owned())
                     })

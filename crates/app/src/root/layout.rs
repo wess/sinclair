@@ -1,6 +1,5 @@
 use super::*;
 use gpui::prelude::*;
-use gpui::Focusable as _;
 
 impl WorkspaceView {
     /// Set a divider's ratio in the active tab (divider drag).
@@ -63,7 +62,7 @@ impl WorkspaceView {
         let Some((cols, rows)) = self
             .panes
             .get(&self.tabs.focused())
-            .map(|p| p.view.read(cx).grid_size())
+            .and_then(|p| p.content.as_terminal().map(|v| v.read(cx).grid_size()))
         else {
             return;
         };
@@ -111,7 +110,7 @@ impl WorkspaceView {
     /// Move window focus to the active tab's focused pane and retitle.
     pub(crate) fn focusactive(&self, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(pane) = self.panes.get(&self.tabs.focused()) {
-            window.focus(&pane.view.focus_handle(cx), cx);
+            window.focus(&pane.content.focus_handle(cx), cx);
         }
         self.settitle(window, cx);
     }
@@ -120,7 +119,7 @@ impl WorkspaceView {
         let title = self
             .panes
             .get(&self.tabs.focused())
-            .map(|pane| pane.view.read(cx).title().to_string())
+            .map(|pane| pane.content.title(cx))
             .unwrap_or_else(|| "prompt".to_string());
         window.set_window_title(&title);
     }

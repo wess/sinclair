@@ -55,7 +55,11 @@ impl WorkspaceView {
                 let text = self
                     .panes
                     .get(&self.tabs.focused())
-                    .map(|pane| pane.view.read(cx).screen_text(lines))
+                    .and_then(|pane| {
+                        pane.content
+                            .as_terminal()
+                            .map(|v| v.read(cx).screen_text(lines))
+                    })
                     .unwrap_or_default();
                 Ok(json!({ "text": text }))
             }
@@ -94,12 +98,11 @@ impl WorkspaceView {
                     .panes()
                     .into_iter()
                     .map(|id| {
-                        let view = self.panes.get(&id).map(|p| p.view.read(cx));
+                        let pane = self.panes.get(&id);
                         json!({
-                            "title": view.as_ref().map(|v| v.title().to_string()).unwrap_or_default(),
-                            "cwd": view
-                                .as_ref()
-                                .and_then(|v| v.cwd_path())
+                            "title": pane.map(|p| p.content.title(cx)).unwrap_or_default(),
+                            "cwd": pane
+                                .and_then(|p| p.content.cwd_path(cx))
                                 .map(|p| p.to_string_lossy().into_owned()),
                             "focused": id == focused,
                         })
@@ -185,7 +188,7 @@ impl WorkspaceView {
         let inherit = self
             .panes
             .get(&self.tabs.focused())
-            .and_then(|pane| pane.view.read(cx).cwd())
+            .and_then(|pane| pane.content.cwd(cx))
             .and_then(|osc| session::cwdpath(&osc));
         let mut options = session::options(&self.opts, SPAWN_COLS, SPAWN_ROWS, inherit);
         let cwd = options.spawn.cwd.clone();
@@ -278,7 +281,7 @@ impl WorkspaceView {
                 let inherit = self
                     .panes
                     .get(&self.tabs.focused())
-                    .and_then(|pane| pane.view.read(cx).cwd())
+                    .and_then(|pane| pane.content.cwd(cx))
                     .and_then(|osc| session::cwdpath(&osc));
                 let options = session::options(&self.opts, SPAWN_COLS, SPAWN_ROWS, inherit);
                 self.spawn(options, window, cx)

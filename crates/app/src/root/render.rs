@@ -12,7 +12,7 @@ impl Render for WorkspaceView {
             .filter_map(|id| {
                 self.panes
                     .get(&id)
-                    .map(|pane| (id, pane.view.clone().into_any_element()))
+                    .map(|pane| (id, pane.content.element()))
             })
             .collect();
         let mut dividercolor = colors::hsla(self.colors.fg);
@@ -68,7 +68,7 @@ impl Render for WorkspaceView {
 
         let content: AnyElement = if self.zoomed && multi {
             match self.panes.get(&focused) {
-                Some(pane) => pane.view.clone().into_any_element(),
+                Some(pane) => pane.content.element(),
                 None => splitselement.into_any_element(),
             }
         } else {
@@ -109,7 +109,7 @@ impl Render for WorkspaceView {
         if self
             .panes
             .values()
-            .any(|p| p.view.read(cx).is_recording())
+            .any(|p| p.content.is_recording(cx))
         {
             base = base.child(recording_pill(&self.colors));
         }

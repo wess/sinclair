@@ -114,10 +114,24 @@ impl WorkspaceView {
             .unwrap_or_default();
         match placement {
             plugin::Placement::Panel => self.toggle_sidebar(&format!("right:webview:{id}"), cx),
-            plugin::Placement::Window | plugin::Placement::Tab => {
-                crate::pluginwindow::open(window, plugin, cx)
-            }
+            plugin::Placement::Tab => self.open_webview_tab(plugin, window, cx),
+            plugin::Placement::Window => crate::pluginwindow::open(window, plugin, cx),
         }
+    }
+
+    /// Open a plugin web view as its own tab (a single-pane tab hosting the
+    /// webview). Mirrors `newtab` but with a webview pane instead of a shell.
+    fn open_webview_tab(
+        &mut self,
+        plugin: plugin::Plugin,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.zoomed = false;
+        let id = self.spawn_webview_pane(plugin, cx);
+        self.tabs.new_tab(id);
+        self.focusactive(window, cx);
+        cx.notify();
     }
 
     /// Header label for a panel. Plugin panels prefer the title from their
@@ -305,7 +319,7 @@ impl WorkspaceView {
     pub(crate) fn focused_cwd(&self, cx: &App) -> Option<std::path::PathBuf> {
         self.panes
             .get(&self.tabs.focused())
-            .and_then(|p| p.view.read(cx).cwd_path())
+            .and_then(|p| p.content.cwd_path(cx))
     }
 
     /// (Re)render a plugin panel by invoking its runtime with a `render`

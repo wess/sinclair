@@ -316,7 +316,7 @@ impl WorkspaceView {
                 }
                 self.panes
                     .get(&tab.focused)
-                    .map(|pane| pane.view.read(cx).title().to_string())
+                    .map(|pane| pane.content.title(cx))
                     .unwrap_or_default()
             })
             .collect()
@@ -328,16 +328,17 @@ impl WorkspaceView {
         (0..self.tabs.len())
             .map(|i| {
                 let tab = self.tabs.get(i).expect("tab index");
-                let focused = self.panes.get(&tab.focused).map(|p| p.view.read(cx));
                 let title = match &tab.title {
                     Some(t) => t.clone(),
-                    None => focused
-                        .as_ref()
-                        .map(|v| {
+                    None => self
+                        .panes
+                        .get(&tab.focused)
+                        .map(|p| {
+                            let full = p.content.title(cx);
                             if self.opts.tab_title_show_host {
-                                v.title().to_string()
+                                full
                             } else {
-                                strip_user_host(v.title()).to_string()
+                                strip_user_host(&full).to_string()
                             }
                         })
                         .unwrap_or_default(),
@@ -345,7 +346,7 @@ impl WorkspaceView {
                 let attention = tab.tree.panes().iter().any(|id| {
                     self.panes
                         .get(id)
-                        .is_some_and(|p| p.view.read(cx).needs_attention())
+                        .is_some_and(|p| p.content.needs_attention(cx))
                 });
                 crate::tabbar::TabInfo { title, attention }
             })
@@ -391,7 +392,7 @@ impl WorkspaceView {
             let initial = self
                 .panes
                 .get(&pane)
-                .map(|p| p.view.read(cx).title().to_string())
+                .map(|p| p.content.title(cx))
                 .unwrap_or_default();
             self.open_rename(crate::rename::Target::Pane(pane), initial, window, cx);
         }
@@ -408,9 +409,8 @@ impl WorkspaceView {
 
     /// Set a pane's title override (called back from the rename window).
     pub fn rename_pane(&mut self, pane: PaneId, title: &str, cx: &mut Context<Self>) {
-        if let Some(p) = self.panes.get(&pane) {
-            p.view
-                .update(cx, |view, cx| view.set_title_override(title, cx));
+        if let Some(v) = self.panes.get(&pane).and_then(|p| p.content.as_terminal()) {
+            v.update(cx, |view, cx| view.set_title_override(title, cx));
         }
     }
 }

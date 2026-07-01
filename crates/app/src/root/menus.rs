@@ -190,7 +190,7 @@ impl WorkspaceView {
         let recording = self
             .panes
             .get(&self.tabs.focused())
-            .is_some_and(|p| p.view.read(cx).is_recording());
+            .is_some_and(|p| p.content.is_recording(cx));
         Self::menu(
             "File",
             vec![
@@ -233,7 +233,7 @@ impl WorkspaceView {
         let read_only = self
             .panes
             .get(&self.tabs.focused())
-            .is_some_and(|p| p.view.read(cx).is_read_only());
+            .is_some_and(|p| p.content.is_read_only(cx));
         Self::menu(
             "View",
             vec![

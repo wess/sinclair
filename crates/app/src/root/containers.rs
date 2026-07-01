@@ -92,7 +92,7 @@ impl WorkspaceView {
         let inherit = self
             .panes
             .get(&self.tabs.focused())
-            .and_then(|pane| pane.view.read(cx).cwd())
+            .and_then(|pane| pane.content.cwd(cx))
             .and_then(|osc| session::cwdpath(&osc));
         let mut options = session::options(&self.opts, SPAWN_COLS, SPAWN_ROWS, inherit);
         let cwd = options.spawn.cwd.clone();
