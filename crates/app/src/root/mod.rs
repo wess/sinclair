@@ -18,6 +18,7 @@ mod quickopen;
 mod render;
 mod savebuffer;
 mod sidebar;
+mod triggers;
 mod tabs;
 
 use std::cell::RefCell;
@@ -177,6 +178,9 @@ pub enum SidebarPanel {
     Containers,
     /// A plugin-contributed panel, by index into [`WorkspaceView::plugin_panel_defs`].
     Plugin(usize),
+    /// A plugin-contributed webview panel, by index into
+    /// [`WorkspaceView::plugin_webview_panel_defs`].
+    Webview(usize),
 }
 
 impl SidebarPanel {
@@ -200,6 +204,7 @@ impl SidebarPanel {
             SidebarPanel::Agents => "agents",
             SidebarPanel::Plugins => "plugins",
             SidebarPanel::Plugin(_) => "plugin",
+            SidebarPanel::Webview(_) => "webview",
         }
     }
 
@@ -217,6 +222,7 @@ impl SidebarPanel {
             SidebarPanel::Agents => "Agents",
             SidebarPanel::Plugins => "Plugins",
             SidebarPanel::Plugin(_) => "Plugin",
+            SidebarPanel::Webview(_) => "Webview",
         }
     }
 
@@ -230,6 +236,7 @@ impl SidebarPanel {
             SidebarPanel::Agents => "\u{25c8}",    // ◈ agents
             SidebarPanel::Plugins => "\u{29c9}",   // ⧉ plugins
             SidebarPanel::Plugin(_) => "\u{25c9}", // ◉ plugin
+            SidebarPanel::Webview(_) => "\u{25f1}", // ◱ webview
         }
     }
 }
@@ -266,6 +273,10 @@ pub struct WorkspaceView {
     right_panel: Option<SidebarPanel>,
     /// Last block-tree response per plugin panel id, refreshed on open/action.
     plugin_panels: HashMap<String, crate::pluginhost::Response>,
+
+    /// Live hosts for panel-placement `[webview]` plugins, keyed by webview id.
+    /// Built at load; the native page spins up on the panel's first render.
+    webview_hosts: HashMap<String, Entity<crate::pluginwebview::PluginWebView>>,
     /// Installable catalog plugin names, fetched lazily when the Plugins panel
     /// opens; `None` until the first fetch.
     catalog: Option<Vec<String>>,
@@ -341,6 +352,7 @@ impl WorkspaceView {
             left_panel: None,
             right_panel: None,
             plugin_panels: HashMap::new(),
+            webview_hosts: HashMap::new(),
             catalog: None,
             catalog_status: None,
             catalog_loading: false,
@@ -353,6 +365,7 @@ impl WorkspaceView {
         };
         this.applykeybinds(cx);
         this.setmenus(cx);
+        this.rebuild_webview_hosts(cx);
         let options = session::options(&this.opts, cols, rows, cwd);
         let Some(id) = this.spawn(options, window, cx) else {
             std::process::exit(1);

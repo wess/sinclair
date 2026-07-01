@@ -38,6 +38,7 @@ impl WorkspaceView {
             SidebarPanel::Agents => self.panel_agents(cx),
             SidebarPanel::Plugins => self.panel_pluginlist(cx),
             SidebarPanel::Plugin(_) => self.panel_plugin(panel, cx),
+            SidebarPanel::Webview(_) => self.panel_webview(panel, cx),
         };
         let content = div()
             .w(px(PANEL_W))

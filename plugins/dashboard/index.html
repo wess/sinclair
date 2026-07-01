@@ -1,0 +1,66 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="color-scheme" content="dark light" />
+    <style>
+      :root { color-scheme: dark; }
+      body {
+        font: 13px -apple-system, system-ui, sans-serif;
+        margin: 0; padding: 14px; color: #e6e6e6; background: #1c1c1e;
+      }
+      h1 { font-size: 15px; margin: 0 0 4px; }
+      p.sub { margin: 0 0 12px; color: #9a9a9a; }
+      input, button {
+        font: inherit; width: 100%; box-sizing: border-box;
+        border: 1px solid #3a3a3c; border-radius: 7px;
+      }
+      input { padding: 7px 9px; background: #0f0f10; color: #f2f2f2; margin-bottom: 8px; }
+      button {
+        padding: 8px 10px; margin-bottom: 6px; background: #2a2a2c; color: #f2f2f2;
+        cursor: pointer; text-align: left;
+      }
+      button:hover { border-color: #7a7a7c; }
+      pre {
+        background: #0f0f10; padding: 9px; border-radius: 7px; margin-top: 10px;
+        white-space: pre-wrap; word-break: break-word; color: #cfe8cf; min-height: 2.5em;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Dashboard</h1>
+    <p class="sub">A web-view plugin talking to Prompt over the bridge.</p>
+
+    <input id="cmd" value="echo hello from the web view" />
+    <button onclick="run()">Run in the focused terminal</button>
+    <button onclick="ping()">Call the plugin runtime (ping)</button>
+    <button onclick="screen()">Read the terminal screen</button>
+    <pre id="out">ready</pre>
+
+    <script>
+      const out = document.getElementById("out");
+      const show = (x) =>
+        (out.textContent = typeof x === "string" ? x : JSON.stringify(x, null, 2));
+
+      // Built-in capability: runs in the focused terminal (no runtime needed).
+      async function run() {
+        show(await Prompt.runCommand(document.getElementById("cmd").value));
+      }
+
+      // Built-in capability: reads the terminal's visible screen.
+      async function screen() {
+        const r = await Prompt.readScreen(20);
+        show(r.text || r);
+      }
+
+      // Custom method: forwarded to this plugin's [runtime] as a message.
+      async function ping() {
+        try {
+          show(await Prompt.invoke("ping", { at: Date.now() }));
+        } catch (e) {
+          show("error: " + e);
+        }
+      }
+    </script>
+  </body>
+</html>

@@ -49,6 +49,79 @@ pub enum ViewEvent {
     /// This pane's attention state changed (a notification arrived, or focus
     /// cleared it); the workspace repaints the tab/pane indicator.
     Attention,
+    /// A terminal event a plugin `[[trigger]]` may react to; the workspace
+    /// matches it against loaded triggers and runs their actions.
+    Trigger(TriggerEvent),
+}
+
+/// A terminal event a plugin `[[trigger]]` can hook, carried to the workspace
+/// on [`ViewEvent::Trigger`]. Names match `plugin::TRIGGER_EVENTS`.
+#[derive(Debug, Clone, PartialEq)]
+pub enum TriggerEvent {
+    /// A BEL was received.
+    Bell,
+    /// The window title changed.
+    TitleChanged(String),
+    /// The child requested a desktop notification (OSC 9/777/99).
+    Notify {
+        title: Option<String>,
+        body: String,
+    },
+    /// The child process exited (exit code, or `None` when signalled).
+    Exit(Option<i32>),
+    /// A shell-integration command finished (OSC 133 `D`) with its exit code.
+    CommandFinished(Option<i32>),
+    /// The working directory changed (OSC 7).
+    DirChanged(String),
+}
+
+impl TriggerEvent {
+    /// The manifest event name this matches.
+    pub fn name(&self) -> &'static str {
+        match self {
+            TriggerEvent::Bell => "bell",
+            TriggerEvent::TitleChanged(_) => "title_changed",
+            TriggerEvent::Notify { .. } => "notify",
+            TriggerEvent::Exit(_) => "exit",
+            TriggerEvent::CommandFinished(_) => "command_finished",
+            TriggerEvent::DirChanged(_) => "dir_changed",
+        }
+    }
+
+    /// The exit code for exit / command-finished events, else `None`.
+    pub fn exit_code(&self) -> Option<Option<i32>> {
+        match self {
+            TriggerEvent::Exit(c) | TriggerEvent::CommandFinished(c) => Some(*c),
+            _ => None,
+        }
+    }
+
+    /// The text a `when` substring filter matches against (title/notify/dir).
+    pub fn match_text(&self) -> Option<&str> {
+        match self {
+            TriggerEvent::TitleChanged(s) | TriggerEvent::DirChanged(s) => Some(s),
+            TriggerEvent::Notify { body, .. } => Some(body),
+            _ => None,
+        }
+    }
+
+    /// JSON payload handed to a plugin runtime when the action is `invoke`.
+    pub fn payload(&self) -> serde_json::Value {
+        match self {
+            TriggerEvent::Bell => serde_json::json!({ "event": "bell" }),
+            TriggerEvent::TitleChanged(t) => {
+                serde_json::json!({ "event": "title_changed", "title": t })
+            }
+            TriggerEvent::Notify { title, body } => {
+                serde_json::json!({ "event": "notify", "title": title, "body": body })
+            }
+            TriggerEvent::Exit(c) => serde_json::json!({ "event": "exit", "exit_code": c }),
+            TriggerEvent::CommandFinished(c) => {
+                serde_json::json!({ "event": "command_finished", "exit_code": c })
+            }
+            TriggerEvent::DirChanged(d) => serde_json::json!({ "event": "dir_changed", "dir": d }),
+        }
+    }
 }
 
 /// Pane title: the vt title when set and non-blank, else the fallback.
@@ -310,18 +383,23 @@ impl TerminalView {
         match event {
             Event::Wakeup => self.wakeup(cx),
             Event::TitleChanged(title) => {
-                self.title = Some(title);
+                self.title = Some(title.clone());
                 cx.emit(ViewEvent::Title);
+                cx.emit(ViewEvent::Trigger(TriggerEvent::TitleChanged(title)));
             }
-            Event::Bell => self.bell = true,
+            Event::Bell => {
+                self.bell = true;
+                cx.emit(ViewEvent::Trigger(TriggerEvent::Bell));
+            }
             Event::Notify { title, body } => {
-                let heading = title.unwrap_or_else(|| self.title().to_string());
+                let heading = title.clone().unwrap_or_else(|| self.title().to_string());
                 post_os_notification(&heading, &body);
                 if !self.focused {
                     self.attention = true;
                     cx.emit(ViewEvent::Attention);
                     cx.notify();
                 }
+                cx.emit(ViewEvent::Trigger(TriggerEvent::Notify { title, body }));
             }
             Event::Clipboard { data, .. } => {
                 let text = String::from_utf8_lossy(&data).into_owned();
@@ -335,7 +413,14 @@ impl TerminalView {
                     config::ClipboardAccess::Allow => self.write_clipboard(text, cx),
                 }
             }
-            Event::Exit(_) => cx.emit(ViewEvent::Exited),
+            Event::CommandFinished(code) => {
+                cx.emit(ViewEvent::Trigger(TriggerEvent::CommandFinished(code)))
+            }
+            Event::DirChanged(dir) => cx.emit(ViewEvent::Trigger(TriggerEvent::DirChanged(dir))),
+            Event::Exit(code) => {
+                cx.emit(ViewEvent::Trigger(TriggerEvent::Exit(code)));
+                cx.emit(ViewEvent::Exited);
+            }
         }
     }
 

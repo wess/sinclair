@@ -79,6 +79,13 @@ impl WorkspaceView {
                     Action::Sidebar(format!("right:plugin:{}", panel.id)),
                 ));
             }
+            if let Some(webview) = plugin.webview.as_ref() {
+                items.push((
+                    format!("Open {}", webview.title),
+                    None,
+                    Action::OpenWebview(webview.id.clone()),
+                ));
+            }
         }
         items.push((
             "Plugins: browse & install".to_string(),

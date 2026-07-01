@@ -26,4 +26,10 @@ pub enum Event {
     /// The child exited; carries the unix exit code when available
     /// (`None` when it was killed by a signal).
     Exit(Option<i32>),
+    /// A shell-integration command finished (OSC 133 `D`). Carries the reported
+    /// exit code (`None` when the mark omitted it). Needs shell integration.
+    CommandFinished(Option<i32>),
+    /// The working directory changed (OSC 7). Carries the new directory as the
+    /// raw OSC 7 value (typically a `file://` URL).
+    DirChanged(String),
 }

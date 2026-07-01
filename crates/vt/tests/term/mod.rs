@@ -368,3 +368,28 @@ fn buffer_text_is_independent_of_scroll_offset() {
     t.set_display_offset(2); // scrolled up into history
     assert_eq!(t.buffer_text(), "a\nb\nc\nd\n");
 }
+
+#[test]
+fn command_finished_reports_exit_code_once() {
+    let mut t = Terminal::new(10, 3, 0);
+    assert_eq!(t.take_command_finished(), None);
+    t.feed(b"\x1b]133;D;2\x07");
+    assert_eq!(t.take_command_finished(), Some(Some(2)));
+    assert_eq!(t.take_command_finished(), None); // consumed
+    t.feed(b"\x1b]133;D\x07"); // no exit code
+    assert_eq!(t.take_command_finished(), Some(None));
+    t.feed(b"\x1b]133;A\x07"); // prompt-start mark is not a finish
+    assert_eq!(t.take_command_finished(), None);
+}
+
+#[test]
+fn cwd_change_is_reported_once() {
+    let mut t = Terminal::new(10, 3, 0);
+    t.feed(b"\x1b]7;file:///a\x07");
+    assert_eq!(t.take_cwd_changed().as_deref(), Some("file:///a"));
+    assert_eq!(t.take_cwd_changed(), None); // nothing new
+    t.feed(b"\x1b]7;file:///a\x07"); // same dir, no event
+    assert_eq!(t.take_cwd_changed(), None);
+    t.feed(b"\x1b]7;file:///b\x07"); // changed
+    assert_eq!(t.take_cwd_changed().as_deref(), Some("file:///b"));
+}

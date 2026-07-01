@@ -1,0 +1,12 @@
+id = "alert"
+name = "Alert"
+version = "0.1.0"
+description = "Event triggers: desktop-notify when a command fails (no UI, no runtime)"
+
+# Triggers run an action when a terminal event fires. This one posts a desktop
+# notification whenever a command exits non-zero. Needs shell integration (for
+# the OSC 133 command-finished mark + exit code) enabled in Settings.
+[[trigger]]
+on = "command_finished"
+when = "nonzero"
+notify = "A command exited with a non-zero status"

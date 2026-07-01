@@ -23,9 +23,9 @@ const POLL: Duration = Duration::from_millis(100);
 /// One request sent to a plugin runtime (serialized to stdin as JSON).
 #[derive(Serialize)]
 pub struct Request<'a> {
-    /// `"render"` or `"action"`.
+    /// `"render"`, `"action"`, or `"message"` (a call from a webview surface).
     pub kind: &'a str,
-    /// Target panel id.
+    /// Target surface id (panel or webview).
     pub panel: &'a str,
     /// Action id, when `kind == "action"`.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -34,6 +34,12 @@ pub struct Request<'a> {
     /// place (e.g. the repo the user is in).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cwd: Option<&'a str>,
+    /// Method name, when `kind == "message"` (a webview `invoke(method, …)`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub method: Option<&'a str>,
+    /// Arbitrary params for a `message`, forwarded verbatim from the page.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub params: Option<&'a serde_json::Value>,
 }
 
 /// A plugin's reply: the panel contents plus terminal effects to apply.
@@ -48,6 +54,10 @@ pub struct Response {
     /// Commands to run in the terminal after rendering.
     #[serde(default)]
     pub run: Vec<Run>,
+    /// For a `message` reply: the value that resolves the page's `invoke()`
+    /// promise. Ignored for `render`/`action` responses.
+    #[serde(default)]
+    pub result: Option<serde_json::Value>,
 }
 
 /// A terminal command directive returned by a plugin.

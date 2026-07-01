@@ -287,6 +287,8 @@ pub enum Action {
     OpenTeam(String),
     /// Launch a previously-saved agent by name.
     AgentDef(String),
+    /// Open a plugin's `[webview]` surface by its webview id.
+    OpenWebview(String),
     Quit,
     /// The special `unbind` action: removes the trigger's binding.
     Unbound,
@@ -418,6 +420,7 @@ impl Action {
             "sidebar" => Ok(Self::Sidebar(req(&name, param)?.to_string())),
             "open_team" => Ok(Self::OpenTeam(req(&name, param)?.to_string())),
             "agent_def" => Ok(Self::AgentDef(req(&name, param)?.to_string())),
+            "open_webview" => Ok(Self::OpenWebview(req(&name, param)?.to_string())),
             "quit" => only(Self::Quit, &name, param),
             "unbind" => only(Self::Unbound, &name, param),
             _ => Err(format!("unknown action `{name}`")),
@@ -473,6 +476,7 @@ impl Action {
             Self::Sidebar(s) => format!("sidebar:{s}"),
             Self::OpenTeam(s) => format!("open_team:{s}"),
             Self::AgentDef(s) => format!("agent_def:{s}"),
+            Self::OpenWebview(s) => format!("open_webview:{s}"),
             Self::PluginCommand(s) => format!("plugin_command:{s}"),
             Self::MacroRecord => "macro_record".into(),
             Self::MacroReplay(s) => format!("macro:{s}"),

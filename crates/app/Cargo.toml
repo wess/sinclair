@@ -45,7 +45,7 @@ gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "96285fc1
 # co-evolve it). default-features=false drops the wry/webview backend. Its
 # `gpui = "0.2.2"` (crates.io) is redirected to our exact zed rev by the
 # root [patch.crates-io], so the whole tree shares one gpui.
-guise-ui = { path = "../../vendor/guise/crates/guise", default-features = false }
+guise-ui = { path = "../../vendor/guise/crates/guise", features = ["webview"] }
 input = { path = "../input" }
 macros = { path = "../macros" }
 mcp = { path = "../mcp" }

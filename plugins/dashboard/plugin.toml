@@ -1,0 +1,18 @@
+id = "dashboard"
+name = "Dashboard"
+version = "0.1.0"
+description = "A webview demo: run terminal commands and call the plugin runtime from HTML"
+
+# The runtime handles webview `invoke()` calls that aren't built-in app
+# capabilities (here, the "ping" method).
+[runtime]
+command = "bun run plugin.ts"
+
+# A native web view surface. `entry` is loaded from this directory over
+# file://; set `placement` to panel, window, or tab.
+[webview]
+id = "dashboard"
+title = "Dashboard"
+icon = "◱"
+placement = "panel"
+entry = "index.html"

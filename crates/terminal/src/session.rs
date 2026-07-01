@@ -212,7 +212,7 @@ fn apply_chunk(
     pending: &AtomicBool,
     events: &Sender<Event>,
 ) {
-    let (reply, title, bell, clipboard, notification) = {
+    let (reply, title, bell, clipboard, notification, command_finished, cwd_changed) = {
         let mut term = term.lock().unwrap_or_else(|e| e.into_inner());
         let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| term.feed(chunk)));
         (
@@ -221,6 +221,8 @@ fn apply_chunk(
             term.take_bell(),
             term.take_clipboard(),
             term.take_notification(),
+            term.take_command_finished(),
+            term.take_cwd_changed(),
         )
     };
     if !reply.is_empty() {
@@ -243,6 +245,12 @@ fn apply_chunk(
             title: note.title,
             body: note.body,
         });
+    }
+    if let Some(code) = command_finished {
+        let _ = events.send(Event::CommandFinished(code));
+    }
+    if let Some(dir) = cwd_changed {
+        let _ = events.send(Event::DirChanged(dir));
     }
     if !pending.swap(true, Ordering::SeqCst) {
         let _ = events.send(Event::Wakeup);

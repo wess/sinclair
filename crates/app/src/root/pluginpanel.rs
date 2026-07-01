@@ -21,19 +21,117 @@ impl WorkspaceView {
             .collect()
     }
 
-    /// The full activity-bar panel list: built-ins followed by plugin panels.
+    /// Plugins with a `[webview]` whose placement is `panel`, in load order.
+    /// `SidebarPanel::Webview(i)` indexes this list.
+    pub(crate) fn plugin_webview_panel_defs(&self) -> Vec<&plugin::Plugin> {
+        self.plugins
+            .iter()
+            .filter(|p| {
+                p.webview
+                    .as_ref()
+                    .is_some_and(|w| w.placement == plugin::Placement::Panel)
+            })
+            .collect()
+    }
+
+    /// The full activity-bar panel list: built-ins, then plugin block panels,
+    /// then plugin webview panels.
     pub(crate) fn panel_list(&self) -> Vec<SidebarPanel> {
         let mut list = SidebarPanel::ALL.to_vec();
         for i in 0..self.plugin_panel_defs().len() {
             list.push(SidebarPanel::Plugin(i));
         }
+        for i in 0..self.plugin_webview_panel_defs().len() {
+            list.push(SidebarPanel::Webview(i));
+        }
         list
+    }
+
+    /// (Re)build the webview host entities for panel-placement `[webview]`
+    /// plugins. The entity wrapper is cheap; the native page is created on the
+    /// panel's first render. Called at load and after a plugin reload.
+    pub(crate) fn rebuild_webview_hosts(&mut self, cx: &mut Context<Self>) {
+        self.webview_hosts.clear();
+        let defs: Vec<plugin::Plugin> = self
+            .plugins
+            .iter()
+            .filter(|p| {
+                p.webview
+                    .as_ref()
+                    .is_some_and(|w| w.placement == plugin::Placement::Panel)
+            })
+            .cloned()
+            .collect();
+        for plugin in defs {
+            let id = plugin
+                .webview
+                .as_ref()
+                .map(|w| w.id.clone())
+                .unwrap_or_else(|| plugin.id.clone());
+            let host = cx.new(|cx| crate::pluginwebview::PluginWebView::new(plugin, cx));
+            self.webview_hosts.insert(id, host);
+        }
+    }
+
+    /// Render a plugin webview panel's body: the stored host entity, or a note.
+    pub(crate) fn panel_webview(&self, panel: SidebarPanel, _cx: &mut Context<Self>) -> AnyElement {
+        let SidebarPanel::Webview(index) = panel else {
+            return div().into_any_element();
+        };
+        let id = match self
+            .plugin_webview_panel_defs()
+            .get(index)
+            .and_then(|p| p.webview.as_ref())
+        {
+            Some(w) => w.id.clone(),
+            None => return div().into_any_element(),
+        };
+        match self.webview_hosts.get(&id) {
+            Some(host) => div()
+                .flex_1()
+                .min_h(px(0.0))
+                .child(host.clone())
+                .into_any_element(),
+            None => self.plugin_note("Loading\u{2026}"),
+        }
+    }
+
+    /// Open a plugin's `[webview]` per its manifest placement: a sidebar panel,
+    /// or a standalone window (also the current fallback for `tab`).
+    pub(crate) fn open_webview(&mut self, id: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(plugin) = self
+            .plugins
+            .iter()
+            .find(|p| p.webview.as_ref().map(|w| w.id.as_str()) == Some(id))
+            .cloned()
+        else {
+            return;
+        };
+        let placement = plugin
+            .webview
+            .as_ref()
+            .map(|w| w.placement)
+            .unwrap_or_default();
+        match placement {
+            plugin::Placement::Panel => self.toggle_sidebar(&format!("right:webview:{id}"), cx),
+            plugin::Placement::Window | plugin::Placement::Tab => {
+                crate::pluginwindow::open(window, plugin, cx)
+            }
+        }
     }
 
     /// Header label for a panel. Plugin panels prefer the title from their
     /// latest response (so a plugin can retitle live), falling back to the
     /// manifest's `[panel] title`.
     pub(crate) fn panel_label_of(&self, panel: SidebarPanel) -> String {
+        if let SidebarPanel::Webview(i) = panel {
+            return self
+                .plugin_webview_panel_defs()
+                .get(i)
+                .and_then(|p| p.webview.as_ref())
+                .map(|w| w.title.clone())
+                .unwrap_or_else(|| "Webview".to_string());
+        }
         let SidebarPanel::Plugin(i) = panel else {
             return panel.label().to_string();
         };
@@ -61,6 +159,12 @@ impl WorkspaceView {
                 .and_then(|p| p.panel.as_ref())
                 .map(|pn| pn.icon.clone())
                 .unwrap_or_else(|| "\u{25c9}".to_string()),
+            SidebarPanel::Webview(i) => self
+                .plugin_webview_panel_defs()
+                .get(i)
+                .and_then(|p| p.webview.as_ref())
+                .map(|w| w.icon.clone())
+                .unwrap_or_else(|| "\u{25f1}".to_string()),
             other => other.icon().to_string(),
         }
     }
@@ -77,6 +181,14 @@ impl WorkspaceView {
                     .map(|pn| pn.id.as_str())
                     .unwrap_or("")
             ),
+            SidebarPanel::Webview(i) => format!(
+                "webview:{}",
+                self.plugin_webview_panel_defs()
+                    .get(i)
+                    .and_then(|p| p.webview.as_ref())
+                    .map(|w| w.id.as_str())
+                    .unwrap_or("")
+            ),
             other => other.id().to_string(),
         }
     }
@@ -89,6 +201,13 @@ impl WorkspaceView {
                 .iter()
                 .position(|p| p.panel.as_ref().map(|pn| pn.id.as_str()) == Some(id))?;
             return Some(SidebarPanel::Plugin(i));
+        }
+        if let Some(id) = token.strip_prefix("webview:") {
+            let i = self
+                .plugin_webview_panel_defs()
+                .iter()
+                .position(|p| p.webview.as_ref().map(|w| w.id.as_str()) == Some(id))?;
+            return Some(SidebarPanel::Webview(i));
         }
         SidebarPanel::from_id(token)
     }
@@ -158,6 +277,7 @@ impl WorkspaceView {
         }
         self.keybinds = keybinds;
         self.applykeybinds(cx);
+        self.rebuild_webview_hosts(cx);
     }
 
     /// Plugin ids currently installed (folder/manifest ids).
@@ -182,7 +302,7 @@ impl WorkspaceView {
 
     /// The focused pane's working directory, passed to plugins so they act on
     /// the right place.
-    fn focused_cwd(&self, cx: &App) -> Option<std::path::PathBuf> {
+    pub(crate) fn focused_cwd(&self, cx: &App) -> Option<std::path::PathBuf> {
         self.panes
             .get(&self.tabs.focused())
             .and_then(|p| p.view.read(cx).cwd_path())
@@ -210,6 +330,8 @@ impl WorkspaceView {
                         panel: &pid,
                         action: None,
                         cwd: cwd.as_deref(),
+                        method: None,
+                        params: None,
                     };
                     pluginhost::invoke(&plugin, &req)
                 })
@@ -255,6 +377,8 @@ impl WorkspaceView {
                         panel: &p,
                         action: Some(&action),
                         cwd: cwd.as_deref(),
+                        method: None,
+                        params: None,
                     };
                     pluginhost::invoke(&plugin, &req)
                 })
@@ -396,6 +520,7 @@ fn error_response(msg: &str) -> Response {
             dimmed: true,
         }],
         run: Vec::new(),
+        result: None,
     }
 }
 

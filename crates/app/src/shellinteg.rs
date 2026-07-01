@@ -41,7 +41,8 @@ ZDOTDIR=\"${PROMPT_ZDOTDIR:-$HOME}\"
 unset _prompt_zdotdir
 [[ -f \"$ZDOTDIR/.zshrc\" ]] && source \"$ZDOTDIR/.zshrc\"
 _prompt_precmd() {
-  printf '\\e]133;D\\e\\\\'
+  local ret=$?
+  printf '\\e]133;D;%d\\e\\\\' \"$ret\"
   printf '\\e]133;A\\e\\\\'
   printf '\\e]7;file://%s%s\\e\\\\' \"${HOST}\" \"${PWD}\"
 }
@@ -67,12 +68,14 @@ function _prompt_mark_preexec --on-event fish_preexec
     printf '\\e]133;C\\e\\\\'
 end
 function _prompt_mark_postexec --on-event fish_postexec
-    printf '\\e]133;D\\e\\\\'
+    printf '\\e]133;D;%d\\e\\\\' $status
 end
 ";
 
 const BASH: &str = "\
-# Prompt shell integration (bash): emit a prompt mark + cwd each prompt.
+# Prompt shell integration (bash): emit prompt marks + cwd each prompt.
+_prompt_ret=$?
+printf '\\e]133;D;%d\\e\\\\' \"$_prompt_ret\"
 printf '\\e]133;A\\e\\\\'
 printf '\\e]7;file://%s%s\\e\\\\' \"${HOSTNAME}\" \"${PWD}\"
 ";

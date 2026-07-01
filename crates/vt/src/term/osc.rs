@@ -39,7 +39,11 @@ pub(crate) fn dispatch(inner: &mut Inner, params: &[&[u8]], bell_terminated: boo
         }
         7 => {
             let s = rejoin(&params[1..]);
-            inner.cwd = (!s.is_empty()).then_some(s);
+            let next = (!s.is_empty()).then_some(s);
+            if next != inner.cwd {
+                inner.cwd = next;
+                inner.cwd_changed = true;
+            }
         }
         8 => {
             let uri = rejoin(&params[2..]);
@@ -51,12 +55,22 @@ pub(crate) fn dispatch(inner: &mut Inner, params: &[&[u8]], bell_terminated: boo
             };
             inner.screen_mut().cursor.pen.hyperlink = hid;
         }
-        133 => {
-            if params.get(1).and_then(|p| p.first()) == Some(&b'A') {
+        133 => match params.get(1).and_then(|p| p.first()) {
+            // Prompt start: mark the row for jump-to-prompt.
+            Some(&b'A') => {
                 let row = inner.screen().cursor.row;
                 inner.screen_mut().grid.row_mut(row).prompt = true;
             }
-        }
+            // Command finished: `133;D` or `133;D;<exit-code>`.
+            Some(&b'D') => {
+                let code = params
+                    .get(2)
+                    .and_then(|p| std::str::from_utf8(p).ok())
+                    .and_then(|s| s.trim().parse::<i32>().ok());
+                inner.command_finished = Some(code);
+            }
+            _ => {}
+        },
         10 => dynamic_query(inner, params.get(1), bell_terminated, 10, report_fg),
         11 => dynamic_query(inner, params.get(1), bell_terminated, 11, report_bg),
         12 => {

@@ -17,6 +17,8 @@ fn keybind_entries_use_plugin_actions() {
         }],
         runtime: None,
         panel: None,
+        webview: None,
+        triggers: Vec::new(),
     }];
     assert_eq!(
         keybinds(&plugins),

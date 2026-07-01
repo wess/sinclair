@@ -185,6 +185,7 @@ impl WorkspaceView {
                     self.splitcommand(&cmd, Axis::Horizontal, false, window, cx);
                 }
             }
+            Action::OpenWebview(id) => self.open_webview(&id, window, cx),
             Action::Quit => self.request_quit(window, cx),
             Action::Unbound => {}
         }

@@ -101,6 +101,7 @@ impl WorkspaceView {
                 self.dispatch(action.clone(), window, cx);
             }
             ViewEvent::Attention => cx.notify(),
+            ViewEvent::Trigger(ev) => self.fire_triggers(pane, ev, window, cx),
         }
     }
 

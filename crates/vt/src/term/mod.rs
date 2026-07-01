@@ -51,6 +51,11 @@ pub(crate) struct Inner {
     pub(crate) full_damage: bool,
     /// Set when the title changes (OSC 0/2 or XTWINOPS title pop).
     pub(crate) title_changed: bool,
+    /// Set on a shell-integration command-finished mark (OSC 133 `D`); the
+    /// inner value is the reported exit code (`None` when the mark omits it).
+    pub(crate) command_finished: Option<Option<i32>>,
+    /// Set when OSC 7 reports a working directory different from the last one.
+    pub(crate) cwd_changed: bool,
     pub(crate) last_printed: Option<char>,
     /// Lines scrolled back into history for display; 0 = bottom.
     pub(crate) display_offset: usize,
@@ -117,6 +122,8 @@ impl Terminal {
                 cursor_style: CursorStyle::default(),
                 output: Vec::new(),
                 bell: false,
+                command_finished: None,
+                cwd_changed: false,
                 full_damage: true,
                 title_changed: false,
                 last_printed: None,
@@ -305,6 +312,21 @@ impl Terminal {
     /// `None` until the next change. [`Terminal::title`] always works.
     pub fn take_title_changed(&mut self) -> Option<String> {
         std::mem::take(&mut self.inner.title_changed).then(|| self.inner.title.clone())
+    }
+
+    /// The exit code of a command that just finished (OSC 133 `D`), once per
+    /// mark. The outer `Option` is "did a command finish since the last call";
+    /// the inner is the exit code (`None` when the mark carried none).
+    pub fn take_command_finished(&mut self) -> Option<Option<i32>> {
+        std::mem::take(&mut self.inner.command_finished)
+    }
+
+    /// The new working directory once after OSC 7 reported a change; `None`
+    /// until it changes again. [`Terminal::cwd`] always works.
+    pub fn take_cwd_changed(&mut self) -> Option<String> {
+        std::mem::take(&mut self.inner.cwd_changed)
+            .then(|| self.inner.cwd.clone())
+            .flatten()
     }
 
     pub fn is_alt_screen(&self) -> bool {
