@@ -16,12 +16,13 @@ pub struct Colors {
 /// Build the color set from configuration: scheme by name (default dark),
 /// 256-entry palette with config `palette` overrides, and config
 /// foreground/background overrides on top of the scheme.
-pub fn from_config(opts: &config::Options) -> Colors {
-    let scheme = match theme::builtin(&opts.theme) {
+pub fn from_config(opts: &config::Options, dark: bool) -> Colors {
+    let name = opts.theme_for(dark);
+    let scheme = match theme::builtin(name) {
         Some(scheme) => scheme,
         None => {
-            if !opts.theme.is_empty() {
-                eprintln!("prompt: unknown theme {:?}, using default", opts.theme);
+            if !name.is_empty() {
+                eprintln!("prompt: unknown theme {name:?}, using default");
             }
             theme::default_scheme()
         }

@@ -124,7 +124,7 @@ fn spawn_window(cx: &mut App) {
 
 /// Derive appearance from `opts` and open one default-sized window.
 fn open_default_window(opts: config::Options, cx: &mut App) {
-    let colors = Rc::new(colors::from_config(&opts));
+    let colors = Rc::new(colors::from_config(&opts, root::is_dark(cx.window_appearance())));
     guisetheme::install(&colors, cx);
     let font = font::build(&opts);
     let font_size = px(opts.font_size.max(1.0));

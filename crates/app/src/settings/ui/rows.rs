@@ -55,6 +55,8 @@ impl SettingsView {
     pub(crate) fn appearance_rows(&self, cx: &mut Context<Self>) -> Vec<AnyElement> {
         vec![
             self.cycle_row(Choice::Theme, "\u{25d0}", Section::Appearance.accent(), cx),
+            self.field_row(Field::ThemeLight, "\u{2600}", theme::Rgb::new(255, 214, 10), cx),
+            self.field_row(Field::ThemeDark, "\u{263e}", theme::Rgb::new(94, 92, 230), cx),
             self.cycle_row(Choice::FontStyle, "B", theme::Rgb::new(255, 159, 10), cx),
             self.cycle_row(Choice::CursorStyle, "C", theme::Rgb::new(255, 69, 58), cx),
             self.toggle_row(Bool::CursorBlink, "\u{2737}", theme::Rgb::new(255, 214, 10), cx),

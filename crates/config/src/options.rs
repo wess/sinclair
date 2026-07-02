@@ -275,6 +275,22 @@ impl Options {
     pub fn font_fallbacks(&self) -> &[String] {
         self.font_family.get(1..).unwrap_or(&[])
     }
+
+    /// The theme name to use for the given OS appearance. When `theme-light` /
+    /// `theme-dark` are set they win for that appearance; otherwise `theme`.
+    pub fn theme_for(&self, dark: bool) -> &str {
+        let picked = if dark { &self.theme_dark } else { &self.theme_light };
+        if picked.is_empty() {
+            &self.theme
+        } else {
+            picked
+        }
+    }
+
+    /// Whether automatic light/dark theme switching is configured.
+    pub fn auto_theme(&self) -> bool {
+        !self.theme_light.is_empty() || !self.theme_dark.is_empty()
+    }
 }
 
 impl Default for Options {

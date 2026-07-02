@@ -388,6 +388,18 @@ pub struct WorkspaceView {
     base_font_size: gpui::Pixels,
     /// Config-file watcher; kept alive so live reload keeps working.
     _watch: Option<config::WatchHandle>,
+    /// Whether the OS appearance is currently dark (drives `theme-light`/`-dark`).
+    dark: bool,
+    /// Keeps the OS-appearance observer alive.
+    _appearance: Option<gpui::Subscription>,
+}
+
+/// Whether a gpui window appearance is one of the dark variants.
+pub(crate) fn is_dark(a: gpui::WindowAppearance) -> bool {
+    matches!(
+        a,
+        gpui::WindowAppearance::Dark | gpui::WindowAppearance::VibrantDark
+    )
 }
 
 impl WorkspaceView {
@@ -445,7 +457,19 @@ impl WorkspaceView {
             container_tabs: HashMap::new(),
             kill_on_close: HashMap::new(),
             _watch: None,
+            dark: is_dark(window.appearance()),
+            _appearance: None,
         };
+        // Follow the OS light/dark appearance when `theme-light`/`theme-dark` are set.
+        this._appearance = Some(cx.observe_window_appearance(window, |view, window, cx| {
+            let dark = is_dark(window.appearance());
+            if dark != view.dark {
+                view.dark = dark;
+                if view.opts.auto_theme() {
+                    view.apply_theme(cx);
+                }
+            }
+        }));
         this.applykeybinds(cx);
         this.setmenus(cx);
         this.rebuild_webview_hosts(cx);
@@ -491,7 +515,7 @@ impl WorkspaceView {
         for d in &diagnostics {
             eprintln!("prompt: config line {}: {} ({})", d.line, d.message, d.key);
         }
-        self.colors = Rc::new(colors::from_config(&opts));
+        self.colors = Rc::new(colors::from_config(&opts, self.dark));
         crate::guisetheme::install(&self.colors, cx);
         self.font = crate::font::build(&opts);
         self.font_size = px(opts.font_size.max(1.0));
@@ -513,6 +537,15 @@ impl WorkspaceView {
         self.setmenus(cx);
         self.pushappearance(cx);
         crate::relay::on_reload(&self.opts);
+        cx.notify();
+    }
+
+    /// Rebuild colors for the current OS appearance and push them everywhere.
+    /// Used by the appearance observer for live light/dark switching.
+    fn apply_theme(&mut self, cx: &mut Context<Self>) {
+        self.colors = Rc::new(colors::from_config(&self.opts, self.dark));
+        crate::guisetheme::install(&self.colors, cx);
+        self.pushappearance(cx);
         cx.notify();
     }
 

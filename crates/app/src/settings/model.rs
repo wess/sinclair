@@ -427,6 +427,8 @@ pub enum Field {
     ClaudePath,
     CodexPath,
     GeminiPath,
+    ThemeLight,
+    ThemeDark,
 }
 
 impl Field {
@@ -444,6 +446,8 @@ impl Field {
             Field::SplitDivider => "split-divider-color",
             Field::RelayAddress => "relay-address",
             Field::RelayDefaultAgent => "relay-default-agent",
+            Field::ThemeLight => "theme-light",
+            Field::ThemeDark => "theme-dark",
             Field::ClaudePath => "agent-claude-path",
             Field::CodexPath => "agent-codex-path",
             Field::GeminiPath => "agent-gemini-path",
@@ -464,6 +468,8 @@ impl Field {
             Field::SplitDivider => "Split divider color",
             Field::RelayAddress => "Relay address",
             Field::RelayDefaultAgent => "Default agent",
+            Field::ThemeLight => "Light-mode theme",
+            Field::ThemeDark => "Dark-mode theme",
             Field::ClaudePath => "Claude path",
             Field::CodexPath => "Codex path",
             Field::GeminiPath => "Gemini path",
@@ -477,6 +483,7 @@ impl Field {
             Field::Title => "Default",
             Field::RelayAddress => "127.0.0.1:7777",
             Field::RelayDefaultAgent => "claude",
+            Field::ThemeLight | Field::ThemeDark => "scheme name (blank = off)",
             Field::ClaudePath => "Search PATH (e.g. /usr/local/bin/claude)",
             Field::CodexPath => "Search PATH",
             Field::GeminiPath => "Search PATH",
@@ -494,6 +501,8 @@ impl Field {
         match self {
             Field::RelayAddress => return o.relay_address.clone(),
             Field::RelayDefaultAgent => return o.relay_default_agent.clone(),
+            Field::ThemeLight => return o.theme_light.clone(),
+            Field::ThemeDark => return o.theme_dark.clone(),
             _ => {}
         }
         let opt = match self {
@@ -512,6 +521,8 @@ impl Field {
             Field::GeminiPath => &o.agent_gemini_path,
             Field::RelayAddress => return o.relay_address.clone(),
             Field::RelayDefaultAgent => return o.relay_default_agent.clone(),
+            Field::ThemeLight => return o.theme_light.clone(),
+            Field::ThemeDark => return o.theme_dark.clone(),
         };
         opt.clone().unwrap_or_default()
     }

@@ -208,7 +208,10 @@ fn apply_overlay(window: &gpui::Window) {
 /// Open a fresh quick-terminal window dropped over the active display.
 fn open(cx: &mut App) {
     let (opts, _diagnostics) = config::load();
-    let palette = Rc::new(colors::from_config(&opts));
+    let palette = Rc::new(colors::from_config(
+        &opts,
+        crate::root::is_dark(cx.window_appearance()),
+    ));
     let font = crate::font::build(&opts);
     let font_size = px(opts.font_size.max(1.0));
     let cell = crate::metrics::measure(cx.text_system(), &font, font_size);
