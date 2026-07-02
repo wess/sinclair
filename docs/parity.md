@@ -85,6 +85,27 @@ documented limits), **✗** not yet.
 | Minimum contrast | ✓ | `minimum-contrast` nudges fg toward black/white (WCAG ratio) until readable |
 | Background opacity | ✓ | `background-opacity` makes the window translucent; default-bg cells show through |
 | Middle-click paste / focus-follows-mouse | ✓ | `middle-click-paste`, `focus-follows-mouse` |
+| Copy / vi mode | ✓ | `copy_mode` (cmd+shift+space): hjkl/arrows, w/b, 0/$, g/G, v select, y/Enter yank |
+| Activity dashboard | ✓ | sidebar panel: every tab's working / attention / idle state at a glance |
+| Clipboard history | ✓ | `clipboard_history` (cmd+shift+y): Spotlight over recent copies, paste on pick |
+| Global search across tabs | ✓ | `search_all` (cmd+alt+f): Spotlight over recent output from every tab |
+| Unicode / emoji picker | ✓ | `unicode_picker` (cmd+alt+e): fuzzy insert of emoji/symbols |
+| Snippets / workflows | ✓ | `snippet = label \| cmd` + `snippets` (cmd+alt+s) insert picker |
+| Launch profiles | ✓ | `profile = label \| cmd` + `profiles` (cmd+alt+p) opens a command tab |
+| Pane badges | ✓ | `badge` watermark with {cwd}/{host} placeholders |
+| Background image | ✓ | `background-image` behind the terminal (best with `background-opacity`) |
+
+### Larger / blocked follow-ups (not yet done)
+
+- **Persistent, detachable sessions** (tmux/wezterm-mux/herdr style) — a live
+  mux server you detach/reattach; a multi-week subsystem. Session *restore* on
+  quit exists; a live server does not.
+- **Kitty graphics protocol** — still blocked on the pinned vte 0.13 (no APC
+  callback); needs a vte bump/fork. Sixel works.
+- **Line timestamps / scrollback annotations** — need a monotonic per-row time
+  in `vt` plus a render gutter; `timestamps` is parsed but not yet drawn.
+- **SSH multiplexing domains, multiple cursors, serial** — out of current scope
+  (profiles cover launching an `ssh` tab; true remote multiplexing does not).
 | Config (`key = value`) | ✓ | full option set, diagnostics |
 | Live config reload | ✓ | theme/font/padding/cursor/keybinds |
 | Settings panel (GUI) | ✓ | cmd+, modal: click controls (theme/font size+style/cursor/padding/scrollback/copy-on-select) plus editable text fields (font family, shell, foreground, background) via a built-in text-input widget; all written back to the config file |
