@@ -34,6 +34,7 @@ impl WorkspaceView {
             SidebarPanel::Terminals => self.panel_terminals(cx),
             SidebarPanel::Layouts => self.panel_layouts(cx),
             SidebarPanel::Containers => self.panel_containers(cx),
+            SidebarPanel::Activity => self.panel_activity(cx),
             SidebarPanel::Relay => self.panel_relay(cx),
             SidebarPanel::Agents => self.panel_agents(cx),
             SidebarPanel::Plugins => self.panel_pluginlist(cx),
@@ -387,6 +388,51 @@ impl WorkspaceView {
                 let label = format!("{}{}  ·  {}{}", w.name, role, w.status, restarts);
                 body = body.child(self.sidebar_row(("sb-worker", i), label, false, false, false));
             }
+        }
+        body.into_any_element()
+    }
+
+    /// Activity panel: every tab with a status dot — 🔴 attention (a bell / OSC 9
+    /// fired), 🟡 working (a foreground command is running), or 🟢 idle. Click a
+    /// row to focus that tab. A herdr-style "who's blocked / working / done".
+    fn panel_activity(&self, cx: &mut Context<Self>) -> AnyElement {
+        let mut body = self.sidebar_body("sb-activity");
+        let active = self.tabs.active_index();
+        for i in 0..self.tabs.len() {
+            let Some(tab) = self.tabs.get(i) else {
+                continue;
+            };
+            let mut working = false;
+            let mut attention = false;
+            let mut title = String::new();
+            for id in tab.tree.panes() {
+                if let Some(pane) = self.panes.get(&id) {
+                    working |= pane.content.has_running_process(cx);
+                    attention |= pane.content.needs_attention(cx);
+                    if title.is_empty() {
+                        title = pane.content.title(cx);
+                    }
+                }
+            }
+            let dot = if attention {
+                "\u{1f534}" // 🔴
+            } else if working {
+                "\u{1f7e1}" // 🟡
+            } else {
+                "\u{1f7e2}" // 🟢
+            };
+            let name = if title.trim().is_empty() {
+                format!("Tab {}", i + 1)
+            } else {
+                title
+            };
+            let idx = i;
+            body = body.child(
+                self.sidebar_row(("sb-activity", i), format!("{dot}  {name}"), i == active, false, false)
+                    .on_click(cx.listener(move |this, _: &gpui::ClickEvent, window, cx| {
+                        this.activatetab(idx, window, cx);
+                    })),
+            );
         }
         body.into_any_element()
     }

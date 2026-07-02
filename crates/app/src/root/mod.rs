@@ -249,6 +249,8 @@ pub enum SidebarSide {
 pub enum SidebarPanel {
     /// Tree of tabs and their terminal panes.
     Terminals,
+    /// At-a-glance activity: each tab's working / attention / idle state.
+    Activity,
     /// Tile presets and saved custom layouts.
     Layouts,
     /// Live Relay server status and connections.
@@ -268,8 +270,9 @@ pub enum SidebarPanel {
 
 impl SidebarPanel {
     /// Panels in activity-bar order.
-    pub const ALL: [SidebarPanel; 6] = [
+    pub const ALL: [SidebarPanel; 7] = [
         SidebarPanel::Terminals,
+        SidebarPanel::Activity,
         SidebarPanel::Layouts,
         SidebarPanel::Containers,
         SidebarPanel::Relay,
@@ -281,6 +284,7 @@ impl SidebarPanel {
     pub fn id(self) -> &'static str {
         match self {
             SidebarPanel::Terminals => "terminals",
+            SidebarPanel::Activity => "activity",
             SidebarPanel::Layouts => "layouts",
             SidebarPanel::Containers => "containers",
             SidebarPanel::Relay => "relay",
@@ -299,6 +303,7 @@ impl SidebarPanel {
     pub fn label(self) -> &'static str {
         match self {
             SidebarPanel::Terminals => "Terminals",
+            SidebarPanel::Activity => "Activity",
             SidebarPanel::Layouts => "Layouts",
             SidebarPanel::Containers => "Containers",
             SidebarPanel::Relay => "Relay",
@@ -313,6 +318,7 @@ impl SidebarPanel {
     pub fn icon(self) -> &'static str {
         match self {
             SidebarPanel::Terminals => "\u{25a3}", // ▣ panes
+            SidebarPanel::Activity => "\u{25c9}",  // ◉ activity
             SidebarPanel::Layouts => "\u{25f0}",   // ◰ tiles
             SidebarPanel::Containers => "\u{2756}", // ❖ containers
             SidebarPanel::Relay => "\u{21c4}",     // ⇄ connections
