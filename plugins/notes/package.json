@@ -5,6 +5,15 @@
   "type": "module",
   "description": "A lightweight Obsidian for Prompt: a markdown vault, tree, and editor in a tab.",
   "scripts": {
-    "server": "bun run server/main.ts"
+    "server": "bun run server/main.ts",
+    "build": "bun build web/src/editor.ts --outdir web/dist --format esm --minify --target browser"
+  },
+  "dependencies": {
+    "@codemirror/commands": "^6.6.0",
+    "@codemirror/lang-markdown": "^6.3.0",
+    "@codemirror/language": "^6.10.0",
+    "@codemirror/state": "^6.4.0",
+    "@codemirror/view": "^6.34.0",
+    "@lezer/highlight": "^1.2.0"
   }
 }

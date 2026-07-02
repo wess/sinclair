@@ -1,6 +1,8 @@
 // Notes — a lightweight Obsidian. Vanilla ES module served from the local
 // server. Talks to the server over fetch (vault ops) + a WebSocket (external
-// changes). A markdown source editor with a live preview and [[wiki-links]].
+// changes). The editor is a CodeMirror 6 live-preview surface (../dist/editor.js).
+
+import { createEditor } from "./dist/editor.js";
 
 const api = {
   get: (p) => fetch("/api" + p).then((r) => r.json()),
@@ -20,6 +22,8 @@ const state = {
   content: "",
   dirty: false,
   saveTimer: null,
+  editor: null,
+  applying: false, // set while pushing external content, to suppress onChange
 };
 
 const app = document.getElementById("app");
@@ -60,9 +64,11 @@ function connectWs() {
       if (state.openPath && !state.dirty && msg.path === state.openPath) {
         const { content } = await api.get(`/file?path=${encodeURIComponent(state.openPath)}`);
         state.content = content;
-        const ta = document.querySelector("textarea.src");
-        if (ta) ta.value = content;
-        updatePreview();
+        if (state.editor) {
+          state.applying = true;
+          state.editor.setDoc(content);
+          state.applying = false;
+        }
       }
     }
   };
@@ -223,6 +229,10 @@ async function openNote(path) {
 function renderEditor() {
   const pane = document.querySelector(".editor");
   if (!pane) return;
+  if (state.editor) {
+    state.editor.destroy();
+    state.editor = null;
+  }
   pane.innerHTML = "";
   if (!state.openPath) {
     pane.append(el("div", "empty", "Select a note, or create one."));
@@ -241,34 +251,23 @@ function renderEditor() {
   pane.append(head);
 
   const body = el("div", "editor-body");
-  const ta = el("textarea", "src");
-  ta.value = state.content;
-  ta.spellcheck = false;
-  ta.oninput = () => {
-    state.content = ta.value;
-    state.dirty = true;
-    dirty.textContent = "●";
-    updatePreview();
-    scheduleSave();
-  };
-  const preview = el("div", "preview");
-  body.append(ta, preview);
   pane.append(body);
-  updatePreview();
-  ta.focus();
-}
-
-function updatePreview() {
-  const pv = document.querySelector(".preview");
-  if (!pv) return;
-  pv.innerHTML = mdToHtml(state.content);
-  pv.querySelectorAll(".wl").forEach((a) => {
-    a.onclick = async () => {
-      const { path } = await api.get(`/resolve?title=${encodeURIComponent(a.dataset.note)}`);
+  state.editor = createEditor(body, {
+    doc: state.content,
+    onChange: (doc) => {
+      if (state.applying) return;
+      state.content = doc;
+      state.dirty = true;
+      dirty.textContent = "●";
+      scheduleSave();
+    },
+    onOpenLink: async (target) => {
+      const { path } = await api.get(`/resolve?title=${encodeURIComponent(target)}`);
       state.tree = await api.get("/tree");
       openNote(path);
-    };
+    },
   });
+  state.editor.focus();
 }
 
 function scheduleSave() {
@@ -297,78 +296,4 @@ async function deleteNote() {
   state.tree = await api.get("/tree");
   renderTree();
   renderEditor();
-}
-
-// ---------------------------------------------------------------- markdown
-
-function escapeHtml(s) {
-  return s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]);
-}
-
-// A small, dependency-free markdown renderer: headings, bold/italic/code,
-// fenced code, blockquotes, lists, links, and [[wiki-links]].
-function mdToHtml(md) {
-  const fences = [];
-  md = md.replace(/```([\s\S]*?)```/g, (_m, code) => {
-    fences.push(`<pre><code>${escapeHtml(code.replace(/^\n/, ""))}</code></pre>`);
-    return ` ${fences.length - 1} `;
-  });
-
-  const inline = (t) =>
-    escapeHtml(t)
-      .replace(/`([^`]+)`/g, "<code>$1</code>")
-      .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-      .replace(/(^|[^*])\*([^*]+)\*/g, "$1<em>$2</em>")
-      .replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (_m, tgt, alias) =>
-        `<span class="wl" data-note="${tgt.trim()}">${(alias || tgt).trim()}</span>`)
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
-
-  const lines = md.split("\n");
-  const out = [];
-  let list = null; // "ul" | "ol" | null
-  const closeList = () => {
-    if (list) {
-      out.push(`</${list}>`);
-      list = null;
-    }
-  };
-  for (let raw of lines) {
-    const fence = raw.match(/^ (\d+) $/);
-    if (fence) {
-      closeList();
-      out.push(fences[Number(fence[1])]);
-      continue;
-    }
-    const h = raw.match(/^(#{1,6})\s+(.*)$/);
-    if (h) {
-      closeList();
-      out.push(`<h${h[1].length}>${inline(h[2])}</h${h[1].length}>`);
-      continue;
-    }
-    if (/^\s*>\s?/.test(raw)) {
-      closeList();
-      out.push(`<blockquote>${inline(raw.replace(/^\s*>\s?/, ""))}</blockquote>`);
-      continue;
-    }
-    const ul = raw.match(/^\s*[-*]\s+(.*)$/);
-    const ol = raw.match(/^\s*\d+\.\s+(.*)$/);
-    if (ul || ol) {
-      const kind = ul ? "ul" : "ol";
-      if (list !== kind) {
-        closeList();
-        out.push(`<${kind}>`);
-        list = kind;
-      }
-      out.push(`<li>${inline((ul || ol)[1])}</li>`);
-      continue;
-    }
-    if (raw.trim() === "") {
-      closeList();
-      continue;
-    }
-    closeList();
-    out.push(`<p>${inline(raw)}</p>`);
-  }
-  closeList();
-  return out.join("\n");
 }

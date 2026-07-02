@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "lib": ["ESNext", "DOM"],
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "types": []
+  },
+  "//": "Only the browser editor bundle is type-checked; server/ and runtime/ are Bun-native and run directly.",
+  "include": ["web/src"]
+}

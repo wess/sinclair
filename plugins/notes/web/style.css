@@ -52,22 +52,10 @@ body {
 .editor-head .title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .editor-head .spacer { flex: 1; }
 .editor-head .dirty { color: var(--dim); font-size: 11px; }
-.editor-body { flex: 1; min-height: 0; display: flex; }
-textarea.src {
-  flex: 1; min-width: 0; border: 0; outline: 0; resize: none; padding: 18px 22px;
-  background: var(--bg); color: var(--text); font: 14px/1.6 ui-monospace, "SF Mono", Menlo, monospace;
-}
-.preview { flex: 1; min-width: 0; overflow-y: auto; padding: 18px 24px; border-left: 1px solid var(--border);
-  line-height: 1.6; }
-.preview.only { border-left: 0; }
-.preview h1, .preview h2, .preview h3 { line-height: 1.3; }
-.preview h1 { font-size: 22px; } .preview h2 { font-size: 18px; } .preview h3 { font-size: 15px; }
-.preview code { background: var(--surface); padding: 1px 5px; border-radius: 4px; font-family: ui-monospace, monospace; }
-.preview pre { background: var(--surface); padding: 10px 12px; border-radius: 8px; overflow-x: auto; }
-.preview pre code { background: none; padding: 0; }
-.preview a, .preview .wl { color: var(--accent); cursor: pointer; text-decoration: none; }
-.preview a:hover, .preview .wl:hover { text-decoration: underline; }
-.preview blockquote { border-left: 3px solid var(--border); margin: 0; padding-left: 12px; color: var(--dim); }
+.editor-body { flex: 1; min-height: 0; display: flex; overflow: hidden; }
+/* The CodeMirror live-preview editor fills the body; its internals are themed
+   in web/src/editor.ts. */
+.editor-body .cm-editor { flex: 1; min-width: 0; height: 100%; }
 .empty { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--dim); }
 
 button, .btn {
