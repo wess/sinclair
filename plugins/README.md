@@ -182,11 +182,26 @@ icon = "◱"                 # activity-bar / tab glyph
 placement = "panel"        # panel | window | tab
 entry = "index.html"       # a file in the plugin dir (file://) …
 # url = "https://…"        # … or a URL instead of `entry` (exactly one)
+# boot = true              # with a [runtime]: invoke boot for the URL (see below)
 ```
 
 Open it from the command palette ("Open <title>"), the right sidebar (for
-`placement = "panel"`), or bind the `open_webview:<id>` action. `placement =
-"tab"` currently opens in a window until tab hosting lands.
+`placement = "panel"`), the **Plugins menu**, or bind the `open_webview:<id>`
+action. All three placements are real — `tab` opens a proper editor-style tab.
+
+**`boot` — serve your own app.** With `boot = true` and a `[runtime]`, the app
+invokes the runtime's `boot` method (from Rust, not the JS bridge) *before*
+loading, and navigates to the address it returns — `{ "url": … }`, or
+`{ "port": N }` substituted into the manifest url's `{port}` placeholder
+(`url = "http://127.0.0.1:{port}/"`). Use this to start a local server and load
+the page from a real `http` origin. The [`notes`](./notes/) plugin does exactly
+this.
+
+> **Bridge and `file://`.** The `window.Prompt` bridge below only reaches native
+> from an **`http` origin** — a `url`, or a `boot`-served server. From a `file://`
+> `entry` page the messages are silently dropped (a platform-webview limitation).
+> So a page that needs the bridge should be served over http (via `boot`), not
+> loaded as a local file.
 
 **The `window.Prompt` bridge.** The page talks to Prompt through an injected
 global:

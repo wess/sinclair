@@ -162,8 +162,11 @@ title = "Dashboard"
 icon = "◱"                 <span class="c"># activity-bar / tab glyph</span>
 placement = "panel"        <span class="c"># panel | window | tab</span>
 entry = "index.html"       <span class="c"># a file in the plugin dir (file://) …</span>
-<span class="c"># url = "https://…"        # … or a URL instead of entry (exactly one)</span></code></pre>
-        <p>Open it from the command palette (<em>Open &lt;title&gt;</em>), the right sidebar (for <code>placement = "panel"</code>), or the <code>open_webview:&lt;id&gt;</code> action. <code>placement = "tab"</code> opens in a window for now, until tab hosting lands.</p>
+<span class="c"># url = "https://…"        # … or a URL instead of entry (exactly one)</span>
+<span class="c"># boot = true              # with a [runtime]: invoke boot for the URL (see below)</span></code></pre>
+        <p>Open it from the command palette (<em>Open &lt;title&gt;</em>), the right sidebar (for <code>placement = "panel"</code>), the <strong>Plugins</strong> menu, or the <code>open_webview:&lt;id&gt;</code> action. All three placements are real — <code>tab</code> opens a proper editor-style tab.</p>
+        <p><strong><code>boot</code> — serve your own app.</strong> With <code>boot = true</code> and a <code>[runtime]</code>, the app invokes the runtime's <code>boot</code> method (from Rust, not the JS bridge) before loading, and navigates to the address it returns — <code>{ "url": … }</code>, or <code>{ "port": N }</code> substituted into the manifest url's <code>{port}</code> placeholder (<code>url = "http://127.0.0.1:{port}/"</code>). Use it to start a local server and load from a real <code>http</code> origin; the <a href="https://github.com/wess/prompt/tree/main/plugins/notes">notes</a> plugin does this.</p>
+        <div class="callout note"><span class="label">Bridge &amp; file://</span><p>The <code>window.Prompt</code> bridge below only reaches native from an <strong><code>http</code> origin</strong> — a <code>url</code>, or a <code>boot</code>-served server. Messages from a <code>file://</code> <code>entry</code> page are silently dropped (a platform-webview limitation), so a page that needs the bridge should be served over http via <code>boot</code>.</p></div>
 
         <h3>The <code>window.Prompt</code> bridge</h3>
         <p>Prompt injects a small JavaScript bridge into the page so it can drive the terminal and call back to the plugin:</p>
