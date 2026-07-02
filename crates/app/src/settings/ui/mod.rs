@@ -145,6 +145,7 @@ impl SettingsView {
                 self.list(self.terminal_rows(cx)).into_any_element(),
                 self.list_group(ListKind::Redact, cx).into_any_element(),
                 self.list_group(ListKind::Trigger, cx).into_any_element(),
+                self.list_group(ListKind::Snippet, cx).into_any_element(),
             ],
             Section::Keyboard => vec![self.keyboard_group(cx).into_any_element()],
             Section::Macros => vec![self.macros_group(cx).into_any_element()],

@@ -196,6 +196,8 @@ pub enum Action {
     ClipboardHistory,
     /// Open the emoji / symbol insert picker.
     UnicodePicker,
+    /// Open the snippet (workflow) picker.
+    Snippets,
     Paste,
     /// Select the entire terminal buffer (scrollback + screen).
     SelectAll,
@@ -361,6 +363,7 @@ impl Action {
                 only(Self::ClipboardHistory, &name, param)
             }
             "unicode_picker" | "insert_emoji" => only(Self::UnicodePicker, &name, param),
+            "snippets" | "workflows" => only(Self::Snippets, &name, param),
             "paste_from_clipboard" | "paste" => only(Self::Paste, &name, param),
             "select_all" => only(Self::SelectAll, &name, param),
             "adjust_selection" => {
@@ -475,6 +478,7 @@ impl Action {
             Self::CopyMode => "copy_mode".into(),
             Self::ClipboardHistory => "clipboard_history".into(),
             Self::UnicodePicker => "unicode_picker".into(),
+            Self::Snippets => "snippets".into(),
             Self::Paste => "paste_from_clipboard".into(),
             Self::SelectAll => "select_all".into(),
             Self::AdjustSelection(d) => format!("adjust_selection:{}", d.as_str()),

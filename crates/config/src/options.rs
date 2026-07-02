@@ -260,6 +260,9 @@ pub struct Options {
     /// File key: `trigger` (repeatable) - `regex` or `regex | title`; when new
     /// output matches the regex, a desktop notification fires with the line.
     pub trigger: Vec<String>,
+    /// File key: `snippet` (repeatable) - `label | command`; inserted into the
+    /// focused pane from the snippet picker.
+    pub snippet: Vec<String>,
 }
 
 /// The built-in primary font when none is configured.
@@ -369,6 +372,7 @@ impl Default for Options {
             focus_follows_mouse: false,
             middle_click_paste: false,
             trigger: Vec::new(),
+            snippet: Vec::new(),
         }
     }
 }

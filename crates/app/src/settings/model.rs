@@ -544,6 +544,7 @@ pub enum ListKind {
     AgentTool,
     Redact,
     Trigger,
+    Snippet,
 }
 
 impl ListKind {
@@ -557,6 +558,7 @@ impl ListKind {
             ListKind::AgentTool => "Custom tools",
             ListKind::Redact => "Redact secrets on copy",
             ListKind::Trigger => "Output triggers (regex | title)",
+            ListKind::Snippet => "Snippets (label | command)",
         }
     }
 
@@ -570,6 +572,7 @@ impl ListKind {
             ListKind::AgentTool => "Add tool",
             ListKind::Redact => "Add pattern",
             ListKind::Trigger => "Add trigger",
+            ListKind::Snippet => "Add snippet",
         }
     }
 
@@ -583,6 +586,7 @@ impl ListKind {
             ListKind::AgentTool => "mytool|/path/to/bin {prompt} --mcp {mcp}",
             ListKind::Redact => "regex, e.g. sk-[A-Za-z0-9]{20,}",
             ListKind::Trigger => "error|Build failed",
+            ListKind::Snippet => "deploy | git push origin main",
         }
     }
 
@@ -604,6 +608,7 @@ impl ListKind {
             ListKind::AgentTool => o.agent_custom.clone(),
             ListKind::Redact => o.redact.clone(),
             ListKind::Trigger => o.trigger.clone(),
+            ListKind::Snippet => o.snippet.clone(),
         }
     }
 
@@ -618,6 +623,7 @@ impl ListKind {
             ListKind::Plugin => ("plugin", clean(entries)),
             ListKind::Redact => ("redact", clean(entries)),
             ListKind::Trigger => ("trigger", clean(entries)),
+            ListKind::Snippet => ("snippet", clean(entries)),
             ListKind::Keybind => {
                 let desired: Vec<config::Keybind> = entries
                     .iter()

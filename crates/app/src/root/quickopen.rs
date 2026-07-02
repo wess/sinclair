@@ -63,6 +63,44 @@ impl WorkspaceView {
         cx.notify();
     }
 
+    /// Open a Spotlight over the configured snippets (`snippet = label | cmd`);
+    /// picking one inserts the command into the focused pane (not run — the user
+    /// can edit before pressing Enter). Warp-style workflows.
+    pub(crate) fn open_snippets(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let snippets: Vec<(String, String)> = self
+            .opts
+            .snippet
+            .iter()
+            .filter(|s| !s.trim().is_empty())
+            .map(|s| match s.split_once('|') {
+                Some((label, cmd)) => (label.trim().to_string(), cmd.trim().to_string()),
+                None => (s.trim().to_string(), s.trim().to_string()),
+            })
+            .collect();
+        if snippets.is_empty() {
+            return;
+        }
+        let view = cx.entity();
+        let spotlight = cx.new(|scx| {
+            let mut spot = guise::Spotlight::new(scx);
+            for (label, cmd) in snippets {
+                let view = view.clone();
+                let cmd = cmd.clone();
+                let run = move |_window: &mut Window, app: &mut App| {
+                    let cmd = cmd.clone();
+                    view.update(app, |this, cx| {
+                        this.onfocused(cx, |v, cx| v.write_paste(&cmd, cx))
+                    });
+                };
+                spot = spot.item(label, run);
+            }
+            spot
+        });
+        spotlight.update(cx, |spot, scx| spot.open(window, scx));
+        self.spotlight = Some(spotlight);
+        cx.notify();
+    }
+
     /// Open a Spotlight over a curated emoji/symbol set; picking one sends the
     /// glyph to the focused pane.
     pub(crate) fn open_unicode_picker(&mut self, window: &mut Window, cx: &mut Context<Self>) {

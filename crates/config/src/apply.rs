@@ -112,6 +112,13 @@ pub fn apply(opts: &mut Options, key: &str, val: &str) -> Result<(), String> {
                 opts.trigger.push(val.to_string());
             }
         }
+        "snippet" => {
+            if empty {
+                opts.snippet = d.snippet;
+            } else {
+                opts.snippet.push(val.to_string());
+            }
+        }
         "background" => {
             opts.background = if empty {
                 d.background
