@@ -94,18 +94,20 @@ documented limits), **✗** not yet.
 | Launch profiles | ✓ | `profile = label \| cmd` + `profiles` (cmd+alt+p) opens a command tab |
 | Pane badges | ✓ | `badge` watermark with {cwd}/{host} placeholders |
 | Background image | ✓ | `background-image` behind the terminal (best with `background-opacity`) |
+| Line timestamps | ✓ | `timestamps`: a faint relative time (5s/2m/1h/3d) beside each scrollback row (vt `committed_lines` + a capture-time ring) |
+| Line annotations | ✓ | `annotate` (cmd+alt+a): pin a note to a line, keyed by stable line sequence; drawn as a left-gutter pill |
 
 ### Larger / blocked follow-ups (not yet done)
 
 - **Persistent, detachable sessions** (tmux/wezterm-mux/herdr style) — a live
   mux server you detach/reattach; a multi-week subsystem. Session *restore* on
   quit exists; a live server does not.
-- **Kitty graphics protocol** — still blocked on the pinned vte 0.13 (no APC
-  callback); needs a vte bump/fork. Sixel works.
-- **Line timestamps / scrollback annotations** — need a monotonic per-row time
-  in `vt` plus a render gutter; `timestamps` is parsed but not yet drawn.
-- **SSH multiplexing domains, multiple cursors, serial** — out of current scope
-  (profiles cover launching an `ssh` tab; true remote multiplexing does not).
+- **Kitty graphics protocol** — blocked on the pinned vte 0.13 (its `Perform`
+  has no APC callback, so `ESC _ G … ST` can't be captured); needs a vte
+  bump/fork or a byte-level APC pre-parser. Sixel works.
+- **SSH multiplexing domains, multiple cursors, serial** — out of current scope.
+  Launch profiles cover opening an `ssh`/REPL/env tab; true remote multiplexing,
+  the kitty multiple-cursor protocol, and serial connections do not exist yet.
 | Config (`key = value`) | ✓ | full option set, diagnostics |
 | Live config reload | ✓ | theme/font/padding/cursor/keybinds |
 | Settings panel (GUI) | ✓ | cmd+, modal: click controls (theme/font size+style/cursor/padding/scrollback/copy-on-select) plus editable text fields (font family, shell, foreground, background) via a built-in text-input widget; all written back to the config file |
