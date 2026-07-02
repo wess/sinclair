@@ -2,14 +2,15 @@ use super::*;
 use gpui::prelude::*;
 
 impl WorkspaceView {
-    /// Spawn a session, wrap it in a pane view, wire its event bridge and
-    /// subscription, and register it. `None` if the shell failed to spawn.
+    /// Spawn a session, wrap it in a terminal view, wire its event bridge and
+    /// subscription, and register it as an item. `None` if the shell failed to
+    /// spawn. The caller places the returned item into the group.
     pub(crate) fn spawn(
         &mut self,
         options: terminal::SessionOptions,
         window: &mut Window,
         cx: &mut Context<Self>,
-    ) -> Option<PaneId> {
+    ) -> Option<ItemId> {
         let (session, events) = match Session::spawn(options) {
             Ok(pair) => pair,
             Err(error) => {
@@ -52,17 +53,17 @@ impl WorkspaceView {
             })
             .detach();
 
-        let id = self.ids.next();
+        let id = self.item_ids.next();
         let subscription = cx.subscribe_in(
             &view,
             window,
             move |this: &mut Self, _view, event: &ViewEvent, window, cx| {
-                this.paneevent(id, event, window, cx);
+                this.itemevent(id, event, window, cx);
             },
         );
-        self.panes.insert(
+        self.items.borrow_mut().insert(
             id,
-            Pane {
+            Item {
                 content: PaneContent::Terminal(view),
                 _subscription: Some(subscription),
             },
@@ -70,18 +71,18 @@ impl WorkspaceView {
         Some(id)
     }
 
-    /// Create a pane hosting a plugin web view (no terminal, no event bridge),
+    /// Create an item hosting a plugin web view (no terminal, no event bridge),
     /// register it, and return its id. Used for `[webview] placement = "tab"`.
-    pub(crate) fn spawn_webview_pane(
+    pub(crate) fn spawn_webview_item(
         &mut self,
         surface: crate::pluginwebview::WebviewSurface,
         cx: &mut Context<Self>,
-    ) -> PaneId {
+    ) -> ItemId {
         let view = cx.new(|cx| crate::pluginwebview::PluginWebView::new(surface, cx));
-        let id = self.ids.next();
-        self.panes.insert(
+        let id = self.item_ids.next();
+        self.items.borrow_mut().insert(
             id,
-            Pane {
+            Item {
                 content: PaneContent::Webview(view),
                 _subscription: None,
             },
@@ -89,118 +90,74 @@ impl WorkspaceView {
         id
     }
 
-    /// Spawn a pane inheriting the focused pane's working directory.
-    pub(crate) fn spawnpane(&mut self, window: &mut Window, cx: &mut Context<Self>) -> Option<PaneId> {
-        let inherit = self
-            .panes
-            .get(&self.tabs.focused())
-            .and_then(|pane| pane.content.cwd(cx))
-            .and_then(|osc| session::cwdpath(&osc));
+    /// Spawn an item inheriting the focused item's working directory.
+    pub(crate) fn spawn_default(&mut self, window: &mut Window, cx: &mut Context<Self>) -> Option<ItemId> {
+        let inherit = self.focused_cwd_path(cx);
         let options = session::options(&self.opts, SPAWN_COLS, SPAWN_ROWS, inherit);
         self.spawn(options, window, cx)
     }
 
-    fn paneevent(
+    fn itemevent(
         &mut self,
-        pane: PaneId,
+        item: ItemId,
         event: &ViewEvent,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         match event {
             ViewEvent::Title => {
-                if pane == self.tabs.focused() {
+                if item == self.group.read(cx).active_item() {
                     self.settitle(window, cx);
                 }
                 cx.notify();
             }
-            ViewEvent::Exited => self.closepane(pane, window, cx),
-            ViewEvent::Input(bytes) => self.broadcast(pane, bytes, cx),
+            ViewEvent::Exited => self.close_item(item, window, cx),
+            ViewEvent::Input(bytes) => self.broadcast(item, bytes, cx),
             ViewEvent::Action(action) => {
-                self.tabs.focus(pane);
-                self.focusactive(window, cx);
+                self.activate_item(item, window, cx);
                 self.dispatch(action.clone(), window, cx);
             }
             ViewEvent::Attention => cx.notify(),
-            ViewEvent::Trigger(ev) => self.fire_triggers(pane, ev, window, cx),
+            ViewEvent::Trigger(ev) => self.fire_triggers(item, ev, window, cx),
         }
     }
 
-    /// Mirror `bytes` (already encoded by the source pane) to every other pane
-    /// in the active tab. The source already wrote them to its own pty.
-    fn broadcast(&mut self, source: PaneId, bytes: &[u8], cx: &mut Context<Self>) {
-        for id in self.tabs.active().tree.panes() {
-            if id == source {
-                continue;
-            }
-            if let Some(v) = self.panes.get(&id).and_then(|p| p.content.as_terminal()) {
-                v.update(cx, |view, cx| view.send_text(bytes, cx));
-            }
+    /// Mirror `bytes` (already encoded by the source item) to every other
+    /// terminal item in the window. The source already wrote them to its pty.
+    fn broadcast(&mut self, source: ItemId, bytes: &[u8], cx: &mut Context<Self>) {
+        let targets: Vec<_> = self
+            .group
+            .read(cx)
+            .items()
+            .into_iter()
+            .filter(|id| *id != source)
+            .filter_map(|id| {
+                self.items
+                    .borrow()
+                    .get(&id)
+                    .and_then(|it| it.content.as_terminal().cloned())
+            })
+            .collect();
+        for v in targets {
+            v.update(cx, |view, cx| view.send_text(bytes, cx));
         }
     }
 
-    /// Toggle broadcast input. Repaints panes (for the indicator) and rebuilds
+    /// Toggle broadcast input. Repaints items (for the indicator) and rebuilds
     /// menus (for the checkmark).
     pub(crate) fn toggle_broadcast(&mut self, cx: &mut Context<Self>) {
         let on = cx.try_global::<Broadcast>().is_some_and(|b| b.0);
         cx.set_global(Broadcast(!on));
         self.setmenus(cx);
-        for pane in self.panes.values() {
-            if let Some(v) = pane.content.as_terminal() {
-                v.update(cx, |_v, cx| cx.notify());
-            }
+        let terminals: Vec<_> = self
+            .items
+            .borrow()
+            .values()
+            .filter_map(|it| it.content.as_terminal().cloned())
+            .collect();
+        for v in terminals {
+            v.update(cx, |_v, cx| cx.notify());
         }
-        cx.notify();
-    }
-
-    /// Close one pane: collapse its split, or close its tab when it is the
-    /// last pane there, or quit when it is the last pane of the last tab.
-    pub(crate) fn closepane(&mut self, pane: PaneId, window: &mut Window, cx: &mut Context<Self>) {
-        self.zoomed = false;
-        self.on_pane_closed(pane);
-        let Some(index) = self.tabindex(pane) else {
-            return;
-        };
-        let lastpane = self.tabs.get(index).expect("tab").tree.panes().len() == 1;
-        if lastpane && self.tabs.len() == 1 {
-            self.close_window(window, cx);
-            return;
-        }
-        if lastpane {
-            self.tabs.close_tab(index);
-        } else {
-            let previous = self.tabs.active_index();
-            self.tabs.activate(index);
-            let next = (self.tabs.focused() == pane)
-                .then(|| workspace::next(&self.tabs.active().tree, pane))
-                .flatten();
-            self.tabs.active_mut().tree.remove(pane);
-            if let Some(next) = next {
-                self.tabs.focus(next);
-            }
-            self.tabs.activate(previous);
-        }
-        self.panes.remove(&pane);
-        self.focusactive(window, cx);
-        cx.notify();
-    }
-
-    /// Close a whole tab (tab-bar close glyph), dropping all its panes.
-    pub fn closetab(&mut self, index: usize, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(tab) = self.tabs.get(index) else {
-            return;
-        };
-        let removed = tab.tree.panes();
-        if self.tabs.len() == 1 {
-            self.close_window(window, cx);
-            return;
-        }
-        self.tabs.close_tab(index);
-        for pane in removed {
-            self.on_pane_closed(pane);
-            self.panes.remove(&pane);
-        }
-        self.focusactive(window, cx);
         cx.notify();
     }
 
@@ -217,21 +174,10 @@ impl WorkspaceView {
         }
     }
 
-    pub fn focuspane(&mut self, pane: PaneId, window: &mut Window, cx: &mut Context<Self>) {
-        if self.tabs.focus(pane) {
-            self.focusactive(window, cx);
-            cx.notify();
-        }
-    }
-
     /// Open another top-level window, cloning this window's current
     /// appearance so the new one matches without re-reading config.
     pub(crate) fn newwindow(&self, cx: &mut Context<Self>) {
-        let cwd = self
-            .panes
-            .get(&self.tabs.focused())
-            .and_then(|pane| pane.content.cwd(cx))
-            .and_then(|osc| session::cwdpath(&osc));
+        let cwd = self.focused_cwd_path(cx);
         crate::open_window(
             self.opts.clone(),
             self.colors.clone(),

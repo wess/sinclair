@@ -6,14 +6,13 @@
 //! clear them. Zed-style.
 
 use gpui::prelude::*;
-use gpui::{div, px, Context, Window, WindowControlArea};
+use gpui::{div, px, MouseButton, Window, WindowControlArea};
 
 use crate::colors::{self, Colors};
-use crate::root::{TabBarMenu, WorkspaceView};
 use crate::tabbar;
 
-/// macOS traffic-light clearance, with a little breathing room before the
-/// first tab (the lights themselves end around 67px).
+/// macOS traffic-light clearance. Per-pane tab bars live below the strip, so
+/// the strip itself is just the window drag handle.
 pub const TRAFFIC_LIGHT_INSET: f32 = 88.0;
 
 /// Title bar height, matching Zed: 1.75rem, floored at 34px.
@@ -21,19 +20,10 @@ pub fn height(window: &Window) -> gpui::Pixels {
     (window.rem_size() * 1.75).max(px(34.0))
 }
 
-/// The titlebar strip rendered as the first child of the workspace root.
-#[allow(clippy::too_many_arguments)]
-pub fn bar(
-    tabs: &[tabbar::TabInfo],
-    active: usize,
-    max_visible: usize,
-    open_menu: Option<TabBarMenu>,
-    colors: &Colors,
-    font: &gpui::Font,
-    font_size: gpui::Pixels,
-    window: &mut Window,
-    cx: &mut Context<WorkspaceView>,
-) -> impl IntoElement {
+/// The titlebar strip rendered as the first child of the workspace root: the
+/// window drag handle (double-click zooms), plus Linux window controls. Tabs
+/// now live per-pane inside the group, so the strip carries no tab UI.
+pub fn bar(colors: &Colors, window: &mut Window) -> impl IntoElement {
     let barbg = colors::rgba(tabbar::blend(colors.bg, colors.fg, 0.12));
     let on_mac = cfg!(target_os = "macos");
     let lead = if on_mac && !window.is_fullscreen() {
@@ -42,6 +32,29 @@ pub fn bar(
         px(8.0)
     };
 
+    let mut drag = div()
+        .id("titlebar-drag")
+        .flex_1()
+        .h_full()
+        .window_control_area(WindowControlArea::Drag)
+        .on_mouse_down(MouseButton::Left, |_, window, _| window.start_window_move());
+    #[cfg(target_os = "macos")]
+    {
+        drag = drag.on_click(|ev, window, _| {
+            if ev.click_count() == 2 {
+                window.titlebar_double_click();
+            }
+        });
+    }
+    #[cfg(target_os = "linux")]
+    {
+        drag = drag.on_click(|ev, window, _| {
+            if ev.click_count() == 2 {
+                window.zoom_window();
+            }
+        });
+    }
+
     let bar = div()
         .w_full()
         .h(height(window))
@@ -49,9 +62,8 @@ pub fn bar(
         .flex_row()
         .items_center()
         .bg(barbg)
-        .window_control_area(WindowControlArea::Drag)
         .pl(lead)
-        .child(tabbar::tabs(tabs, active, max_visible, open_menu, colors, font, font_size, cx));
+        .child(drag);
 
     #[cfg(target_os = "linux")]
     let bar = bar.child(window_controls(colors));

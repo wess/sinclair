@@ -10,11 +10,7 @@ impl WorkspaceView {
         cx: &mut Context<Self>,
         f: impl FnOnce(&mut TerminalView, &mut Context<TerminalView>),
     ) {
-        if let Some(v) = self
-            .panes
-            .get(&self.tabs.focused())
-            .and_then(|pane| pane.content.as_terminal())
-        {
+        if let Some(v) = self.focused_terminal(cx) {
             v.update(cx, |view, cx| f(view, cx));
         }
     }
@@ -55,8 +51,10 @@ impl WorkspaceView {
             Action::NewWindow => self.newwindow(cx),
             Action::NewTab => self.newtab(window, cx),
             Action::NewContainerTab => crate::ospicker::open(window, cx),
-            Action::CloseSurface => self.closepane(self.tabs.focused(), window, cx),
-            Action::CloseTab => self.closetab(self.tabs.active_index(), window, cx),
+            Action::CloseSurface | Action::CloseTab => {
+                let item = self.active_item(cx);
+                self.close_item(item, window, cx);
+            }
             Action::CloseWindow => self.close_window(window, cx),
             Action::CloseAllWindows => {
                 for handle in cx.windows() {
@@ -66,12 +64,7 @@ impl WorkspaceView {
                 }
             }
             Action::NewSplit(dir) => {
-                let (axis, first) = match dir {
-                    SplitDirection::Right => (Axis::Horizontal, false),
-                    SplitDirection::Left => (Axis::Horizontal, true),
-                    SplitDirection::Down => (Axis::Vertical, false),
-                    SplitDirection::Up => (Axis::Vertical, true),
-                };
+                let (axis, first) = split_dir(dir);
                 self.split(axis, first, window, cx);
             }
             Action::GotoSplit(focus) => match focus {
@@ -82,20 +75,17 @@ impl WorkspaceView {
                 SplitFocus::Left => self.focusdir(Direction::Left, window, cx),
                 SplitFocus::Right => self.focusdir(Direction::Right, window, cx),
             },
-            Action::ZoomSplit => {
-                self.zoomed = !self.zoomed;
-                cx.notify();
-            }
+            Action::ZoomSplit => self.group.update(cx, |g, cx| g.toggle_zoom(cx)),
             Action::EqualizeSplits => self.equalizesplits(cx),
             Action::ResizeSplit(dir) => self.resizesplit(dir, cx),
             Action::GotoTab(n) => self.gototab(n, window, cx),
             Action::PreviousTab => {
-                self.tabs.activate_prev();
+                self.group.update(cx, |g, cx| g.activate_prev(cx));
                 self.focusactive(window, cx);
                 cx.notify();
             }
             Action::NextTab => {
-                self.tabs.activate_next();
+                self.group.update(cx, |g, cx| g.activate_next(cx));
                 self.focusactive(window, cx);
                 cx.notify();
             }
@@ -171,11 +161,11 @@ impl WorkspaceView {
             Action::SaveBuffer => self.save_buffer(cx),
             Action::ToggleQuickTerminal => crate::quick::toggle(cx),
             Action::RelayFeed => {
-                self.splitcommand(&crate::relay::feed_command(), Axis::Vertical, false, window, cx)
+                self.splitcommand(&crate::relay::feed_command(), SplitAxis::Vertical, false, window, cx)
             }
             Action::RelayLaunch => crate::agentpicker::open(window, cx),
             Action::RelayLog => {
-                self.splitcommand(&crate::relay::log_command(), Axis::Vertical, false, window, cx)
+                self.splitcommand(&crate::relay::log_command(), SplitAxis::Vertical, false, window, cx)
             }
             Action::RelayStart => {
                 crate::relay::start(&self.opts);
@@ -198,7 +188,7 @@ impl WorkspaceView {
             Action::AgentDef(name) => {
                 crate::relay::ensure_running(&self.opts);
                 if let Some(cmd) = crate::relay::launch_saved_command(&self.opts, &name) {
-                    self.splitcommand(&cmd, Axis::Horizontal, false, window, cx);
+                    self.splitcommand(&cmd, SplitAxis::Horizontal, false, window, cx);
                 }
             }
             Action::OpenWebview(id) => self.open_webview(&id, window, cx),
@@ -220,16 +210,16 @@ impl WorkspaceView {
             }
             plugin::CommandMode::Tab => {
                 if let Some(id) = self.spawncommand(&command.run, window, cx) {
-                    self.tabs.new_tab(id);
+                    self.group.update(cx, |g, cx| g.add_to_focused(id, cx));
                     self.focusactive(window, cx);
                     cx.notify();
                 }
             }
             plugin::CommandMode::SplitRight => {
-                self.splitcommand(&command.run, Axis::Horizontal, false, window, cx);
+                self.splitcommand(&command.run, SplitAxis::Horizontal, false, window, cx);
             }
             plugin::CommandMode::SplitDown => {
-                self.splitcommand(&command.run, Axis::Vertical, false, window, cx);
+                self.splitcommand(&command.run, SplitAxis::Vertical, false, window, cx);
             }
         }
     }

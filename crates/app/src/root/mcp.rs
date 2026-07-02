@@ -53,13 +53,8 @@ impl WorkspaceView {
             "read_screen" => {
                 let lines = args.get("lines").and_then(Value::as_u64).map(|n| n as usize);
                 let text = self
-                    .panes
-                    .get(&self.tabs.focused())
-                    .and_then(|pane| {
-                        pane.content
-                            .as_terminal()
-                            .map(|v| v.read(cx).screen_text(lines))
-                    })
+                    .focused_terminal(cx)
+                    .map(|v| v.read(cx).screen_text(lines))
                     .unwrap_or_default();
                 Ok(json!({ "text": text }))
             }
@@ -74,7 +69,7 @@ impl WorkspaceView {
             }
             "new_tab" => {
                 self.newtab(window, cx);
-                Ok(json!({ "ok": true, "index": self.tabs.active_index() }))
+                Ok(json!({ "ok": true }))
             }
             "split" => {
                 let dir = args
@@ -82,26 +77,26 @@ impl WorkspaceView {
                     .and_then(Value::as_str)
                     .ok_or("split requires a `direction` of right or down")?;
                 let axis = match dir {
-                    "right" => Axis::Horizontal,
-                    "down" => Axis::Vertical,
+                    "right" => SplitAxis::Horizontal,
+                    "down" => SplitAxis::Vertical,
                     other => return Err(format!("unknown split direction `{other}`")),
                 };
                 self.split(axis, false, window, cx);
                 Ok(json!({ "ok": true }))
             }
             "list_panes" => {
-                let focused = self.tabs.focused();
+                let focused = self.group.read(cx).active_item();
                 let panes = self
-                    .tabs
-                    .active()
-                    .tree
-                    .panes()
+                    .group
+                    .read(cx)
+                    .items()
                     .into_iter()
                     .map(|id| {
-                        let pane = self.panes.get(&id);
+                        let items = self.items.borrow();
+                        let it = items.get(&id);
                         json!({
-                            "title": pane.map(|p| p.content.title(cx)).unwrap_or_default(),
-                            "cwd": pane
+                            "title": it.map(|p| p.content.title(cx)).unwrap_or_default(),
+                            "cwd": it
                                 .and_then(|p| p.content.cwd_path(cx))
                                 .map(|p| p.to_string_lossy().into_owned()),
                             "focused": id == focused,
@@ -126,7 +121,9 @@ impl WorkspaceView {
                 Ok(json!({ "ok": true, "name": name }))
             }
             "list_tabs" => {
-                let active = self.tabs.active_index();
+                let items = self.group.read(cx).items();
+                let active_item = self.group.read(cx).active_item();
+                let active = items.iter().position(|i| *i == active_item).unwrap_or(0);
                 let tabs = self
                     .titles(cx)
                     .into_iter()
@@ -140,10 +137,11 @@ impl WorkspaceView {
                     .get("index")
                     .and_then(Value::as_u64)
                     .ok_or("focus_tab requires an `index` number")? as usize;
-                if index >= self.tabs.len() {
+                let items = self.group.read(cx).items();
+                let Some(&item) = items.get(index) else {
                     return Err(format!("no tab at index {index}"));
-                }
-                self.activatetab(index, window, cx);
+                };
+                self.activate_item(item, window, cx);
                 Ok(json!({ "ok": true, "index": index }))
             }
             other => Err(format!("unknown op `{other}`")),
@@ -164,12 +162,12 @@ impl WorkspaceView {
                 let id = self
                     .spawncommand(text, window, cx)
                     .ok_or("failed to spawn command tab")?;
-                self.tabs.new_tab(id);
+                self.group.update(cx, |g, cx| g.add_to_focused(id, cx));
                 self.focusactive(window, cx);
                 cx.notify();
             }
-            "split_right" => self.splitcommand(text, Axis::Horizontal, false, window, cx),
-            "split_down" => self.splitcommand(text, Axis::Vertical, false, window, cx),
+            "split_right" => self.splitcommand(text, SplitAxis::Horizontal, false, window, cx),
+            "split_down" => self.splitcommand(text, SplitAxis::Vertical, false, window, cx),
             other => {
                 return Err(format!(
                     "unknown target `{other}` (pane|tab|split_right|split_down)"
@@ -184,12 +182,8 @@ impl WorkspaceView {
         command: &str,
         window: &mut Window,
         cx: &mut Context<Self>,
-    ) -> Option<PaneId> {
-        let inherit = self
-            .panes
-            .get(&self.tabs.focused())
-            .and_then(|pane| pane.content.cwd(cx))
-            .and_then(|osc| session::cwdpath(&osc));
+    ) -> Option<ItemId> {
+        let inherit = self.focused_cwd_path(cx);
         let mut options = session::options(&self.opts, SPAWN_COLS, SPAWN_ROWS, inherit);
         let cwd = options.spawn.cwd.clone();
         options.spawn = commandspawn(&self.opts, command);
@@ -215,82 +209,71 @@ impl WorkspaceView {
         let target =
             container::Target::from_profile(engine, profile, self.opts.container_persist, name);
         if let Some(id) = self.spawn_container(&target, window, cx) {
-            // Ephemeral containers are force-removed when their tab closes.
+            // Ephemeral containers are force-removed when their item closes.
             if !target.persist {
                 if let Some(name) = &target.name {
                     self.kill_on_close.insert(id, name.clone());
                 }
             }
-            self.tabs.new_tab(id);
-            let index = self.tabs.active_index();
-            self.rename_tab(index, &profile.label, cx);
+            self.group.update(cx, |g, cx| g.add_to_focused(id, cx));
+            self.rename_item(id, &profile.label, cx);
             self.focusactive(window, cx);
             cx.notify();
         }
     }
 
-    /// Spawn a pane whose backing process is the container `target`'s `engine
+    /// Spawn an item whose backing process is the container `target`'s `engine
     /// run …` argv. The argv is run directly (no shell wrapper) via
-    /// [`Self::spawn_tab_argv`], inheriting the focused pane's cwd.
+    /// [`Self::spawn_tab_argv`], inheriting the focused item's cwd.
     pub(crate) fn spawn_container(
         &mut self,
         target: &container::Target,
         window: &mut Window,
         cx: &mut Context<Self>,
-    ) -> Option<PaneId> {
+    ) -> Option<ItemId> {
         self.spawn_tab_argv(target.argv(), window, cx)
     }
 
+    /// Split the focused pane and run `command` in the new pane.
     pub(crate) fn splitcommand(
         &mut self,
         command: &str,
-        axis: Axis,
+        axis: SplitAxis,
         first: bool,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let target = self.tabs.focused();
         let Some(id) = self.spawncommand(command, window, cx) else {
             return;
         };
-        if self
-            .tabs
-            .active_mut()
-            .tree
-            .split(target, axis, id, first)
-            .is_none()
-        {
-            self.panes.remove(&id);
-            return;
-        }
-        self.tabs.focus(id);
+        let pane = self.group.read(cx).focused_pane();
+        self.group.update(cx, |g, cx| {
+            g.split(pane, axis, first, id, cx);
+        });
         self.focusactive(window, cx);
         cx.notify();
     }
 
-    /// Spawn a pane running `command` (or a plain shell when `None`).
+    /// Spawn an item running `command` (or a plain shell when `None`).
     pub(crate) fn spawn_pane(
         &mut self,
         command: Option<&str>,
         window: &mut Window,
         cx: &mut Context<Self>,
-    ) -> Option<PaneId> {
+    ) -> Option<ItemId> {
         match command {
             Some(c) => self.spawncommand(c, window, cx),
             None => {
-                let inherit = self
-                    .panes
-                    .get(&self.tabs.focused())
-                    .and_then(|pane| pane.content.cwd(cx))
-                    .and_then(|osc| session::cwdpath(&osc));
+                let inherit = self.focused_cwd_path(cx);
                 let options = session::options(&self.opts, SPAWN_COLS, SPAWN_ROWS, inherit);
                 self.spawn(options, window, cx)
             }
         }
     }
 
-    /// Open a fresh tab arranged per `layout`, one pane per slot. `commands[i]`
-    /// is the command for leaf `i` in pre-order (`None` = a plain shell).
+    /// Realize `layout` as a split arrangement: the root item becomes a new tab
+    /// in the focused pane, then that pane is split to build the rest.
+    /// `commands[i]` is the command for leaf `i` in pre-order (`None` = shell).
     pub(crate) fn apply_layout(
         &mut self,
         layout: &crate::tiles::Layout,
@@ -303,23 +286,23 @@ impl WorkspaceView {
         let Some(root) = self.spawn_pane(first, window, cx) else {
             return;
         };
-        self.tabs.new_tab(root);
-        self.realize_into(layout, root, 0, commands, window, cx);
+        self.group.update(cx, |g, cx| g.add_to_focused(root, cx));
+        let host = self.group.read(cx).focused_pane();
+        self.realize_into(layout, host, 0, commands, window, cx);
         if let Some(t) = title {
-            let idx = self.tabs.active_index();
-            self.rename_tab(idx, t, cx);
+            self.rename_item(root, t, cx);
         }
         self.focusactive(window, cx);
         cx.notify();
     }
 
-    /// Spawn a pane rooted at `cwd` (or the configured default when `None`).
+    /// Spawn an item rooted at `cwd` (or the configured default when `None`).
     pub(crate) fn spawn_cwd(
         &mut self,
         cwd: Option<std::path::PathBuf>,
         window: &mut Window,
         cx: &mut Context<Self>,
-    ) -> Option<PaneId> {
+    ) -> Option<ItemId> {
         let options = session::options(&self.opts, SPAWN_COLS, SPAWN_ROWS, cwd);
         self.spawn(options, window, cx)
     }

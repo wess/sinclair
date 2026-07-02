@@ -3,9 +3,10 @@
 //! "Save Current Layout" and stored as JSON. The realizing side (spawning panes
 //! and splitting) lives in `root.rs`; this module is pure logic.
 
+use guise::panegroup::Node;
+use guise::SplitDirection;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use workspace::{Axis, Node};
 
 #[derive(Clone, Copy, Serialize, Deserialize)]
 pub enum Ax {
@@ -14,10 +15,10 @@ pub enum Ax {
 }
 
 impl Ax {
-    pub fn axis(self) -> Axis {
+    pub fn axis(self) -> SplitDirection {
         match self {
-            Ax::H => Axis::Horizontal,
-            Ax::V => Axis::Vertical,
+            Ax::H => SplitDirection::Horizontal,
+            Ax::V => SplitDirection::Vertical,
         }
     }
     fn flip(self) -> Ax {
@@ -140,8 +141,8 @@ pub fn from_tree(node: &Node) -> Layout {
             ..
         } => Layout::Split {
             axis: match axis {
-                Axis::Horizontal => Ax::H,
-                Axis::Vertical => Ax::V,
+                SplitDirection::Horizontal => Ax::H,
+                SplitDirection::Vertical => Ax::V,
             },
             ratio: *ratio,
             first: Box::new(from_tree(first)),

@@ -20,17 +20,22 @@ impl WorkspaceView {
         cx.notify();
     }
 
-    /// Open the annotate dialog for the focused pane.
+    /// Open the annotate dialog for the focused item.
     pub(crate) fn open_annotate(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let id = self.tabs.focused();
-        if self.panes.get(&id).is_some_and(|p| p.content.as_terminal().is_some()) {
+        let id = self.group.read(cx).active_item();
+        if self.focused_terminal(cx).is_some() {
             self.open_rename(crate::rename::Target::Annotate(id), String::new(), window, cx);
         }
     }
 
-    /// Attach `note` to the current line of pane `id`.
-    pub(crate) fn annotate_pane(&mut self, id: PaneId, note: &str, cx: &mut Context<Self>) {
-        if let Some(v) = self.panes.get(&id).and_then(|p| p.content.as_terminal()) {
+    /// Attach `note` to the current line of item `id`.
+    pub(crate) fn annotate_item(&mut self, id: ItemId, note: &str, cx: &mut Context<Self>) {
+        let view = self
+            .items
+            .borrow()
+            .get(&id)
+            .and_then(|it| it.content.as_terminal().cloned());
+        if let Some(v) = view {
             let note = note.to_string();
             v.update(cx, |view, cx| view.annotate(note, cx));
         }

@@ -123,17 +123,16 @@ impl WorkspaceView {
         }
     }
 
-    /// Open a web view as its own tab (a single-pane tab hosting the surface).
-    /// Mirrors `newtab` but with a webview pane instead of a shell.
+    /// Open a web view as a tab in the focused pane. Mirrors `newtab` but with a
+    /// webview item instead of a shell.
     pub(crate) fn open_webview_tab(
         &mut self,
         surface: crate::pluginwebview::WebviewSurface,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.zoomed = false;
-        let id = self.spawn_webview_pane(surface, cx);
-        self.tabs.new_tab(id);
+        let id = self.spawn_webview_item(surface, cx);
+        self.group.update(cx, |g, cx| g.add_to_focused(id, cx));
         self.focusactive(window, cx);
         cx.notify();
     }
@@ -319,12 +318,14 @@ impl WorkspaceView {
             .unwrap_or_default()
     }
 
-    /// The focused pane's working directory, passed to plugins so they act on
+    /// The focused item's working directory, passed to plugins so they act on
     /// the right place.
     pub(crate) fn focused_cwd(&self, cx: &App) -> Option<std::path::PathBuf> {
-        self.panes
-            .get(&self.tabs.focused())
-            .and_then(|p| p.content.cwd_path(cx))
+        let item = self.group.read(cx).active_item();
+        self.items
+            .borrow()
+            .get(&item)
+            .and_then(|it| it.content.cwd_path(cx))
     }
 
     /// (Re)render a plugin panel by invoking its runtime with a `render`

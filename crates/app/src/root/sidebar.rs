@@ -222,31 +222,41 @@ impl WorkspaceView {
         )
     }
 
-    /// Terminals panel: tree of tabs and their panes.
+    /// Terminals panel: each split pane with its tabbed items nested under it.
     fn panel_terminals(&self, cx: &mut Context<Self>) -> AnyElement {
-        let titles = self.titles(cx);
-        let active_tab = self.tabs.active_index();
-        let focused = self.tabs.focused();
+        let (panes, focused_pane, active_item) = {
+            let g = self.group.read(cx);
+            (g.tree().panes(), g.focused_pane(), g.active_item())
+        };
         let mut body = self.sidebar_body("sb-terminals");
         let mut row = 0usize;
-        for ti in 0..self.tabs.len() {
-            let Some(tab) = self.tabs.get(ti) else { continue };
-            let tab_title = titles.get(ti).cloned().unwrap_or_default();
-            body = body.child(
-                self.sidebar_row(("sb-tab", ti), tab_title, false, ti == active_tab, false)
-                    .on_click(cx.listener(move |this, _: &gpui::ClickEvent, window, cx| {
-                        this.activatetab(ti, window, cx);
-                    })),
-            );
-            for pid in tab.tree.panes() {
-                let pane = self.panes.get(&pid);
-                let title = pane.map(|p| p.content.title(cx)).unwrap_or_default();
-                let attention = pane.is_some_and(|p| p.content.needs_attention(cx));
+        for (pi, &pane) in panes.iter().enumerate() {
+            body = body.child(self.sidebar_row(
+                ("sb-pane-hdr", pi),
+                format!("Pane {}", pi + 1),
+                false,
+                pane == focused_pane,
+                false,
+            ));
+            let items = self
+                .group
+                .read(cx)
+                .pane_items(pane)
+                .map(<[_]>::to_vec)
+                .unwrap_or_default();
+            for item in items {
+                let (title, attention) = {
+                    let map = self.items.borrow();
+                    match map.get(&item) {
+                        Some(it) => (it.content.title(cx), it.content.needs_attention(cx)),
+                        None => (String::new(), false),
+                    }
+                };
+                let active = pane == focused_pane && item == active_item;
                 body = body.child(
-                    self.sidebar_row(("sb-pane", row), title, true, pid == focused, attention)
+                    self.sidebar_row(("sb-item", row), title, true, active, attention)
                         .on_click(cx.listener(move |this, _: &gpui::ClickEvent, window, cx| {
-                            this.activatetab(ti, window, cx);
-                            this.focuspane(pid, window, cx);
+                            this.activate_item(item, window, cx);
                         })),
                 );
                 row += 1;
@@ -310,7 +320,7 @@ impl WorkspaceView {
                 let active = self
                     .container_tabs
                     .get(&c.id)
-                    .is_some_and(|pid| self.panes.contains_key(pid));
+                    .is_some_and(|iid| self.items.borrow().contains_key(iid));
                 let name = if c.name.is_empty() { c.id.clone() } else { c.name.clone() };
                 let label = format!("{name}  \u{00b7}  {}", c.image);
                 body = body.child(
@@ -397,23 +407,19 @@ impl WorkspaceView {
     /// row to focus that tab. A herdr-style "who's blocked / working / done".
     fn panel_activity(&self, cx: &mut Context<Self>) -> AnyElement {
         let mut body = self.sidebar_body("sb-activity");
-        let active = self.tabs.active_index();
-        for i in 0..self.tabs.len() {
-            let Some(tab) = self.tabs.get(i) else {
-                continue;
-            };
-            let mut working = false;
-            let mut attention = false;
-            let mut title = String::new();
-            for id in tab.tree.panes() {
-                if let Some(pane) = self.panes.get(&id) {
-                    working |= pane.content.has_running_process(cx);
-                    attention |= pane.content.needs_attention(cx);
-                    if title.is_empty() {
-                        title = pane.content.title(cx);
-                    }
+        let active_item = self.group.read(cx).active_item();
+        for (i, item) in self.group.read(cx).items().into_iter().enumerate() {
+            let (working, attention, title) = {
+                let map = self.items.borrow();
+                match map.get(&item) {
+                    Some(it) => (
+                        it.content.has_running_process(cx),
+                        it.content.needs_attention(cx),
+                        it.content.title(cx),
+                    ),
+                    None => (false, false, String::new()),
                 }
-            }
+            };
             let dot = if attention {
                 "\u{1f534}" // 🔴
             } else if working {
@@ -422,15 +428,14 @@ impl WorkspaceView {
                 "\u{1f7e2}" // 🟢
             };
             let name = if title.trim().is_empty() {
-                format!("Tab {}", i + 1)
+                format!("Terminal {}", i + 1)
             } else {
                 title
             };
-            let idx = i;
             body = body.child(
-                self.sidebar_row(("sb-activity", i), format!("{dot}  {name}"), i == active, false, false)
+                self.sidebar_row(("sb-activity", i), format!("{dot}  {name}"), item == active_item, false, false)
                     .on_click(cx.listener(move |this, _: &gpui::ClickEvent, window, cx| {
-                        this.activatetab(idx, window, cx);
+                        this.activate_item(item, window, cx);
                     })),
             );
         }
@@ -454,7 +459,7 @@ impl WorkspaceView {
                     .on_click(cx.listener(move |this, _: &gpui::ClickEvent, window, cx| {
                         crate::relay::ensure_running(&this.opts);
                         if let Some(cmd) = crate::relay::launch_saved_command(&this.opts, &name) {
-                            this.splitcommand(&cmd, Axis::Horizontal, false, window, cx);
+                            this.splitcommand(&cmd, SplitAxis::Horizontal, false, window, cx);
                         }
                     })),
             );

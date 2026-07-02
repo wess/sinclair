@@ -31,18 +31,6 @@ pub(crate) fn loadplugins(opts: &config::Options) -> Vec<plugin::Plugin> {
     plugins
 }
 
-/// Strip a leading `user@host:` prefix from a shell-set title, leaving just the
-/// path. Shells default the terminal title to `\u@\h: \w`, which wraps to two
-/// lines in a tab and reads poorly; the host is noise in a tab label.
-pub(crate) fn strip_user_host(title: &str) -> &str {
-    if let Some((head, rest)) = title.split_once(':') {
-        if head.contains('@') && !head.contains([' ', '/']) {
-            return rest.trim_start();
-        }
-    }
-    title
-}
-
 /// The curated set of actions the command palette offers, with display
 /// labels. Ordered roughly by how often they're reached.
 pub(crate) fn palette_catalog() -> Vec<(&'static str, Action)> {

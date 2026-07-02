@@ -12,11 +12,7 @@ impl WorkspaceView {
     /// with the native save dialog, then writes off the UI thread.
     pub(crate) fn save_buffer(&mut self, cx: &mut Context<Self>) {
         let (text, dir, suggested) = {
-            let Some(view) = self
-                .panes
-                .get(&self.tabs.focused())
-                .and_then(|p| p.content.as_terminal())
-            else {
+            let Some(view) = self.focused_terminal(cx) else {
                 return;
             };
             let view = view.read(cx);

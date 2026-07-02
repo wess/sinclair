@@ -2,43 +2,20 @@ use super::*;
 use gpui::prelude::*;
 
 impl WorkspaceView {
-    /// Set a divider's ratio in the active tab (divider drag).
-    pub fn setratio(&mut self, split: SplitId, ratio: f32, cx: &mut Context<Self>) {
-        if self.tabs.active_mut().tree.set_ratio(split, ratio) {
-            cx.notify();
-        }
-    }
-
-    /// Reset every divider in the active tab to an even split.
+    /// Reset every divider in the group to an even split.
     pub(crate) fn equalizesplits(&mut self, cx: &mut Context<Self>) {
-        let dividers = self.tabs.active().tree.list_dividers();
-        if dividers.is_empty() {
-            return;
-        }
-        let tree = &mut self.tabs.active_mut().tree;
-        for (split, _) in dividers {
-            tree.set_ratio(split, 0.5);
-        }
-        cx.notify();
+        self.group.update(cx, |g, cx| g.equalize(cx));
     }
 
     /// Nudge the divider adjacent to the focused pane in a direction.
     pub(crate) fn resizesplit(&mut self, dir: ResizeDir, cx: &mut Context<Self>) {
-        let (axis, delta) = match dir {
-            ResizeDir::Left => (Axis::Horizontal, -RESIZE_STEP),
-            ResizeDir::Right => (Axis::Horizontal, RESIZE_STEP),
-            ResizeDir::Up => (Axis::Vertical, -RESIZE_STEP),
-            ResizeDir::Down => (Axis::Vertical, RESIZE_STEP),
+        let dir = match dir {
+            ResizeDir::Left => Direction::Left,
+            ResizeDir::Right => Direction::Right,
+            ResizeDir::Up => Direction::Up,
+            ResizeDir::Down => Direction::Down,
         };
-        let focused = self.tabs.focused();
-        let tree = &mut self.tabs.active_mut().tree;
-        let Some(split) = tree.nearest_split(focused, axis) else {
-            return;
-        };
-        if let Some(current) = tree.ratio(split) {
-            tree.set_ratio(split, current + delta);
-            cx.notify();
-        }
+        self.group.update(cx, |g, cx| g.resize_focused(dir, RESIZE_STEP, cx));
     }
 
     /// Resize the window back to the configured default cell grid.
@@ -57,13 +34,9 @@ impl WorkspaceView {
         window.resize(size(px(width), px(height)));
     }
 
-    /// Persist the focused pane's current cell grid as the default size.
+    /// Persist the focused item's current cell grid as the default size.
     pub(crate) fn useasdefault(&mut self, cx: &mut Context<Self>) {
-        let Some((cols, rows)) = self
-            .panes
-            .get(&self.tabs.focused())
-            .and_then(|p| p.content.as_terminal().map(|v| v.read(cx).grid_size()))
-        else {
+        let Some((cols, rows)) = self.focused_terminal(cx).map(|v| v.read(cx).grid_size()) else {
             return;
         };
         write_config("window-width", &cols.to_string());
@@ -72,71 +45,56 @@ impl WorkspaceView {
 
     /// Split the focused pane. `first` places the new pane before the
     /// existing one (left/up) instead of after it (right/down).
-    pub(crate) fn split(&mut self, axis: Axis, first: bool, window: &mut Window, cx: &mut Context<Self>) {
-        self.zoomed = false;
-        let target = self.tabs.focused();
-        let Some(id) = self.spawnpane(window, cx) else {
+    pub(crate) fn split(
+        &mut self,
+        axis: SplitAxis,
+        first: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(item) = self.spawn_default(window, cx) else {
             return;
         };
-        if self
-            .tabs
-            .active_mut()
-            .tree
-            .split(target, axis, id, first)
-            .is_none()
-        {
-            self.panes.remove(&id);
-            return;
-        }
-        self.tabs.focus(id);
+        let pane = self.group.read(cx).focused_pane();
+        self.group.update(cx, |g, cx| {
+            g.split(pane, axis, first, item, cx);
+        });
         self.focusactive(window, cx);
         cx.notify();
     }
 
     pub(crate) fn focusdir(&mut self, direction: Direction, window: &mut Window, cx: &mut Context<Self>) {
-        let viewport = window.viewport_size();
-        let rect = Rect::new(
-            0.0,
-            0.0,
-            f32::from(viewport.width).max(1.0),
-            f32::from(viewport.height).max(1.0),
-        );
-        let layout = workspace::compute_layout(&self.tabs.active().tree, rect, splits::DIVIDER);
-        if let Some(next) = workspace::neighbor(&layout, self.tabs.focused(), direction) {
-            self.focuspane(next, window, cx);
-        }
+        self.group.update(cx, |g, cx| g.focus_direction(direction, cx));
+        self.focusactive(window, cx);
+        cx.notify();
     }
 
-    /// Move window focus to the active tab's focused pane and retitle.
-    pub(crate) fn focusactive(&self, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(pane) = self.panes.get(&self.tabs.focused()) {
-            window.focus(&pane.content.focus_handle(cx), cx);
-        }
-        // A switched-away webview pane must hide its native surface.
-        self.reconcile_webview_visibility(cx);
-        self.settitle(window, cx);
-    }
-
-    pub(crate) fn settitle(&self, window: &mut Window, cx: &App) {
-        let title = self
-            .panes
-            .get(&self.tabs.focused())
-            .map(|pane| pane.content.title(cx))
-            .unwrap_or_else(|| "prompt".to_string());
-        window.set_window_title(&title);
-    }
-
-    /// Cycle focus to the previous/next pane in the active tab's layout.
+    /// Cycle focus to the previous/next pane in the group's layout order.
     pub(crate) fn cyclesplit(&mut self, forward: bool, window: &mut Window, cx: &mut Context<Self>) {
-        let focused = self.tabs.focused();
-        let tree = &self.tabs.active().tree;
-        let next = if forward {
-            workspace::next(tree, focused)
-        } else {
-            workspace::prev(tree, focused)
+        let (panes, focused) = {
+            let g = self.group.read(cx);
+            (g.tree().panes(), g.focused_pane())
         };
-        if let Some(next) = next {
-            self.focuspane(next, window, cx);
+        if panes.len() < 2 {
+            return;
+        }
+        let i = panes.iter().position(|p| *p == focused).unwrap_or(0);
+        let next = if forward {
+            panes[(i + 1) % panes.len()]
+        } else {
+            panes[(i + panes.len() - 1) % panes.len()]
+        };
+        // Activate the target pane through its active tab. With single-tab panes
+        // (the common case) this preserves the visible item.
+        let item = self
+            .group
+            .read(cx)
+            .pane_items(next)
+            .and_then(|items| items.first().copied());
+        if let Some(item) = item {
+            self.group.update(cx, |g, cx| g.activate(next, item, cx));
+            self.focusactive(window, cx);
+            cx.notify();
         }
     }
 }

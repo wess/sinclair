@@ -225,9 +225,8 @@ impl WorkspaceView {
 
     fn shell_menu(&self, a: &mut Vec<Action>, cx: &App) -> Menu {
         let recording = self
-            .panes
-            .get(&self.tabs.focused())
-            .is_some_and(|p| p.content.is_recording(cx));
+            .focused_terminal(cx)
+            .is_some_and(|v| v.read(cx).is_recording());
         Self::menu(
             "File",
             vec![
@@ -270,9 +269,8 @@ impl WorkspaceView {
     /// View menu: font size plus the title/read-only group.
     fn view_menu(&self, a: &mut Vec<Action>, cx: &App) -> Menu {
         let read_only = self
-            .panes
-            .get(&self.tabs.focused())
-            .is_some_and(|p| p.content.is_read_only(cx));
+            .focused_terminal(cx)
+            .is_some_and(|v| v.read(cx).is_read_only());
         Self::menu(
             "View",
             vec![

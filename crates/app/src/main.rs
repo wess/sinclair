@@ -43,7 +43,6 @@ mod session;
 mod sessionstate;
 mod settings;
 mod shellinteg;
-mod splits;
 mod tabbar;
 mod tiles;
 mod titlebar;

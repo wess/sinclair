@@ -3,34 +3,6 @@ use gpui::prelude::*;
 
 impl Render for WorkspaceView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let tree = self.tabs.active().tree.clone();
-        let focused = self.tabs.focused();
-        let multi = tree.panes().len() > 1;
-        let children: Vec<(PaneId, AnyElement)> = tree
-            .panes()
-            .into_iter()
-            .filter_map(|id| {
-                self.panes
-                    .get(&id)
-                    .map(|pane| (id, pane.content.element()))
-            })
-            .collect();
-        let mut dividercolor = colors::hsla(self.colors.fg);
-        dividercolor.a = 0.2;
-        let mut dimcolor = colors::hsla(self.colors.bg);
-        dimcolor.a = (1.0 - self.opts.unfocused_split_opacity).clamp(0.0, 1.0);
-        let root: WeakEntity<Self> = cx.weak_entity();
-        let splitselement = SplitsElement::new(
-            tree,
-            focused,
-            children,
-            dividercolor,
-            dimcolor,
-            self.drag.clone(),
-            root,
-            self.opts.focus_follows_mouse,
-        );
-
         // Root fill; its alpha is the window background opacity. Default-bg cells
         // aren't painted by the element, so they show this (and the desktop when
         // the window is transparent); colored cells stay opaque.
@@ -72,38 +44,11 @@ impl Render for WorkspaceView {
                 .bg(winbg),
         );
 
-        let tab_infos = self.tab_infos(cx);
-        let max_visible = self.tab_max_visible(window);
-        let (_, overflow) =
-            crate::tabbar::visible_split(tab_infos.len(), self.tabs.active_index(), max_visible);
-        base = base.child(crate::titlebar::bar(
-            &tab_infos,
-            self.tabs.active_index(),
-            max_visible,
-            self.trailing_menu,
-            &self.colors,
-            &self.font,
-            self.font_size,
-            window,
-            cx,
-        ));
-        if self.tab_overflow && !overflow.is_empty() {
-            base = base.child(self.tab_overflow_menu(&tab_infos, &overflow, window, cx));
-        } else if self.tab_overflow {
-            self.tab_overflow = false;
-        }
-        if let Some(which) = self.trailing_menu {
-            base = base.child(self.trailing_menu(which, window, cx));
-        }
+        base = base.child(crate::titlebar::bar(&self.colors, window));
 
-        let content: AnyElement = if self.zoomed && multi {
-            match self.panes.get(&focused) {
-                Some(pane) => pane.content.element(),
-                None => splitselement.into_any_element(),
-            }
-        } else {
-            splitselement.into_any_element()
-        };
+        // The group renders the whole tree of tabbed splits (per-pane tab bars,
+        // dividers, drag/drop) itself.
+        let content: AnyElement = self.group.clone().into_any_element();
         // Content row: [left drawer?] [splits] [right drawer?]. Drawers are
         // fixed-width and hidden unless a panel is active on that side.
         let left = self
@@ -137,9 +82,10 @@ impl Render for WorkspaceView {
         }
 
         if self
-            .panes
+            .items
+            .borrow()
             .values()
-            .any(|p| p.content.is_recording(cx))
+            .any(|it| it.content.is_recording(cx))
         {
             base = base.child(recording_pill(&self.colors));
         }

@@ -5,29 +5,27 @@
 
 use gpui::prelude::*;
 use gpui::{div, App, Context, Entity, KeyDownEvent, Subscription, WeakEntity, Window};
-use workspace::PaneId;
+use guise::panegroup::ItemId;
 
 use guise::{Modal, Size, Text, TextInput, TextInputEvent};
 
 use crate::root::WorkspaceView;
 
-/// What a rename targets: a tab label, a single pane's title, naming a freshly
-/// recorded macro (carrying its commands), or saving a layout.
+/// What a rename targets: an item's title, naming a freshly recorded macro
+/// (carrying its commands), or saving a layout.
 #[derive(Clone)]
 pub enum Target {
-    Tab(usize),
-    Pane(PaneId),
+    Item(ItemId),
     Macro(Vec<String>),
     Layout(crate::tiles::Layout),
-    /// Annotate the current line of a pane with the entered note.
-    Annotate(PaneId),
+    /// Annotate the current line of an item with the entered note.
+    Annotate(ItemId),
 }
 
 impl Target {
     fn title(&self) -> &'static str {
         match self {
-            Target::Tab(_) => "Change Tab Title",
-            Target::Pane(_) => "Change Terminal Title",
+            Target::Item(_) => "Change Terminal Title",
             Target::Macro(_) => "Name Macro",
             Target::Layout(_) => "Save Layout",
             Target::Annotate(_) => "Annotate Line",
@@ -46,11 +44,10 @@ fn commit(
 ) {
     root.update(app, |ws, cx| {
         match target {
-            Target::Tab(index) => ws.rename_tab(*index, text, cx),
-            Target::Pane(id) => ws.rename_pane(*id, text, cx),
+            Target::Item(id) => ws.rename_item(*id, text, cx),
             Target::Macro(commands) => ws.save_macro(text, commands.clone(), cx),
             Target::Layout(layout) => ws.save_layout(text, layout.clone(), cx),
-            Target::Annotate(id) => ws.annotate_pane(*id, text, cx),
+            Target::Annotate(id) => ws.annotate_item(*id, text, cx),
         }
         ws.close_modal(window, cx);
     })

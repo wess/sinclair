@@ -8,10 +8,10 @@ use super::*;
 use crate::view::TriggerEvent;
 
 impl WorkspaceView {
-    /// Run every plugin trigger that matches `ev` (fired by `pane`).
+    /// Run every plugin trigger that matches `ev` (fired by `item`).
     pub(crate) fn fire_triggers(
         &mut self,
-        pane: PaneId,
+        item: ItemId,
         ev: &TriggerEvent,
         window: &mut Window,
         cx: &mut Context<Self>,
@@ -32,9 +32,10 @@ impl WorkspaceView {
             return;
         }
         let cwd = self
-            .panes
-            .get(&pane)
-            .and_then(|p| p.content.cwd_path(cx));
+            .items
+            .borrow()
+            .get(&item)
+            .and_then(|it| it.content.cwd_path(cx));
         for (plugin, trigger) in matched {
             self.run_trigger(&plugin, &trigger.action, ev, cwd.as_deref(), window, cx);
         }

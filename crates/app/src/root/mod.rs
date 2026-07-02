@@ -1,8 +1,10 @@
-//! Workspace root: ordered tabs of split panes, one shell per pane.
+//! Workspace root: a `guise::PaneGroup` (the Zed model — splits contain tabs,
+//! each pane has its own tab bar) plus a map from the group's `ItemId`s to the
+//! terminal/webview entities that back them.
 //!
-//! Owns the `workspace::Tabs` model and a map from pane id to terminal
-//! view entity. All tab/split mutations funnel through here; the panes
-//! themselves only know their own session.
+//! The group owns the tree, per-pane tab bars, dividers, and drag/drop; this
+//! module owns the items (creating/destroying their real content), reacts to
+//! the group's events, and drives layout mutations through the group's methods.
 
 mod boot;
 mod containers;
@@ -31,25 +33,24 @@ use config::{Action, Keybind, ResizeDir, SplitDirection, SplitFocus};
 use futures::StreamExt;
 use gpui::prelude::*;
 use gpui::{
-    anchored, deferred, div, point, px, size, AnyElement, App, Context, Entity, Focusable,
-    KeyBinding, Menu, MenuItem, MouseButton, MouseDownEvent, SharedString, Subscription,
-    WeakEntity, Window,
+    div, px, size, AnyElement, App, Context, Entity, Focusable, KeyBinding, Menu, MenuItem,
+    SharedString, Subscription, Window,
 };
+use guise::panegroup::{Direction, ItemId, ItemIds, PaneId};
+use guise::SplitDirection as SplitAxis;
+use guise::{PaneGroup, PaneGroupEvent};
 use serde_json::{json, Value};
 use terminal::Session;
-use workspace::{Axis, Direction, PaneId, PaneIds, Rect, SplitId, Tabs};
 
 use crate::bridge;
 use crate::colors::{self, Colors};
 use crate::keys;
 use crate::metrics::{CellSize, Padding};
 use crate::session;
-use crate::splits::{self, Drag, SplitsElement};
 use crate::view::{TerminalView, ViewEvent};
 
 pub(crate) use boot::{
-    commandspawn, loadmacros, loadplugins, palette_catalog, resolvekeys, strip_user_host,
-    write_config,
+    commandspawn, loadmacros, loadplugins, palette_catalog, resolvekeys, write_config,
 };
 
 /// One keybind dispatch: the index into the workspace's resolved keybind
@@ -140,6 +141,17 @@ const SPAWN_ROWS: usize = 24;
 /// Fraction a divider moves per "Resize Split" step.
 const RESIZE_STEP: f32 = 0.05;
 
+/// Map a config split direction to a `guise` split axis plus which side the new
+/// pane takes (`first` = left/top).
+pub(crate) fn split_dir(dir: SplitDirection) -> (SplitAxis, bool) {
+    match dir {
+        SplitDirection::Right => (SplitAxis::Horizontal, false),
+        SplitDirection::Left => (SplitAxis::Horizontal, true),
+        SplitDirection::Down => (SplitAxis::Vertical, false),
+        SplitDirection::Up => (SplitAxis::Vertical, true),
+    }
+}
+
 /// What a pane hosts: a terminal, or a plugin web view (in a tab). The shared
 /// read surface below lets the workspace treat panes uniformly; terminal-only
 /// operations match on the variant (or go through `WorkspaceView::onfocused`,
@@ -192,13 +204,6 @@ impl PaneContent {
         }
     }
 
-    fn is_read_only(&self, cx: &App) -> bool {
-        match self {
-            PaneContent::Terminal(v) => v.read(cx).is_read_only(),
-            PaneContent::Webview(_) => false,
-        }
-    }
-
     fn has_running_process(&self, cx: &App) -> bool {
         match self {
             PaneContent::Terminal(v) => v.read(cx).has_running_process(),
@@ -222,20 +227,18 @@ impl PaneContent {
     }
 }
 
-struct Pane {
+/// One item held by the pane group: a terminal or webview surface, plus its
+/// event bridge. Items are the unit that lives inside a `guise` pane's tab bar.
+struct Item {
     content: PaneContent,
-    /// The terminal event bridge; `None` for webview panes (they emit none).
+    /// The terminal event bridge; `None` for webview items (they emit none).
     _subscription: Option<Subscription>,
 }
 
-/// Which trailing tab-bar button dropdown is open, if any.
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub enum TabBarMenu {
-    /// The `+` button's "New…" menu.
-    New,
-    /// The column button's "Split…" menu.
-    Split,
-}
+/// The host-owned item map the `PaneGroup` reads through its render/title
+/// callbacks. Shared as an `Rc<RefCell<..>>` so those callbacks (which run
+/// during the group's render) can read it without borrowing `WorkspaceView`.
+type Items = HashMap<ItemId, Item>;
 
 /// Which side a drawer lives on.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -337,11 +340,16 @@ pub struct WorkspaceView {
     font_size: gpui::Pixels,
     cell: CellSize,
     pad: Padding,
-    tabs: Tabs,
-    ids: PaneIds,
-    panes: HashMap<PaneId, Pane>,
-    /// Divider drag in progress, shared with the splits element.
-    drag: Rc<RefCell<Option<Drag>>>,
+    /// The reusable `guise` pane group: the whole window's tree of tabbed
+    /// splits. Owns layout, per-pane tab bars, dividers, and drag/drop.
+    group: Entity<PaneGroup>,
+    /// Host-owned items keyed by the group's `ItemId`s. Shared with the group's
+    /// render/title callbacks (see [`Items`]).
+    items: Rc<RefCell<Items>>,
+    /// Monotonic allocator for [`ItemId`]s.
+    item_ids: ItemIds,
+    /// Keeps the group's event subscription alive.
+    _group_sub: Subscription,
     /// Resolved keybindings (defaults + user config); `RunBind` indexes here.
     keybinds: Vec<Keybind>,
     /// Loaded manifest plugins.
@@ -350,12 +358,6 @@ pub struct WorkspaceView {
     macros: Vec<macros::Macro>,
     /// Config actions for keybind-less menu items, indexed by [`MenuPick`].
     menu_actions: Vec<Action>,
-    /// When set, the focused pane fills the tab (Window > Zoom Split).
-    zoomed: bool,
-    /// When true, the tab-overflow `…` dropdown is open.
-    tab_overflow: bool,
-    /// Which trailing tab-bar button dropdown is open (`+` / split), if any.
-    trailing_menu: Option<TabBarMenu>,
     /// Active panel in the left drawer; `None` = left drawer hidden.
     left_panel: Option<SidebarPanel>,
     /// Active panel in the right drawer; `None` = right drawer hidden.
@@ -382,14 +384,14 @@ pub struct WorkspaceView {
     /// panel opens or on its refresh action (running `docker ps` is I/O, so it
     /// is never done during render).
     containers: Vec<container::Running>,
-    /// Map of container id → the tab pane attached to it, so re-selecting a
+    /// Map of container id → the item attached to it, so re-selecting a
     /// running container focuses its existing tab instead of opening a second.
-    container_tabs: HashMap<String, PaneId>,
-    /// Panes whose on-the-fly (run-fresh) container should be force-removed when
-    /// the pane closes (value is the container name). Only ephemeral containers
+    container_tabs: HashMap<String, ItemId>,
+    /// Items whose on-the-fly (run-fresh) container should be force-removed when
+    /// the item closes (value is the container name). Only ephemeral containers
     /// — `container-persist = false` — are tracked here; persistent ones are
     /// left running.
-    kill_on_close: HashMap<PaneId, String>,
+    kill_on_close: HashMap<ItemId, String>,
     /// Configured font size, restored by `reset_font_size`.
     base_font_size: gpui::Pixels,
     /// Config-file watcher; kept alive so live reload keeps working.
@@ -431,6 +433,16 @@ impl WorkspaceView {
         if cx.try_global::<MacroRecorder>().is_none() {
             cx.set_global(MacroRecorder(macros::Recorder::new()));
         }
+        let items: Rc<RefCell<Items>> = Rc::new(RefCell::new(HashMap::new()));
+        let mut item_ids = ItemIds::new();
+        // The group needs a first item, but spawning one needs `self`. Build a
+        // throwaway group over a placeholder id, assemble `this`, spawn the real
+        // first terminal, then rebuild the group around it below.
+        let placeholder = item_ids.next();
+        let group = Self::build_group(placeholder, items.clone(), cx);
+        let group_sub = cx.subscribe_in(&group, window, |this, _g, ev: &PaneGroupEvent, window, cx| {
+            this.on_group_event(ev.clone(), window, cx);
+        });
         let mut this = Self {
             base_font_size: font_size,
             opts,
@@ -439,17 +451,14 @@ impl WorkspaceView {
             font_size,
             cell,
             pad,
-            tabs: Tabs::new(PaneIds::new().next()),
-            ids: PaneIds::new(),
-            panes: HashMap::new(),
-            drag: Rc::new(RefCell::new(None)),
+            group,
+            items,
+            item_ids,
+            _group_sub: group_sub,
             keybinds,
             plugins,
             macros: loadmacros(),
             menu_actions: Vec::new(),
-            zoomed: false,
-            tab_overflow: false,
-            trailing_menu: None,
             left_panel: None,
             right_panel: None,
             plugin_panels: HashMap::new(),
@@ -480,10 +489,14 @@ impl WorkspaceView {
         this.setmenus(cx);
         this.rebuild_webview_hosts(cx);
         let options = session::options(&this.opts, cols, rows, cwd);
-        let Some(id) = this.spawn(options, window, cx) else {
+        let Some(first) = this.spawn(options, window, cx) else {
             std::process::exit(1);
         };
-        this.tabs = Tabs::new(id);
+        // Rebuild the group around the real first item (the placeholder held none).
+        this.group = Self::build_group(first, this.items.clone(), cx);
+        this._group_sub = cx.subscribe_in(&this.group, window, |this, _g, ev: &PaneGroupEvent, window, cx| {
+            this.on_group_event(ev.clone(), window, cx);
+        });
         this.focusactive(window, cx);
         this.startwatch(window, cx);
         crate::relay::on_launch(&this.opts);
@@ -492,6 +505,146 @@ impl WorkspaceView {
             this.try_restore(window, cx);
         }
         this
+    }
+
+    /// Build a `PaneGroup` over `first`, wiring its per-item content and title
+    /// callbacks to read the shared `items` map. The callbacks run during the
+    /// group's render (nested inside the workspace's), so they read `items`
+    /// directly rather than the `WorkspaceView` entity (which would double-borrow).
+    fn build_group(
+        first: ItemId,
+        items: Rc<RefCell<Items>>,
+        cx: &mut Context<Self>,
+    ) -> Entity<PaneGroup> {
+        cx.new(|cx| {
+            PaneGroup::new(first, cx)
+                .on_render_item({
+                    let items = items.clone();
+                    move |id, _w, _cx| {
+                        items
+                            .borrow()
+                            .get(&id)
+                            .map(|it| it.content.element())
+                            .unwrap_or_else(|| div().into_any_element())
+                    }
+                })
+                .on_item_title({
+                    let items = items.clone();
+                    move |id, cx| {
+                        items
+                            .borrow()
+                            .get(&id)
+                            .map(|it| SharedString::from(it.content.title(cx)))
+                            .unwrap_or_default()
+                    }
+                })
+        })
+    }
+
+    /// Handle an event emitted by the pane group.
+    fn on_group_event(&mut self, ev: PaneGroupEvent, window: &mut Window, cx: &mut Context<Self>) {
+        match ev {
+            PaneGroupEvent::NewRequested(pane) => {
+                if let Some(item) = self.spawn_default(window, cx) {
+                    self.group.update(cx, |g, cx| g.add_item(pane, item, cx));
+                    self.focusactive(window, cx);
+                    cx.notify();
+                }
+            }
+            PaneGroupEvent::CloseRequested(item) => self.close_item(item, window, cx),
+            PaneGroupEvent::Activated(_) | PaneGroupEvent::FocusChanged(_) => {
+                self.focusactive(window, cx);
+                cx.notify();
+            }
+            PaneGroupEvent::TearOff(item) => self.tear_off_to_window(item, window, cx),
+        }
+    }
+
+    /// The focused pane's active item id.
+    pub(crate) fn active_item(&self, cx: &App) -> ItemId {
+        self.group.read(cx).active_item()
+    }
+
+    /// The focused item's terminal view, if it is a terminal (not a webview).
+    pub(crate) fn focused_terminal(&self, cx: &App) -> Option<Entity<TerminalView>> {
+        let item = self.group.read(cx).active_item();
+        self.items
+            .borrow()
+            .get(&item)
+            .and_then(|it| it.content.as_terminal().cloned())
+    }
+
+    /// The focused item's working directory (resolved from its OSC-reported cwd).
+    pub(crate) fn focused_cwd_path(&self, cx: &App) -> Option<std::path::PathBuf> {
+        let item = self.group.read(cx).active_item();
+        self.items
+            .borrow()
+            .get(&item)
+            .and_then(|it| it.content.cwd(cx))
+            .and_then(|osc| session::cwdpath(&osc))
+    }
+
+    /// Focus the focused pane's active item and retitle the window.
+    pub(crate) fn focusactive(&self, window: &mut Window, cx: &mut Context<Self>) {
+        let item = self.group.read(cx).active_item();
+        let handle = self
+            .items
+            .borrow()
+            .get(&item)
+            .map(|it| it.content.focus_handle(cx));
+        if let Some(handle) = handle {
+            window.focus(&handle, cx);
+        }
+        // A switched-away webview item must hide its native surface.
+        self.reconcile_webview_visibility(cx);
+        self.settitle(window, cx);
+    }
+
+    /// Set the window title from the focused item.
+    pub(crate) fn settitle(&self, window: &mut Window, cx: &App) {
+        let item = self.group.read(cx).active_item();
+        let title = self
+            .items
+            .borrow()
+            .get(&item)
+            .map(|it| it.content.title(cx))
+            .unwrap_or_else(|| "prompt".to_string());
+        window.set_window_title(&title);
+    }
+
+    /// Activate `item` in its pane and focus it.
+    pub(crate) fn activate_item(&mut self, item: ItemId, window: &mut Window, cx: &mut Context<Self>) {
+        let pane = self.group.read(cx).pane_of(item);
+        if let Some(pane) = pane {
+            self.group.update(cx, |g, cx| g.activate(pane, item, cx));
+            self.focusactive(window, cx);
+            cx.notify();
+        }
+    }
+
+    /// Remove an item's content and drop it from the group. Closes the window
+    /// when it was the last item.
+    pub(crate) fn close_item(&mut self, item: ItemId, window: &mut Window, cx: &mut Context<Self>) {
+        if self.group.read(cx).items().len() <= 1 {
+            self.close_window(window, cx);
+            return;
+        }
+        self.on_item_closed(item);
+        // Dropping the Item drops the TerminalView (and its pty/subscription).
+        self.items.borrow_mut().remove(&item);
+        self.group.update(cx, |g, cx| g.close_item(item, cx));
+        self.focusactive(window, cx);
+        cx.notify();
+    }
+
+    /// Tear an item off into its own window. For this checkpoint the item's
+    /// content is not migrated: the item is dropped and a fresh window opens.
+    fn tear_off_to_window(&mut self, item: ItemId, _window: &mut Window, cx: &mut Context<Self>) {
+        // TODO(panegroup): migrate the torn-off item's live TerminalView into
+        // the new window instead of dropping it and spawning a fresh shell.
+        self.on_item_closed(item);
+        self.items.borrow_mut().remove(&item);
+        self.newwindow(cx);
     }
 
     /// Watch the config file and reload appearance on every edit.
@@ -575,10 +728,14 @@ impl WorkspaceView {
             paste_protection: self.opts.clipboard_paste_protection,
             clipboard_write: self.opts.clipboard_write,
         };
-        for pane in self.panes.values() {
-            if let Some(v) = pane.content.as_terminal() {
-                v.update(cx, |view, cx| view.set_appearance(&appearance, cx));
-            }
+        let terminals: Vec<_> = self
+            .items
+            .borrow()
+            .values()
+            .filter_map(|it| it.content.as_terminal().cloned())
+            .collect();
+        for v in terminals {
+            v.update(cx, |view, cx| view.set_appearance(&appearance, cx));
         }
     }
 

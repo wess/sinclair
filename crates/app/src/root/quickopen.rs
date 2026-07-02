@@ -90,7 +90,7 @@ impl WorkspaceView {
                     let cmd = cmd.clone();
                     view.update(app, |this, cx| {
                         if let Some(id) = this.spawncommand(&cmd, window, cx) {
-                            this.tabs.new_tab(id);
+                            this.group.update(cx, |g, cx| g.add_to_focused(id, cx));
                             this.focusactive(window, cx);
                             cx.notify();
                         }
@@ -105,20 +105,20 @@ impl WorkspaceView {
         cx.notify();
     }
 
-    /// Global search: a Spotlight over recent output lines from every tab.
-    /// Picking a line focuses its tab. Fuzzy-filter to find where something ran.
+    /// Global search: a Spotlight over recent output lines from every terminal.
+    /// Picking a line focuses its item. Fuzzy-filter to find where something ran.
     pub(crate) fn open_global_search(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        // Collect (label, tab index) across all terminal panes, newest first.
-        let mut items: Vec<(String, usize)> = Vec::new();
-        for ti in 0..self.tabs.len() {
-            let Some(tab) = self.tabs.get(ti) else {
-                continue;
-            };
-            for id in tab.tree.panes() {
-                if let Some(term) = self.panes.get(&id).and_then(|p| p.content.as_terminal()) {
-                    for line in term.read(cx).recent_lines(400) {
-                        items.push((format!("{}  \u{2502}  {line}", ti + 1), ti));
-                    }
+        // Collect (label, item id) across all terminal items, newest first.
+        let mut items: Vec<(String, ItemId)> = Vec::new();
+        for (i, id) in self.group.read(cx).items().into_iter().enumerate() {
+            let term = self
+                .items
+                .borrow()
+                .get(&id)
+                .and_then(|it| it.content.as_terminal().cloned());
+            if let Some(term) = term {
+                for line in term.read(cx).recent_lines(400) {
+                    items.push((format!("{}  \u{2502}  {line}", i + 1), id));
                 }
             }
         }
@@ -128,10 +128,10 @@ impl WorkspaceView {
         let view = cx.entity();
         let spotlight = cx.new(|scx| {
             let mut spot = guise::Spotlight::new(scx);
-            for (label, ti) in items {
+            for (label, id) in items {
                 let view = view.clone();
                 let run = move |window: &mut Window, app: &mut App| {
-                    view.update(app, |this, cx| this.activatetab(ti, window, cx));
+                    view.update(app, |this, cx| this.activate_item(id, window, cx));
                 };
                 spot = spot.item(label, run);
             }
