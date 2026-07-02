@@ -30,12 +30,12 @@ impl SettingsView {
     ) -> impl IntoElement {
         let input = self.text_input(EditTarget::Item(kind, idx), value, kind.placeholder(), width, cx);
         let mut row = div()
+            .w_full()
             .h(px(44.0))
             .px_3()
             .flex()
             .items_center()
             .gap_2()
-            .justify_between()
             .child(input);
         if kind == ListKind::Keybind {
             row = row.child(
@@ -69,6 +69,7 @@ impl SettingsView {
             Some(EditTarget::NewItem(k)) if *k == kind
         );
         let mut row = div()
+            .w_full()
             .h(px(44.0))
             .px_3()
             .flex()

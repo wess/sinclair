@@ -24,16 +24,19 @@ impl SettingsView {
         control: impl IntoElement,
     ) -> impl IntoElement {
         div()
+            .w_full()
             .h(px(52.0))
             .px_3()
             .flex()
             .items_center()
             .justify_between()
+            .gap_3()
             .child(
                 div()
                     .flex()
                     .items_center()
                     .gap_3()
+                    .flex_none()
                     .child(icon)
                     .child(SharedString::from(label.to_string())),
             )
@@ -41,7 +44,7 @@ impl SettingsView {
     }
 
     pub(crate) fn list(&self, rows: Vec<AnyElement>) -> impl IntoElement {
-        let mut list = div().flex().flex_col().rounded(px(10.0)).bg(hsla(PANEL));
+        let mut list = div().w_full().flex().flex_col().rounded(px(10.0)).bg(hsla(PANEL));
         for (i, row) in rows.into_iter().enumerate() {
             if i > 0 {
                 list = list.child(div().mx_3().h(px(1.0)).bg(hsla(LINE)));
@@ -74,8 +77,12 @@ impl SettingsView {
         let active = self.editing.as_ref().map(|(t, _)| t) == Some(&target);
         let mut border = hsla(if active { BLUE } else { FIELD_BORDER });
         border.a = if active { 1.0 } else { 0.75 };
+        // Flexible width: grow to `width` but shrink below it when the row is
+        // narrow, so long values never overflow the content column.
         let mut field = div()
-            .w(px(width))
+            .flex_1()
+            .min_w(px(0.0))
+            .max_w(px(width))
             .h(px(26.0))
             .px_2()
             .rounded(px(6.0))
@@ -83,18 +90,33 @@ impl SettingsView {
             .border_color(border)
             .bg(hsla(FIELD_BG))
             .flex()
-            .items_center();
+            .items_center()
+            .overflow_hidden();
         if active && self.capturing {
             field = field
                 .text_color(hsla(BLUE_TEXT))
                 .child(SharedString::from("Press keys\u{2026}"));
         } else if let Some((_, edit)) = self.editing.as_ref().filter(|_| active) {
-            let (before, after) = edit.split();
-            field = field
-                .text_color(hsla(TEXT))
-                .child(SharedString::from(before))
-                .child(div().w(px(1.0)).h(px(16.0)).bg(hsla(TEXT)))
-                .child(SharedString::from(after));
+            field = field.text_color(hsla(TEXT));
+            if let Some((before, selected, after)) = edit.split_selection() {
+                let mut sel_bg = hsla(BLUE);
+                sel_bg.a = 0.35;
+                field = field
+                    .child(SharedString::from(before))
+                    .child(
+                        div()
+                            .bg(sel_bg)
+                            .rounded(px(2.0))
+                            .child(SharedString::from(selected)),
+                    )
+                    .child(SharedString::from(after));
+            } else {
+                let (before, after) = edit.split();
+                field = field
+                    .child(SharedString::from(before))
+                    .child(div().w(px(1.0)).h(px(16.0)).bg(hsla(TEXT)))
+                    .child(SharedString::from(after));
+            }
         } else {
             let empty = value.is_empty();
             field = field

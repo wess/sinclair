@@ -77,6 +77,39 @@ impl TerminalView {
     /// Handle a keystroke while the search overlay is open.
     pub(crate) fn search_key(&mut self, ks: &gpui::Keystroke, mods: input::Mods, cx: &mut Context<Self>) {
         if mods.cmd {
+            // Clipboard + select-all for the search field.
+            match ks.key.as_str() {
+                "v" => {
+                    let pasted = cx.read_from_clipboard().and_then(|i| i.text());
+                    if let (Some(t), Some(s)) = (pasted, self.search.as_mut()) {
+                        s.edit.insert(&t.replace(['\n', '\r'], " "));
+                        s.current = 0;
+                        self.search_jump(cx);
+                    }
+                }
+                "a" => {
+                    if let Some(s) = self.search.as_mut() {
+                        s.edit.select_all();
+                        cx.notify();
+                    }
+                }
+                "c" => {
+                    if let Some(t) = self.search.as_ref().and_then(|s| s.edit.selected_text()) {
+                        cx.write_to_clipboard(gpui::ClipboardItem::new_string(t));
+                    }
+                }
+                "x" => {
+                    if let Some(s) = self.search.as_mut() {
+                        if let Some(t) = s.edit.selected_text() {
+                            cx.write_to_clipboard(gpui::ClipboardItem::new_string(t));
+                            s.edit.delete_selection();
+                            s.current = 0;
+                            self.search_jump(cx);
+                        }
+                    }
+                }
+                _ => {}
+            }
             return;
         }
         match ks.key.as_str() {
@@ -143,6 +176,7 @@ impl TerminalView {
     pub(crate) fn search_bar(
         &self,
         before: &str,
+        selected: Option<&str>,
         after: &str,
         pos: usize,
         total: usize,
@@ -152,6 +186,8 @@ impl TerminalView {
         let bg = colors::rgba(self.colors.selection_bg);
         let mut caret = colors::hsla(self.colors.cursor);
         caret.a = 0.9;
+        let mut sel_bg = colors::hsla(self.colors.cursor);
+        sel_bg.a = 0.35;
         let mut hover = colors::hsla(self.colors.selection_fg);
         hover.a = 0.16;
         let mut border = colors::hsla(self.colors.fg);
@@ -210,7 +246,15 @@ impl TerminalView {
                     .overflow_hidden()
                     .whitespace_nowrap()
                     .child(SharedString::from(before.to_string()))
-                    .child(div().w(px(1.0)).h(px(14.0)).bg(caret))
+                    .map(|row| match selected {
+                        Some(sel) => row.child(
+                            div()
+                                .bg(sel_bg)
+                                .rounded(px(2.0))
+                                .child(SharedString::from(sel.to_string())),
+                        ),
+                        None => row.child(div().w(px(1.0)).h(px(14.0)).bg(caret)),
+                    })
                     .child(SharedString::from(after.to_string())),
             )
             .child(

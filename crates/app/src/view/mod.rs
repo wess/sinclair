@@ -500,10 +500,17 @@ impl Render for TerminalView {
         });
         let bar = self.search.as_ref().map(|s| {
             let pos = if total == 0 { 0 } else { s.current + 1 };
-            let (before, after) = s.edit.split();
-            (pos, before, after)
+            match s.edit.split_selection() {
+                Some((before, selected, after)) => (pos, before, Some(selected), after),
+                None => {
+                    let (before, after) = s.edit.split();
+                    (pos, before, None, after)
+                }
+            }
         });
-        let bar = bar.map(|(pos, before, after)| self.search_bar(&before, &after, pos, total, cx));
+        let bar = bar.map(|(pos, before, selected, after)| {
+            self.search_bar(&before, selected.as_deref(), &after, pos, total, cx)
+        });
         let hits = self.semantic_hits();
         let assist = self.assist_panel(&hits);
         let menu = self

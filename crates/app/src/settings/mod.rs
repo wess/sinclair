@@ -239,6 +239,12 @@ impl SettingsView {
     }
 
     fn begin_edit(&mut self, target: EditTarget, window: &mut Window, cx: &mut Context<Self>) {
+        // Save any in-progress edit before switching fields, so a value typed
+        // (or pasted) into one field isn't lost by clicking another. Capturing a
+        // keybind is transient, not a committed value, so skip it there.
+        if !self.capturing && self.editing.as_ref().is_some_and(|(t, _)| t != &target) {
+            self.commit_edit(cx);
+        }
         match target {
             EditTarget::Field(f) => self.start_field(f, window, cx),
             EditTarget::Item(k, i) => self.start_item(k, i, window, cx),
@@ -358,6 +364,43 @@ impl SettingsView {
         }
         if ks.modifiers.platform && ks.key == "w" {
             window.remove_window();
+            cx.stop_propagation();
+            return;
+        }
+        // Clipboard for the inline field editor (copy/cut/paste a value, e.g. a
+        // binary path). Handled here since the clipboard needs `App` access.
+        if ks.modifiers.platform
+            && !ks.modifiers.alt
+            && !ks.modifiers.control
+            && self.editing.is_some()
+            && matches!(ks.key.as_str(), "c" | "x" | "v")
+        {
+            match ks.key.as_str() {
+                "c" => {
+                    if let Some((_, edit)) = self.editing.as_ref() {
+                        if let Some(t) = edit.selected_text() {
+                            cx.write_to_clipboard(gpui::ClipboardItem::new_string(t));
+                        }
+                    }
+                }
+                "x" => {
+                    if let Some((_, edit)) = self.editing.as_mut() {
+                        if let Some(t) = edit.selected_text() {
+                            cx.write_to_clipboard(gpui::ClipboardItem::new_string(t));
+                            edit.delete_selection();
+                            cx.notify();
+                        }
+                    }
+                }
+                "v" => {
+                    let pasted = cx.read_from_clipboard().and_then(|i| i.text());
+                    if let (Some(t), Some((_, edit))) = (pasted, self.editing.as_mut()) {
+                        edit.insert(&t.replace(['\n', '\r'], " "));
+                        cx.notify();
+                    }
+                }
+                _ => {}
+            }
             cx.stop_propagation();
             return;
         }
