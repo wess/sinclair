@@ -102,6 +102,7 @@ impl WorkspaceView {
             Action::MoveTab(delta) => self.movetab(delta, cx),
             Action::Copy => self.onfocused(cx, |v, cx| v.copy_selection(cx)),
             Action::CopyCommandOutput => self.onfocused(cx, |v, cx| v.copy_command_output(cx)),
+            Action::Hints => self.onfocused(cx, |v, cx| v.open_hints(cx)),
             Action::Paste => self.onfocused(cx, |v, cx| v.paste_clipboard(cx)),
             Action::SelectAll => self.onfocused(cx, |v, cx| v.select_all(cx)),
             Action::AdjustSelection(dir) => self.onfocused(cx, |v, cx| v.adjust_selection(dir, cx)),

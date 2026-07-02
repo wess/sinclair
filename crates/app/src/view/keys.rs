@@ -74,6 +74,7 @@ impl TerminalView {
         }
         if self.context_menu.is_some()
             || self.search.is_some()
+            || self.hints_active()
             || self.assist.is_some()
             || self.read_only
         {
@@ -96,6 +97,11 @@ impl TerminalView {
                 cx.notify();
                 cx.stop_propagation();
             }
+            return;
+        }
+        if self.hints_active() {
+            self.hints_key(keystroke, cx);
+            cx.stop_propagation();
             return;
         }
         if self.search.is_some() {

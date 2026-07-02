@@ -188,6 +188,8 @@ pub enum Action {
     Copy,
     /// Copy the most recent finished command's output (OSC 133 blocks).
     CopyCommandOutput,
+    /// Enter hint mode: label visible URLs and open one by keyboard.
+    Hints,
     Paste,
     /// Select the entire terminal buffer (scrollback + screen).
     SelectAll,
@@ -347,6 +349,7 @@ impl Action {
             "copy_command_output" | "copy_last_output" => {
                 only(Self::CopyCommandOutput, &name, param)
             }
+            "hints" | "open_url_hint" => only(Self::Hints, &name, param),
             "paste_from_clipboard" | "paste" => only(Self::Paste, &name, param),
             "select_all" => only(Self::SelectAll, &name, param),
             "adjust_selection" => {
@@ -457,6 +460,7 @@ impl Action {
             Self::MoveTab(n) => format!("move_tab:{n}"),
             Self::Copy => "copy_to_clipboard".into(),
             Self::CopyCommandOutput => "copy_command_output".into(),
+            Self::Hints => "hints".into(),
             Self::Paste => "paste_from_clipboard".into(),
             Self::SelectAll => "select_all".into(),
             Self::AdjustSelection(d) => format!("adjust_selection:{}", d.as_str()),

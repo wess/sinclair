@@ -20,6 +20,7 @@ use crate::metrics::{CellSize, Padding};
 use crate::mouse::MouseState;
 
 mod assist;
+mod hints;
 mod keys;
 mod mouse;
 mod notify;
@@ -240,6 +241,8 @@ pub struct TerminalView {
     sync_pending: bool,
     /// Active scrollback search, if the overlay is open.
     search: Option<Search>,
+    /// Active hint mode (keyboard link-following), if open.
+    hints: Option<hints::Hints>,
     /// Active local-assist overlay, if any.
     assist: Option<Assist>,
     /// Focus in/out listeners that drive focus reporting (?1004).
@@ -310,6 +313,7 @@ impl TerminalView {
             focused: false,
             sync_pending: false,
             search: None,
+            hints: None,
             assist: None,
             _focus_subs: [sub_in, sub_out],
         }
@@ -552,6 +556,7 @@ impl Render for TerminalView {
                 query,
                 self.image_cache.clone(),
             ))
+            .children(self.hints_overlay())
             .children(bar)
             .children(assist)
             .children(menu)

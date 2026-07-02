@@ -535,6 +535,32 @@ impl Terminal {
         None
     }
 
+    /// Every detectable URL in the visible viewport, as `(row, start_col,
+    /// end_col_inclusive, text)`, for hint-mode labelling. Wide cells extend
+    /// the end column by their spacer.
+    pub fn visible_links(&self) -> Vec<(usize, usize, usize, String)> {
+        let mut out = Vec::new();
+        for row in 0..self.rows() {
+            let cells = &self.visible_row(row).cells;
+            let mut chars: Vec<char> = Vec::with_capacity(cells.len());
+            let mut col_of: Vec<usize> = Vec::with_capacity(cells.len());
+            for (c, cell) in cells.iter().enumerate() {
+                if cell.is_wide_spacer() {
+                    continue;
+                }
+                chars.push(cell.ch);
+                col_of.push(c);
+            }
+            for (start, end) in crate::url::find(&chars) {
+                let start_col = col_of[start];
+                let last = col_of[end - 1];
+                let end_col = last + usize::from(cells[last].is_wide());
+                out.push((row, start_col, end_col, chars[start..end].iter().collect()));
+            }
+        }
+        out
+    }
+
     /// Global indices of rows marked as shell prompts (OSC 133;A), sorted
     /// oldest first. Index space matches the viewport: `0..scrollback.len()`
     /// are history rows, `scrollback.len()..` are live-grid rows - so the
