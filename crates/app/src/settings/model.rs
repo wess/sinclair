@@ -208,6 +208,7 @@ pub enum Num {
     MinContrast,
     ScrollMultiplier,
     SplitOpacity,
+    BgOpacity,
 }
 
 impl Num {
@@ -224,6 +225,7 @@ impl Num {
             Num::MinContrast => "minimum-contrast",
             Num::ScrollMultiplier => "mouse-scroll-multiplier",
             Num::SplitOpacity => "unfocused-split-opacity",
+            Num::BgOpacity => "background-opacity",
         }
     }
 
@@ -240,6 +242,7 @@ impl Num {
             Num::MinContrast => "Minimum contrast",
             Num::ScrollMultiplier => "Scroll multiplier",
             Num::SplitOpacity => "Unfocused split opacity",
+            Num::BgOpacity => "Background opacity",
         }
     }
 
@@ -256,6 +259,7 @@ impl Num {
             Num::MinContrast => o.minimum_contrast,
             Num::ScrollMultiplier => o.mouse_scroll_multiplier,
             Num::SplitOpacity => o.unfocused_split_opacity,
+            Num::BgOpacity => o.background_opacity,
         }
     }
 
@@ -273,6 +277,7 @@ impl Num {
             Num::MinContrast => (0.5, 1.0, 21.0, false),
             Num::ScrollMultiplier => (0.5, 0.01, 10_000.0, false),
             Num::SplitOpacity => (0.05, 0.15, 1.0, false),
+            Num::BgOpacity => (0.05, 0.2, 1.0, false),
         }
     }
 

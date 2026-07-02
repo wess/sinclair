@@ -31,12 +31,17 @@ impl Render for WorkspaceView {
             self.opts.focus_follows_mouse,
         );
 
+        // Root fill; its alpha is the window background opacity. Default-bg cells
+        // aren't painted by the element, so they show this (and the desktop when
+        // the window is transparent); colored cells stay opaque.
+        let mut winbg = colors::hsla(self.colors.bg);
+        winbg.a = self.opts.background_opacity.clamp(0.0, 1.0);
         let mut base = div()
             .relative()
             .size_full()
             .flex()
             .flex_col()
-            .bg(colors::rgba(self.colors.bg))
+            .bg(winbg)
             .key_context("Workspace")
             .on_action(cx.listener(Self::runbind))
             .on_action(cx.listener(Self::showdocs))

@@ -177,6 +177,9 @@ pub fn open_window(
         app_id: Some("prompt".into()),
         ..Default::default()
     };
+    if opts.background_opacity < 1.0 {
+        options.window_background = gpui::WindowBackgroundAppearance::Transparent;
+    }
     #[cfg(target_os = "linux")]
     {
         options.window_decorations = Some(gpui::WindowDecorations::Client);
