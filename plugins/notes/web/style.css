@@ -1,0 +1,80 @@
+:root {
+  --bg: #1c1c1e;
+  --panel: #202022;
+  --surface: #26262a;
+  --border: #34343a;
+  --text: #e6e6e8;
+  --dim: #8a8a90;
+  --accent: #6a9cff;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body, #app { height: 100%; margin: 0; }
+body {
+  font: 13px -apple-system, system-ui, sans-serif;
+  background: var(--bg); color: var(--text);
+}
+
+/* Vault picker */
+.picker { height: 100%; display: flex; align-items: center; justify-content: center; }
+.picker-card { width: 420px; max-width: 90%; }
+.picker h1 { font-size: 18px; margin: 0 0 4px; }
+.picker p { color: var(--dim); margin: 0 0 16px; }
+.picker .actions { display: flex; gap: 8px; margin-bottom: 18px; }
+.recents-title { font-size: 11px; text-transform: uppercase; color: var(--dim); margin: 8px 0; }
+.recent { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--border);
+  border-radius: 8px; background: var(--surface); margin-bottom: 6px; cursor: pointer; }
+.recent:hover { border-color: var(--accent); }
+.recent .path { color: var(--dim); font-size: 11px; margin-left: auto; }
+.recent .forget { color: var(--dim); padding: 0 4px; }
+.recent .forget:hover { color: var(--text); }
+
+/* Workspace: tree | editor */
+.workspace { height: 100%; display: flex; }
+.tree { width: 240px; flex: none; background: var(--panel); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; }
+.tree-head { display: flex; align-items: center; gap: 6px; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+.tree-head .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tree-head .switch { margin-left: auto; color: var(--dim); cursor: pointer; }
+.tree-scroll { flex: 1; overflow-y: auto; padding: 6px 4px; }
+.row { display: flex; align-items: center; gap: 4px; padding: 3px 6px; border-radius: 6px; cursor: pointer;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row:hover { background: var(--surface); }
+.row.active { background: var(--surface); }
+.row.file.active { color: var(--accent); }
+.row .tw { width: 12px; color: var(--dim); flex: none; text-align: center; }
+.row .lbl { overflow: hidden; text-overflow: ellipsis; }
+.tree-actions { display: flex; gap: 6px; padding: 8px; border-top: 1px solid var(--border); }
+
+/* Editor */
+.editor { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.editor-head { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-bottom: 1px solid var(--border); }
+.editor-head .title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.editor-head .spacer { flex: 1; }
+.editor-head .dirty { color: var(--dim); font-size: 11px; }
+.editor-body { flex: 1; min-height: 0; display: flex; }
+textarea.src {
+  flex: 1; min-width: 0; border: 0; outline: 0; resize: none; padding: 18px 22px;
+  background: var(--bg); color: var(--text); font: 14px/1.6 ui-monospace, "SF Mono", Menlo, monospace;
+}
+.preview { flex: 1; min-width: 0; overflow-y: auto; padding: 18px 24px; border-left: 1px solid var(--border);
+  line-height: 1.6; }
+.preview.only { border-left: 0; }
+.preview h1, .preview h2, .preview h3 { line-height: 1.3; }
+.preview h1 { font-size: 22px; } .preview h2 { font-size: 18px; } .preview h3 { font-size: 15px; }
+.preview code { background: var(--surface); padding: 1px 5px; border-radius: 4px; font-family: ui-monospace, monospace; }
+.preview pre { background: var(--surface); padding: 10px 12px; border-radius: 8px; overflow-x: auto; }
+.preview pre code { background: none; padding: 0; }
+.preview a, .preview .wl { color: var(--accent); cursor: pointer; text-decoration: none; }
+.preview a:hover, .preview .wl:hover { text-decoration: underline; }
+.preview blockquote { border-left: 3px solid var(--border); margin: 0; padding-left: 12px; color: var(--dim); }
+.empty { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--dim); }
+
+button, .btn {
+  font: inherit; padding: 7px 12px; border: 1px solid var(--border); border-radius: 7px;
+  background: var(--surface); color: var(--text); cursor: pointer;
+}
+button:hover, .btn:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); border-color: var(--accent); color: #0b1020; font-weight: 600; }
+.iconbtn { padding: 2px 7px; background: none; border: 0; color: var(--dim); }
+.iconbtn:hover { color: var(--text); }

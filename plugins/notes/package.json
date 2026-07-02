@@ -1,0 +1,10 @@
+{
+  "name": "prompt-notes",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A lightweight Obsidian for Prompt: a markdown vault, tree, and editor in a tab.",
+  "scripts": {
+    "server": "bun run server/main.ts"
+  }
+}
