@@ -64,8 +64,63 @@ impl WorkspaceView {
         if next == Some(SidebarPanel::Containers) {
             self.refresh_containers();
         }
+        // A panel `[webview]` hosts a native surface that only tracks its bounds
+        // while painted; hide any whose drawer just closed (or switched away).
+        self.reconcile_webview_visibility(cx);
         self.setmenus(cx);
         cx.notify();
+    }
+
+    /// Reconcile every native `[webview]` surface with what's actually on screen:
+    /// a panel host is visible only while its drawer is the active panel; a
+    /// webview *pane* only while it's in the active tab. A native OS view tracks
+    /// its bounds only while painted, so one that stops rendering must be hidden
+    /// explicitly or it lingers. See [`PluginWebView::set_visible`].
+    pub(crate) fn reconcile_webview_visibility(&self, cx: &mut Context<Self>) {
+        // Panel-placement webviews, keyed by id in `webview_hosts`.
+        let panel_visible = self.active_webview_ids();
+        let panel_hosts: Vec<(String, gpui::Entity<crate::pluginwebview::PluginWebView>)> =
+            self.webview_hosts.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
+        for (id, host) in panel_hosts {
+            let vis = panel_visible.contains(&id);
+            host.update(cx, |h, cx| h.set_visible(vis, cx));
+        }
+
+        // Webview panes: visible only if in the active tab's pane tree.
+        let active: std::collections::HashSet<workspace::PaneId> =
+            self.tabs.active().tree.panes().into_iter().collect();
+        let pane_hosts: Vec<(workspace::PaneId, gpui::Entity<crate::pluginwebview::PluginWebView>)> =
+            self.panes
+                .iter()
+                .filter_map(|(id, p)| match &p.content {
+                    PaneContent::Webview(host) => Some((*id, host.clone())),
+                    PaneContent::Terminal(_) => None,
+                })
+                .collect();
+        for (id, host) in pane_hosts {
+            let vis = active.contains(&id);
+            host.update(cx, |h, cx| h.set_visible(vis, cx));
+        }
+    }
+
+    /// The webview ids currently shown as a panel on either side.
+    fn active_webview_ids(&self) -> std::collections::HashSet<String> {
+        let defs = self.plugin_webview_panel_defs();
+        let id_of = |panel: &Option<SidebarPanel>| match panel {
+            Some(SidebarPanel::Webview(i)) => defs
+                .get(*i)
+                .and_then(|p| p.webview.as_ref())
+                .map(|w| w.id.clone()),
+            _ => None,
+        };
+        let mut set = std::collections::HashSet::new();
+        if let Some(id) = id_of(&self.left_panel) {
+            set.insert(id);
+        }
+        if let Some(id) = id_of(&self.right_panel) {
+            set.insert(id);
+        }
+        set
     }
 
     /// Toggle one of the trailing tab-bar dropdowns (`+` / split). Clicking the

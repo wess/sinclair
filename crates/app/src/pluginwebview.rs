@@ -134,6 +134,13 @@ impl PluginWebView {
         this
     }
 
+    /// Show or hide the native web view. A panel/tab host must hide it when its
+    /// surface is no longer on screen (a collapsed drawer, a switched panel), or
+    /// the OS view lingers at its last position.
+    pub fn set_visible(&self, visible: bool, cx: &mut Context<Self>) {
+        self.webview.update(cx, |wv, _| wv.set_visible(visible));
+    }
+
     /// Invoke the plugin runtime's `boot` method (Rust -> process, so it works
     /// even though the JS bridge can't from `file://`), then navigate the view
     /// to the address it returns: `{ url }`, or `{ port }` substituted into the
@@ -174,7 +181,7 @@ impl PluginWebView {
                 },
                 Err(e) => Err(e),
             };
-            let _ = webview.update(cx, |wv, cx| match target {
+            webview.update(cx, |wv, cx| match target {
                 Ok(u) => wv.load_url(u, cx),
                 Err(e) => wv.load_html(failure_html(&e), cx),
             });

@@ -307,6 +307,8 @@ pub fn default_keybinds() -> Vec<Keybind> {
         kb(cmd_shift, "b", Action::ToggleBroadcast),
         kb(cmd_shift, "p", Action::CommandPalette),
         kb(cmd, "p", Action::QuickOpen),
+        kb(cmd, "b", Action::Sidebar("left".to_string())),
+        kb(cmd_alt, "b", Action::Sidebar("right".to_string())),
         kb(cmd_shift, "r", Action::ToggleRecording),
         kb(cmd, "up", Action::JumpToPrompt(-1)),
         kb(cmd, "down", Action::JumpToPrompt(1)),

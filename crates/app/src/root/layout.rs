@@ -112,6 +112,8 @@ impl WorkspaceView {
         if let Some(pane) = self.panes.get(&self.tabs.focused()) {
             window.focus(&pane.content.focus_handle(cx), cx);
         }
+        // A switched-away webview pane must hide its native surface.
+        self.reconcile_webview_visibility(cx);
         self.settitle(window, cx);
     }
 

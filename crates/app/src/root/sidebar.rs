@@ -48,7 +48,7 @@ impl WorkspaceView {
             .min_h(px(0.0))
             .bg(panelbg)
             .text_color(fg)
-            .child(self.sidebar_header(&self.panel_label_of(panel)))
+            .child(self.sidebar_header(&self.panel_label_of(panel), side, cx))
             .child(body);
 
         let activity = self.sidebar_activitybar(side, panel, cx);
@@ -114,22 +114,54 @@ impl WorkspaceView {
         bar
     }
 
-    /// A panel's title strip.
-    fn sidebar_header(&self, label: &str) -> impl IntoElement {
+    /// A panel's title strip: the label plus an `×` that collapses the drawer.
+    fn sidebar_header(
+        &self,
+        label: &str,
+        side: SidebarSide,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
         let fg = colors::hsla(self.colors.fg);
         let mut dim = fg;
         dim.a = 0.6;
         let mut border = fg;
         border.a = 0.12;
+        let mut hover = fg;
+        hover.a = 0.12;
+        // A bare side token ("left"/"right") tells `toggle_sidebar` to collapse.
+        let (close_payload, side_ix) = match side {
+            SidebarSide::Left => ("left", 0usize),
+            SidebarSide::Right => ("right", 1usize),
+        };
         div()
             .flex_none()
+            .flex()
+            .flex_row()
+            .items_center()
             .px_3()
             .py_2()
             .border_b_1()
             .border_color(border)
             .text_size(px(11.0))
             .text_color(dim)
-            .child(SharedString::from(label.to_uppercase()))
+            .child(div().flex_1().child(SharedString::from(label.to_uppercase())))
+            .child(
+                div()
+                    .id(("sb-close", side_ix))
+                    .flex_none()
+                    .w(px(18.0))
+                    .h(px(18.0))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .rounded(px(4.0))
+                    .text_size(px(14.0))
+                    .hover(|s| s.bg(hover).text_color(fg))
+                    .on_click(cx.listener(move |this, _: &gpui::ClickEvent, _w, cx| {
+                        this.toggle_sidebar(close_payload, cx);
+                    }))
+                    .child(SharedString::from("\u{00d7}")),
+            )
     }
 
     /// Scrollable body wrapper shared by all panels.
