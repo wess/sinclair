@@ -50,6 +50,7 @@ impl TerminalView {
         let text = self.session.with_term(|t| t.selection_text());
         if let Some(text) = text.filter(|s| !s.is_empty()) {
             let text = crate::redact::mask(text, cx);
+            crate::clipboard::remember(&text, cx);
             cx.write_to_clipboard(ClipboardItem::new_string(text));
         }
         self.exit_copy_mode(cx);

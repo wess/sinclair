@@ -35,6 +35,34 @@ impl WorkspaceView {
         cx.notify();
     }
 
+    /// Open a Spotlight over the clipboard history; picking an entry pastes it
+    /// into the focused pane.
+    pub(crate) fn open_clipboard_history(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let entries = crate::clipboard::entries(cx);
+        if entries.is_empty() {
+            return;
+        }
+        let view = cx.entity();
+        let spotlight = cx.new(|scx| {
+            let mut spot = guise::Spotlight::new(scx);
+            for text in entries {
+                let view = view.clone();
+                let paste = text.clone();
+                let run = move |_window: &mut Window, app: &mut App| {
+                    let paste = paste.clone();
+                    view.update(app, |this, cx| {
+                        this.onfocused(cx, |v, cx| v.write_paste(&paste, cx))
+                    });
+                };
+                spot = spot.item(clip_label(&text), run);
+            }
+            spot
+        });
+        spotlight.update(cx, |spot, scx| spot.open(window, scx));
+        self.spotlight = Some(spotlight);
+        cx.notify();
+    }
+
     /// The keybind hint for an action, if one is bound.
     fn shortcut_hint(&self, action: &Action) -> Option<String> {
         self.keybinds
@@ -93,5 +121,15 @@ impl WorkspaceView {
             Action::ManagePlugins,
         ));
         self.open_spotlight(items, window, cx);
+    }
+}
+
+/// A one-line, length-capped label for a clipboard entry.
+fn clip_label(text: &str) -> String {
+    let one = text.replace('\n', " \u{23ce} ");
+    if one.chars().count() > 80 {
+        format!("{}\u{2026}", one.chars().take(79).collect::<String>())
+    } else {
+        one
     }
 }

@@ -104,6 +104,7 @@ impl WorkspaceView {
             Action::CopyCommandOutput => self.onfocused(cx, |v, cx| v.copy_command_output(cx)),
             Action::Hints => self.onfocused(cx, |v, cx| v.open_hints(cx)),
             Action::CopyMode => self.onfocused(cx, |v, cx| v.toggle_copy_mode(cx)),
+            Action::ClipboardHistory => self.open_clipboard_history(window, cx),
             Action::Paste => self.onfocused(cx, |v, cx| v.paste_clipboard(cx)),
             Action::SelectAll => self.onfocused(cx, |v, cx| v.select_all(cx)),
             Action::AdjustSelection(dir) => self.onfocused(cx, |v, cx| v.adjust_selection(dir, cx)),

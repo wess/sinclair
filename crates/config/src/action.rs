@@ -192,6 +192,8 @@ pub enum Action {
     Hints,
     /// Toggle copy mode: a vi-style keyboard cursor for selecting text.
     CopyMode,
+    /// Open the clipboard-history picker and paste a chosen recent copy.
+    ClipboardHistory,
     Paste,
     /// Select the entire terminal buffer (scrollback + screen).
     SelectAll,
@@ -353,6 +355,9 @@ impl Action {
             }
             "hints" | "open_url_hint" => only(Self::Hints, &name, param),
             "copy_mode" | "toggle_copy_mode" => only(Self::CopyMode, &name, param),
+            "clipboard_history" | "paste_history" => {
+                only(Self::ClipboardHistory, &name, param)
+            }
             "paste_from_clipboard" | "paste" => only(Self::Paste, &name, param),
             "select_all" => only(Self::SelectAll, &name, param),
             "adjust_selection" => {
@@ -465,6 +470,7 @@ impl Action {
             Self::CopyCommandOutput => "copy_command_output".into(),
             Self::Hints => "hints".into(),
             Self::CopyMode => "copy_mode".into(),
+            Self::ClipboardHistory => "clipboard_history".into(),
             Self::Paste => "paste_from_clipboard".into(),
             Self::SelectAll => "select_all".into(),
             Self::AdjustSelection(d) => format!("adjust_selection:{}", d.as_str()),

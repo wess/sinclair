@@ -26,6 +26,7 @@ mod pluginhost;
 mod pluginmanager;
 mod pluginwebview;
 mod pluginwindow;
+mod clipboard;
 mod pointer;
 mod quick;
 mod redact;

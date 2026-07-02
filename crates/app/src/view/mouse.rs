@@ -104,6 +104,7 @@ impl TerminalView {
         };
         if !text.is_empty() {
             let text = crate::redact::mask(text, cx);
+            crate::clipboard::remember(&text, cx);
             cx.write_to_clipboard(ClipboardItem::new_string(text));
         }
     }
@@ -134,6 +135,7 @@ impl TerminalView {
         });
         if let Some(text) = text {
             let text = crate::redact::mask(text, cx);
+            crate::clipboard::remember(&text, cx);
             cx.write_to_clipboard(ClipboardItem::new_string(text));
         }
     }
