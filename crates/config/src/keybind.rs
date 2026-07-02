@@ -296,6 +296,7 @@ pub fn default_keybinds() -> Vec<Keybind> {
         kb(cmd, "c", Action::Copy),
         kb(cmd_shift, "o", Action::CopyCommandOutput),
         kb(cmd_shift, "u", Action::Hints),
+        kb(cmd_shift, "space", Action::CopyMode),
         kb(cmd, "v", Action::Paste),
         kb(cmd, "+", Action::IncreaseFontSize(1.0)),
         kb(cmd, "=", Action::IncreaseFontSize(1.0)),

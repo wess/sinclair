@@ -20,6 +20,7 @@ use crate::metrics::{CellSize, Padding};
 use crate::mouse::MouseState;
 
 mod assist;
+mod copymode;
 mod hints;
 mod keys;
 mod mouse;
@@ -243,6 +244,8 @@ pub struct TerminalView {
     search: Option<Search>,
     /// Active hint mode (keyboard link-following), if open.
     hints: Option<hints::Hints>,
+    /// Active copy mode (vi-style keyboard selection), if open.
+    copy_mode: Option<copymode::CopyMode>,
     /// High-water global line index already scanned for output triggers;
     /// `usize::MAX` until the first scan (which skips pre-existing content).
     trigger_hwm: usize,
@@ -317,6 +320,7 @@ impl TerminalView {
             sync_pending: false,
             search: None,
             hints: None,
+            copy_mode: None,
             trigger_hwm: usize::MAX,
             assist: None,
             _focus_subs: [sub_in, sub_out],
@@ -562,6 +566,7 @@ impl Render for TerminalView {
                 self.image_cache.clone(),
             ))
             .children(self.hints_overlay())
+            .children(self.copy_cursor_overlay())
             .children(bar)
             .children(assist)
             .children(menu)

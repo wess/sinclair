@@ -190,6 +190,8 @@ pub enum Action {
     CopyCommandOutput,
     /// Enter hint mode: label visible URLs and open one by keyboard.
     Hints,
+    /// Toggle copy mode: a vi-style keyboard cursor for selecting text.
+    CopyMode,
     Paste,
     /// Select the entire terminal buffer (scrollback + screen).
     SelectAll,
@@ -350,6 +352,7 @@ impl Action {
                 only(Self::CopyCommandOutput, &name, param)
             }
             "hints" | "open_url_hint" => only(Self::Hints, &name, param),
+            "copy_mode" | "toggle_copy_mode" => only(Self::CopyMode, &name, param),
             "paste_from_clipboard" | "paste" => only(Self::Paste, &name, param),
             "select_all" => only(Self::SelectAll, &name, param),
             "adjust_selection" => {
@@ -461,6 +464,7 @@ impl Action {
             Self::Copy => "copy_to_clipboard".into(),
             Self::CopyCommandOutput => "copy_command_output".into(),
             Self::Hints => "hints".into(),
+            Self::CopyMode => "copy_mode".into(),
             Self::Paste => "paste_from_clipboard".into(),
             Self::SelectAll => "select_all".into(),
             Self::AdjustSelection(d) => format!("adjust_selection:{}", d.as_str()),
