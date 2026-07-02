@@ -107,6 +107,35 @@ impl TerminalView {
         }
     }
 
+    /// Copy the most recent finished command's output — the rows between the two
+    /// newest OSC 133 prompt marks (or the last prompt to the bottom when a
+    /// command is still running). A no-op without shell integration / marks.
+    pub fn copy_command_output(&mut self, cx: &mut Context<Self>) {
+        let text = self.session.with_term(|t| {
+            let prompts = t.prompt_lines();
+            let lines = t.text_lines();
+            let total = lines.len();
+            // Half-open output range in global-row space, skipping the command row.
+            let (start, end) = match prompts.len() {
+                0 => return None,
+                1 => (prompts[0] + 1, total),
+                n => (prompts[n - 2] + 1, prompts[n - 1]),
+            };
+            let mut out = String::new();
+            for (idx, text, _) in &lines {
+                if *idx >= start && *idx < end {
+                    out.push_str(text.trim_end());
+                    out.push('\n');
+                }
+            }
+            let out = out.trim_end().to_string();
+            (!out.is_empty()).then_some(out)
+        });
+        if let Some(text) = text {
+            cx.write_to_clipboard(ClipboardItem::new_string(text));
+        }
+    }
+
     /// Paste the clipboard into the pty (bracketed when the app requested it).
     pub fn paste_clipboard(&mut self, cx: &mut Context<Self>) {
         if self.read_only {

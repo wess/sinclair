@@ -186,6 +186,8 @@ pub enum Action {
     /// Move the current tab by a signed delta.
     MoveTab(i32),
     Copy,
+    /// Copy the most recent finished command's output (OSC 133 blocks).
+    CopyCommandOutput,
     Paste,
     /// Select the entire terminal buffer (scrollback + screen).
     SelectAll,
@@ -342,6 +344,9 @@ impl Action {
             "next_tab" => only(Self::NextTab, &name, param),
             "move_tab" => Ok(Self::MoveTab(int(&name, param)?)),
             "copy_to_clipboard" | "copy" => only(Self::Copy, &name, param),
+            "copy_command_output" | "copy_last_output" => {
+                only(Self::CopyCommandOutput, &name, param)
+            }
             "paste_from_clipboard" | "paste" => only(Self::Paste, &name, param),
             "select_all" => only(Self::SelectAll, &name, param),
             "adjust_selection" => {
@@ -451,6 +456,7 @@ impl Action {
             Self::NextTab => "next_tab".into(),
             Self::MoveTab(n) => format!("move_tab:{n}"),
             Self::Copy => "copy_to_clipboard".into(),
+            Self::CopyCommandOutput => "copy_command_output".into(),
             Self::Paste => "paste_from_clipboard".into(),
             Self::SelectAll => "select_all".into(),
             Self::AdjustSelection(d) => format!("adjust_selection:{}", d.as_str()),
