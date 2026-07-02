@@ -76,6 +76,15 @@ documented limits), **✗** not yet.
 | Selection (cell/word/line) | ✓ | copy, copy-on-select, bracketed paste |
 | Scrollback view + indicator | ✓ | |
 | Search in scrollback | ✓ | cmd+f overlay with editable query (caret, cursor keys), live highlight, n/N nav |
+| Hint mode (keyboard link-follow) | ✓ | `hints` (cmd+shift+u) labels visible URLs; type a label to open. `vt::semantic`/`visible_links` |
+| Smart selection | ✓ | double-click selects the whole URL/email/path/git-hash (`vt::semantic`), else a word; `smart-select` |
+| Command blocks (OSC 133) | ✓ | `copy_command_output` (cmd+shift+o) copies the last command's output between prompt marks |
+| Secret redaction | ✓ | `redact` regexes mask matches (•) on every copy path before the clipboard |
+| Regex output triggers | ✓ | `trigger = regex \| title` fires a desktop notification when new output matches |
+| Auto light/dark theme | ✓ | `theme-light`/`theme-dark` follow the OS appearance live (observe_window_appearance) |
+| Minimum contrast | ✓ | `minimum-contrast` nudges fg toward black/white (WCAG ratio) until readable |
+| Background opacity | ✓ | `background-opacity` makes the window translucent; default-bg cells show through |
+| Middle-click paste / focus-follows-mouse | ✓ | `middle-click-paste`, `focus-follows-mouse` |
 | Config (`key = value`) | ✓ | full option set, diagnostics |
 | Live config reload | ✓ | theme/font/padding/cursor/keybinds |
 | Settings panel (GUI) | ✓ | cmd+, modal: click controls (theme/font size+style/cursor/padding/scrollback/copy-on-select) plus editable text fields (font family, shell, foreground, background) via a built-in text-input widget; all written back to the config file |
