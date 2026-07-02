@@ -6,16 +6,80 @@
 //! on the active [`WorkspaceView`]. Splitting it this way keeps the stdio
 //! process trivial (no GUI) and lets any MCP client drive the live terminal.
 
+use std::collections::HashMap;
+
 use gpui::{App, WindowHandle};
 use serde_json::{json, Value};
 
 use crate::root::WorkspaceView;
 
-/// Entry point for the `prompt mcp` subcommand: serve MCP over stdio, bridging
-/// each tool call to the running instance over the socket. Blocks until stdin
+/// Entry point for the `prompt mcp` subcommand: serve MCP over stdio. Built-in
+/// terminal-control tools bridge to the running GUI over the socket; plugin
+/// `[[tool]]`s are invoked directly here (a plugin runtime is just a spawn), so
+/// agents see the plugins' tools alongside the built-ins. Blocks until stdin
 /// closes.
 pub fn run_stdio() {
-    mcp::serve(tools(), &|name, args| crate::ipc::request(name, args));
+    let plugins = config::load()
+        .0
+        .plugin
+        .clone();
+    let plugins = plugin::load(&plugins).0;
+    let (tools, routes) = all_tools(&plugins);
+    mcp::serve(tools, &|name, args| match routes.get(name) {
+        Some((index, tool_id)) => call_plugin_tool(&plugins[*index], tool_id, args),
+        None => crate::ipc::request(name, args),
+    });
+}
+
+/// The full tool surface: built-ins plus every plugin `[[tool]]`. Returns the
+/// tool list and a route map from MCP tool name to `(plugin index, tool id)`.
+fn all_tools(plugins: &[plugin::Plugin]) -> (Vec<mcp::Tool>, HashMap<String, (usize, String)>) {
+    let mut list = tools();
+    let mut routes = HashMap::new();
+    for (i, plugin) in plugins.iter().enumerate() {
+        for tool in &plugin.tools {
+            // MCP tool names must be [A-Za-z0-9_-]; plugin ids may contain `.`.
+            let name = format!("{}_{}", plugin.id, tool.id).replace('.', "_");
+            list.push(mcp::Tool::new(
+                name.clone(),
+                tool.description.clone(),
+                tool_schema(&tool.params),
+            ));
+            routes.insert(name, (i, tool.id.clone()));
+        }
+    }
+    (list, routes)
+}
+
+/// Build a JSON-Schema `inputSchema` object from a tool's declared params.
+fn tool_schema(params: &[plugin::ToolParam]) -> Value {
+    let mut props = serde_json::Map::new();
+    let mut required = Vec::new();
+    for p in params {
+        let mut schema = json!({ "type": p.kind });
+        if !p.description.is_empty() {
+            schema["description"] = json!(p.description);
+        }
+        props.insert(p.name.clone(), schema);
+        if p.required {
+            required.push(json!(p.name));
+        }
+    }
+    json!({ "type": "object", "properties": props, "required": required })
+}
+
+/// Invoke a plugin's runtime with a `tool` request and return its `result`.
+fn call_plugin_tool(plugin: &plugin::Plugin, tool_id: &str, args: &Value) -> Result<Value, String> {
+    let req = crate::pluginhost::Request {
+        kind: "tool",
+        panel: &plugin.id,
+        action: None,
+        cwd: None,
+        method: Some(tool_id),
+        params: Some(args),
+    };
+    let resp = crate::pluginhost::invoke(plugin, &req)?;
+    Ok(resp.result.unwrap_or_else(|| json!({ "ok": true })))
 }
 
 /// The terminal-control tool surface exposed to MCP clients.

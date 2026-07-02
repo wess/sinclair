@@ -30,6 +30,35 @@ pub struct Plugin {
     pub webview: Option<Webview>,
     /// `[[trigger]]`: event hooks that run an action when something happens.
     pub triggers: Vec<Trigger>,
+    /// `[[tool]]`: tools this plugin exposes to MCP clients (AI agents). Each is
+    /// handled by the `[runtime]` via a `tool` request. This is what makes a
+    /// plugin agent-callable: the tools appear in `prompt mcp`'s tool list.
+    pub tools: Vec<Tool>,
+}
+
+/// `[[tool]]` — a tool a plugin exposes to AI agents over MCP. When an agent
+/// calls it, the app invokes the plugin's `[runtime]` with a `tool` request
+/// (`method` = the tool id, `params` = the arguments) and returns its `result`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Tool {
+    /// Stable id; the MCP tool name is `<plugin-id>_<id>`.
+    pub id: String,
+    /// Description shown to the agent (the MCP `description`).
+    pub description: String,
+    /// Declared parameters, assembled into the MCP `inputSchema` by the host.
+    pub params: Vec<ToolParam>,
+}
+
+/// One argument of a `[[tool]]`, declared as
+/// `param = "name | type | description | required"` (type/description/required
+/// optional; type defaults to `string`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ToolParam {
+    pub name: String,
+    /// JSON Schema type: `string` | `number` | `integer` | `boolean`.
+    pub kind: String,
+    pub description: String,
+    pub required: bool,
 }
 
 /// `[runtime]` — how to launch the plugin's function host.
@@ -234,6 +263,15 @@ struct RawPlugin {
     webview_entry: Option<String>,
     webview_boot: bool,
     triggers: Vec<RawTrigger>,
+    tools: Vec<RawTool>,
+}
+
+#[derive(Default)]
+struct RawTool {
+    id: Option<String>,
+    description: Option<String>,
+    params: Vec<String>,
+    line: usize,
 }
 
 #[derive(Default)]
@@ -264,6 +302,7 @@ enum Section {
     Panel,
     Webview,
     Trigger(usize),
+    Tool(usize),
 }
 
 pub fn parse(path: PathBuf, text: &str) -> (Option<Plugin>, Vec<Diagnostic>) {
@@ -291,6 +330,14 @@ pub fn parse(path: PathBuf, text: &str) -> (Option<Plugin>, Vec<Diagnostic>) {
                 ..RawTrigger::default()
             });
             section = Section::Trigger(raw.triggers.len() - 1);
+            continue;
+        }
+        if trimmed == "[[tool]]" {
+            raw.tools.push(RawTool {
+                line,
+                ..RawTool::default()
+            });
+            section = Section::Tool(raw.tools.len() - 1);
             continue;
         }
         if trimmed == "[runtime]" {
@@ -332,6 +379,9 @@ pub fn parse(path: PathBuf, text: &str) -> (Option<Plugin>, Vec<Diagnostic>) {
             Section::Webview => webviewkey(&mut raw, key, &val, &path, line, &mut diags),
             Section::Trigger(index) => {
                 triggerkey(&mut raw.triggers[index], key, &val, &path, line, &mut diags)
+            }
+            Section::Tool(index) => {
+                toolkey(&mut raw.tools[index], key, &val, &path, line, &mut diags)
             }
         }
     }
@@ -401,6 +451,22 @@ fn commandkey(
         },
         "keybind" => raw.keybind = Some(val.to_string()),
         _ => diags.push(diag(path, line, &format!("unknown command key `{key}`"))),
+    }
+}
+
+fn toolkey(
+    raw: &mut RawTool,
+    key: &str,
+    val: &str,
+    path: &std::path::Path,
+    line: usize,
+    diags: &mut Vec<Diagnostic>,
+) {
+    match key {
+        "id" => raw.id = Some(val.to_string()),
+        "description" => raw.description = Some(val.to_string()),
+        "param" => raw.params.push(val.to_string()),
+        _ => diags.push(diag(path, line, &format!("unknown tool key `{key}`"))),
     }
 }
 
@@ -480,6 +546,17 @@ fn build(raw: RawPlugin, path: &std::path::Path, diags: &mut Vec<Diagnostic>) ->
         .into_iter()
         .filter_map(|t| build_trigger(t, path, diags))
         .collect();
+    // Tools need a runtime to handle them; drop them (with a diagnostic) if none.
+    let mut tools = Vec::new();
+    if !raw.tools.is_empty() && runtime.is_none() {
+        diags.push(diag(path, 0, "[[tool]] requires a [runtime] to handle it"));
+    } else {
+        for tool in raw.tools {
+            if let Some(t) = build_tool(tool, path, diags) {
+                tools.push(t);
+            }
+        }
+    }
     Some(Plugin {
         name,
         version: raw.version.unwrap_or_else(|| "0.0.0".to_string()),
@@ -494,6 +571,55 @@ fn build(raw: RawPlugin, path: &std::path::Path, diags: &mut Vec<Diagnostic>) ->
         panel,
         webview,
         triggers,
+        tools,
+    })
+}
+
+/// Assemble a validated [`Tool`], or `None` (with diagnostics) when the id is
+/// missing/invalid or the description is empty.
+fn build_tool(raw: RawTool, path: &std::path::Path, diags: &mut Vec<Diagnostic>) -> Option<Tool> {
+    let id = required(raw.id, "tool `id`", path, raw.line, diags)?;
+    if !validid(&id) {
+        diags.push(diag(
+            path,
+            raw.line,
+            "tool id must use lowercase letters, numbers, `.` or `-`",
+        ));
+        return None;
+    }
+    let description = raw.description.filter(|s| !s.trim().is_empty()).unwrap_or_else(|| {
+        diags.push(diag(path, raw.line, "tool has no `description`"));
+        String::new()
+    });
+    let params = raw.params.iter().filter_map(|p| parse_param(p)).collect();
+    Some(Tool {
+        id,
+        description,
+        params,
+    })
+}
+
+/// Parse a `param` line: `name | type | description | required`. Only the name
+/// is required; type defaults to `string`, and the 4th field being `required`
+/// or `true` marks it required.
+fn parse_param(spec: &str) -> Option<ToolParam> {
+    let mut parts = spec.split('|').map(str::trim);
+    let name = parts.next().filter(|s| !s.is_empty())?.to_string();
+    let kind = match parts.next().unwrap_or("") {
+        "" | "string" | "str" => "string",
+        "number" | "float" => "number",
+        "integer" | "int" => "integer",
+        "boolean" | "bool" => "boolean",
+        _ => "string",
+    }
+    .to_string();
+    let description = parts.next().unwrap_or("").to_string();
+    let required = matches!(parts.next().unwrap_or(""), "required" | "true" | "yes");
+    Some(ToolParam {
+        name,
+        kind,
+        description,
+        required,
     })
 }
 

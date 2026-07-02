@@ -47,6 +47,7 @@ fn descriptor() -> plugin::Plugin {
             boot: true,
         }),
         triggers: Vec::new(),
+        tools: Vec::new(),
     }
 }
 

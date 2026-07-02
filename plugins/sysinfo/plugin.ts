@@ -12,6 +12,8 @@ interface Response {
   title?: string;
   blocks: Block[];
   run?: { text: string; target?: string }[];
+  // For a `tool` request (an MCP agent call): the value that resolves the call.
+  result?: unknown;
 }
 
 const req = JSON.parse((await Bun.stdin.text()) || "{}");
@@ -64,5 +66,29 @@ function action(name: string): Response {
   return render();
 }
 
-const resp: Response = req.kind === "action" ? action(req.action) : render();
+// The `stats` tool: the same host data as the panel, but as structured JSON an
+// agent can consume directly.
+function stats(at: string): Response {
+  const host = sh(["hostname"]);
+  const load = sh(["uptime"]).match(/load aver\w+s?:\s*(.+)$/i)?.[1]?.trim() ?? null;
+  const df = sh(["df", "-h", "."], at).split("\n");
+  const cols = df.length >= 2 ? df[1].split(/\s+/) : [];
+  return {
+    blocks: [],
+    result: {
+      host: host || null,
+      load,
+      disk: { size: cols[1] ?? null, used: cols[2] ?? null, avail: cols[3] ?? null },
+    },
+  };
+}
+
+let resp: Response;
+if (req.kind === "tool") {
+  resp = stats((req.params && req.params.cwd) || cwd);
+} else if (req.kind === "action") {
+  resp = action(req.action);
+} else {
+  resp = render();
+}
 console.log(JSON.stringify(resp));

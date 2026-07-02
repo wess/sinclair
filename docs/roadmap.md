@@ -302,3 +302,13 @@ Conventions (non-negotiable):
   with a launcher mode that plugs into the existing `boot` webview flow. Notes
   is now File → Notes with no runtime dependency; shipped and signed beside
   `prompt` on macOS and Linux. See `crates/notes/readme.md`.
+- 2026-07-02: agent-native plugins (phase 1 of the plugin push). Plugins can now
+  contribute tools to Prompt's MCP server via a new `[[tool]]` manifest section
+  (`id`, `description`, `param = "name | type | description | required"`). Every
+  plugin tool joins the built-in terminal tools that `prompt mcp` exposes, named
+  `<plugin-id>_<tool-id>`, so any MCP client (Claude, or a relay-session agent)
+  can call it. Tool calls route directly to the plugin's `[runtime]` with a
+  `tool` request (no GUI needed), keeping the bridge process trivial. The bundled
+  `sysinfo` plugin ships a working `sysinfo_stats` tool as the reference. This is
+  the differentiator's first beat: a plugin isn't just UI for the user, it's a
+  capability for their agents. Next: generalize surfaces, then the WASM runtime.

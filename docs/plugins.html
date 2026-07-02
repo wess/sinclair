@@ -202,6 +202,25 @@ notify = "A command failed"  <span class="c"># one action: notify | run | invoke
         <p><code>command_finished</code> and <code>dir_changed</code> need shell integration enabled. The exit-code filter is <code>any</code>, <code>zero</code>/<code>success</code>, or <code>nonzero</code>/<code>failure</code>.</p>
         <p>Each trigger runs exactly one action: <code>notify = "…"</code> (a desktop notification); <code>run = "…"</code> with an optional <code>target</code> (<code>background</code> — the default, detached — or <code>pane</code>/<code>tab</code>/<code>split_right</code>/<code>split_down</code>, run with the focused pane's cwd); or <code>invoke = "method"</code>, which calls the plugin's <code>[runtime]</code> with the event payload and runs any <code>run</code> directives it returns. See <a href="https://github.com/wess/prompt/tree/main/plugins/alert">alert</a> for a complete example.</p>
 
+        <h2>Agent tools</h2>
+        <p>The bridge lets a plugin call <em>into</em> the terminal. <code>[[tool]]</code> is the other direction: a plugin exposes a <strong>tool your AI agents can call</strong>. Every plugin tool joins the built-in terminal tools in Prompt's MCP server, so any MCP client — Claude, or an agent running in a relay session — sees and can invoke it. This is what makes Prompt's plugins agent-native: a plugin isn't just UI for you, it's a capability for your agents.</p>
+        <p>Add one or more <code>[[tool]]</code> tables. A tool needs a <code>[runtime]</code> to handle it; parameters are declared as <code>param = "name | type | description | required"</code> (type defaults to <code>string</code>; the host assembles them into the MCP <code>inputSchema</code>):</p>
+        <pre><code>[runtime]
+command = "bun run plugin.ts"
+
+[[tool]]
+id = "stats"
+description = "Read host system stats: hostname, load, and disk usage."
+param = "cwd | string | Directory to report on"</code></pre>
+        <p>The tool is exposed to agents as <code>&lt;plugin-id&gt;_&lt;tool-id&gt;</code> (e.g. <code>sysinfo_stats</code>). When an agent calls it, the app invokes your <code>[runtime]</code> with a <code>tool</code> request — <code>kind: "tool"</code>, <code>method:</code> the tool id, <code>params:</code> the arguments — and returns whatever you put in <code>result</code>:</p>
+        <pre><code><span class="c">// plugin.ts — handling a tool call</span>
+const req = JSON.parse((await Bun.stdin.text()) || "{}");
+if (req.kind === "tool" &amp;&amp; req.method === "stats") {
+  const at = (req.params &amp;&amp; req.params.cwd) || process.cwd();
+  console.log(JSON.stringify({ result: { host: "…", load: "…", disk: {} } }));
+}</code></pre>
+        <div class="callout tip"><span class="label">Tip</span><p>Tool handlers run wherever <code>prompt mcp</code> runs, so they don't need the GUI — a plugin tool is just a spawn of your runtime with the agent's arguments. The bundled <a href="https://github.com/wess/prompt/tree/main/plugins/sysinfo">sysinfo</a> plugin ships a working <code>sysinfo_stats</code> tool.</p></div>
+
         <h2>Write your first plugin</h2>
         <p>Build a tiny IPC panel that shows the current directory and a refresh button.</p>
         <ol>

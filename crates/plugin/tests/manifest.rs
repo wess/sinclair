@@ -274,3 +274,46 @@ invoke = "onBell"
         assert!(two_plugin.unwrap().triggers.is_empty());
         assert!(two_diags.iter().any(|d| d.message.contains("exactly one action")));
     }
+
+    #[test]
+    fn parses_tools() {
+        let (plugin, diags) = parse(
+            path(),
+            r#"
+id = "db"
+[runtime]
+command = "bun run plugin.ts"
+[[tool]]
+id = "query"
+description = "Run a SQL query."
+param = "sql | string | The SQL to run | required"
+param = "limit | integer | Max rows"
+[[tool]]
+id = "tables"
+description = "List tables."
+"#,
+        );
+        assert!(diags.is_empty(), "{diags:?}");
+        let tools = plugin.unwrap().tools;
+        assert_eq!(tools.len(), 2);
+        assert_eq!(tools[0].id, "query");
+        assert_eq!(tools[0].description, "Run a SQL query.");
+        assert_eq!(tools[0].params.len(), 2);
+        assert_eq!(tools[0].params[0].name, "sql");
+        assert_eq!(tools[0].params[0].kind, "string");
+        assert!(tools[0].params[0].required);
+        assert_eq!(tools[0].params[1].kind, "integer");
+        assert!(!tools[0].params[1].required);
+        assert!(tools[1].params.is_empty());
+    }
+
+    #[test]
+    fn tool_without_runtime_is_diagnosed() {
+        let (plugin, diags) = parse(
+            path(),
+            "id = \"x\"\n[[tool]]\nid = \"q\"\ndescription = \"d\"\n",
+        );
+        // The plugin still loads, but the tool is dropped with a diagnostic.
+        assert!(plugin.unwrap().tools.is_empty());
+        assert!(diags.iter().any(|d| d.message.contains("[runtime]")));
+    }
