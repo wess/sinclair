@@ -33,14 +33,18 @@ mkdir -p "$out"
 
 # --- build ----------------------------------------------------------------
 rustup target add "$triple" >/dev/null 2>&1 || true
-cargo build --release -p app --target "$triple"
+cargo build --release -p app -p notes --target "$triple"
 bin="target/$triple/release/prompt"
+notes_bin="target/$triple/release/notes"
 strip "$bin" 2>/dev/null || true
+strip "$notes_bin" 2>/dev/null || true
 
 # --- staging tree (shared by tar.gz and the AppImage AppDir) ---------------
 appdir="$out/AppDir"
 mkdir -p "$appdir/usr/bin" "$appdir/usr/share/applications" "$appdir/usr/share/pixmaps"
 cp "$bin" "$appdir/usr/bin/prompt"
+# The Notes vault-server sidecar, found by the app beside its executable.
+cp "$notes_bin" "$appdir/usr/bin/notes"
 cp assets/prompt.desktop "$appdir/usr/share/applications/prompt.desktop"
 # 512px icon: linuxdeploy only accepts standard icon sizes (<=512), not the
 # 1024px master.

@@ -155,6 +155,11 @@ dist/
 build/
 release/
 *.tar
+
+# ...but the Notes editor bundle is prebuilt and embedded into the `notes`
+# binary at compile time (include_dir!), so it must stay tracked.
+!crates/notes/web/dist/
+!crates/notes/web/dist/editor.js
 *.tar.gz
 *.tgz
 *.zip

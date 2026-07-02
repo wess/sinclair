@@ -244,6 +244,8 @@ pub enum Action {
     MacroReplay(String),
     /// Open the fuzzy command palette.
     CommandPalette,
+    /// Open the Notes markdown-vault surface.
+    Notes,
     /// Open the guise Spotlight quick-open (commands + plugins).
     QuickOpen,
     /// Toggle the settings panel.
@@ -418,6 +420,7 @@ impl Action {
                 }
             }
             "command_palette" => only(Self::CommandPalette, &name, param),
+            "notes" => only(Self::Notes, &name, param),
             "quick_open" => only(Self::QuickOpen, &name, param),
             "open_settings" | "toggle_settings" => only(Self::ToggleSettings, &name, param),
             "show_help" | "help" => only(Self::ShowHelp, &name, param),
@@ -525,6 +528,7 @@ impl Action {
             Self::MacroRecord => "macro_record".into(),
             Self::MacroReplay(s) => format!("macro:{s}"),
             Self::CommandPalette => "command_palette".into(),
+            Self::Notes => "notes".into(),
             Self::QuickOpen => "quick_open".into(),
             Self::ToggleSettings => "toggle_settings".into(),
             Self::ShowHelp => "show_help".into(),

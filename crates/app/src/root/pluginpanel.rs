@@ -121,7 +121,7 @@ impl WorkspaceView {
 
     /// Open a plugin web view as its own tab (a single-pane tab hosting the
     /// webview). Mirrors `newtab` but with a webview pane instead of a shell.
-    fn open_webview_tab(
+    pub(crate) fn open_webview_tab(
         &mut self,
         plugin: plugin::Plugin,
         window: &mut Window,

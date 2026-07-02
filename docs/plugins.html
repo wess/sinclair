@@ -165,7 +165,7 @@ entry = "index.html"       <span class="c"># a file in the plugin dir (file://) 
 <span class="c"># url = "https://…"        # … or a URL instead of entry (exactly one)</span>
 <span class="c"># boot = true              # with a [runtime]: invoke boot for the URL (see below)</span></code></pre>
         <p>Open it from the command palette (<em>Open &lt;title&gt;</em>), the right sidebar (for <code>placement = "panel"</code>), the <strong>Plugins</strong> menu, or the <code>open_webview:&lt;id&gt;</code> action. All three placements are real — <code>tab</code> opens a proper editor-style tab.</p>
-        <p><strong><code>boot</code> — serve your own app.</strong> With <code>boot = true</code> and a <code>[runtime]</code>, the app invokes the runtime's <code>boot</code> method (from Rust, not the JS bridge) before loading, and navigates to the address it returns — <code>{ "url": … }</code>, or <code>{ "port": N }</code> substituted into the manifest url's <code>{port}</code> placeholder (<code>url = "http://127.0.0.1:{port}/"</code>). Use it to start a local server and load from a real <code>http</code> origin; the <a href="https://github.com/wess/prompt/tree/main/plugins/notes">notes</a> plugin does this.</p>
+        <p><strong><code>boot</code> — serve your own app.</strong> With <code>boot = true</code> and a <code>[runtime]</code>, the app invokes the runtime's <code>boot</code> method (from Rust, not the JS bridge) before loading, and navigates to the address it returns — <code>{ "url": … }</code>, or <code>{ "port": N }</code> substituted into the manifest url's <code>{port}</code> placeholder (<code>url = "http://127.0.0.1:{port}/"</code>). Use it to start a local server and load from a real <code>http</code> origin. Prompt's built-in <strong>Notes</strong> surface (File → Notes) uses exactly this pattern, backed by a bundled Rust vault server.</p>
         <div class="callout note"><span class="label">entry is served, not file://</span><p>An <code>entry</code> page is served from the plugin directory over an internal <code>guise://</code> origin — a real origin, so the <code>window.Prompt</code> bridge, ES modules, and <code>fetch</code> all work. (A page loaded directly over <code>file://</code> — e.g. a literal <code>url = "file://…"</code> — would break the bridge, since messages from a <code>file://</code> frame are silently dropped; use <code>entry</code> or a served <code>url</code>.)</p></div>
 
         <h3>The <code>window.Prompt</code> bridge</h3>
@@ -254,7 +254,6 @@ console.log(JSON.stringify({ title: "Hello", blocks }));</code></pre>
         <div class="tablewrap"><table>
           <thead><tr><th>Plugin</th><th>What it does</th><th>Requires</th></tr></thead>
           <tbody>
-            <tr><td><code>notes</code></td><td>A lightweight Obsidian — a markdown vault, file tree, and editor in a tab.</td><td><code>bun</code></td></tr>
             <tr><td><code>dashboard</code></td><td>A webview panel that runs commands and calls its own runtime.</td><td><code>bun</code></td></tr>
             <tr><td><code>alert</code></td><td>A trigger that desktop-notifies when a command exits non-zero.</td><td>&mdash;</td></tr>
           </tbody>

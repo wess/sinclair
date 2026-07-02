@@ -1,4 +1,0 @@
-node_modules/
-# The root .gitignore ignores every dist/, but we ship the prebuilt editor
-# bundle so users don't need the build toolchain to run Notes.
-!web/dist/

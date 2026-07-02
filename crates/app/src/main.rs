@@ -9,6 +9,7 @@ mod catalog;
 mod colors;
 mod element;
 mod envpath;
+mod notes;
 mod exportcmd;
 #[cfg(target_os = "macos")]
 mod fidelity;

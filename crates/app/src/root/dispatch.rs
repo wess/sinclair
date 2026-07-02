@@ -141,6 +141,7 @@ impl WorkspaceView {
                 }
             }
             Action::CommandPalette => self.open_palette(window, cx),
+            Action::Notes => self.open_notes(window, cx),
             Action::QuickOpen => self.open_quickopen(window, cx),
             Action::ToggleSettings => crate::settings::open(window, cx),
             Action::ShowHelp => crate::help::open(window, cx),

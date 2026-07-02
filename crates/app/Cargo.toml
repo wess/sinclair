@@ -25,6 +25,7 @@ extended-description = "Prompt is a GPU-accelerated terminal emulator with tabs,
 # to the actual --target/profile path.
 assets = [
     ["target/release/prompt", "usr/bin/prompt", "755"],
+    ["target/release/notes", "usr/bin/notes", "755"],
     ["../../assets/prompt.desktop", "usr/share/applications/prompt.desktop", "644"],
     ["../../assets/icon512.png", "usr/share/pixmaps/prompt.png", "644"],
 ]
