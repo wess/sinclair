@@ -312,3 +312,17 @@ Conventions (non-negotiable):
   `sysinfo` plugin ships a working `sysinfo_stats` tool as the reference. This is
   the differentiator's first beat: a plugin isn't just UI for the user, it's a
   capability for their agents. Next: generalize surfaces, then the WASM runtime.
+- 2026-07-02: plugin push phases 2–4. (2) Surface generalization — PluginWebView
+  is decoupled from plugin::Plugin behind a WebviewSurface descriptor (Url/Entry/
+  Boot; Boot is Runtime or Server), shared by plugin webviews and built-ins. Notes
+  now uses a first-class surface with Boot::Server(ensure_server), retiring the
+  synthetic-plugin + launcher-mode hack; the notes binary is server-only. (4)
+  Capability declarations — plugins declare `capability = "…"` from a known set
+  (commands/screen/network/filesystem/clipboard/notify), shown in the Plugin
+  Manager ("accesses: …"); advisory under the process runtime, the vocabulary the
+  WASM runtime will enforce; bundled plugins declare theirs. (3) WASM runtime
+  foundation — manifest `[runtime] type = "wasm"` + `wasm = "…"` parses and
+  validates; invoking one returns a clear not-yet-executable error; the full
+  engine design (WIT host world, capability-gated imports, guest toolchain,
+  migration) is in docs/plugins-wasm.md. Phases 2 and 4 ship; phase 3's engine is
+  the scoped next build.

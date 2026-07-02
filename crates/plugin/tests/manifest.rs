@@ -308,6 +308,31 @@ description = "List tables."
     }
 
     #[test]
+    fn parses_wasm_runtime() {
+        let (plugin, diags) = parse(
+            path(),
+            "id = \"w\"\n[runtime]\ntype = \"wasm\"\nwasm = \"plugin.wasm\"\n",
+        );
+        assert!(diags.is_empty(), "{diags:?}");
+        let rt = plugin.unwrap().runtime.unwrap();
+        assert_eq!(rt.kind, RuntimeKind::Wasm);
+        assert_eq!(rt.wasm.as_deref(), Some("plugin.wasm"));
+    }
+
+    #[test]
+    fn wasm_runtime_without_module_is_diagnosed() {
+        let (plugin, diags) = parse(path(), "id = \"w\"\n[runtime]\ntype = \"wasm\"\n");
+        assert!(plugin.unwrap().runtime.is_none());
+        assert!(diags.iter().any(|d| d.message.contains("wasm")));
+    }
+
+    #[test]
+    fn process_runtime_is_the_default() {
+        let (plugin, _) = parse(path(), "id = \"p\"\n[runtime]\ncommand = \"bun run x.ts\"\n");
+        assert_eq!(plugin.unwrap().runtime.unwrap().kind, RuntimeKind::Process);
+    }
+
+    #[test]
     fn parses_capabilities() {
         let (plugin, diags) = parse(
             path(),

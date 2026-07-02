@@ -111,6 +111,14 @@ pub enum Block {
 /// `plugin.ts` resolve); the target directory travels in `req.cwd`.
 pub fn invoke(plugin: &plugin::Plugin, req: &Request) -> Result<Response, String> {
     let runtime = plugin.runtime.as_ref().ok_or("plugin has no [runtime]")?;
+    // The WASM runtime's execution engine is not built yet (see
+    // docs/plugins-wasm.md); fail clearly rather than trying to spawn nothing.
+    if runtime.kind == plugin::RuntimeKind::Wasm {
+        return Err(
+            "wasm plugin runtimes are declared but not yet executable — see docs/plugins-wasm.md"
+                .to_string(),
+        );
+    }
     let mut parts = runtime.command.split_whitespace();
     let program = parts.next().ok_or("empty runtime command")?.to_string();
     let args: Vec<String> = parts.map(str::to_string).collect();

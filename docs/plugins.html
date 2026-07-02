@@ -230,6 +230,15 @@ capability = "network"
 capability = "filesystem"</code></pre>
         <div class="callout note"><span class="label">Note</span><p>Today a process <code>[runtime]</code> runs with your full user privileges, so capabilities are <strong>advisory</strong> — a declaration of intent, not a sandbox. They are the vocabulary the upcoming WebAssembly plugin runtime will <em>enforce</em>: a WASM plugin will only receive the capabilities it declares. Declare them now so your plugin is ready.</p></div>
 
+        <h2>WebAssembly runtime <span class="badge">in progress</span></h2>
+        <p>A plugin can declare a <strong>WebAssembly runtime</strong> instead of a subprocess — the direction that makes plugins dependency-free (no bun/node), <strong>sandboxed</strong> to their declared capabilities, and safe to distribute:</p>
+        <pre><code>[runtime]
+type = "wasm"          <span class="c"># vs the default "process"</span>
+wasm = "plugin.wasm"   <span class="c"># module path, relative to the plugin</span>
+
+capability = "screen"  <span class="c"># the host functions the module may import</span></code></pre>
+        <p>The manifest surface and capability model ship today and validate; the execution engine is the next build. Declaring a <code>wasm</code> runtime now lets plugins and the host adopt it incrementally — until the engine lands, invoking one returns a clear "not yet executable" message. The full design (the WIT host world, capability-gated imports, the guest toolchain, and the migration path) is in <a href="https://github.com/wess/prompt/blob/main/docs/plugins-wasm.md">docs/plugins-wasm.md</a>.</p>
+
         <h2>Write your first plugin</h2>
         <p>Build a tiny IPC panel that shows the current directory and a refresh button.</p>
         <ol>

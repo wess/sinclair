@@ -80,8 +80,36 @@ pub struct ToolParam {
 /// `[runtime]` — how to launch the plugin's function host.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Runtime {
-    /// Command line to spawn; split on whitespace into program + args.
+    /// Which host runs the plugin.
+    pub kind: RuntimeKind,
+    /// For a `process` runtime: the command to spawn (split on whitespace).
     pub command: String,
+    /// For a `wasm` runtime: the `.wasm` module path, relative to the plugin.
+    pub wasm: Option<String>,
+}
+
+/// The kind of `[runtime]` host.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum RuntimeKind {
+    /// A subprocess spoken to over JSON on stdin/stdout. Full user privileges;
+    /// needs whatever interpreter its `command` names (bun, node, …).
+    #[default]
+    Process,
+    /// A WebAssembly module run in-process. No runtime dependency; sandboxed to
+    /// its declared [`capabilities`](Plugin::capabilities). The execution engine
+    /// is in progress — see `docs/plugins-wasm.md`; declaring it is supported so
+    /// plugins and the host can adopt the surface incrementally.
+    Wasm,
+}
+
+impl RuntimeKind {
+    fn parse(value: &str) -> Option<Self> {
+        match value {
+            "process" | "" => Some(Self::Process),
+            "wasm" | "wasm32" | "webassembly" => Some(Self::Wasm),
+            _ => None,
+        }
+    }
 }
 
 /// `[panel]` — a contributed side-drawer panel rendered from the plugin's
@@ -266,6 +294,8 @@ struct RawPlugin {
     commands: Vec<RawCommand>,
     has_runtime: bool,
     runtime_command: Option<String>,
+    runtime_type: Option<RuntimeKind>,
+    runtime_wasm: Option<String>,
     has_panel: bool,
     panel_id: Option<String>,
     panel_title: Option<String>,
@@ -519,12 +549,28 @@ fn build(raw: RawPlugin, path: &std::path::Path, diags: &mut Vec<Diagnostic>) ->
     }
     let name = raw.name.unwrap_or_else(|| id.clone());
     let runtime = if raw.has_runtime {
-        match raw.runtime_command.filter(|s| !s.trim().is_empty()) {
-            Some(command) => Some(Runtime { command }),
-            None => {
-                diags.push(diag(path, 0, "[runtime] requires a `command`"));
-                None
-            }
+        let kind = raw.runtime_type.unwrap_or_default();
+        let command = raw.runtime_command.filter(|s| !s.trim().is_empty());
+        let wasm = raw.runtime_wasm.filter(|s| !s.trim().is_empty());
+        match kind {
+            RuntimeKind::Process => match command {
+                Some(command) => Some(Runtime { kind, command, wasm: None }),
+                None => {
+                    diags.push(diag(path, 0, "[runtime] requires a `command`"));
+                    None
+                }
+            },
+            RuntimeKind::Wasm => match wasm {
+                Some(wasm) => Some(Runtime {
+                    kind,
+                    command: command.unwrap_or_default(),
+                    wasm: Some(wasm),
+                }),
+                None => {
+                    diags.push(diag(path, 0, "a `wasm` runtime requires a `wasm` module path"));
+                    None
+                }
+            },
         }
     } else {
         None
@@ -711,6 +757,11 @@ fn runtimekey(
 ) {
     match key {
         "command" => raw.runtime_command = Some(val.to_string()),
+        "wasm" => raw.runtime_wasm = Some(val.to_string()),
+        "type" => match RuntimeKind::parse(val) {
+            Some(k) => raw.runtime_type = Some(k),
+            None => diags.push(diag(path, line, "runtime type must be `process` or `wasm`")),
+        },
         _ => diags.push(diag(path, line, &format!("unknown runtime key `{key}`"))),
     }
 }
