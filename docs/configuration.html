@@ -24,7 +24,7 @@
 
         <h2>Format</h2>
         <p>The file is INI-style: one <code>key = value</code> per line. Lines beginning with <code>#</code> are comments and are ignored, as are blank lines. Whitespace around the key and value is trimmed.</p>
-        <p>Most keys take a single value, where the last assignment wins. A handful of keys are <em>repeatable</em>: each occurrence accumulates into a list rather than overwriting the previous one. The repeatable keys are <code>font-family</code>, <code>font-feature</code>, <code>keybind</code>, <code>palette</code>, <code>plugin</code>, and <code>agent-custom</code>.</p>
+        <p>Most keys take a single value, where the last assignment wins. A handful of keys are <em>repeatable</em>: each occurrence accumulates into a list rather than overwriting the previous one. The repeatable keys are <code>font-family</code>, <code>font-feature</code>, <code>keybind</code>, <code>palette</code>, <code>plugin</code>, <code>agent-custom</code>, <code>redact</code>, <code>trigger</code>, <code>snippet</code>, and <code>profile</code>.</p>
         <p>Bad lines never abort the load. An unknown key, a malformed value, or a typo becomes a friendly diagnostic surfaced on startup, and the rest of the file is applied normally.</p>
         <pre><code><span class="c"># ~/.config/prompt/config</span>
 font-family = JetBrains Mono
@@ -63,6 +63,11 @@ scrollback-limit = 50000</code></pre>
           <thead><tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
           <tbody>
             <tr><td><code>theme</code></td><td>string</td><td><code>Dark</code></td><td>Built-in or custom theme name. Matching is case-, space-, dash-, and underscore-insensitive.</td></tr>
+            <tr><td><code>theme-light</code></td><td>string</td><td>none</td><td>Theme used when the OS is in light mode. Set with <code>theme-dark</code> to follow the system appearance automatically (live).</td></tr>
+            <tr><td><code>theme-dark</code></td><td>string</td><td>none</td><td>Theme used when the OS is in dark mode.</td></tr>
+            <tr><td><code>background-opacity</code></td><td>float</td><td><code>1.0</code></td><td>Window background alpha; the terminal goes translucent. Clamped to <code>0.2..=1.0</code>.</td></tr>
+            <tr><td><code>background-image</code></td><td>path</td><td>none</td><td>Image drawn behind the terminal (best with <code>background-opacity</code> &lt; 1 so it shows through).</td></tr>
+            <tr><td><code>badge</code></td><td>string</td><td>none</td><td>Faint watermark drawn in each pane's corner; <code>{cwd}</code> and <code>{host}</code> are substituted per pane.</td></tr>
             <tr><td><code>background</code></td><td>hex</td><td>none</td><td>Override the theme background color.</td></tr>
             <tr><td><code>foreground</code></td><td>hex</td><td>none</td><td>Override the theme foreground color.</td></tr>
             <tr><td><code>bold-is-bright</code></td><td>bool</td><td><code>false</code></td><td>Render bold text using the bright ANSI palette variant.</td></tr>
@@ -99,6 +104,9 @@ scrollback-limit = 50000</code></pre>
             <tr><td><code>window-inherit-working-directory</code></td><td>bool</td><td><code>true</code></td><td>New windows inherit the working directory of the focused surface.</td></tr>
             <tr><td><code>mouse-scroll-multiplier</code></td><td>float</td><td><code>1.0</code></td><td>Scroll speed multiplier. Clamped to <code>0.01..=10000</code>.</td></tr>
             <tr><td><code>mouse-hide-while-typing</code></td><td>bool</td><td><code>false</code></td><td>Hide the mouse cursor while you type.</td></tr>
+            <tr><td><code>smart-select</code></td><td>bool</td><td><code>true</code></td><td>Double-click selects the whole URL / email / path / git hash under the pointer, falling back to a word.</td></tr>
+            <tr><td><code>middle-click-paste</code></td><td>bool</td><td><code>false</code></td><td>Paste the current selection with a middle click (X-style).</td></tr>
+            <tr><td><code>focus-follows-mouse</code></td><td>bool</td><td><code>false</code></td><td>Focus the split the pointer moves over, without a click.</td></tr>
             <tr><td><code>macos-option-as-alt</code></td><td>enum <code>auto</code>|<code>left</code>|<code>right</code>|<code>true</code>|<code>false</code></td><td><code>auto</code></td><td>Treat the macOS Option key as Alt for key encoding.</td></tr>
           </tbody>
         </table></div>
@@ -110,6 +118,7 @@ scrollback-limit = 50000</code></pre>
             <tr><td><code>command</code></td><td>string (shell path)</td><td>none (login shell)</td><td>Program to run instead of the default login shell.</td></tr>
             <tr><td><code>working-directory</code></td><td>string</td><td>none (<code>$HOME</code>)</td><td>Initial working directory for new surfaces.</td></tr>
             <tr><td><code>copy-on-select</code></td><td>bool</td><td><code>false</code></td><td>Copy selected text to the clipboard automatically.</td></tr>
+            <tr><td><code>timestamps</code></td><td>bool</td><td><code>false</code></td><td>Show a faint relative time (5s/2m/1h/3d) beside each scrollback row.</td></tr>
             <tr><td><code>confirm-close-surface</code></td><td>bool</td><td><code>true</code></td><td>Prompt before closing a surface that has a running process.</td></tr>
             <tr><td><code>confirm-quit</code></td><td>bool</td><td><code>true</code></td><td>Prompt before quitting the application.</td></tr>
           </tbody>
@@ -133,6 +142,17 @@ scrollback-limit = 50000</code></pre>
             <tr><td><code>shell-integration</code></td><td>bool</td><td><code>true</code></td><td>Inject OSC 133 prompt marks and OSC 7 cwd reporting into zsh/bash/fish via environment — no rc-file edits.</td></tr>
             <tr><td><code>session-restore</code></td><td>bool</td><td><code>false</code></td><td>Restore windows and splits from the previous run.</td></tr>
             <tr><td><code>tab-title-show-host</code></td><td>bool</td><td><code>false</code></td><td>Show the hostname in tab titles.</td></tr>
+          </tbody>
+        </table></div>
+
+        <h3>Automation &amp; privacy</h3>
+        <div class="tablewrap"><table>
+          <thead><tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>trigger</code></td><td>string (repeatable)</td><td>none</td><td>Regex, optionally <code>regex | Title</code>. When new output matches, a desktop notification fires with the matched line.</td></tr>
+            <tr><td><code>redact</code></td><td>string (repeatable)</td><td>none</td><td>Regex whose matches are masked with bullets on every copy path, keeping secrets off the clipboard.</td></tr>
+            <tr><td><code>snippet</code></td><td>string (repeatable)</td><td>none</td><td><code>label | command</code>; recalled from the snippet picker (<code>snippets</code> action), inserted into the focused pane.</td></tr>
+            <tr><td><code>profile</code></td><td>string (repeatable)</td><td>none</td><td><code>label | command</code>; opens a new tab running the command from the profile picker (<code>profiles</code> action).</td></tr>
           </tbody>
         </table></div>
 

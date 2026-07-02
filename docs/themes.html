@@ -72,6 +72,26 @@
           </table>
         </div>
 
+        <h2>Automatic light &amp; dark</h2>
+        <p>Set <code>theme-light</code> and <code>theme-dark</code> to follow your operating system's appearance. Prompt watches the OS light/dark setting and rebuilds its colors live when it flips, picking the matching scheme — no restart, no manual toggle. Either key on its own also works; whichever is set wins for that appearance, and <code>theme</code> is the fallback.</p>
+        <pre><code><span class="c"># ~/.config/prompt/config</span>
+theme-light = github light
+theme-dark  = github dark</code></pre>
+
+        <h2>Transparency, images &amp; readability</h2>
+        <p>A few keys shape the terminal surface itself:</p>
+        <ul>
+          <li><code>background-opacity</code> (0.2–1.0) makes the window translucent — the terminal background lets the desktop through while colored cells stay opaque.</li>
+          <li><code>background-image</code> draws an image behind the terminal; combine it with a lowered <code>background-opacity</code> so the image shows through.</li>
+          <li><code>minimum-contrast</code> (1–21) nudges each cell's foreground toward black or white until it meets that WCAG contrast ratio against its background — a floor on readability for low-contrast color schemes.</li>
+          <li><code>badge</code> paints a faint watermark in each pane's corner, with <code>{cwd}</code> and <code>{host}</code> substituted per pane.</li>
+        </ul>
+        <pre><code><span class="c"># ~/.config/prompt/config</span>
+background-opacity = 0.85
+background-image = ~/Pictures/wallpaper.png
+minimum-contrast = 4.5
+badge = {host} · {cwd}</code></pre>
+
         <h2>Per-color overrides</h2>
         <p>
           You don't have to take a theme as-is. Any of these keys layer your own

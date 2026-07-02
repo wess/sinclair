@@ -102,6 +102,16 @@ keybind = cmd+shift+j=plugin_command:git/status</code></pre>
               <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>R</kbd></td><td><code>toggle_recording</code></td><td>Toggle session recording</td></tr>
               <tr><td><kbd>⌘</kbd><kbd>↑</kbd></td><td><code>jump_to_prompt:-1</code></td><td>Jump to the previous prompt</td></tr>
               <tr><td><kbd>⌘</kbd><kbd>↓</kbd></td><td><code>jump_to_prompt:1</code></td><td>Jump to the next prompt</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>O</kbd></td><td><code>copy_command_output</code></td><td>Copy the last command's output (OSC 133 blocks)</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>U</kbd></td><td><code>hints</code></td><td>Hint mode: label visible URLs, type to open</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>Space</kbd></td><td><code>copy_mode</code></td><td>Copy mode: vi-style keyboard selection</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>Y</kbd></td><td><code>clipboard_history</code></td><td>Clipboard-history picker</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>⌥</kbd><kbd>F</kbd></td><td><code>search_all</code></td><td>Global search across all tabs</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>⌥</kbd><kbd>E</kbd></td><td><code>unicode_picker</code></td><td>Emoji / symbol insert picker</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>⌥</kbd><kbd>S</kbd></td><td><code>snippets</code></td><td>Snippet / workflow picker</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>⌥</kbd><kbd>P</kbd></td><td><code>profiles</code></td><td>Launch-profile picker (opens a command tab)</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>⌥</kbd><kbd>A</kbd></td><td><code>annotate</code></td><td>Annotate the current line with a note</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>B</kbd> / <kbd>⌘</kbd><kbd>⌥</kbd><kbd>B</kbd></td><td><code>sidebar:left</code> / <code>sidebar:right</code></td><td>Toggle the left / right sidebar</td></tr>
               <tr><td><kbd>⌘</kbd><kbd>,</kbd></td><td><code>toggle_settings</code></td><td>Toggle the settings panel</td></tr>
               <tr><td><kbd>⌘</kbd><kbd>⌥</kbd><kbd>T</kbd></td><td><code>toggle_quick_terminal</code></td><td>Toggle the quick terminal</td></tr>
               <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>A</kbd></td><td><code>relay_launch</code></td><td>Launch a relay agent</td></tr>
@@ -155,6 +165,15 @@ keybind = cmd+shift+j=plugin_command:git/status</code></pre>
               <tr><td><code>next_tab</code></td><td>—</td><td>Switch to the next tab</td></tr>
               <tr><td><code>move_tab</code></td><td><code>DELTA</code>: signed integer</td><td>Move the current tab by DELTA positions</td></tr>
               <tr><td><code>copy_to_clipboard</code> <span class="c">(copy)</span></td><td>—</td><td>Copy the selection</td></tr>
+              <tr><td><code>copy_command_output</code> <span class="c">(copy_last_output)</span></td><td>—</td><td>Copy the last command's output between OSC 133 prompt marks</td></tr>
+              <tr><td><code>hints</code> <span class="c">(open_url_hint)</span></td><td>—</td><td>Enter hint mode: label visible URLs, type a label to open</td></tr>
+              <tr><td><code>copy_mode</code> <span class="c">(toggle_copy_mode)</span></td><td>—</td><td>Toggle vi-style keyboard selection</td></tr>
+              <tr><td><code>clipboard_history</code> <span class="c">(paste_history)</span></td><td>—</td><td>Open the clipboard-history picker</td></tr>
+              <tr><td><code>search_all</code> <span class="c">(global_search)</span></td><td>—</td><td>Fuzzy search recent output across all tabs</td></tr>
+              <tr><td><code>unicode_picker</code> <span class="c">(insert_emoji)</span></td><td>—</td><td>Insert an emoji or symbol</td></tr>
+              <tr><td><code>snippets</code> <span class="c">(workflows)</span></td><td>—</td><td>Insert a saved snippet into the focused pane</td></tr>
+              <tr><td><code>profiles</code> <span class="c">(profile_picker)</span></td><td>—</td><td>Open a named launch profile in a new tab</td></tr>
+              <tr><td><code>annotate</code></td><td>—</td><td>Pin a note to the current line</td></tr>
               <tr><td><code>paste_from_clipboard</code> <span class="c">(paste)</span></td><td>—</td><td>Paste from the clipboard</td></tr>
               <tr><td><code>select_all</code></td><td>—</td><td>Select all terminal text</td></tr>
               <tr><td><code>adjust_selection</code></td><td><code>left</code>, <code>right</code>, <code>up</code>, <code>down</code>, <code>home</code>, <code>end</code>, <code>page_up</code>, <code>page_down</code>, <code>word_left</code>, <code>word_right</code>, <code>line_start</code>, <code>line_end</code></td><td>Extend the selection's moving end (word_* / line_* start at the cursor)</td></tr>

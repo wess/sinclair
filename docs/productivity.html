@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Productivity — Prompt docs</title>
-    <meta name="description" content="Search, shell integration, macros, session recording, GIF/video export, notifications, and the quick terminal in Prompt.">
+    <meta name="description" content="Search, hint mode, copy mode, command blocks, pickers (clipboard history, snippets, profiles, emoji), output triggers, secret redaction, timestamps, annotations, badges, and more in Prompt.">
     <meta name="theme-color" content="#05070c">
     <link rel="icon" href="icon.png">
     <link rel="stylesheet" href="style.css">
@@ -16,7 +16,7 @@
       <article class="doc-article" data-doc-page="productivity">
         <p class="kicker">Using Prompt</p>
         <h1>Productivity</h1>
-        <p class="lede">Beyond drawing a fast grid, Prompt ships the features that make day-to-day terminal work quicker: searching scrollback, jumping between prompts, recording and replaying commands, capturing sessions, native notifications, and a drop-down quick terminal always a keystroke away.</p>
+        <p class="lede">Beyond drawing a fast grid, Prompt ships the features that make day-to-day terminal work quicker: searching scrollback and every tab at once, following links and selecting text from the keyboard, grabbing a command's output in one keystroke, fuzzy pickers for snippets/profiles/clipboard history/emoji, regex output triggers, secret redaction, per-line timestamps and annotations, recording and export, and a drop-down quick terminal always a keystroke away.</p>
 
         <h2>Search</h2>
         <p>Press <kbd>⌘F</kbd> (<code>toggle_search</code>) to open an in-place search overlay over the current pane's scrollback. As you type, every match is highlighted live and the view scrolls to the nearest hit. The query is fully editable — a caret tracks your position and the cursor keys move through it — and a case toggle switches between case-insensitive and case-sensitive matching. Use the next/previous controls to walk through matches in order; press <kbd>⎋</kbd> to dismiss the overlay and return to the buffer.</p>
@@ -31,6 +31,27 @@
 
         <h2>Jump to prompt</h2>
         <p>With shell integration active, <kbd>⌘↑</kbd> and <kbd>⌘↓</kbd> (<code>jump_to_prompt:-1</code> and <code>jump_to_prompt:1</code>) move the viewport between shell prompts recorded in the scrollback. This is the fastest way to skip back over a long block of output to the command that produced it, or forward again to the latest prompt.</p>
+
+        <h2>Command blocks</h2>
+        <p>Because shell integration marks where each command's output begins and ends, Prompt can treat the space between two prompts as a "block". <kbd>⌘⇧O</kbd> (<code>copy_command_output</code>) copies the output of the most recent finished command straight to the clipboard — the rows between the two newest prompt marks, or the last prompt to the bottom while a command is still running. No selecting or scrolling: run a command, then grab exactly what it printed.</p>
+
+        <h2>Hint mode</h2>
+        <p><kbd>⌘⇧U</kbd> (<code>hints</code>) labels every visible URL with a short home-row keystroke, Vimium-style. Type a label to open that link in your browser — bare <code>www.…</code> domains get an <code>https://</code> scheme automatically. Backspace corrects a mistyped label; <kbd>⎋</kbd> or any impossible prefix cancels. It's the fastest way to follow a link without reaching for the mouse.</p>
+
+        <h2>Copy mode</h2>
+        <p><kbd>⌘⇧Space</kbd> (<code>copy_mode</code>) drops a vi-style keyboard cursor onto the viewport and scrollback so you can select text without touching the mouse. Movement follows vi conventions:</p>
+        <ul>
+          <li><kbd>h</kbd> <kbd>j</kbd> <kbd>k</kbd> <kbd>l</kbd> or the arrow keys — move the cursor (it scrolls the view when it leaves the screen)</li>
+          <li><kbd>w</kbd> / <kbd>b</kbd> — step a column; <kbd>0</kbd> / <kbd>$</kbd> — line start / end; <kbd>g</kbd> / <kbd>G</kbd> — top / bottom</li>
+          <li><kbd>v</kbd> — begin a selection; move to extend it</li>
+          <li><kbd>y</kbd> or <kbd>Enter</kbd> — yank the selection (redacted, see below) and exit; <kbd>⎋</kbd> — exit</li>
+        </ul>
+
+        <h2>Smart selection</h2>
+        <p>Double-clicking selects the whole meaningful token under the pointer — a URL, an email address, a filesystem path, or a git-style hex hash — instead of a single whitespace-delimited word, falling back to word selection when there's no token there. It's on by default; set <code>smart-select = false</code> to restore plain word selection. Triple-click still selects the whole logical line.</p>
+
+        <h2>Global search across tabs</h2>
+        <p>Where <kbd>⌘F</kbd> searches the current pane, <kbd>⌘⌥F</kbd> (<code>search_all</code>) opens a fuzzy picker over recent output from <em>every</em> tab. Type to filter across all your sessions at once; each result is labelled with its tab number, and choosing one focuses that tab. Ideal for "which window did I run that in?"</p>
 
         <h2>Macros</h2>
         <p>A macro records a sequence of typed commands and replays them on demand. The <code>macro_record</code> action starts and stops capturing the commands you type; while recording, a floating pill shows the state with a red <code>● REC</code> indicator. Replay a saved macro with the <code>macro:NAME</code> action, bound to a key of your choosing.</p>
@@ -62,8 +83,50 @@ cargo build --release
         <h2>Quick terminal</h2>
         <p>The quick terminal is a Quake-style drop-down pane that slides in over your screen and tucks away again. Toggle it with <kbd>⌘⌥T</kbd> (<code>toggle_quick_terminal</code>). On Wayland, where a global hotkey is owned by the compositor, you can summon it from a compositor keybind that runs <code>prompt --toggle-quick</code> — this signals the running instance and exits. See the <a href="cli.html">CLI</a> page for that flag.</p>
 
+        <h2>Snippets &amp; workflows</h2>
+        <p>Save frequently-typed commands as snippets and recall them from a fuzzy picker. Each <code>snippet</code> config entry is <code>label | command</code>; <kbd>⌘⌥S</kbd> (<code>snippets</code>) opens the picker, and choosing one <em>inserts</em> the command into the focused pane so you can edit it before pressing Enter.</p>
+        <pre><code><span class="c"># ~/.config/prompt/config</span>
+snippet = deploy | git push origin main
+snippet = logs | kubectl logs -f deploy/api</code></pre>
+
+        <h2>Launch profiles</h2>
+        <p>Profiles are named launch setups — an SSH host, a REPL, a project environment. Each <code>profile</code> entry is <code>label | command</code>; <kbd>⌘⌥P</kbd> (<code>profiles</code>) opens a picker, and choosing one opens a <em>new tab</em> running that command.</p>
+        <pre><code><span class="c"># ~/.config/prompt/config</span>
+profile = prod | ssh prod.example.com
+profile = repl | python3</code></pre>
+
+        <h2>Clipboard history</h2>
+        <p>Every copy is recorded in a ring of recent entries (after redaction, below). <kbd>⌘⇧Y</kbd> (<code>clipboard_history</code>) opens a fuzzy picker over them; choose one to paste it into the focused pane. Handy for pulling back something you copied three commands ago.</p>
+
+        <h2>Unicode &amp; emoji picker</h2>
+        <p><kbd>⌘⌥E</kbd> (<code>unicode_picker</code>) opens a searchable list of common emoji and symbols — arrows, math signs, box glyphs, and more — each named so you can fuzzy-find it. Pick one and Prompt sends the glyph to the focused pane.</p>
+
+        <h2>Output triggers</h2>
+        <p>Triggers watch a pane's output and fire a desktop notification when a line matches a regular expression — iTerm2-style. Each <code>trigger</code> entry is a regex, optionally followed by <code>| Title</code> for a custom notification title. The matched line becomes the notification body. Useful for surfacing build failures or long-running jobs that finish while you're in another window.</p>
+        <pre><code><span class="c"># ~/.config/prompt/config</span>
+trigger = error|Build failed
+trigger = \bDONE\b | Job finished</code></pre>
+
+        <h2>Secret redaction</h2>
+        <p>Keep API keys and tokens off your clipboard. Each <code>redact</code> entry is a regex; anything it matches is masked with bullets (<code>•</code>) before the text ever reaches the clipboard — on an explicit copy, copy-on-select, copy-command-output, or a copy-mode yank alike.</p>
+        <pre><code><span class="c"># ~/.config/prompt/config</span>
+redact = sk-[A-Za-z0-9]{20,}
+redact = ghp_[A-Za-z0-9]{36}</code></pre>
+
+        <h2>Line timestamps</h2>
+        <p>Set <code>timestamps = true</code> to show a faint relative time (<code>5s</code>, <code>2m</code>, <code>1h</code>, <code>3d</code>) beside each scrollback row, so you can see how long ago a line was printed. Times are captured as rows scroll into history and travel with the content.</p>
+
+        <h2>Line annotations</h2>
+        <p><kbd>⌘⌥A</kbd> (<code>annotate</code>) pins a note to the current line: a small dialog takes the text, and it's drawn as a pill in that row's left gutter. Notes are keyed to a stable line sequence, so they scroll with the content and survive until the line falls off the scrollback — good for marking "the error is here" while you work.</p>
+
+        <h2>Pane badges</h2>
+        <p>A badge is a faint watermark drawn in each pane's corner. Set <code>badge</code> to any text; <code>{cwd}</code> and <code>{host}</code> are substituted per pane, so a badge like <code>{host} · {cwd}</code> keeps context visible at a glance.</p>
+
+        <h2>Activity dashboard</h2>
+        <p>The <strong>Activity</strong> sidebar panel (the ◉ icon on the activity bar) lists every tab with a status dot — 🔴 attention (a bell or an OSC 9 notification fired), 🟡 working (a foreground command is running), or 🟢 idle. It's a herdr-style "who's blocked, working, or done" glance across your shell and agent panes; click a row to focus that tab.</p>
+
         <h2>Clipboard</h2>
-        <p>Copy with <kbd>⌘C</kbd> and paste with <kbd>⌘V</kbd>. Enable <code>copy-on-select</code> in the config to automatically copy any selection to the clipboard the moment you make it. Remote programs can set your clipboard through OSC 52, and <code>clipboard-paste-protection</code> warns you before pasting content that looks risky — for example multi-line text or shell control characters.</p>
+        <p>Copy with <kbd>⌘C</kbd> and paste with <kbd>⌘V</kbd>. Enable <code>copy-on-select</code> to automatically copy any selection the moment you make it, and <code>middle-click-paste</code> to paste the current selection with a middle click (X-style). Remote programs can set your clipboard through OSC 52, and <code>clipboard-paste-protection</code> warns you before pasting content that looks risky — for example multi-line text or shell control characters. All copy paths honor secret redaction and feed clipboard history (both above).</p>
       </article>
     </main>
     <script type="module" src="docs.js"></script>
