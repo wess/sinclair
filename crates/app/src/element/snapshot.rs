@@ -137,6 +137,9 @@ pub(crate) fn snapshot(
             if flags.contains(CellFlags::INVERSE) {
                 std::mem::swap(&mut fg, &mut bg);
             }
+            if colors.min_contrast > 1.0 {
+                fg = colors::enforce_contrast(fg, bg, colors.min_contrast);
+            }
             if selection
                 .as_ref()
                 .is_some_and(|sel| sel.contains(metrics::selection_point(row_i, col, offset)))

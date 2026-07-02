@@ -135,3 +135,16 @@ fn rgba_conversion_is_opaque_unit_range() {
     assert!((v.b - 128.0 / 255.0).abs() < 1e-6);
     assert_eq!(v.a, 1.0);
 }
+
+#[test]
+fn contrast_enforcement() {
+    let black = Rgb::new(0, 0, 0);
+    let white = Rgb::new(255, 255, 255);
+    // Already maximal contrast: unchanged.
+    assert_eq!(enforce_contrast(white, black, 7.0), white);
+    // Disabled (min <= 1): identity even for an unreadable pair.
+    assert_eq!(enforce_contrast(black, black, 1.0), black);
+    // Black on black must brighten to gain contrast.
+    let fixed = enforce_contrast(black, black, 4.5);
+    assert!(fixed.r > 0 && fixed.g > 0 && fixed.b > 0);
+}

@@ -11,6 +11,8 @@ pub struct Colors {
     pub cursor_text: Rgb,
     pub selection_bg: Rgb,
     pub selection_fg: Rgb,
+    /// Minimum fg/bg contrast ratio (WCAG, 1..=21). 1 means no enforcement.
+    pub min_contrast: f32,
 }
 
 /// Build the color set from configuration: scheme by name (default dark),
@@ -45,7 +47,59 @@ pub fn from_config(opts: &config::Options, dark: bool) -> Colors {
         cursor_text: scheme.cursor_text,
         selection_bg: scheme.selection_background,
         selection_fg: scheme.selection_foreground,
+        min_contrast: opts.minimum_contrast,
     }
+}
+
+/// Relative luminance (WCAG) of an sRGB color, 0.0 (black) .. 1.0 (white).
+fn luminance(c: Rgb) -> f32 {
+    let lin = |v: u8| {
+        let v = v as f32 / 255.0;
+        if v <= 0.03928 {
+            v / 12.92
+        } else {
+            ((v + 0.055) / 1.055).powf(2.4)
+        }
+    };
+    0.2126 * lin(c.r) + 0.7152 * lin(c.g) + 0.0722 * lin(c.b)
+}
+
+/// WCAG contrast ratio between two colors (1.0 .. 21.0).
+fn contrast_ratio(a: Rgb, b: Rgb) -> f32 {
+    let (la, lb) = (luminance(a), luminance(b));
+    let (hi, lo) = if la >= lb { (la, lb) } else { (lb, la) };
+    (hi + 0.05) / (lo + 0.05)
+}
+
+/// Adjust `fg` toward black or white (whichever raises contrast against `bg`)
+/// until it meets `min` ratio, or the endpoint is reached. Returns `fg`
+/// unchanged when `min <= 1` or the pair already passes.
+pub fn enforce_contrast(fg: Rgb, bg: Rgb, min: f32) -> Rgb {
+    if min <= 1.0 || contrast_ratio(fg, bg) >= min {
+        return fg;
+    }
+    // Push toward whichever endpoint is farther from the background luminance.
+    let target = if luminance(bg) < 0.5 {
+        Rgb::new(255, 255, 255)
+    } else {
+        Rgb::new(0, 0, 0)
+    };
+    let mut lo = 0.0f32;
+    let mut hi = 1.0f32;
+    let lerp = |t: f32| {
+        let mix = |a: u8, b: u8| (a as f32 + (b as f32 - a as f32) * t).round() as u8;
+        Rgb::new(mix(fg.r, target.r), mix(fg.g, target.g), mix(fg.b, target.b))
+    };
+    // Binary-search the smallest blend toward `target` that meets `min`.
+    for _ in 0..12 {
+        let mid = (lo + hi) / 2.0;
+        if contrast_ratio(lerp(mid), bg) >= min {
+            hi = mid;
+        } else {
+            lo = mid;
+        }
+    }
+    lerp(hi)
 }
 
 /// The colors the terminal should report to programs that query them
