@@ -290,3 +290,15 @@ Conventions (non-negotiable):
   `badge`. Agent glance: an Activity sidebar dashboard (working/attention/idle
   per tab). See `docs/parity.md`; the remaining large/blocked items (persistent
   detachable sessions, kitty graphics, ssh multiplexing) are noted there.
+- 2026-07-02: Notes is now built-in, backed by a bundled Rust vault server, and
+  the plugin runtime PATH is fixed. The Notes plugin required `bun` at runtime —
+  and failed with "spawn bun: No such file or directory" whenever the app was
+  launched from Finder/Dock (a GUI launch inherits a bare PATH, not the login
+  shell's). Two fixes: (1) `app/src/envpath.rs` adopts the login shell's PATH at
+  startup so every spawned tool (plugin runtimes, agent CLIs, git/docker
+  plugins) is found; (2) the Bun Notes plugin is replaced by a self-contained
+  `notes` sidecar crate — an axum HTTP+WS server (the vault core ported to
+  `std::fs`, `notify` file-watching, the CM6 web app embedded via include_dir)
+  with a launcher mode that plugs into the existing `boot` webview flow. Notes
+  is now File → Notes with no runtime dependency; shipped and signed beside
+  `prompt` on macOS and Linux. See `crates/notes/readme.md`.
