@@ -89,21 +89,29 @@ impl PluginWebView {
             .map(|w| w.id.clone())
             .unwrap_or_else(|| plugin.id.clone());
         let boot = decl.as_ref().map(|w| w.boot).unwrap_or(false);
-        let url = decl
+        // The URL template a boot webview navigates to once its runtime reports
+        // the port (see `boot_runtime`).
+        let boot_url = decl
             .as_ref()
-            .map(|w| resolve_source(&plugin, &w.source))
+            .and_then(|w| match &w.source {
+                plugin::WebviewSource::Url(u) => Some(u.clone()),
+                plugin::WebviewSource::Entry(_) => None,
+            })
             .unwrap_or_default();
 
         // A `boot` webview shows a placeholder, then navigates once its runtime
-        // reports its address (see `boot_runtime`). This avoids loading a page
-        // over `file://`, from which the JS bridge can't reach native. Others
-        // load their source directly.
+        // reports its http address. A plain `entry` is served over guise:// (a
+        // real origin, so the JS bridge works — file:// pages can't reach
+        // native). A `url` loads as-is.
+        let source = decl.as_ref().map(|w| w.source.clone());
+        let dir = plugin.path.clone();
         let webview = cx.new(|cx| {
             let wv = WebView::new(cx).init_script(BRIDGE_JS).bordered(false);
-            if boot {
-                wv.html(STARTING_HTML)
-            } else {
-                wv.url(url.clone())
+            match (boot, source) {
+                (true, _) => wv.html(STARTING_HTML),
+                (false, Some(plugin::WebviewSource::Entry(entry))) => wv.serve(dir, entry),
+                (false, Some(plugin::WebviewSource::Url(u))) => wv.url(u),
+                (false, None) => wv,
             }
         });
 
@@ -121,7 +129,7 @@ impl PluginWebView {
             _sub: sub,
         };
         if boot {
-            this.boot_runtime(url, cx);
+            this.boot_runtime(boot_url, cx);
         }
         this
     }
@@ -293,17 +301,5 @@ impl Render for PluginWebView {
             .size_full()
             .track_focus(&self.focus)
             .child(self.webview.clone())
-    }
-}
-
-/// Resolve a `[webview]` source to a loadable URL. `entry` is joined to the
-/// plugin directory and served over `file://`.
-fn resolve_source(plugin: &plugin::Plugin, source: &plugin::WebviewSource) -> String {
-    match source {
-        plugin::WebviewSource::Url(u) => u.clone(),
-        plugin::WebviewSource::Entry(entry) => {
-            let path = plugin.path.join(entry);
-            format!("file://{}", path.display())
-        }
     }
 }

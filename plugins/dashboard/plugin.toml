@@ -8,8 +8,9 @@ description = "A webview demo: run terminal commands and call the plugin runtime
 [runtime]
 command = "bun run plugin.ts"
 
-# A native web view surface. `entry` is loaded from this directory over
-# file://; set `placement` to panel, window, or tab.
+# A native web view surface. `entry` is served from this directory over an
+# internal guise:// origin (a real origin, so the window.Prompt bridge works);
+# set `placement` to panel, window, or tab.
 [webview]
 id = "dashboard"
 title = "Dashboard"

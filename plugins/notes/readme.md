@@ -8,31 +8,30 @@ a **file/folder tree** and a **markdown editor with live preview**, hosted as a
 
 The plugin is a web view opened in a tab, backed by a small local server:
 
-- `[webview]` loads a tiny `file://` bootstrap (`web/bootstrap.html`). It calls
-  `Prompt.invoke("boot")`, which reaches the `[runtime]` **launcher**.
+- `[webview]` sets `boot = true`, so the app invokes the `[runtime]`'s `boot`
+  method (from Rust) *before* loading the page.
 - `runtime/launcher.ts` makes sure the **server** is running (reusing it via a
-  pidfile, or spawning it detached) and returns its port.
-- The bootstrap redirects the tab to `http://127.0.0.1:4319/`, served by
+  pidfile, or spawning it detached) and returns its `{ port }`.
+- The app then loads the tab at `http://127.0.0.1:{port}/`, served by
   `server/main.ts` — a persistent Bun HTTP + WebSocket server that owns the
   vault. The page talks to it over `fetch` (vault ops) and a `WebSocket`
   (external-change push). The server idle-shuts-down ~60s after the tab closes.
 
 A live vault needs a long-lived process (to watch files and push updates), which
 the serverless plugin `[runtime]` can't be — hence the launcher-plus-server
-split. A served `http` origin is also required for the app (WKWebView blocks
-modules/fetch under `file://`).
+split. Loading from a served `http` origin (rather than `file://`) also lets the
+bundled SPA use ES modules and `fetch`.
 
 ## Layout
 
 ```
-plugin.toml            # [runtime] launcher + [webview] bootstrap, placement = tab
+plugin.toml            # [runtime] launcher + [webview] boot = true, placement = tab
 runtime/launcher.ts    # boot handshake: ensure the server, return its port
 server/
   main.ts              # Bun.serve: static app + /api vault routes + /ws + idle reaper
   pidfile.ts           # start/reuse the detached server; health check
   vault.ts             # the vault: tree, read/write/create/delete/rename, recents
 web/
-  bootstrap.html       # file:// page that boots the server and redirects
   index.html, app.js   # the SPA: vault picker, file tree, editor + live preview
   style.css
 ```

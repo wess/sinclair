@@ -197,11 +197,12 @@ loading, and navigates to the address it returns — `{ "url": … }`, or
 the page from a real `http` origin. The [`notes`](./notes/) plugin does exactly
 this.
 
-> **Bridge and `file://`.** The `window.Prompt` bridge below only reaches native
-> from an **`http` origin** — a `url`, or a `boot`-served server. From a `file://`
-> `entry` page the messages are silently dropped (a platform-webview limitation).
-> So a page that needs the bridge should be served over http (via `boot`), not
-> loaded as a local file.
+> **`entry` is served, not `file://`.** An `entry` page is served from the plugin
+> directory over an internal `guise://` origin — a real origin, so the
+> `window.Prompt` bridge, ES modules, and `fetch` all work. (Loading a page over
+> `file://` directly — e.g. a literal `url = "file://…"` — would break the bridge,
+> since messages from a `file://` frame are silently dropped; use `entry` or a
+> served `url` instead.)
 
 **The `window.Prompt` bridge.** The page talks to Prompt through an injected
 global:
