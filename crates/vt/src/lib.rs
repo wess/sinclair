@@ -11,6 +11,7 @@ pub mod mode;
 pub mod screen;
 pub mod search;
 pub mod selection;
+pub mod semantic;
 pub mod sgr;
 pub mod sixel;
 pub mod term;

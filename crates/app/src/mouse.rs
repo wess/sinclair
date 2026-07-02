@@ -41,11 +41,13 @@ pub fn reports_motion(mode: MouseMode, held: Option<MouseButton>) -> bool {
     }
 }
 
-/// Click count to selection mode: single = cell, double = word, triple =
-/// line; further rapid clicks cycle.
-pub fn click_mode(count: usize) -> SelectionMode {
+/// Click count to selection mode: single = cell, double = word (or the
+/// semantic token under the pointer when `smart` is set), triple = line;
+/// further rapid clicks cycle.
+pub fn click_mode(count: usize, smart: bool) -> SelectionMode {
     match (count.max(1) - 1) % 3 {
         0 => SelectionMode::Cell,
+        1 if smart => SelectionMode::Smart,
         1 => SelectionMode::Word,
         _ => SelectionMode::Line,
     }

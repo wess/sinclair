@@ -83,6 +83,8 @@ impl SettingsView {
             self.stepper_row(Num::Scrollback, "\u{2630}", theme::Rgb::new(142, 142, 147), cx),
             self.stepper_row(Num::ScrollMultiplier, "\u{2207}", theme::Rgb::new(255, 159, 10), cx),
             self.toggle_row(Bool::MouseHide, "\u{2196}", theme::Rgb::new(170, 170, 170), cx),
+            self.toggle_row(Bool::SmartSelect, "\u{2318}", theme::Rgb::new(52, 199, 89), cx),
+            self.toggle_row(Bool::MiddleClickPaste, "\u{2504}", theme::Rgb::new(90, 200, 250), cx),
             self.stepper_row(Num::SplitOpacity, "\u{25d0}", theme::Rgb::new(94, 92, 230), cx),
             self.field_row(Field::SplitDivider, "\u{2503}", theme::Rgb::new(99, 99, 102), cx),
         ]

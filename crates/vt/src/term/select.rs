@@ -140,6 +140,7 @@ fn expand(grid: &Grid, mode: SelectionMode, point: Point, extra: &[char]) -> (Po
         }
         SelectionMode::Word => selection::expand_word(grid, point, extra),
         SelectionMode::Line => selection::expand_line(grid, point),
+        SelectionMode::Smart => selection::smart_span(grid, point, extra),
     }
 }
 

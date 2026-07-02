@@ -57,6 +57,54 @@ pub fn apply(opts: &mut Options, key: &str, val: &str) -> Result<(), String> {
         "theme" => {
             opts.theme = if empty { d.theme } else { val.to_string() };
         }
+        "theme-light" => {
+            opts.theme_light = if empty { d.theme_light } else { val.to_string() };
+        }
+        "theme-dark" => {
+            opts.theme_dark = if empty { d.theme_dark } else { val.to_string() };
+        }
+        "timestamps" => {
+            opts.timestamps = if empty {
+                d.timestamps
+            } else {
+                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+            };
+        }
+        "smart-select" => {
+            opts.smart_select = if empty {
+                d.smart_select
+            } else {
+                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+            };
+        }
+        "redact" => {
+            if empty {
+                opts.redact = d.redact;
+            } else {
+                opts.redact.push(val.to_string());
+            }
+        }
+        "background-opacity" => {
+            opts.background_opacity = if empty {
+                d.background_opacity
+            } else {
+                value::parse_f32_range(val, 0.2, 1.0).ok_or_else(|| bad("number in 0.2..1", val))?
+            };
+        }
+        "focus-follows-mouse" => {
+            opts.focus_follows_mouse = if empty {
+                d.focus_follows_mouse
+            } else {
+                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+            };
+        }
+        "middle-click-paste" => {
+            opts.middle_click_paste = if empty {
+                d.middle_click_paste
+            } else {
+                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+            };
+        }
         "background" => {
             opts.background = if empty {
                 d.background

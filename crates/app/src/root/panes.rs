@@ -29,6 +29,8 @@ impl WorkspaceView {
                 self.pad,
                 self.opts.cursor_style,
                 self.opts.copy_on_select,
+                self.opts.smart_select,
+                self.opts.middle_click_paste,
                 self.opts.macos_option_as_alt,
                 self.opts.clipboard_paste_protection,
                 self.opts.clipboard_write,

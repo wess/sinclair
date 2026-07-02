@@ -119,6 +119,8 @@ impl TerminalElement {
             cols: grid.0,
             rows: grid.1,
             copy_on_select: self.copy_on_select,
+            smart_select: self.smart_select,
+            middle_click_paste: self.middle_click_paste,
         };
         window.on_mouse_event({
             let p = pointer.clone();

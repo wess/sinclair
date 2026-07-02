@@ -184,6 +184,8 @@ pub struct Appearance {
     pub pad: Padding,
     pub cursor_default: config::CursorStyle,
     pub copy_on_select: bool,
+    pub smart_select: bool,
+    pub middle_click_paste: bool,
     pub option_as_alt: config::OptionAsAlt,
     pub paste_protection: bool,
     pub clipboard_write: config::ClipboardAccess,
@@ -198,6 +200,10 @@ pub struct TerminalView {
     pad: Padding,
     cursor_default: config::CursorStyle,
     copy_on_select: bool,
+    /// Double-click selects the semantic token under the pointer (`smart-select`).
+    smart_select: bool,
+    /// Middle-click pastes the current selection (`middle-click-paste`).
+    middle_click_paste: bool,
     /// How the macOS Option key is treated for pty input (`macos-option-as-alt`).
     option_as_alt: config::OptionAsAlt,
     /// When set, a risky paste prompts for confirmation before reaching the
@@ -251,6 +257,8 @@ impl TerminalView {
         pad: Padding,
         cursor_default: config::CursorStyle,
         copy_on_select: bool,
+        smart_select: bool,
+        middle_click_paste: bool,
         option_as_alt: config::OptionAsAlt,
         paste_protection: bool,
         clipboard_write: config::ClipboardAccess,
@@ -284,6 +292,8 @@ impl TerminalView {
             pad,
             cursor_default,
             copy_on_select,
+            smart_select,
+            middle_click_paste,
             option_as_alt,
             paste_protection,
             clipboard_write,
@@ -359,6 +369,8 @@ impl TerminalView {
         self.pad = a.pad;
         self.cursor_default = a.cursor_default;
         self.copy_on_select = a.copy_on_select;
+        self.smart_select = a.smart_select;
+        self.middle_click_paste = a.middle_click_paste;
         self.option_as_alt = a.option_as_alt;
         self.paste_protection = a.paste_protection;
         self.clipboard_write = a.clipboard_write;
@@ -535,6 +547,8 @@ impl Render for TerminalView {
                 self.cursor_default,
                 self.mouse.clone(),
                 self.copy_on_select,
+                self.smart_select,
+                self.middle_click_paste,
                 query,
                 self.image_cache.clone(),
             ))

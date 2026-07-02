@@ -238,6 +238,25 @@ pub struct Options {
     /// `label|command template`, where the template may use `{prompt}`, `{mcp}`,
     /// `{url}`, and `{name}` placeholders.
     pub agent_custom: Vec<String>,
+    /// File key: `theme-light` - scheme used when the OS is in light mode. Set
+    /// together with `theme-dark` to follow the system appearance automatically.
+    pub theme_light: String,
+    /// File key: `theme-dark` - scheme used when the OS is in dark mode.
+    pub theme_dark: String,
+    /// File key: `timestamps` - show a per-line timestamp gutter in the terminal.
+    pub timestamps: bool,
+    /// File key: `smart-select` - double-click selects a whole URL / path /
+    /// email / hash rather than a single whitespace word. On by default.
+    pub smart_select: bool,
+    /// File key: `redact` (repeatable) - regexes whose matches are masked (with
+    /// `•`) when copying, so secrets don't reach the clipboard.
+    pub redact: Vec<String>,
+    /// File key: `background-opacity` - window background alpha (0.2..=1.0).
+    pub background_opacity: f32,
+    /// File key: `focus-follows-mouse` - focus the split under the pointer.
+    pub focus_follows_mouse: bool,
+    /// File key: `middle-click-paste` - paste the selection on a middle click.
+    pub middle_click_paste: bool,
 }
 
 /// The built-in primary font when none is configured.
@@ -322,6 +341,14 @@ impl Default for Options {
             agent_codex_path: None,
             agent_gemini_path: None,
             agent_custom: Vec::new(),
+            theme_light: String::new(),
+            theme_dark: String::new(),
+            timestamps: false,
+            smart_select: true,
+            redact: Vec::new(),
+            background_opacity: 1.0,
+            focus_follows_mouse: false,
+            middle_click_paste: false,
         }
     }
 }

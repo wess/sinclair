@@ -49,6 +49,9 @@ pub enum SelectionMode {
     Word,
     /// Whole logical lines, following soft-wrap flags both directions.
     Line,
+    /// The semantic token (URL / email / path / hash) under the point, falling
+    /// back to a word when there isn't one.
+    Smart,
 }
 
 /// One step of keyboard selection adjustment, moving the selection's
@@ -359,6 +362,23 @@ pub fn expand_word(grid: &Grid, p: Point, extra: &[char]) -> (Point, Point) {
         end = q;
     }
     (start, end)
+}
+
+/// Smart-select the semantic token (URL / email / path / hash) under `p`,
+/// falling back to word selection when there's no token. Endpoints inclusive.
+pub fn smart_span(grid: &Grid, p: Point, extra: &[char]) -> (Point, Point) {
+    let p = clamp_point(grid, p);
+    if let Some(row) = grid.absolute_row(p.line) {
+        let chars: Vec<char> = row
+            .cells
+            .iter()
+            .map(|c| if c.is_wide_spacer() { ' ' } else { c.ch })
+            .collect();
+        if let Some((s, e)) = crate::semantic::token_at(&chars, p.col) {
+            return (Point::new(p.line, s), Point::new(p.line, e - 1));
+        }
+    }
+    expand_word(grid, p, extra)
 }
 
 /// Expand `p` to the full logical line: walk up while the row above

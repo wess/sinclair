@@ -46,6 +46,8 @@ pub struct Pointer {
     pub cols: usize,
     pub rows: usize,
     pub copy_on_select: bool,
+    pub smart_select: bool,
+    pub middle_click_paste: bool,
 }
 
 fn mods(m: &Modifiers) -> input::Mods {
@@ -111,10 +113,21 @@ pub fn down(p: &Pointer, e: &MouseDownEvent, window: &mut Window, _cx: &mut App)
         return;
     }
 
+    // Middle-click paste (X-style): send the current selection to the pty.
+    if e.button == gpui::MouseButton::Middle && p.middle_click_paste {
+        let (text, bracketed) =
+            p.session.with_term(|t| (t.selection_text(), t.bracketed_paste()));
+        if let Some(text) = text.filter(|t| !t.is_empty()) {
+            let _ = p.session.write(&input::encode_paste(&text, bracketed));
+            window.refresh();
+        }
+        return;
+    }
+
     if e.button != gpui::MouseButton::Left {
         return;
     }
-    let select_mode = mouse::click_mode(e.click_count);
+    let select_mode = mouse::click_mode(e.click_count, p.smart_select);
     let point = metrics::selection_point(cell.0, cell.1, offset);
     p.session
         .with_term(|t| t.start_selection(select_mode, point));

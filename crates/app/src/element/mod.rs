@@ -52,6 +52,8 @@ pub struct TerminalElement {
     cursor_default: config::CursorStyle,
     mouse: Rc<RefCell<MouseState>>,
     copy_on_select: bool,
+    smart_select: bool,
+    middle_click_paste: bool,
     search: Option<SearchQuery>,
     /// GPU textures for decoded sixel images, keyed by placement id and shared
     /// with the view so they survive across frames.
@@ -70,6 +72,8 @@ impl TerminalElement {
         cursor_default: config::CursorStyle,
         mouse: Rc<RefCell<MouseState>>,
         copy_on_select: bool,
+        smart_select: bool,
+        middle_click_paste: bool,
         search: Option<SearchQuery>,
         image_cache: Rc<RefCell<HashMap<u64, Arc<RenderImage>>>>,
     ) -> Self {
@@ -83,6 +87,8 @@ impl TerminalElement {
             cursor_default,
             mouse,
             copy_on_select,
+            smart_select,
+            middle_click_paste,
             search,
             image_cache,
         }
