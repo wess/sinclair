@@ -194,6 +194,8 @@ pub enum Action {
     CopyMode,
     /// Open the clipboard-history picker and paste a chosen recent copy.
     ClipboardHistory,
+    /// Open the emoji / symbol insert picker.
+    UnicodePicker,
     Paste,
     /// Select the entire terminal buffer (scrollback + screen).
     SelectAll,
@@ -358,6 +360,7 @@ impl Action {
             "clipboard_history" | "paste_history" => {
                 only(Self::ClipboardHistory, &name, param)
             }
+            "unicode_picker" | "insert_emoji" => only(Self::UnicodePicker, &name, param),
             "paste_from_clipboard" | "paste" => only(Self::Paste, &name, param),
             "select_all" => only(Self::SelectAll, &name, param),
             "adjust_selection" => {
@@ -471,6 +474,7 @@ impl Action {
             Self::Hints => "hints".into(),
             Self::CopyMode => "copy_mode".into(),
             Self::ClipboardHistory => "clipboard_history".into(),
+            Self::UnicodePicker => "unicode_picker".into(),
             Self::Paste => "paste_from_clipboard".into(),
             Self::SelectAll => "select_all".into(),
             Self::AdjustSelection(d) => format!("adjust_selection:{}", d.as_str()),

@@ -63,6 +63,30 @@ impl WorkspaceView {
         cx.notify();
     }
 
+    /// Open a Spotlight over a curated emoji/symbol set; picking one sends the
+    /// glyph to the focused pane.
+    pub(crate) fn open_unicode_picker(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let view = cx.entity();
+        let spotlight = cx.new(|scx| {
+            let mut spot = guise::Spotlight::new(scx);
+            for (glyph, name) in SYMBOLS {
+                let view = view.clone();
+                let bytes = glyph.as_bytes().to_vec();
+                let run = move |_window: &mut Window, app: &mut App| {
+                    let bytes = bytes.clone();
+                    view.update(app, |this, cx| {
+                        this.onfocused(cx, |v, cx| v.send_text(&bytes, cx))
+                    });
+                };
+                spot = spot.item(format!("{glyph}  {name}"), run);
+            }
+            spot
+        });
+        spotlight.update(cx, |spot, scx| spot.open(window, scx));
+        self.spotlight = Some(spotlight);
+        cx.notify();
+    }
+
     /// The keybind hint for an action, if one is bound.
     fn shortcut_hint(&self, action: &Action) -> Option<String> {
         self.keybinds
@@ -133,3 +157,32 @@ fn clip_label(text: &str) -> String {
         one
     }
 }
+
+/// A curated set of emoji and symbols for the insert picker: `(glyph, name)`.
+/// Names make entries fuzzy-searchable in the Spotlight.
+const SYMBOLS: &[(&str, &str)] = &[
+    ("\u{1f600}", "grinning face"), ("\u{1f602}", "joy laughing tears"),
+    ("\u{1f605}", "sweat smile"), ("\u{1f609}", "wink"), ("\u{1f60e}", "sunglasses cool"),
+    ("\u{1f914}", "thinking"), ("\u{1f644}", "eye roll"), ("\u{1f480}", "skull"),
+    ("\u{1f525}", "fire"), ("\u{2728}", "sparkles"), ("\u{1f389}", "party tada"),
+    ("\u{1f680}", "rocket ship launch"), ("\u{1f4a1}", "idea bulb"), ("\u{1f41b}", "bug"),
+    ("\u{2705}", "check mark done"), ("\u{274c}", "cross fail x"), ("\u{26a0}\u{fe0f}", "warning"),
+    ("\u{1f6d1}", "stop"), ("\u{1f44d}", "thumbs up"), ("\u{1f44e}", "thumbs down"),
+    ("\u{1f440}", "eyes looking"), ("\u{1f64f}", "pray thanks"), ("\u{1f4af}", "hundred perfect"),
+    ("\u{2764}\u{fe0f}", "heart red"), ("\u{1f9e0}", "brain"), ("\u{1f916}", "robot"),
+    ("\u{1f9d1}\u{200d}\u{1f4bb}", "developer"), ("\u{1f4c1}", "folder"), ("\u{1f4c4}", "document page"),
+    ("\u{1f4cc}", "pin"), ("\u{1f4dd}", "memo note"), ("\u{1f512}", "lock secure"),
+    ("\u{1f513}", "unlock"), ("\u{1f511}", "key"), ("\u{2699}\u{fe0f}", "gear settings"),
+    ("\u{1f527}", "wrench tool"), ("\u{1f4e6}", "package box"), ("\u{1f550}", "clock time"),
+    ("\u{2b50}", "star"), ("\u{1f30d}", "globe earth"), ("\u{1f4ca}", "chart bar stats"),
+    ("\u{1f4c8}", "chart up trend"), ("\u{1f4c9}", "chart down"), ("\u{1f6a7}", "construction wip"),
+    ("\u{2192}", "arrow right"), ("\u{2190}", "arrow left"), ("\u{2191}", "arrow up"),
+    ("\u{2193}", "arrow down"), ("\u{21b5}", "return enter"), ("\u{2713}", "check tick"),
+    ("\u{2717}", "ballot x"), ("\u{2026}", "ellipsis dots"), ("\u{2022}", "bullet dot"),
+    ("\u{2018}", "left single quote"), ("\u{2019}", "right single quote apostrophe"),
+    ("\u{201c}", "left double quote"), ("\u{201d}", "right double quote"),
+    ("\u{2013}", "en dash"), ("\u{2014}", "em dash"), ("\u{00b0}", "degree"),
+    ("\u{03bb}", "lambda greek"), ("\u{03c0}", "pi greek"), ("\u{221e}", "infinity"),
+    ("\u{2211}", "sum sigma"), ("\u{2260}", "not equal"), ("\u{2264}", "less equal"),
+    ("\u{2265}", "greater equal"), ("\u{00b1}", "plus minus"),
+];
