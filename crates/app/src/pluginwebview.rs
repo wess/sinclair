@@ -1,15 +1,19 @@
-//! Host for a plugin-owned web view. Wraps a guise [`WebView`], injects the
+//! Host for a web-view surface. Wraps a guise [`WebView`], injects the
 //! `window.Prompt` JavaScript bridge, and routes messages the page posts
 //! (`window.ipc.postMessage`, via the bridge) to the app.
+//!
+//! The host is driven by a [`WebviewSurface`] descriptor, not a plugin — so both
+//! plugin `[webview]`s and first-class built-ins (e.g. Notes) share one host.
+//! Plugins build a surface from their manifest ([`WebviewSurface::from_plugin`]);
+//! built-ins construct one directly.
 //!
 //! Routing: a page calls `Prompt.invoke(method, params)`. Known methods are the
 //! app's MCP capabilities (`run_command`, `read_screen`, …) and run through the
 //! main workspace's [`WorkspaceView::mcp_dispatch`]. Anything else is forwarded
-//! to the plugin's `[runtime]` as a `message` request. The reply resolves the
-//! page's promise via `evaluate_script`.
-//!
-//! The same host backs every placement (panel, window); it always acts on the
-//! main workspace window, so terminal effects land on the user's focused pane.
+//! to the surface's `runtime` (if any) as a `message` request. The reply
+//! resolves the page's promise via `evaluate_script`.
+
+use std::path::PathBuf;
 
 use gpui::prelude::*;
 use gpui::{div, Context, Entity, FocusHandle, Subscription, Window};
@@ -19,6 +23,75 @@ use serde_json::Value;
 
 use crate::pluginhost;
 use crate::root::WorkspaceView;
+
+/// Where a surface gets its content and how it comes up.
+pub enum SurfaceContent {
+    /// Load a URL as-is.
+    Url(String),
+    /// Serve `dir` over the `guise://` origin and load `entry` (a real origin,
+    /// so the JS bridge works — `file://` pages can't reach native).
+    Entry { dir: PathBuf, entry: String },
+    /// Show a placeholder, then navigate to the URL produced by `boot`, with
+    /// `{port}` in `url_template` substituted.
+    Boot { url_template: String, boot: Boot },
+}
+
+/// How a [`SurfaceContent::Boot`] surface learns its address.
+pub enum Boot {
+    /// Invoke the surface's plugin `runtime` `boot` method; it returns `{ url }`
+    /// or `{ port }` (a plugin starting its own server).
+    Runtime,
+    /// Ensure a bundled server is running and use its port. The function spawns
+    /// the server if needed and returns the port (a built-in like Notes).
+    Server(fn() -> Result<u16, String>),
+}
+
+/// What a [`PluginWebView`] hosts: identity, content, and an optional runtime to
+/// forward unhandled bridge calls to.
+pub struct WebviewSurface {
+    /// Stable id; the runtime message target and tab/panel token.
+    pub id: String,
+    /// Header/tab/window title.
+    pub title: String,
+    pub content: SurfaceContent,
+    /// Plugin to forward unknown `invoke()` methods to (a plugin webview). `None`
+    /// for a built-in whose page talks to its own server instead of the bridge.
+    pub runtime: Option<plugin::Plugin>,
+}
+
+impl WebviewSurface {
+    /// Build a surface from a plugin's `[webview]` manifest.
+    pub fn from_plugin(plugin: plugin::Plugin) -> Self {
+        let decl = plugin.webview.clone();
+        let id = decl
+            .as_ref()
+            .map(|w| w.id.clone())
+            .unwrap_or_else(|| plugin.id.clone());
+        let title = decl
+            .as_ref()
+            .map(|w| w.title.clone())
+            .unwrap_or_else(|| plugin.name.clone());
+        let boot = decl.as_ref().map(|w| w.boot).unwrap_or(false);
+        let content = match decl.as_ref().map(|w| &w.source) {
+            Some(plugin::WebviewSource::Url(u)) if boot => SurfaceContent::Boot {
+                url_template: u.clone(),
+                boot: Boot::Runtime,
+            },
+            Some(plugin::WebviewSource::Url(u)) => SurfaceContent::Url(u.clone()),
+            Some(plugin::WebviewSource::Entry(e)) => SurfaceContent::Entry {
+                dir: plugin.path.clone(),
+                entry: e.clone(),
+            },
+            None => SurfaceContent::Url(String::new()),
+        };
+        Self {
+            id,
+            title,
+            content,
+            runtime: Some(plugin),
+        }
+    }
+}
 
 /// Injected at document start. Exposes `window.Prompt` — a small VS Code-style
 /// bridge over wry's `window.ipc.postMessage`. `invoke` returns a Promise the
@@ -55,13 +128,13 @@ const BRIDGE_JS: &str = r#"
 })();
 "#;
 
-/// Shown in a `boot` webview while its runtime starts up.
+/// Shown in a `boot` webview while its server starts up.
 const STARTING_HTML: &str = "<!doctype html><html><head><meta charset=\"utf-8\">\
 <style>body{background:#1c1c1e;color:#8a8a90;font:13px -apple-system,system-ui,sans-serif;\
 display:flex;align-items:center;justify-content:center;height:100vh;margin:0}</style></head>\
 <body>Starting\u{2026}</body></html>";
 
-/// A simple failure page for a `boot` webview whose runtime didn't come up.
+/// A simple failure page for a `boot` surface whose server didn't come up.
 fn failure_html(err: &str) -> String {
     let safe = err.replace('<', "&lt;").replace('>', "&gt;");
     format!(
@@ -73,45 +146,23 @@ text-align:center}}</style></head><body>Couldn't start: {safe}</body></html>"
 }
 
 pub struct PluginWebView {
-    plugin: plugin::Plugin,
-    /// The `[webview]` surface id, used as the runtime message target.
-    webview_id: String,
+    surface: WebviewSurface,
     webview: Entity<WebView>,
     focus: FocusHandle,
     _sub: Subscription,
 }
 
 impl PluginWebView {
-    pub fn new(plugin: plugin::Plugin, cx: &mut Context<Self>) -> Self {
-        let decl = plugin.webview.clone();
-        let webview_id = decl
-            .as_ref()
-            .map(|w| w.id.clone())
-            .unwrap_or_else(|| plugin.id.clone());
-        let boot = decl.as_ref().map(|w| w.boot).unwrap_or(false);
-        // The URL template a boot webview navigates to once its runtime reports
-        // the port (see `boot_runtime`).
-        let boot_url = decl
-            .as_ref()
-            .and_then(|w| match &w.source {
-                plugin::WebviewSource::Url(u) => Some(u.clone()),
-                plugin::WebviewSource::Entry(_) => None,
-            })
-            .unwrap_or_default();
-
-        // A `boot` webview shows a placeholder, then navigates once its runtime
-        // reports its http address. A plain `entry` is served over guise:// (a
-        // real origin, so the JS bridge works — file:// pages can't reach
-        // native). A `url` loads as-is.
-        let source = decl.as_ref().map(|w| w.source.clone());
-        let dir = plugin.path.clone();
+    pub fn new(surface: WebviewSurface, cx: &mut Context<Self>) -> Self {
+        // A `Boot` surface shows a placeholder, then navigates once its server
+        // reports its http address. `Entry` is served over guise://; `Url` loads
+        // as-is.
         let webview = cx.new(|cx| {
             let wv = WebView::new(cx).init_script(BRIDGE_JS).bordered(false);
-            match (boot, source) {
-                (true, _) => wv.html(STARTING_HTML),
-                (false, Some(plugin::WebviewSource::Entry(entry))) => wv.serve(dir, entry),
-                (false, Some(plugin::WebviewSource::Url(u))) => wv.url(u),
-                (false, None) => wv,
+            match &surface.content {
+                SurfaceContent::Boot { .. } => wv.html(STARTING_HTML),
+                SurfaceContent::Entry { dir, entry } => wv.serve(dir.clone(), entry.clone()),
+                SurfaceContent::Url(u) => wv.url(u.clone()),
             }
         });
 
@@ -122,14 +173,13 @@ impl PluginWebView {
         });
 
         let mut this = Self {
-            plugin,
-            webview_id,
+            surface,
             webview,
             focus: cx.focus_handle(),
             _sub: sub,
         };
-        if boot {
-            this.boot_runtime(boot_url, cx);
+        if matches!(this.surface.content, SurfaceContent::Boot { .. }) {
+            this.boot(cx);
         }
         this
     }
@@ -141,52 +191,57 @@ impl PluginWebView {
         self.webview.update(cx, |wv, _| wv.set_visible(visible));
     }
 
-    /// Invoke the plugin runtime's `boot` method (Rust -> process, so it works
-    /// even though the JS bridge can't from `file://`), then navigate the view
-    /// to the address it returns: `{ url }`, or `{ port }` substituted into the
-    /// manifest url's `{port}` placeholder. `{ error }` shows a failure page.
-    fn boot_runtime(&mut self, url: String, cx: &mut Context<Self>) {
-        let plugin = self.plugin.clone();
-        let webview_id = self.webview_id.clone();
+    /// Bring a `Boot` surface up: resolve its address (invoke a plugin runtime,
+    /// or ensure a bundled server), then navigate. A failure shows a page.
+    fn boot(&mut self, cx: &mut Context<Self>) {
+        let SurfaceContent::Boot { url_template, boot } = &self.surface.content else {
+            return;
+        };
+        let url = url_template.clone();
         let webview = self.webview.clone();
         let executor = cx.background_executor().clone();
-        cx.spawn(async move |_this, cx| {
-            let resp = executor
-                .spawn(async move {
-                    let req = pluginhost::Request {
-                        kind: "message",
-                        panel: &webview_id,
-                        action: None,
-                        cwd: None,
-                        method: Some("boot"),
-                        params: None,
-                    };
-                    pluginhost::invoke(&plugin, &req)
+        match boot {
+            Boot::Server(f) => {
+                let f = *f;
+                cx.spawn(async move |_this, cx| {
+                    let target = executor
+                        .spawn(async move { f().map(|port| url.replace("{port}", &port.to_string())) })
+                        .await;
+                    webview.update(cx, |wv, cx| match target {
+                        Ok(u) => wv.load_url(u, cx),
+                        Err(e) => wv.load_html(failure_html(&e), cx),
+                    });
                 })
-                .await;
-            let target: Result<String, String> = match resp {
-                Ok(r) => match r.result {
-                    Some(res) => {
-                        if let Some(e) = res.get("error").and_then(Value::as_str) {
-                            Err(e.to_string())
-                        } else if let Some(u) = res.get("url").and_then(Value::as_str) {
-                            Ok(u.to_string())
-                        } else if let Some(p) = res.get("port").and_then(Value::as_u64) {
-                            Ok(url.replace("{port}", &p.to_string()))
-                        } else {
-                            Ok(url.clone())
-                        }
-                    }
-                    None => Ok(url.clone()),
-                },
-                Err(e) => Err(e),
-            };
-            webview.update(cx, |wv, cx| match target {
-                Ok(u) => wv.load_url(u, cx),
-                Err(e) => wv.load_html(failure_html(&e), cx),
-            });
-        })
-        .detach();
+                .detach();
+            }
+            Boot::Runtime => {
+                let Some(plugin) = self.surface.runtime.clone() else {
+                    return;
+                };
+                let id = self.surface.id.clone();
+                cx.spawn(async move |_this, cx| {
+                    let resp = executor
+                        .spawn(async move {
+                            let req = pluginhost::Request {
+                                kind: "message",
+                                panel: &id,
+                                action: None,
+                                cwd: None,
+                                method: Some("boot"),
+                                params: None,
+                            };
+                            pluginhost::invoke(&plugin, &req)
+                        })
+                        .await;
+                    let target = boot_target(resp, &url);
+                    webview.update(cx, |wv, cx| match target {
+                        Ok(u) => wv.load_url(u, cx),
+                        Err(e) => wv.load_html(failure_html(&e), cx),
+                    });
+                })
+                .detach();
+            }
+        }
     }
 
     /// Handle one `window.ipc.postMessage` payload from the page.
@@ -215,8 +270,8 @@ impl PluginWebView {
 
         match dispatched {
             Some(Ok(Ok(value))) => self.resolve(id, true, &value, cx),
-            // Not a built-in op: forward to the plugin's runtime, if any.
-            Some(Ok(Err(e))) if e.starts_with("unknown op") && self.plugin.runtime.is_some() => {
+            // Not a built-in op: forward to the surface's runtime, if any.
+            Some(Ok(Err(e))) if e.starts_with("unknown op") && self.surface.runtime.is_some() => {
                 self.forward_to_runtime(id, method, params, cx);
             }
             Some(Ok(Err(e))) => self.resolve(id, false, &Value::String(e), cx),
@@ -224,7 +279,7 @@ impl PluginWebView {
         }
     }
 
-    /// Forward an unknown method to the plugin's `[runtime]` as a `message`
+    /// Forward an unknown method to the surface's `runtime` as a `message`
     /// request, off the UI thread, then resolve the page's promise.
     fn forward_to_runtime(
         &mut self,
@@ -233,8 +288,10 @@ impl PluginWebView {
         params: Value,
         cx: &mut Context<Self>,
     ) {
-        let plugin = self.plugin.clone();
-        let webview_id = self.webview_id.clone();
+        let Some(plugin) = self.surface.runtime.clone() else {
+            return;
+        };
+        let surface_id = self.surface.id.clone();
         let cwd = self.focused_cwd(cx);
         let executor = cx.background_executor().clone();
         cx.spawn(async move |this, cx| {
@@ -242,7 +299,7 @@ impl PluginWebView {
                 .spawn(async move {
                     let req = pluginhost::Request {
                         kind: "message",
-                        panel: &webview_id,
+                        panel: &surface_id,
                         action: None,
                         cwd: cwd.as_deref(),
                         method: Some(&method),
@@ -283,16 +340,32 @@ impl PluginWebView {
             .flatten()
             .map(|p| p.to_string_lossy().into_owned())
     }
+
+    /// The surface's title, for the tab/pane label.
+    pub fn title(&self) -> String {
+        self.surface.title.clone()
+    }
 }
 
-impl PluginWebView {
-    /// The webview surface's title, for the tab/pane label.
-    pub fn title(&self) -> String {
-        self.plugin
-            .webview
-            .as_ref()
-            .map(|w| w.title.clone())
-            .unwrap_or_else(|| self.plugin.name.clone())
+/// Interpret a plugin runtime's `boot` reply: `{ error }` fails; `{ url }` wins;
+/// `{ port }` fills `{port}` in the template; anything else uses the template.
+fn boot_target(resp: Result<pluginhost::Response, String>, url: &str) -> Result<String, String> {
+    match resp {
+        Ok(r) => match r.result {
+            Some(res) => {
+                if let Some(e) = res.get("error").and_then(Value::as_str) {
+                    Err(e.to_string())
+                } else if let Some(u) = res.get("url").and_then(Value::as_str) {
+                    Ok(u.to_string())
+                } else if let Some(p) = res.get("port").and_then(Value::as_u64) {
+                    Ok(url.replace("{port}", &p.to_string()))
+                } else {
+                    Ok(url.to_string())
+                }
+            }
+            None => Ok(url.to_string()),
+        },
+        Err(e) => Err(e),
     }
 }
 

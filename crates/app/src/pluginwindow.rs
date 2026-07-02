@@ -8,7 +8,7 @@ use gpui::{
     bounds, point, px, size, App, TitlebarOptions, Window, WindowBounds, WindowOptions,
 };
 
-use crate::pluginwebview::PluginWebView;
+use crate::pluginwebview::{PluginWebView, WebviewSurface};
 
 const WIDTH: f32 = 760.0;
 const HEIGHT: f32 = 560.0;
@@ -38,7 +38,7 @@ pub fn open(parent: &Window, plugin: plugin::Plugin, cx: &mut App) {
         },
         |window, cx| {
             window.set_window_title(&title);
-            cx.new(|cx| PluginWebView::new(plugin, cx))
+            cx.new(|cx| PluginWebView::new(WebviewSurface::from_plugin(plugin), cx))
         },
     );
     if let Ok(handle) = handle {

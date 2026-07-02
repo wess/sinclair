@@ -68,7 +68,8 @@ impl WorkspaceView {
                 .as_ref()
                 .map(|w| w.id.clone())
                 .unwrap_or_else(|| plugin.id.clone());
-            let host = cx.new(|cx| crate::pluginwebview::PluginWebView::new(plugin, cx));
+            let surface = crate::pluginwebview::WebviewSurface::from_plugin(plugin);
+            let host = cx.new(|cx| crate::pluginwebview::PluginWebView::new(surface, cx));
             self.webview_hosts.insert(id, host);
         }
     }
@@ -114,21 +115,24 @@ impl WorkspaceView {
             .unwrap_or_default();
         match placement {
             plugin::Placement::Panel => self.toggle_sidebar(&format!("right:webview:{id}"), cx),
-            plugin::Placement::Tab => self.open_webview_tab(plugin, window, cx),
+            plugin::Placement::Tab => {
+                let surface = crate::pluginwebview::WebviewSurface::from_plugin(plugin);
+                self.open_webview_tab(surface, window, cx);
+            }
             plugin::Placement::Window => crate::pluginwindow::open(window, plugin, cx),
         }
     }
 
-    /// Open a plugin web view as its own tab (a single-pane tab hosting the
-    /// webview). Mirrors `newtab` but with a webview pane instead of a shell.
+    /// Open a web view as its own tab (a single-pane tab hosting the surface).
+    /// Mirrors `newtab` but with a webview pane instead of a shell.
     pub(crate) fn open_webview_tab(
         &mut self,
-        plugin: plugin::Plugin,
+        surface: crate::pluginwebview::WebviewSurface,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         self.zoomed = false;
-        let id = self.spawn_webview_pane(plugin, cx);
+        let id = self.spawn_webview_pane(surface, cx);
         self.tabs.new_tab(id);
         self.focusactive(window, cx);
         cx.notify();

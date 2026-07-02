@@ -74,10 +74,10 @@ impl WorkspaceView {
     /// register it, and return its id. Used for `[webview] placement = "tab"`.
     pub(crate) fn spawn_webview_pane(
         &mut self,
-        plugin: plugin::Plugin,
+        surface: crate::pluginwebview::WebviewSurface,
         cx: &mut Context<Self>,
     ) -> PaneId {
-        let view = cx.new(|cx| crate::pluginwebview::PluginWebView::new(plugin, cx));
+        let view = cx.new(|cx| crate::pluginwebview::PluginWebView::new(surface, cx));
         let id = self.ids.next();
         self.panes.insert(
             id,
