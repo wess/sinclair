@@ -94,9 +94,11 @@ pub struct SplitsElement {
     dimcolor: Hsla,
     drag: Rc<RefCell<Option<Drag>>>,
     root: WeakEntity<WorkspaceView>,
+    focus_follows_mouse: bool,
 }
 
 impl SplitsElement {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         tree: PaneTree,
         focused: PaneId,
@@ -105,6 +107,7 @@ impl SplitsElement {
         dimcolor: Hsla,
         drag: Rc<RefCell<Option<Drag>>>,
         root: WeakEntity<WorkspaceView>,
+        focus_follows_mouse: bool,
     ) -> Self {
         Self {
             tree,
@@ -114,6 +117,7 @@ impl SplitsElement {
             dimcolor,
             drag,
             root,
+            focus_follows_mouse,
         }
     }
 }
@@ -295,6 +299,28 @@ impl Element for SplitsElement {
                 }
             }
         });
+
+        // Focus-follows-mouse: focus whichever split the pointer moves over.
+        if self.focus_follows_mouse {
+            let root = self.root.clone();
+            let panes = frame.panes.clone();
+            let focused = self.focused;
+            let drag = self.drag.clone();
+            window.on_mouse_event(move |event: &MouseMoveEvent, phase, window, cx| {
+                if phase != DispatchPhase::Bubble || drag.borrow().is_some() {
+                    return;
+                }
+                for (pane, bounds) in &panes {
+                    if bounds.contains(&event.position) {
+                        if *pane != focused {
+                            let pane = *pane;
+                            root.update(cx, |this, cx| this.focuspane(pane, window, cx)).ok();
+                        }
+                        return;
+                    }
+                }
+            });
+        }
 
         let drag = self.drag.clone();
         let root = self.root.clone();

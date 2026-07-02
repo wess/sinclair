@@ -28,6 +28,7 @@ impl Render for WorkspaceView {
             dimcolor,
             self.drag.clone(),
             root,
+            self.opts.focus_follows_mouse,
         );
 
         let mut base = div()
