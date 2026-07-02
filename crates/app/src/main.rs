@@ -8,6 +8,7 @@ mod bridge;
 mod catalog;
 mod colors;
 mod element;
+mod envpath;
 mod exportcmd;
 #[cfg(target_os = "macos")]
 mod fidelity;
@@ -96,6 +97,10 @@ fn main() {
     if args.first().map(String::as_str) == Some("export") {
         std::process::exit(exportcmd::run(&args[1..]));
     }
+
+    // GUI launch (Finder/Dock) inherits a bare PATH; adopt the login shell's so
+    // spawned tools (bun/node, agent CLIs, git/docker plugins) are found.
+    envpath::fix();
 
     let (opts, diagnostics) = config::load();
     for d in &diagnostics {

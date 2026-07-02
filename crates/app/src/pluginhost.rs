@@ -125,7 +125,7 @@ pub fn invoke(plugin: &plugin::Plugin, req: &Request) -> Result<Response, String
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
         .spawn()
-        .map_err(|e| format!("spawn `{program}`: {e}"))?;
+        .map_err(|e| format!("spawn `{program}`: {e}. Is `{program}` installed and on your PATH?"))?;
 
     // Feed stdin from a separate thread so a plugin that floods stdout before
     // draining stdin can't deadlock us (we'd block writing while it blocks
