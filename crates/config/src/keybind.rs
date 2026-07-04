@@ -160,8 +160,8 @@ pub fn parse_trigger(s: &str) -> Result<(Mods, String), String> {
     }
     let (mods_part, key_part) = if s == "+" {
         ("", "+")
-    } else if s.ends_with("++") {
-        (&s[..s.len() - 2], "+")
+    } else if let Some(rest) = s.strip_suffix("++") {
+        (rest, "+")
     } else {
         match s.rfind('+') {
             Some(i) if i + 1 < s.len() => (&s[..i], &s[i + 1..]),
@@ -330,7 +330,7 @@ pub fn default_keybinds() -> Vec<Keybind> {
         kb(cmd, "q", Action::Quit),
     ];
     for n in 1..=9 {
-        binds.push(kb(cmd, &n.to_string(), Action::GotoTab(n as i32)));
+        binds.push(kb(cmd, &n.to_string(), Action::GotoTab(n)));
     }
     // Shift+navigation extends an active selection (the macOS / Ghostty
     // convention). With no selection the action is a no-op and the key

@@ -101,13 +101,13 @@ impl TerminalView {
         }
         // Read the typed line and whether the cursor sits at its end (only then
         // do we offer a completion, fish-style).
-        let (input, at_end, history) = self.session.with_term(|t| {
+        let (input, at_end) = self.session.with_term(|t| {
             let input = t.current_input();
             let at_end = match (t.input_end(), Some(t.cursor_pos())) {
                 (Some(end), Some(cur)) => end == cur,
                 _ => false,
             };
-            (input, at_end, t.command_history())
+            (input, at_end)
         });
         let Some(input) = input.filter(|s| !s.trim().is_empty()) else {
             self.clear_suggestions();
@@ -119,6 +119,10 @@ impl TerminalView {
             cx.notify();
             return;
         }
+        // Only now is history needed: cloning it up front deep-copied the whole
+        // shell history on every output wakeup, then dropped it in the common
+        // (no active input line) case above.
+        let history = self.session.with_term(|t| t.command_history());
         let cwd = self.cwd_path();
         let cands = crate::suggest::candidates(&cfg, &input, &history, cwd.as_deref());
         self.suggest.input = input.clone();

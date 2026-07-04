@@ -22,6 +22,9 @@ impl ItemIds {
         Self::default()
     }
 
+    // Not an iterator: a monotonic allocator whose `next` reads naturally at
+    // call sites (`item_ids.next()`).
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> ItemId {
         self.0 += 1;
         ItemId(self.0)
@@ -37,6 +40,7 @@ impl PaneIds {
         Self::default()
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> PaneId {
         self.0 += 1;
         PaneId(self.0)

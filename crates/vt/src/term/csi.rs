@@ -17,46 +17,55 @@ pub(crate) fn dispatch(
     action: char,
 ) {
     let private = intermediates.contains(&b'?');
-    let p: Vec<u16> = params
-        .iter()
-        .map(|s| s.first().copied().unwrap_or(0))
-        .collect();
+    // vte caps a sequence at MAX_PARAMS (32) params, so a stack buffer avoids
+    // heap-allocating on every CSI — the hot SGR path below doesn't even read
+    // it, and cursor/erase ops fire constantly in TUIs.
+    let mut buf = [0u16; 32];
+    let mut n = 0;
+    for s in params.iter() {
+        if n == buf.len() {
+            break;
+        }
+        buf[n] = s.first().copied().unwrap_or(0);
+        n += 1;
+    }
+    let p: &[u16] = &buf[..n];
 
     match (action, intermediates) {
-        ('A', []) => inner.cursor_up(count(&p, 0)),
-        ('B', []) | ('e', []) => inner.cursor_down(count(&p, 0)),
-        ('C', []) | ('a', []) => inner.cursor_right(count(&p, 0)),
-        ('D', []) => inner.cursor_left(count(&p, 0)),
+        ('A', []) => inner.cursor_up(count(p, 0)),
+        ('B', []) | ('e', []) => inner.cursor_down(count(p, 0)),
+        ('C', []) | ('a', []) => inner.cursor_right(count(p, 0)),
+        ('D', []) => inner.cursor_left(count(p, 0)),
         ('E', []) => {
-            inner.cursor_down(count(&p, 0));
+            inner.cursor_down(count(p, 0));
             inner.carriage_return();
         }
         ('F', []) => {
-            inner.cursor_up(count(&p, 0));
+            inner.cursor_up(count(p, 0));
             inner.carriage_return();
         }
-        ('G', []) | ('`', []) => inner.set_column(count(&p, 0) - 1),
-        ('H', []) | ('f', []) => inner.cursor_to(count(&p, 0) - 1, count(&p, 1) - 1),
-        ('I', []) => inner.tab_forward(count(&p, 0)),
-        ('J', _) => inner.erase_display(arg(&p, 0, 0)),
-        ('K', _) => inner.erase_line(arg(&p, 0, 0)),
-        ('L', []) => inner.insert_lines(count(&p, 0)),
-        ('M', []) => inner.delete_lines(count(&p, 0)),
-        ('P', []) => inner.delete_chars(count(&p, 0)),
-        ('@', []) => inner.insert_blank(count(&p, 0)),
-        ('S', []) => inner.scroll_up_region(count(&p, 0)),
-        ('T', []) => inner.scroll_down_region(count(&p, 0)),
-        ('X', []) => inner.erase_chars(count(&p, 0)),
-        ('Z', []) => inner.tab_backward(count(&p, 0)),
-        ('b', []) => inner.repeat_last(count(&p, 0)),
-        ('c', []) if arg(&p, 0, 0) == 0 => {
+        ('G', []) | ('`', []) => inner.set_column(count(p, 0) - 1),
+        ('H', []) | ('f', []) => inner.cursor_to(count(p, 0) - 1, count(p, 1) - 1),
+        ('I', []) => inner.tab_forward(count(p, 0)),
+        ('J', _) => inner.erase_display(arg(p, 0, 0)),
+        ('K', _) => inner.erase_line(arg(p, 0, 0)),
+        ('L', []) => inner.insert_lines(count(p, 0)),
+        ('M', []) => inner.delete_lines(count(p, 0)),
+        ('P', []) => inner.delete_chars(count(p, 0)),
+        ('@', []) => inner.insert_blank(count(p, 0)),
+        ('S', []) => inner.scroll_up_region(count(p, 0)),
+        ('T', []) => inner.scroll_down_region(count(p, 0)),
+        ('X', []) => inner.erase_chars(count(p, 0)),
+        ('Z', []) => inner.tab_backward(count(p, 0)),
+        ('b', []) => inner.repeat_last(count(p, 0)),
+        ('c', []) if arg(p, 0, 0) == 0 => {
             inner.output.extend_from_slice(b"\x1b[?62;22c");
         }
         ('c', [b'>']) => {
             inner.output.extend_from_slice(b"\x1b[>0;276;0c");
         }
-        ('d', []) => inner.set_row(count(&p, 0) - 1),
-        ('g', []) => match arg(&p, 0, 0) {
+        ('d', []) => inner.set_row(count(p, 0) - 1),
+        ('g', []) => match arg(p, 0, 0) {
             0 => {
                 let col = inner.screen().cursor.col;
                 inner.screen_mut().clear_tab(col);
@@ -64,24 +73,24 @@ pub(crate) fn dispatch(
             3 => inner.screen_mut().clear_all_tabs(),
             _ => {}
         },
-        ('h', _) => set_modes(inner, &p, private, true),
-        ('l', _) => set_modes(inner, &p, private, false),
+        ('h', _) => set_modes(inner, p, private, true),
+        ('l', _) => set_modes(inner, p, private, false),
         ('m', []) => {
             let mut pen = inner.screen().cursor.pen;
             sgr::apply(&mut pen, params.iter());
             inner.screen_mut().cursor.pen = pen;
         }
-        ('n', []) => match arg(&p, 0, 0) {
+        ('n', []) => match arg(p, 0, 0) {
             5 => inner.output.extend_from_slice(b"\x1b[0n"),
             6 => inner.report_cursor(),
             _ => {}
         },
         ('q', [b' ']) => {
-            if let Some(style) = CursorStyle::from_decscusr(arg(&p, 0, 0)) {
+            if let Some(style) = CursorStyle::from_decscusr(arg(p, 0, 0)) {
                 inner.cursor_style = style;
             }
         }
-        ('r', []) => inner.set_scroll_region(arg(&p, 0, 0), arg(&p, 1, 0)),
+        ('r', []) => inner.set_scroll_region(arg(p, 0, 0), arg(p, 1, 0)),
         ('s', []) => inner.save_cursor(),
         ('u', []) => inner.restore_cursor(),
         ('u', [b'?']) => {
@@ -90,14 +99,14 @@ pub(crate) fn dispatch(
                 .output
                 .extend_from_slice(format!("\x1b[?{flags}u").as_bytes());
         }
-        ('u', [b'>']) => inner.screen_mut().kitty.push(arg(&p, 0, 0) as u8),
-        ('u', [b'<']) => inner.screen_mut().kitty.pop(count(&p, 0)),
+        ('u', [b'>']) => inner.screen_mut().kitty.push(arg(p, 0, 0) as u8),
+        ('u', [b'<']) => inner.screen_mut().kitty.pop(count(p, 0)),
         ('u', [b'=']) => {
-            let flags = arg(&p, 0, 0) as u8;
-            let mode = arg(&p, 1, 1) as u8;
+            let flags = arg(p, 0, 0) as u8;
+            let mode = arg(p, 1, 1) as u8;
             inner.screen_mut().kitty.set(flags, mode);
         }
-        ('t', []) => match arg(&p, 0, 0) {
+        ('t', []) => match arg(p, 0, 0) {
             22 if inner.title_stack.len() < TITLE_STACK_MAX => {
                 inner.title_stack.push(inner.title.clone());
             }

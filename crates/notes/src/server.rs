@@ -9,8 +9,9 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
-use axum::extract::{Query, State};
+use axum::extract::{Query, Request, State};
 use axum::http::{header, StatusCode};
+use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, MethodRouter};
 use axum::{Json, Router};
@@ -32,9 +33,10 @@ pub struct AppState {
     clients: AtomicUsize,
     watcher: Mutex<Option<notify::RecommendedWatcher>>,
     port: u16,
+    token: String,
 }
 
-pub async fn run(port: u16) {
+pub async fn run(port: u16, token: String) {
     let (tx, _) = tokio::sync::broadcast::channel(64);
     let state = Arc::new(AppState {
         vault: Mutex::new(Vault::new()),
@@ -44,11 +46,14 @@ pub async fn run(port: u16) {
         clients: AtomicUsize::new(0),
         watcher: Mutex::new(None),
         port,
+        token,
     });
     arm_watch(&state);
 
-    let app = Router::new()
-        .route("/health", get(health))
+    // Everything that touches the vault (all `/api/*` plus the change-push
+    // socket) sits behind the bearer-token gate; only `/health` and the static
+    // web assets are public.
+    let guarded = Router::new()
         .route("/ws", get(ws_upgrade))
         .route("/api/vault", get(get_vault))
         .route("/api/vault/open", post(vault_open))
@@ -64,17 +69,44 @@ pub async fn run(port: u16) {
         .route("/api/file/rename", post(file_rename))
         .route("/api/file/move", post(file_move))
         .route("/api/resolve", get(resolve))
+        .route_layer(middleware::from_fn_with_state(state.clone(), auth));
+
+    let app = Router::new()
+        .route("/health", get(health))
+        .merge(guarded)
         .fallback(static_asset)
         .with_state(state.clone());
 
-    spawn_reaper(state.clone());
-
     let addr = std::net::SocketAddr::from(([127, 0, 0, 1], port));
     let Ok(listener) = tokio::net::TcpListener::bind(addr).await else {
-        // Port busy — another server is already up; nothing to do.
+        // Port busy — another server is already up; leave its token file intact.
         return;
     };
+    // We own the port: publish the token (0600) so the in-app client can read it.
+    crate::token::write_info(port, &state.token);
+    spawn_reaper(state.clone());
     let _ = axum::serve(listener, app).await;
+}
+
+/// Reject any guarded request whose bearer token doesn't match this session's.
+/// Accepts `Authorization: Bearer <t>` (fetch) or `?token=<t>` (WebSocket).
+async fn auth(State(s): State<Arc<AppState>>, req: Request, next: Next) -> Response {
+    let presented: Option<String> = req
+        .headers()
+        .get(header::AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "))
+        .map(str::to_string)
+        .or_else(|| {
+            req.uri()
+                .query()
+                .and_then(crate::token::token_from_query)
+                .map(str::to_string)
+        });
+    match presented {
+        Some(t) if crate::token::constant_time_eq(&t, &s.token) => next.run(req).await,
+        _ => StatusCode::UNAUTHORIZED.into_response(),
+    }
 }
 
 // --- helpers ---------------------------------------------------------------

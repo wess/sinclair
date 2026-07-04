@@ -6,7 +6,7 @@ use super::TeamCmd;
 use anyhow::{anyhow, bail, Result};
 use serde::Deserialize;
 use serde_json::json;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 const BUILTINS: &[(&str, &str)] = &[
     ("web", include_str!("../../teams/web.toml")),
@@ -100,7 +100,7 @@ fn dir(user: bool) -> PathBuf {
     }
 }
 
-fn file_in(dir: &PathBuf, name: &str) -> PathBuf {
+fn file_in(dir: &Path, name: &str) -> PathBuf {
     dir.join(format!("{name}.toml"))
 }
 

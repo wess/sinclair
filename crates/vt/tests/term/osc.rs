@@ -280,3 +280,15 @@ fn osc133_history_dedups_consecutive_and_newest_first() {
     // Consecutive duplicate "ls" collapses; newest first.
     assert_eq!(t.command_history(), vec!["cargo test".to_string(), "ls".to_string()]);
 }
+
+#[test]
+fn truncated_osc_sequences_do_not_panic() {
+    // Bare OSC 8/99/777 with fewer params than their bodies index into once
+    // panicked on the out-of-range slice. They must now be ignored cleanly.
+    let mut t = Terminal::new(10, 3, 0);
+    t.feed(b"\x1b]8\x1b\\"); // OSC 8 hyperlink, no id/uri params
+    t.feed(b"\x1b]8;\x1b\\"); // OSC 8 with only the id separator
+    t.feed(b"\x1b]99\x1b\\"); // OSC 99 notify, no body
+    t.feed(b"\x1b]777;notify\x1b\\"); // OSC 777 notify, no title/body
+    assert!(t.take_notification().is_none());
+}

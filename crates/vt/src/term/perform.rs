@@ -17,7 +17,7 @@ impl vte::Perform for Inner {
             0x07 => self.bell = true,
             0x08 => self.cursor_left(1),
             0x09 => self.tab_forward(1),
-            0x0a | 0x0b | 0x0c => self.linefeed(),
+            0x0a..=0x0c => self.linefeed(),
             0x0d => self.carriage_return(),
             0x0e => self.charsets.shifted = true,
             0x0f => self.charsets.shifted = false,

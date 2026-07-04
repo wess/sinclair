@@ -46,7 +46,7 @@ pub(crate) fn dispatch(inner: &mut Inner, params: &[&[u8]], bell_terminated: boo
             }
         }
         8 => {
-            let uri = rejoin(&params[2..]);
+            let uri = rejoin(params.get(2..).unwrap_or(&[]));
             let hid = if uri.is_empty() {
                 None
             } else {
@@ -150,17 +150,15 @@ pub(crate) fn dispatch(inner: &mut Inner, params: &[&[u8]], bell_terminated: boo
                 notify(inner, None, rejoin(&params[1..]));
             }
         }
-        777 => {
-            if params.get(1) == Some(&b"notify".as_slice()) {
-                let title = params
-                    .get(2)
-                    .map(|b| String::from_utf8_lossy(b).into_owned())
-                    .filter(|t| !t.is_empty());
-                notify(inner, title, rejoin(&params[3..]));
-            }
+        777 if params.get(1) == Some(&b"notify".as_slice()) => {
+            let title = params
+                .get(2)
+                .map(|b| String::from_utf8_lossy(b).into_owned())
+                .filter(|t| !t.is_empty());
+            notify(inner, title, rejoin(params.get(3..).unwrap_or(&[])));
         }
         99 => {
-            notify(inner, None, rejoin(&params[2..]));
+            notify(inner, None, rejoin(params.get(2..).unwrap_or(&[])));
         }
         _ => {}
     }

@@ -4,12 +4,17 @@
 
 import { createEditor } from "./dist/editor.js";
 
+// Session auth token, handed to us by the app on the boot URL (?token=…). The
+// server rejects any /api or /ws request without it.
+const TOKEN = new URLSearchParams(location.search).get("token") || "";
+const authHeaders = () => (TOKEN ? { authorization: "Bearer " + TOKEN } : {});
+
 const api = {
-  get: (p) => fetch("/api" + p).then((r) => r.json()),
+  get: (p) => fetch("/api" + p, { headers: authHeaders() }).then((r) => r.json()),
   send: (m, p, body) =>
     fetch("/api" + p, {
       method: m,
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...authHeaders() },
       body: JSON.stringify(body || {}),
     }).then((r) => r.json()),
 };
@@ -46,7 +51,7 @@ const el = (tag, cls, txt) => {
 function connectWs() {
   let ws;
   try {
-    ws = new WebSocket(`ws://${location.host}/ws`);
+    ws = new WebSocket(`ws://${location.host}/ws?token=${encodeURIComponent(TOKEN)}`);
   } catch {
     return;
   }

@@ -5,7 +5,7 @@
 use super::RoleCmd;
 use anyhow::{anyhow, bail, Result};
 use serde::Deserialize;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Built-in role templates, embedded at build time.
 const BUILTINS: &[(&str, &str)] = &[
@@ -102,7 +102,7 @@ fn dir(user: bool) -> PathBuf {
     }
 }
 
-fn file_in(dir: &PathBuf, name: &str) -> PathBuf {
+fn file_in(dir: &Path, name: &str) -> PathBuf {
     dir.join(format!("{name}.toml"))
 }
 

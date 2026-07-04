@@ -27,7 +27,7 @@ pub fn in_row(
     }
     let eq = |a: char, b: char| {
         if fold {
-            a.to_ascii_lowercase() == b.to_ascii_lowercase()
+            a.eq_ignore_ascii_case(&b)
         } else {
             a == b
         }

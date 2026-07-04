@@ -41,9 +41,10 @@ pub enum Boot {
     /// Invoke the surface's plugin `runtime` `boot` method; it returns `{ url }`
     /// or `{ port }` (a plugin starting its own server).
     Runtime,
-    /// Ensure a bundled server is running and use its port. The function spawns
-    /// the server if needed and returns the port (a built-in like Notes).
-    Server(fn() -> Result<u16, String>),
+    /// Ensure a bundled server is running and use its address. The function
+    /// spawns the server if needed and returns its `(port, token)`, substituted
+    /// into `{port}`/`{token}` in the template (a built-in like Notes).
+    Server(fn() -> Result<(u16, String), String>),
 }
 
 /// What a [`PluginWebView`] hosts: identity, content, and an optional runtime to
@@ -205,7 +206,11 @@ impl PluginWebView {
                 let f = *f;
                 cx.spawn(async move |_this, cx| {
                     let target = executor
-                        .spawn(async move { f().map(|port| url.replace("{port}", &port.to_string())) })
+                        .spawn(async move {
+                            f().map(|(port, token)| {
+                                url.replace("{port}", &port.to_string()).replace("{token}", &token)
+                            })
+                        })
                         .await;
                     webview.update(cx, |wv, cx| match target {
                         Ok(u) => wv.load_url(u, cx),

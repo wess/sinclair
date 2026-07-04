@@ -96,7 +96,7 @@ pub fn base64_encode(input: &[u8]) -> String {
 /// Decode a hex string (even length, ASCII hex digits) to bytes. Used for
 /// XTGETTCAP capability names. `None` on bad length or non-hex.
 pub fn hex_decode(input: &[u8]) -> Option<Vec<u8>> {
-    if input.len() % 2 != 0 {
+    if !input.len().is_multiple_of(2) {
         return None;
     }
     input

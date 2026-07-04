@@ -7,6 +7,7 @@
 //! spawns it detached and reuses a live server; it reaps itself when idle.
 
 mod server;
+mod token;
 mod vault;
 
 /// The fixed default port; the app health-checks and reuses a live server here.
@@ -20,7 +21,10 @@ fn main() {
     }
     let port = args.next().and_then(|s| s.parse().ok()).unwrap_or(DEFAULT_PORT);
 
-    write_pidfile(port);
+    // Mint the session token up front; the server records it (with the pid)
+    // only once it wins the port bind, so a losing duplicate can't overwrite a
+    // live server's token file.
+    let auth = token::mint();
     let rt = match tokio::runtime::Builder::new_multi_thread().enable_all().build() {
         Ok(rt) => rt,
         Err(e) => {
@@ -28,16 +32,5 @@ fn main() {
             std::process::exit(1);
         }
     };
-    rt.block_on(server::run(port));
-}
-
-/// Record `{port, pid}` at `~/.config/prompt/notes/server.json`.
-fn write_pidfile(port: u16) {
-    let Some(home) = std::env::var_os("HOME") else {
-        return;
-    };
-    let dir = std::path::Path::new(&home).join(".config").join("prompt").join("notes");
-    let _ = std::fs::create_dir_all(&dir);
-    let body = serde_json::json!({ "port": port, "pid": std::process::id() });
-    let _ = std::fs::write(dir.join("server.json"), body.to_string());
+    rt.block_on(server::run(port, auth));
 }

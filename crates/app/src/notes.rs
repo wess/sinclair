@@ -35,12 +35,35 @@ fn alive(port: u16) -> bool {
     TcpStream::connect_timeout(&addr.into(), Duration::from_millis(200)).is_ok()
 }
 
-/// Ensure the vault server is running and return its port, spawning the bundled
-/// `notes serve` (detached) if nothing is listening yet. Runs off the UI thread
-/// (called from the surface's boot), so the blocking wait is fine.
-fn ensure_server() -> Result<u16, String> {
+/// Path to the server's info file: `~/.config/prompt/notes/server.json`.
+fn info_path() -> Option<std::path::PathBuf> {
+    let home = std::env::var_os("HOME")?;
+    Some(std::path::Path::new(&home).join(".config/prompt/notes/server.json"))
+}
+
+/// Read the session auth token the server published on bind. Retried briefly
+/// because the file lands just after the port opens.
+fn read_token() -> Result<String, String> {
+    for _ in 0..40 {
+        if let Some(tok) = info_path()
+            .and_then(|p| std::fs::read_to_string(p).ok())
+            .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
+            .and_then(|v| v.get("token").and_then(|t| t.as_str()).map(str::to_string))
+            .filter(|t| !t.is_empty())
+        {
+            return Ok(tok);
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    Err("the notes server did not publish an auth token".to_string())
+}
+
+/// Ensure the vault server is running and return its `(port, token)`, spawning
+/// the bundled `notes serve` (detached) if nothing is listening yet. Runs off
+/// the UI thread (called from the surface's boot), so the blocking wait is fine.
+fn ensure_server() -> Result<(u16, String), String> {
     if alive(PORT) {
-        return Ok(PORT);
+        return Ok((PORT, read_token()?));
     }
     use std::os::unix::process::CommandExt;
     std::process::Command::new(binary())
@@ -53,7 +76,7 @@ fn ensure_server() -> Result<u16, String> {
         .map_err(|e| format!("spawn `notes`: {e}. Is it installed beside prompt?"))?;
     for _ in 0..60 {
         if alive(PORT) {
-            return Ok(PORT);
+            return Ok((PORT, read_token()?));
         }
         std::thread::sleep(Duration::from_millis(50));
     }
@@ -67,7 +90,7 @@ impl WorkspaceView {
             id: "notes".to_string(),
             title: "Notes".to_string(),
             content: SurfaceContent::Boot {
-                url_template: "http://127.0.0.1:{port}/".to_string(),
+                url_template: "http://127.0.0.1:{port}/?token={token}".to_string(),
                 boot: Boot::Server(ensure_server),
             },
             runtime: None,
