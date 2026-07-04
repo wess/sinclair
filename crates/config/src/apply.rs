@@ -358,6 +358,10 @@ pub fn apply(opts: &mut Options, key: &str, val: &str) -> Result<(), String> {
                 value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
             };
         }
+        "auto-update" => {
+            opts.auto_update =
+                if empty { d.auto_update } else { value::parse_bool(val).ok_or_else(|| bad("boolean", val))? };
+        }
         "autosuggest-ghost" => {
             opts.autosuggest_ghost =
                 if empty { d.autosuggest_ghost } else { value::parse_bool(val).ok_or_else(|| bad("boolean", val))? };

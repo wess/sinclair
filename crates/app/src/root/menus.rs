@@ -255,6 +255,7 @@ impl WorkspaceView {
             "Prompt",
             vec![
                 Some(MenuItem::action("About Prompt", ShowAbout)),
+                self.pick(a, "Check for Updates\u{2026}", Action::CheckUpdates),
                 Some(MenuItem::separator()),
                 self.pick(a, "Command Palette\u{2026}", Action::CommandPalette),
                 self.pick(a, "Settings\u{2026}", Action::ToggleSettings),

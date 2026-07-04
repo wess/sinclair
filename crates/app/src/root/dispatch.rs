@@ -190,6 +190,7 @@ impl WorkspaceView {
                 let cwd = self.focused_cwd_path(cx);
                 crate::teambuilder::open(window, cwd, cx);
             }
+            Action::CheckUpdates => crate::updateui::check_now(cx),
             Action::AgentDef(name) => {
                 crate::relay::ensure_running(&self.opts);
                 if let Some(cmd) = crate::relay::launch_saved_command(&self.opts, &name) {

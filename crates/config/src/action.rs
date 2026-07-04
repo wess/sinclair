@@ -307,6 +307,8 @@ pub enum Action {
     OpenTeam(String),
     /// Open the Team Builder window (manual or AI-guided team assembly).
     BuildTeam,
+    /// Check GitHub for a newer release now and prompt to update.
+    CheckUpdates,
     /// Launch a previously-saved agent by name.
     AgentDef(String),
     /// Quick-launch a configured provider (e.g. `claude`, `codex`) as a one-off
@@ -461,6 +463,7 @@ impl Action {
             "sidebar" => Ok(Self::Sidebar(req(&name, param)?.to_string())),
             "open_team" => Ok(Self::OpenTeam(req(&name, param)?.to_string())),
             "build_team" => only(Self::BuildTeam, &name, param),
+            "check_updates" => only(Self::CheckUpdates, &name, param),
             "agent_def" => Ok(Self::AgentDef(req(&name, param)?.to_string())),
             "launch_agent" => Ok(Self::LaunchAgent(req(&name, param)?.to_string())),
             "open_webview" => Ok(Self::OpenWebview(req(&name, param)?.to_string())),
@@ -529,6 +532,7 @@ impl Action {
             Self::Sidebar(s) => format!("sidebar:{s}"),
             Self::OpenTeam(s) => format!("open_team:{s}"),
             Self::BuildTeam => "build_team".into(),
+            Self::CheckUpdates => "check_updates".into(),
             Self::AgentDef(s) => format!("agent_def:{s}"),
             Self::LaunchAgent(s) => format!("launch_agent:{s}"),
             Self::OpenWebview(s) => format!("open_webview:{s}"),

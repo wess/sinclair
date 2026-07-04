@@ -43,6 +43,7 @@ impl SettingsView {
             self.toggle_row(Bool::ConfirmQuit, "\u{23fb}", theme::Rgb::new(255, 69, 58), cx),
             self.toggle_row(Bool::PasteProtection, "\u{2335}", theme::Rgb::new(255, 214, 10), cx),
             self.toggle_row(Bool::ShellIntegration, "\u{276f}", theme::Rgb::new(48, 209, 88), cx),
+            self.toggle_row(Bool::AutoUpdate, "\u{2913}", theme::Rgb::new(10, 132, 255), cx),
             self.toggle_row(Bool::SessionRestore, "\u{21ba}", theme::Rgb::new(94, 92, 230), cx),
             self.toggle_row(Bool::TabTitleShowHost, "@", theme::Rgb::new(100, 210, 255), cx),
             self.toggle_row(Bool::CopyOnSelect, "\u{2713}", theme::Rgb::new(52, 199, 89), cx),

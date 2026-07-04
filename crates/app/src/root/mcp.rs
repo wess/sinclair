@@ -59,6 +59,33 @@ impl WorkspaceView {
                 Ok(json!({ "text": text }))
             }
             #[cfg(debug_assertions)]
+            "simulate_update" => {
+                let version = args.get("version").and_then(Value::as_str).unwrap_or("9.9.9");
+                let rel = crate::update::Release {
+                    version: version.to_string(),
+                    url: "https://github.com/wess/prompt/releases".to_string(),
+                    assets: Vec::new(),
+                };
+                crate::updateui::open(rel, cx);
+                Ok(json!({ "opened": true }))
+            }
+            #[cfg(debug_assertions)]
+            "update_probe" => {
+                let install = format!("{:?}", crate::update::detect_install());
+                let (available, latest, err) = match crate::update::check() {
+                    Ok(Some(r)) => (true, r.version, String::new()),
+                    Ok(None) => (false, String::new(), String::new()),
+                    Err(e) => (false, String::new(), e),
+                };
+                Ok(json!({
+                    "current": crate::update::current(),
+                    "install": install,
+                    "available": available,
+                    "latest": latest,
+                    "error": err,
+                }))
+            }
+            #[cfg(debug_assertions)]
             "window_bounds" => {
                 let b = window.bounds();
                 Ok(json!({

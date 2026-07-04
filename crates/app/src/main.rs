@@ -44,6 +44,8 @@ mod sessionstate;
 mod settings;
 mod suggest;
 mod teambuilder;
+mod update;
+mod updateui;
 mod shellinteg;
 mod tabbar;
 mod tiles;
@@ -125,10 +127,14 @@ fn main() {
         }
     });
     app.run(move |cx: &mut App| {
+        let auto_update = opts.auto_update;
         open_default_window(opts, cx);
         cx.activate(true);
         quick::install_global_hotkey(cx);
         ipc::listen(cx);
+        if auto_update {
+            updateui::start_from_config(cx);
+        }
     });
 }
 

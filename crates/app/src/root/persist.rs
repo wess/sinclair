@@ -254,6 +254,15 @@ impl WorkspaceView {
         self.setmenus(cx);
     }
 
+    /// Run an update command (e.g. `brew upgrade --cask prompt`) in a new tab.
+    pub(crate) fn run_update_command(&mut self, cmd: &str, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(id) = self.spawncommand(cmd, window, cx) {
+            self.group.update(cx, |g, cx| g.add_to_focused(id, cx));
+            self.focusactive(window, cx);
+            cx.notify();
+        }
+    }
+
     /// Add an agent (a `relay launch` command from the New Agent modal) to the
     /// current workspace as a split.
     pub fn create_agent(&mut self, cmd: &str, window: &mut Window, cx: &mut Context<Self>) {

@@ -15,7 +15,7 @@ const REPO: &str = "wess/prompt";
 /// Names of plugins available in the catalog (the directories under `plugins/`),
 /// sorted. Hits the GitHub contents API via `curl`.
 pub fn list() -> Result<Vec<String>, String> {
-    let body = curl(&format!("https://api.github.com/repos/{REPO}/contents/plugins"))?;
+    let body = fetch(&format!("https://api.github.com/repos/{REPO}/contents/plugins"))?;
     let value: Value = serde_json::from_slice(&body).map_err(|e| format!("parse catalog: {e}"))?;
     let entries = value.as_array().ok_or("unexpected catalog response")?;
     let mut names: Vec<String> = entries
@@ -37,7 +37,7 @@ pub fn install(name: &str) -> Result<PathBuf, String> {
     let dir = plugin::defaultdir().ok_or("no plugin directory (set HOME/XDG_CONFIG_HOME)")?;
     let dest = dir.join(name);
 
-    let body = curl(&format!(
+    let body = fetch(&format!(
         "https://api.github.com/repos/{REPO}/contents/plugins/{name}"
     ))?;
     let value: Value = serde_json::from_slice(&body).map_err(|e| format!("parse listing: {e}"))?;
@@ -65,7 +65,7 @@ pub fn install(name: &str) -> Result<PathBuf, String> {
             if !valid_file(file) {
                 continue;
             }
-            let bytes = curl(url)?;
+            let bytes = fetch(url)?;
             std::fs::write(tmp.join(file), bytes).map_err(|e| format!("write {file}: {e}"))?;
             wrote += 1;
         }
@@ -115,7 +115,7 @@ pub fn uninstall(name: &str) -> Result<(), String> {
 /// file), so a redirecting endpoint or runaway file can't OOM us.
 const MAX_BYTES: &str = "8388608"; // 8 MiB
 
-fn curl(url: &str) -> Result<Vec<u8>, String> {
+pub(crate) fn fetch(url: &str) -> Result<Vec<u8>, String> {
     // Defense in depth: only https, only over https on redirects, a size cap,
     // and `--` so a URL beginning with `-` can't be read as an option.
     if !url.starts_with("https://") {

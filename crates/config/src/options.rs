@@ -185,6 +185,9 @@ pub struct Options {
     /// reporting into the spawned shell (zsh/bash/fish) so jump-to-prompt and
     /// cwd inheritance work without editing your shell rc. On by default.
     pub shell_integration: bool,
+    /// File key: `auto-update` - check GitHub for a newer release on launch and
+    /// hourly, and offer to update. On by default.
+    pub auto_update: bool,
     /// File key: `autosuggest-ghost` - fish-style inline ghost text completing
     /// the current command from history/commands/paths. On by default.
     pub autosuggest_ghost: bool,
@@ -385,6 +388,7 @@ impl Default for Options {
             clipboard_paste_protection: false,
             mouse_hide_while_typing: false,
             shell_integration: true,
+            auto_update: true,
             autosuggest_ghost: true,
             autosuggest_popup: false,
             autosuggest_tab: false,
