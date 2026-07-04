@@ -32,7 +32,8 @@
         <div class="tablewrap"><table>
           <thead><tr><th>Setting</th><th>What it does</th></tr></thead>
           <tbody>
-            <tr><td><strong>Enable AI features</strong></td><td>Master switch. Off means no MCP server, no mesh, no network activity.</td></tr>
+            <tr><td><strong>Enable AI features</strong></td><td>Master switch. Off means no MCP server, no mesh, no network activity. On is enough to launch agents — Relay starts on demand.</td></tr>
+            <tr><td><strong>Optimize tokens</strong></td><td>Compact the prompts sent to agents (collapse whitespace, use a terse relay harness) to spend fewer tokens without dropping content.</td></tr>
             <tr><td><strong>MCP server</strong></td><td>Expose this terminal to agents (see the <a href="mcp.html">MCP server</a> page).</td></tr>
             <tr><td><strong>Relay agent mesh</strong></td><td>Run the mesh. When on, Prompt starts the bundled <code>relay</code> daemon and an <strong>AI</strong> menu appears.</td></tr>
             <tr><td><strong>Start Relay on launch</strong></td><td>Bring the mesh up automatically when Prompt opens.</td></tr>
@@ -44,6 +45,7 @@
         <p>Everything maps to plain config keys, so it round-trips through the file too:</p>
         <pre><code><span class="c"># ~/.config/prompt/config</span>
 ai-enabled = true
+ai-optimize-tokens = true
 mcp-server-enabled = true
 relay-enabled = true
 relay-start-on-launch = true
@@ -55,7 +57,7 @@ relay-default-agent = claude</code></pre>
         <h2>Use it from Prompt</h2>
         <p>With AI enabled, an <strong>AI</strong> menu appears; with Relay on it offers:</p>
         <ul>
-          <li><strong>Agents ▸</strong> — <strong>Define Agent…</strong> opens the New Agent dialog: pick a provider (from the enabled tools), name it, and either choose a role preset (DevOps, frontend, …) or toggle Custom to describe it. Create adds it to the current workspace as a split and <strong>saves the definition</strong>, so it reappears in this submenu — click a saved agent to relaunch it.</li>
+          <li><strong>Agents ▸</strong> — <strong>Launch Claude Code / Codex / …</strong> quick-launches any configured provider straight into a split (Prompt lists only the ones it can actually find on this machine). <strong>Define Agent…</strong> opens the New Agent dialog for a named agent: pick a provider, name it, and either choose a role preset (DevOps, frontend, …) or toggle Custom to describe it. Create adds it as a split and <strong>saves the definition</strong>, so it reappears in this submenu — click a saved agent to relaunch it.</li>
           <li><strong>Open Feed</strong> — opens a split streaming every message on the bus (who said what to whom), the one view of cross-agent traffic.</li>
           <li><strong>Relay ▸</strong> — server controls: a live running/stopped status line, then <strong>Start Server</strong>, <strong>Stop Server</strong>, <strong>Restart Server</strong>, and <strong>View Logs</strong> (tails the relay server log, <code>server.log</code>, in a split).</li>
           <li><strong>Teams ▸</strong> — open a whole team at once (see <a href="#teams-and-tiles">Teams &amp; tiles</a>).</li>
@@ -170,7 +172,18 @@ role = "frontend"</code></pre>
           <li><strong>Terminal</strong> — any other CLI via <code>--cmd 'tool --mcp {mcp} -- {prompt}'</code>; runs in a pane without bus coordination. Placeholders: <code>{prompt}</code> (harness), <code>{mcp}</code> (config path), <code>{url}</code> (bus URL), <code>{name}</code>. <strong>gemini</strong> ships as a template.</li>
         </ul>
         <p>Pick the agent per launch with <code>--agent claude|codex|ollama|gemini</code> (or <code>--cmd</code>), or per team member. CLI background agents run with <code>--dangerously-skip-permissions</code> since they can't answer prompts.</p>
-        <p>In <strong>Settings → AI → Agent tools</strong>, each tool has an enable toggle and a <strong>Test</strong> button that checks it is reachable (CLI <code>--version</code>, or the Ollama API port).</p>
+        <p>In <strong>Settings → AI → Agent tools</strong>, each tool has an enable toggle, a <strong>Test</strong> button that checks it is reachable (CLI <code>--version</code>, or the Ollama API port), an explicit <strong>path</strong> field (for a binary that isn't on <code>PATH</code>), and a <strong>flags</strong> field.</p>
+
+        <h2>Agent CLI flags</h2>
+        <p>Each built-in provider can carry extra command-line flags, appended to its own invocation on every launch — quick-launch, Define Agent, saved agents, and team members alike. Edit them under <strong>Settings → AI → Agent tools</strong>, or in the config file:</p>
+        <pre><code><span class="c"># ~/.config/prompt/config</span>
+agent-claude-args = --dangerously-skip-permissions
+agent-codex-args  = --model o3
+agent-gemini-args = --yolo
+
+<span class="c"># and an explicit binary path when it isn't on PATH</span>
+agent-claude-path = /opt/homebrew/bin/claude</code></pre>
+        <p>The most common use is running Claude Code with <code>--dangerously-skip-permissions</code> so it doesn't stop to ask. Values with spaces can be quoted; Ollama has no flags field (it is driven by relay's own bridge, not a CLI).</p>
 
         <h2>Notes &amp; limits</h2>
         <ul>

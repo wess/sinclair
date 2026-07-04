@@ -94,6 +94,17 @@ cargo run -p app --release</code></pre>
           <p>Config changes apply live — there's no need to restart Prompt after editing
           your theme, fonts, padding, or keybindings.</p>
         </div>
+
+        <h2>Keeping Prompt up to date</h2>
+        <p>Prompt checks GitHub for a newer release on launch and once an hour, and offers to update when one is available. You can also check any time from <strong>Prompt → Check for Updates…</strong>. Turn the automatic check off with <code>auto-update = false</code>.</p>
+        <p>How the update is applied depends on how you installed Prompt:</p>
+        <ul>
+          <li><strong>Homebrew</strong> — Prompt runs <code>brew upgrade --cask prompt</code> in a new tab, so the cask stays the source of truth.</li>
+          <li><strong>Debian/Ubuntu (<code>.deb</code>)</strong> — Prompt shows the <code>apt</code> upgrade command to run.</li>
+          <li><strong>Manual <code>.dmg</code></strong> — Prompt downloads the notarized disk image, swaps the app in place, and relaunches into the new version.</li>
+          <li><strong>AppImage</strong> — Prompt downloads the new image, replaces the running one, and relaunches.</li>
+        </ul>
+        <div class="callout note"><span class="label">Note</span><p>Package-managed installs always defer to the package manager rather than swapping the binary themselves, so <code>brew</code>/<code>apt</code> never lose track of what's installed.</p></div>
       </article>
     </main>
     <script type="module" src="docs.js"></script>

@@ -29,6 +29,31 @@
         <p>Shell integration is on by default (the <code>shell-integration</code> config key). Prompt injects OSC 133 prompt marks and OSC 7 working-directory reporting into zsh, bash, and fish purely through environment variables — it never edits your <code>.zshrc</code>, <code>.bashrc</code>, or fish config. Those marks let Prompt understand the structure of your session, which powers jump-to-prompt, working-directory inheritance for new tabs and splits, semantic search, and the pacing of macro replay.</p>
         <div class="callout note"><span class="label">Note</span><p>The integration is transparent and reversible: it is just an environment injection, so nothing is written to your shell startup files and setting <code>shell-integration = false</code> turns it off completely.</p></div>
 
+        <h2>Autosuggestions &amp; completion</h2>
+        <p>As you type a command, Prompt suggests how to finish it. The default is fish-style <strong>inline ghost text</strong>: a dimmed completion appears past the cursor, and <kbd>→</kbd> or <kbd>End</kbd> accepts it. Suggestions are drawn from your captured <strong>command history</strong>, a built-in list of <strong>common commands</strong>, and <strong>filesystem paths</strong> under the working directory, ranked by the local assist model. Nothing leaves your machine.</p>
+        <p>Three more behaviors are available, each toggled independently:</p>
+        <ul>
+          <li><strong>Completion popup</strong> — a dropdown of ranked candidates under the cursor; <kbd>↑</kbd>/<kbd>↓</kbd> to move, <kbd>Enter</kbd> to accept, <kbd>Esc</kbd> to dismiss.</li>
+          <li><strong>Tab-cycle</strong> — press <kbd>Tab</kbd> to cycle through inline completions instead of forwarding <kbd>Tab</kbd> to the shell.</li>
+          <li><strong>AI suggestions</strong> — when nothing local matches, ask Claude for the next command (requires AI enabled).</li>
+        </ul>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Config key</th><th>Default</th><th>What it does</th></tr></thead>
+            <tbody>
+              <tr><td><code>autosuggest-ghost</code></td><td><code>true</code></td><td>Inline ghost text; accept with <kbd>→</kbd>/<kbd>End</kbd></td></tr>
+              <tr><td><code>autosuggest-popup</code></td><td><code>false</code></td><td>Completion dropdown under the cursor</td></tr>
+              <tr><td><code>autosuggest-tab</code></td><td><code>false</code></td><td><kbd>Tab</kbd> cycles completions</td></tr>
+              <tr><td><code>autosuggest-ai</code></td><td><code>false</code></td><td>Claude fallback when nothing local matches</td></tr>
+              <tr><td><code>autosuggest-history</code></td><td><code>true</code></td><td>Suggest from command history</td></tr>
+              <tr><td><code>autosuggest-commands</code></td><td><code>true</code></td><td>Suggest from the common-command list</td></tr>
+              <tr><td><code>autosuggest-paths</code></td><td><code>true</code></td><td>Complete filesystem paths</td></tr>
+              <tr><td><code>autosuggest-assist</code></td><td><code>true</code></td><td>Rank with the local assist model</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout note"><span class="label">Note</span><p>Autosuggestions read the line you're typing from the shell-integration input mark, so they need <code>shell-integration</code> on (the default) with zsh or bash. Fish provides its own native autosuggestions.</p></div>
+
         <h2>Jump to prompt</h2>
         <p>With shell integration active, <kbd>⌘↑</kbd> and <kbd>⌘↓</kbd> (<code>jump_to_prompt:-1</code> and <code>jump_to_prompt:1</code>) move the viewport between shell prompts recorded in the scrollback. This is the fastest way to skip back over a long block of output to the command that produced it, or forward again to the latest prompt.</p>
 

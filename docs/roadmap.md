@@ -326,3 +326,17 @@ Conventions (non-negotiable):
   engine design (WIT host world, capability-gated imports, guest toolchain,
   migration) is in docs/plugins-wasm.md. Phases 2 and 4 ship; phase 3's engine is
   the scoped next build.
+- 2026-07-04: AI + input polish, shipped across 1.17–1.21. AI: an "Optimize
+  tokens" setting compacts prompts sent to agents; quick-launch menu items for
+  each configured provider (with reachability auto-verify); per-provider CLI
+  flags (`agent-claude-args`, …, e.g. `--dangerously-skip-permissions`); a Team
+  Builder window (manual or AI-guided) backed by a non-interactive
+  `relay team save`; and agents are available on `ai-enabled` alone (Relay
+  starts on demand). Input: fish-style autosuggestions — inline ghost text
+  (accept with →/End), a completion popup, Tab-cycling, and an AI fallback,
+  sourced from history/common-commands/paths/assist, driven by a new OSC 133;B
+  input mark and per-pane history in `vt`. Workspace: tabs tear off into new
+  windows (guise PaneGroup), keeping the live shell. Self-update: Prompt checks
+  GitHub on launch + hourly and offers to update — deferring to Homebrew/apt for
+  managed installs, or swapping a manual `.dmg`/AppImage in place and relaunching
+  via gpui's restart hook (`auto-update`, modeled on Zed's `auto_update`).
