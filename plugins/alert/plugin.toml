@@ -2,7 +2,7 @@ id = "alert"
 name = "Alert"
 version = "0.1.0"
 description = "Event triggers: desktop-notify when a command fails (no UI, no runtime)"
-capability = "notify"
+capabilities = ["notify"]
 
 # Triggers run an action when a terminal event fires. This one posts a desktop
 # notification whenever a command exits non-zero. Needs shell integration (for

@@ -12,7 +12,7 @@ fn tempdir(name: &str) -> PathBuf {
 fn explicit_path_can_be_directory_or_manifest() {
     let dir = tempdir("explicit");
     let manifest = dir.join(MANIFEST);
-    std::fs::write(&manifest, "id = tools\n[[command]]\nid = top\nrun = top\n").unwrap();
+    std::fs::write(&manifest, "id = \"tools\"\n[[command]]\nid = \"top\"\nrun = \"top\"\n").unwrap();
     let (plugins, diags) = loadmanifests(vec![dir.clone(), manifest]);
     assert!(diags.is_empty(), "{diags:?}");
     assert_eq!(plugins.len(), 1);

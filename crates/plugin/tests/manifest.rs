@@ -95,10 +95,10 @@ keybind = "cmd+shift+l"
         let (plugin, diags) = parse(
             path(),
             r#"
-id = tools
+id = "tools"
 [[command]]
-id = top
-run = top
+id = "top"
+run = "top"
 "#,
         );
         assert!(diags.is_empty(), "{diags:?}");
@@ -114,17 +114,19 @@ run = top
         let (plugin, diags) = parse(
             path(),
             r#"
-id = tools
+id = "tools"
 bogus = true
 [[command]]
-id = ok
-run = echo ok
+id = "ok"
+run = "echo ok"
 [[command]]
-id = Bad
-run = echo bad
+id = "Bad"
+run = "echo bad"
 "#,
         );
-        assert_eq!(diags.len(), 2);
+        // `bogus` is an unknown key and ignored; the bad command id is the one
+        // diagnostic, and the good command is kept.
+        assert_eq!(diags.len(), 1, "{diags:?}");
         let plugin = plugin.unwrap();
         assert_eq!(plugin.commands.len(), 1);
         assert_eq!(plugin.commands[0].id, "ok");
@@ -132,7 +134,7 @@ run = echo bad
 
     #[test]
     fn missing_plugin_id_skips_plugin() {
-        let (plugin, diags) = parse(path(), "[[command]]\nid = ok\nrun = echo ok\n");
+        let (plugin, diags) = parse(path(), "[[command]]\nid = \"ok\"\nrun = \"echo ok\"\n");
         assert!(plugin.is_none());
         assert!(diags.iter().any(|d| d.message == "missing id"));
     }
@@ -286,8 +288,15 @@ command = "bun run plugin.ts"
 [[tool]]
 id = "query"
 description = "Run a SQL query."
-param = "sql | string | The SQL to run | required"
-param = "limit | integer | Max rows"
+[[tool.param]]
+name = "sql"
+type = "string"
+description = "The SQL to run"
+required = true
+[[tool.param]]
+name = "limit"
+type = "integer"
+description = "Max rows"
 [[tool]]
 id = "tables"
 description = "List tables."
@@ -305,6 +314,29 @@ description = "List tables."
         assert_eq!(tools[0].params[1].kind, "integer");
         assert!(!tools[0].params[1].required);
         assert!(tools[1].params.is_empty());
+    }
+
+    #[test]
+    fn parses_legacy_pipe_params() {
+        // The `name | type | desc | required` pipe form still works as an array.
+        let (plugin, diags) = parse(
+            path(),
+            r#"
+id = "db"
+[runtime]
+command = "./db"
+[[tool]]
+id = "query"
+description = "Run a query."
+param = ["sql | string | The SQL | required", "limit | integer | Max rows"]
+"#,
+        );
+        assert!(diags.is_empty(), "{diags:?}");
+        let tools = plugin.unwrap().tools;
+        assert_eq!(tools[0].params.len(), 2);
+        assert_eq!(tools[0].params[0].name, "sql");
+        assert!(tools[0].params[0].required);
+        assert_eq!(tools[0].params[1].kind, "integer");
     }
 
     #[test]
@@ -336,7 +368,7 @@ description = "List tables."
     fn parses_capabilities() {
         let (plugin, diags) = parse(
             path(),
-            "id = \"x\"\ncapability = \"network\"\ncapability = \"filesystem\"\ncapability = \"network\"\n",
+            "id = \"x\"\ncapabilities = [\"network\", \"filesystem\", \"network\"]\n",
         );
         assert!(diags.is_empty(), "{diags:?}");
         // Deduplicated, known-only.
@@ -345,7 +377,7 @@ description = "List tables."
 
     #[test]
     fn unknown_capability_is_diagnosed() {
-        let (plugin, diags) = parse(path(), "id = \"x\"\ncapability = \"root\"\n");
+        let (plugin, diags) = parse(path(), "id = \"x\"\ncapabilities = [\"root\"]\n");
         assert!(plugin.unwrap().capabilities.is_empty());
         assert!(diags.iter().any(|d| d.message.contains("unknown capability")));
     }
@@ -359,4 +391,22 @@ description = "List tables."
         // The plugin still loads, but the tool is dropped with a diagnostic.
         assert!(plugin.unwrap().tools.is_empty());
         assert!(diags.iter().any(|d| d.message.contains("[runtime]")));
+    }
+
+    #[test]
+    fn bundled_manifests_parse_cleanly() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../plugins");
+        let mut checked = 0;
+        for entry in std::fs::read_dir(&root).expect("plugins dir") {
+            let manifest = entry.unwrap().path().join("plugin.toml");
+            if !manifest.is_file() {
+                continue;
+            }
+            let text = std::fs::read_to_string(&manifest).unwrap();
+            let (plugin, diags) = parse(manifest.clone(), &text);
+            assert!(diags.is_empty(), "{}: {diags:?}", manifest.display());
+            assert!(plugin.is_some(), "{} did not parse", manifest.display());
+            checked += 1;
+        }
+        assert!(checked >= 5, "expected the bundled plugins, checked {checked}");
     }

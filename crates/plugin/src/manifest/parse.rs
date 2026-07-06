@@ -1,640 +1,395 @@
-//! `plugin.toml` parsing: the line-oriented reader plus raw→validated `build`
-//! step that turns manifest text into a [`Plugin`](super::model::Plugin).
+//! `plugin.toml` parsing: deserialize the manifest with `serde`/`toml`, then a
+//! `build` step validates the raw form into a [`Plugin`](super::model::Plugin),
+//! collecting friendly [`Diagnostic`]s instead of aborting.
 //!
-//! The parser intentionally supports a small TOML subset: root key/value pairs
-//! and repeated `[[command]]`/`[[trigger]]`/`[[tool]]` tables. That keeps plugin
-//! manifests easy to hand-write without a broad TOML dependency for this first
-//! API.
+//! The manifest is real TOML. Multi-valued fields are arrays or tables:
+//! `capabilities = ["a", "b"]` and `[[tool.param]]` — not the repeated bare keys
+//! the first prototype used (which are not valid TOML).
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+
+use serde::Deserialize;
 
 use super::model::*;
 
-#[derive(Default)]
-struct RawPlugin {
+#[derive(Deserialize, Default)]
+struct RawManifest {
     id: Option<String>,
     name: Option<String>,
     version: Option<String>,
     description: Option<String>,
-    commands: Vec<RawCommand>,
-    has_runtime: bool,
-    runtime_command: Option<String>,
-    runtime_type: Option<RuntimeKind>,
-    runtime_wasm: Option<String>,
-    has_panel: bool,
-    panel_id: Option<String>,
-    panel_title: Option<String>,
-    panel_icon: Option<String>,
-    has_webview: bool,
-    webview_id: Option<String>,
-    webview_title: Option<String>,
-    webview_icon: Option<String>,
-    webview_placement: Option<Placement>,
-    webview_url: Option<String>,
-    webview_entry: Option<String>,
-    webview_boot: bool,
-    triggers: Vec<RawTrigger>,
-    tools: Vec<RawTool>,
+    #[serde(default)]
     capabilities: Vec<String>,
+    runtime: Option<RawRuntime>,
+    panel: Option<RawPanel>,
+    webview: Option<RawWebview>,
+    #[serde(default)]
+    command: Vec<RawCommand>,
+    #[serde(default)]
+    trigger: Vec<RawTrigger>,
+    #[serde(default)]
+    tool: Vec<RawTool>,
 }
 
-#[derive(Default)]
-struct RawTool {
+#[derive(Deserialize)]
+struct RawRuntime {
+    #[serde(rename = "type")]
+    kind: Option<String>,
+    command: Option<String>,
+    wasm: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct RawPanel {
     id: Option<String>,
-    description: Option<String>,
-    params: Vec<String>,
-    line: usize,
+    title: Option<String>,
+    icon: Option<String>,
 }
 
-#[derive(Default)]
+#[derive(Deserialize)]
+struct RawWebview {
+    id: Option<String>,
+    title: Option<String>,
+    icon: Option<String>,
+    placement: Option<String>,
+    url: Option<String>,
+    entry: Option<String>,
+    #[serde(default)]
+    boot: bool,
+}
+
+#[derive(Deserialize)]
 struct RawCommand {
     id: Option<String>,
     title: Option<String>,
     run: Option<String>,
-    mode: Option<CommandMode>,
+    mode: Option<String>,
     keybind: Option<String>,
-    line: usize,
 }
 
-#[derive(Default)]
+#[derive(Deserialize)]
 struct RawTrigger {
     on: Option<String>,
     when: Option<String>,
     run: Option<String>,
-    target: Option<TriggerTarget>,
+    target: Option<String>,
     notify: Option<String>,
     invoke: Option<String>,
-    line: usize,
 }
 
-enum Section {
-    Plugin,
-    Command(usize),
-    Runtime,
-    Panel,
-    Webview,
-    Trigger(usize),
-    Tool(usize),
+#[derive(Deserialize)]
+struct RawTool {
+    id: Option<String>,
+    description: Option<String>,
+    #[serde(default)]
+    param: Vec<RawParam>,
+}
+
+/// A `[[tool.param]]` table, or a legacy `"name | type | desc | required"`
+/// pipe-string (accepted with a deprecation nudge).
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum RawParam {
+    Pipe(String),
+    Table {
+        name: String,
+        #[serde(rename = "type")]
+        kind: Option<String>,
+        #[serde(default)]
+        description: String,
+        #[serde(default)]
+        required: bool,
+    },
 }
 
 pub fn parse(path: PathBuf, text: &str) -> (Option<Plugin>, Vec<Diagnostic>) {
-    let mut raw = RawPlugin::default();
     let mut diags = Vec::new();
-    let mut section = Section::Plugin;
-
-    for (i, src) in text.lines().enumerate() {
-        let line = i + 1;
-        let trimmed = src.trim();
-        if trimmed.is_empty() || trimmed.starts_with('#') {
-            continue;
-        }
-        if trimmed == "[[command]]" {
-            raw.commands.push(RawCommand {
-                line,
-                ..RawCommand::default()
-            });
-            section = Section::Command(raw.commands.len() - 1);
-            continue;
-        }
-        if trimmed == "[[trigger]]" {
-            raw.triggers.push(RawTrigger {
-                line,
-                ..RawTrigger::default()
-            });
-            section = Section::Trigger(raw.triggers.len() - 1);
-            continue;
-        }
-        if trimmed == "[[tool]]" {
-            raw.tools.push(RawTool {
-                line,
-                ..RawTool::default()
-            });
-            section = Section::Tool(raw.tools.len() - 1);
-            continue;
-        }
-        if trimmed == "[runtime]" {
-            raw.has_runtime = true;
-            section = Section::Runtime;
-            continue;
-        }
-        if trimmed == "[panel]" {
-            raw.has_panel = true;
-            section = Section::Panel;
-            continue;
-        }
-        if trimmed == "[webview]" {
-            raw.has_webview = true;
-            section = Section::Webview;
-            continue;
-        }
-        if trimmed.starts_with('[') {
-            diags.push(diag(&path, line, "unknown section"));
-            continue;
-        }
-        let Some((key, val)) = trimmed.split_once('=') else {
-            diags.push(diag(&path, line, "expected `key = value`"));
-            continue;
-        };
-        let key = key.trim();
-        let val = value(val.trim());
-        if key.is_empty() {
-            diags.push(diag(&path, line, "missing key before `=`"));
-            continue;
-        }
-        match section {
-            Section::Plugin => rootkey(&mut raw, key, &val, &path, line, &mut diags),
-            Section::Command(index) => {
-                commandkey(&mut raw.commands[index], key, &val, &path, line, &mut diags)
+    let raw: RawManifest = match toml::from_str(text) {
+        Ok(raw) => raw,
+        Err(error) => {
+            let mut message = format!("invalid plugin.toml: {error}");
+            if error.to_string().contains("duplicate key") {
+                message.push_str(
+                    "\n  (multi-valued fields are arrays/tables now: \
+                     `capabilities = [\"a\", \"b\"]`, `[[tool.param]]`)",
+                );
             }
-            Section::Runtime => runtimekey(&mut raw, key, &val, &path, line, &mut diags),
-            Section::Panel => panelkey(&mut raw, key, &val, &path, line, &mut diags),
-            Section::Webview => webviewkey(&mut raw, key, &val, &path, line, &mut diags),
-            Section::Trigger(index) => {
-                triggerkey(&mut raw.triggers[index], key, &val, &path, line, &mut diags)
-            }
-            Section::Tool(index) => {
-                toolkey(&mut raw.tools[index], key, &val, &path, line, &mut diags)
-            }
+            diags.push(Diagnostic { path, line: 0, message });
+            return (None, diags);
         }
-    }
-
+    };
     let plugin = build(raw, &path, &mut diags);
     (plugin, diags)
 }
 
-fn rootkey(
-    raw: &mut RawPlugin,
-    key: &str,
-    val: &str,
-    path: &std::path::Path,
-    line: usize,
-    diags: &mut Vec<Diagnostic>,
-) {
-    match key {
-        "id" => raw.id = Some(val.to_string()),
-        "name" => raw.name = Some(val.to_string()),
-        "version" => raw.version = Some(val.to_string()),
-        "description" => raw.description = Some(val.to_string()),
-        "capability" => {
-            if CAPABILITIES.contains(&val) {
-                if !raw.capabilities.iter().any(|c| c == val) {
-                    raw.capabilities.push(val.to_string());
-                }
-            } else {
-                diags.push(diag(
-                    path,
-                    line,
-                    &format!("unknown capability `{val}` (one of {})", CAPABILITIES.join(", ")),
-                ));
-            }
-        }
-        _ => diags.push(diag(path, line, &format!("unknown plugin key `{key}`"))),
-    }
-}
-
-fn triggerkey(
-    raw: &mut RawTrigger,
-    key: &str,
-    val: &str,
-    path: &std::path::Path,
-    line: usize,
-    diags: &mut Vec<Diagnostic>,
-) {
-    match key {
-        "on" => raw.on = Some(val.to_string()),
-        "when" => raw.when = Some(val.to_string()),
-        "run" => raw.run = Some(val.to_string()),
-        "target" => match TriggerTarget::parse(val) {
-            Some(t) => raw.target = Some(t),
-            None => diags.push(diag(
-                path,
-                line,
-                "trigger target must be `background`, `pane`, `tab`, `split_right`, or `split_down`",
-            )),
-        },
-        "notify" => raw.notify = Some(val.to_string()),
-        "invoke" => raw.invoke = Some(val.to_string()),
-        _ => diags.push(diag(path, line, &format!("unknown trigger key `{key}`"))),
-    }
-}
-
-fn commandkey(
-    raw: &mut RawCommand,
-    key: &str,
-    val: &str,
-    path: &std::path::Path,
-    line: usize,
-    diags: &mut Vec<Diagnostic>,
-) {
-    match key {
-        "id" => raw.id = Some(val.to_string()),
-        "title" => raw.title = Some(val.to_string()),
-        "run" => raw.run = Some(val.to_string()),
-        "mode" => match CommandMode::parse(val) {
-            Some(mode) => raw.mode = Some(mode),
-            None => diags.push(diag(path, line, "invalid command mode")),
-        },
-        "keybind" => raw.keybind = Some(val.to_string()),
-        _ => diags.push(diag(path, line, &format!("unknown command key `{key}`"))),
-    }
-}
-
-fn toolkey(
-    raw: &mut RawTool,
-    key: &str,
-    val: &str,
-    path: &std::path::Path,
-    line: usize,
-    diags: &mut Vec<Diagnostic>,
-) {
-    match key {
-        "id" => raw.id = Some(val.to_string()),
-        "description" => raw.description = Some(val.to_string()),
-        "param" => raw.params.push(val.to_string()),
-        _ => diags.push(diag(path, line, &format!("unknown tool key `{key}`"))),
-    }
-}
-
-fn build(raw: RawPlugin, path: &std::path::Path, diags: &mut Vec<Diagnostic>) -> Option<Plugin> {
-    let id = required(raw.id, "id", path, 0, diags)?;
+fn build(raw: RawManifest, path: &Path, diags: &mut Vec<Diagnostic>) -> Option<Plugin> {
+    let id = required(raw.id, "id", path, diags)?;
     if !validid(&id) {
-        diags.push(diag(
-            path,
-            0,
-            "plugin id must use lowercase letters, numbers, `.` or `-`",
-        ));
+        diags.push(diag(path, "plugin id must use lowercase letters, numbers, `.` or `-`"));
         return None;
     }
-    let mut commands = Vec::new();
-    for command in raw.commands {
-        let Some(command) = buildcommand(command, path, diags) else {
-            continue;
-        };
-        commands.push(command);
-    }
-    let name = raw.name.unwrap_or_else(|| id.clone());
-    let runtime = if raw.has_runtime {
-        let kind = raw.runtime_type.unwrap_or_default();
-        let command = raw.runtime_command.filter(|s| !s.trim().is_empty());
-        let wasm = raw.runtime_wasm.filter(|s| !s.trim().is_empty());
-        match kind {
-            RuntimeKind::Process => match command {
-                Some(command) => Some(Runtime { kind, command, wasm: None }),
-                None => {
-                    diags.push(diag(path, 0, "[runtime] requires a `command`"));
-                    None
-                }
-            },
-            RuntimeKind::Wasm => match wasm {
-                Some(wasm) => Some(Runtime {
-                    kind,
-                    command: command.unwrap_or_default(),
-                    wasm: Some(wasm),
-                }),
-                None => {
-                    diags.push(diag(path, 0, "a `wasm` runtime requires a `wasm` module path"));
-                    None
-                }
-            },
-        }
-    } else {
-        None
-    };
-    let panel = if raw.has_panel {
-        let panel_id = raw.panel_id.filter(|s| !s.trim().is_empty());
-        if let Some(ref pid) = panel_id {
-            if !validid(pid) {
-                diags.push(diag(
-                    path,
-                    0,
-                    "panel id must use lowercase letters, numbers, `.` or `-`",
-                ));
-            }
-        }
-        Some(Panel {
-            id: panel_id.unwrap_or_else(|| id.clone()),
-            title: raw
-                .panel_title
-                .filter(|s| !s.trim().is_empty())
-                .unwrap_or_else(|| name.clone()),
-            icon: raw
-                .panel_icon
-                .filter(|s| !s.trim().is_empty())
-                .unwrap_or_else(|| "\u{25c9}".to_string()),
-        })
-    } else {
-        None
-    };
-    let webview = if raw.has_webview {
-        build_webview(
-            raw.webview_id,
-            raw.webview_title,
-            raw.webview_icon,
-            raw.webview_placement,
-            raw.webview_url,
-            raw.webview_entry,
-            raw.webview_boot,
-            &id,
-            &name,
-            path,
-            diags,
-        )
-    } else {
-        None
-    };
+    let name = raw.name.filter(nonblank).unwrap_or_else(|| id.clone());
+
+    let capabilities = build_capabilities(raw.capabilities, path, diags);
+    let commands = raw
+        .command
+        .into_iter()
+        .filter_map(|c| build_command(c, path, diags))
+        .collect();
+    let runtime = raw.runtime.and_then(|r| build_runtime(r, path, diags));
+    let panel = raw.panel.map(|p| build_panel(p, &id, &name, path, diags));
+    let webview = raw
+        .webview
+        .and_then(|w| build_webview(w, &id, &name, path, diags));
     let triggers = raw
-        .triggers
+        .trigger
         .into_iter()
         .filter_map(|t| build_trigger(t, path, diags))
         .collect();
     // Tools need a runtime to handle them; drop them (with a diagnostic) if none.
-    let mut tools = Vec::new();
-    if !raw.tools.is_empty() && runtime.is_none() {
-        diags.push(diag(path, 0, "[[tool]] requires a [runtime] to handle it"));
+    let tools = if !raw.tool.is_empty() && runtime.is_none() {
+        diags.push(diag(path, "[[tool]] requires a [runtime] to handle it"));
+        Vec::new()
     } else {
-        for tool in raw.tools {
-            if let Some(t) = build_tool(tool, path, diags) {
-                tools.push(t);
-            }
-        }
-    }
+        raw.tool
+            .into_iter()
+            .filter_map(|t| build_tool(t, path, diags))
+            .collect()
+    };
+
     Some(Plugin {
-        name,
-        version: raw.version.unwrap_or_else(|| "0.0.0".to_string()),
-        description: raw.description.filter(|s| !s.trim().is_empty()),
-        path: path
-            .parent()
-            .map(std::path::Path::to_path_buf)
-            .unwrap_or_else(|| PathBuf::from(".")),
         id,
+        name,
+        version: raw.version.filter(nonblank).unwrap_or_else(|| "0.0.0".to_string()),
+        description: raw.description.filter(nonblank),
+        path: path.parent().map(Path::to_path_buf).unwrap_or_else(|| PathBuf::from(".")),
         commands,
         runtime,
         panel,
         webview,
         triggers,
         tools,
-        capabilities: raw.capabilities,
+        capabilities,
     })
 }
 
-/// Assemble a validated [`Tool`], or `None` (with diagnostics) when the id is
-/// missing/invalid or the description is empty.
-fn build_tool(raw: RawTool, path: &std::path::Path, diags: &mut Vec<Diagnostic>) -> Option<Tool> {
-    let id = required(raw.id, "tool `id`", path, raw.line, diags)?;
+fn build_capabilities(raw: Vec<String>, path: &Path, diags: &mut Vec<Diagnostic>) -> Vec<String> {
+    let mut caps = Vec::new();
+    for cap in raw {
+        if !CAPABILITIES.contains(&cap.as_str()) {
+            diags.push(diag(
+                path,
+                &format!("unknown capability `{cap}` (one of {})", CAPABILITIES.join(", ")),
+            ));
+        } else if !caps.contains(&cap) {
+            caps.push(cap);
+        }
+    }
+    caps
+}
+
+fn build_runtime(raw: RawRuntime, path: &Path, diags: &mut Vec<Diagnostic>) -> Option<Runtime> {
+    let kind = match raw.kind.as_deref() {
+        None => RuntimeKind::Process,
+        Some(k) => match RuntimeKind::parse(k) {
+            Some(k) => k,
+            None => {
+                diags.push(diag(path, "runtime type must be `process` or `wasm`"));
+                return None;
+            }
+        },
+    };
+    let command = raw.command.filter(nonblank);
+    let wasm = raw.wasm.filter(nonblank);
+    match kind {
+        RuntimeKind::Process => match command {
+            Some(command) => Some(Runtime { kind, command, wasm: None }),
+            None => {
+                diags.push(diag(path, "[runtime] requires a `command`"));
+                None
+            }
+        },
+        RuntimeKind::Wasm => match wasm {
+            Some(wasm) => Some(Runtime { kind, command: command.unwrap_or_default(), wasm: Some(wasm) }),
+            None => {
+                diags.push(diag(path, "a `wasm` runtime requires a `wasm` module path"));
+                None
+            }
+        },
+    }
+}
+
+fn build_panel(raw: RawPanel, id: &str, name: &str, path: &Path, diags: &mut Vec<Diagnostic>) -> Panel {
+    let pid = raw.id.filter(nonblank).unwrap_or_else(|| id.to_string());
+    if !validid(&pid) {
+        diags.push(diag(path, "panel id must use lowercase letters, numbers, `.` or `-`"));
+    }
+    Panel {
+        id: pid,
+        title: raw.title.filter(nonblank).unwrap_or_else(|| name.to_string()),
+        icon: raw.icon.filter(nonblank).unwrap_or_else(|| "\u{25c9}".to_string()),
+    }
+}
+
+fn build_webview(raw: RawWebview, id: &str, name: &str, path: &Path, diags: &mut Vec<Diagnostic>) -> Option<Webview> {
+    let wid = raw.id.filter(nonblank).unwrap_or_else(|| id.to_string());
+    if !validid(&wid) {
+        diags.push(diag(path, "webview id must use lowercase letters, numbers, `.` or `-`"));
+        return None;
+    }
+    let placement = match raw.placement.as_deref() {
+        None => Placement::default(),
+        Some(p) => match Placement::parse(p) {
+            Some(p) => p,
+            None => {
+                diags.push(diag(path, "webview placement must be `panel`, `tab`, or `window`"));
+                Placement::default()
+            }
+        },
+    };
+    let source = match (raw.url.filter(nonblank), raw.entry.filter(nonblank)) {
+        (Some(url), None) => WebviewSource::Url(url),
+        (None, Some(entry)) => WebviewSource::Entry(entry),
+        (Some(_), Some(_)) => {
+            diags.push(diag(path, "[webview] needs exactly one of `url` or `entry`, not both"));
+            return None;
+        }
+        (None, None) => {
+            diags.push(diag(path, "[webview] requires a `url` or `entry`"));
+            return None;
+        }
+    };
+    Some(Webview {
+        id: wid,
+        title: raw.title.filter(nonblank).unwrap_or_else(|| name.to_string()),
+        icon: raw.icon.filter(nonblank).unwrap_or_else(|| "\u{25f1}".to_string()),
+        placement,
+        source,
+        boot: raw.boot,
+    })
+}
+
+fn build_command(raw: RawCommand, path: &Path, diags: &mut Vec<Diagnostic>) -> Option<Command> {
+    let id = required(raw.id, "command id", path, diags)?;
     if !validid(&id) {
+        diags.push(diag(path, "command id must use lowercase letters, numbers, `.` or `-`"));
+        return None;
+    }
+    let run = required(raw.run, "command run", path, diags)?;
+    let mode = raw
+        .mode
+        .as_deref()
+        .map(|m| CommandMode::parse(m).unwrap_or_else(|| {
+            diags.push(diag(path, "invalid command mode"));
+            CommandMode::default()
+        }))
+        .unwrap_or_default();
+    Some(Command {
+        title: raw.title.filter(nonblank).unwrap_or_else(|| id.clone()),
+        id,
+        run,
+        mode,
+        keybind: raw.keybind.filter(nonblank),
+    })
+}
+
+fn build_trigger(raw: RawTrigger, path: &Path, diags: &mut Vec<Diagnostic>) -> Option<Trigger> {
+    let on = required(raw.on, "trigger `on` event", path, diags)?;
+    if !TRIGGER_EVENTS.contains(&on.as_str()) {
         diags.push(diag(
             path,
-            raw.line,
-            "tool id must use lowercase letters, numbers, `.` or `-`",
+            &format!("unknown trigger event `{on}` (one of {})", TRIGGER_EVENTS.join(", ")),
         ));
         return None;
     }
-    let description = raw.description.filter(|s| !s.trim().is_empty()).unwrap_or_else(|| {
-        diags.push(diag(path, raw.line, "tool has no `description`"));
-        String::new()
-    });
-    let params = raw.params.iter().filter_map(|p| parse_param(p)).collect();
-    Some(Tool {
-        id,
-        description,
-        params,
-    })
+    let run = raw.run.filter(nonblank);
+    let notify = raw.notify.filter(nonblank);
+    let invoke = raw.invoke.filter(nonblank);
+    if [&run, &notify, &invoke].iter().filter(|o| o.is_some()).count() != 1 {
+        diags.push(diag(path, "a trigger needs exactly one action: `run`, `notify`, or `invoke`"));
+        return None;
+    }
+    let target = raw
+        .target
+        .as_deref()
+        .and_then(|t| {
+            TriggerTarget::parse(t).or_else(|| {
+                diags.push(diag(path, "invalid trigger target"));
+                None
+            })
+        })
+        .unwrap_or_default();
+    let action = if let Some(text) = run {
+        TriggerAction::Run { text, target }
+    } else if let Some(text) = notify {
+        TriggerAction::Notify { text }
+    } else {
+        TriggerAction::Invoke { method: invoke.expect("exactly one action") }
+    };
+    Some(Trigger { on, when: raw.when.filter(nonblank), action })
 }
 
-/// Parse a `param` line: `name | type | description | required`. Only the name
-/// is required; type defaults to `string`, and the 4th field being `required`
-/// or `true` marks it required.
-fn parse_param(spec: &str) -> Option<ToolParam> {
+fn build_tool(raw: RawTool, path: &Path, diags: &mut Vec<Diagnostic>) -> Option<Tool> {
+    let id = required(raw.id, "tool `id`", path, diags)?;
+    if !validid(&id) {
+        diags.push(diag(path, "tool id must use lowercase letters, numbers, `.` or `-`"));
+        return None;
+    }
+    let description = raw.description.filter(nonblank).unwrap_or_else(|| {
+        diags.push(diag(path, "tool has no `description`"));
+        String::new()
+    });
+    let params = raw.param.into_iter().filter_map(param).collect();
+    Some(Tool { id, description, params })
+}
+
+/// Convert a raw param (table or legacy pipe-string) into a [`ToolParam`].
+fn param(raw: RawParam) -> Option<ToolParam> {
+    match raw {
+        RawParam::Pipe(spec) => parse_pipe_param(&spec),
+        RawParam::Table { name, kind, description, required } => Some(ToolParam {
+            name,
+            kind: normalize_kind(kind.as_deref().unwrap_or("")),
+            description,
+            required,
+        }),
+    }
+}
+
+/// Legacy `name | type | description | required` form. Only the name is required.
+fn parse_pipe_param(spec: &str) -> Option<ToolParam> {
     let mut parts = spec.split('|').map(str::trim);
     let name = parts.next().filter(|s| !s.is_empty())?.to_string();
-    let kind = match parts.next().unwrap_or("") {
-        "" | "string" | "str" => "string",
+    let kind = normalize_kind(parts.next().unwrap_or(""));
+    let description = parts.next().unwrap_or("").to_string();
+    let required = matches!(parts.next().unwrap_or(""), "required" | "true" | "yes");
+    Some(ToolParam { name, kind, description, required })
+}
+
+fn normalize_kind(kind: &str) -> String {
+    match kind {
         "number" | "float" => "number",
         "integer" | "int" => "integer",
         "boolean" | "bool" => "boolean",
         _ => "string",
     }
-    .to_string();
-    let description = parts.next().unwrap_or("").to_string();
-    let required = matches!(parts.next().unwrap_or(""), "required" | "true" | "yes");
-    Some(ToolParam {
-        name,
-        kind,
-        description,
-        required,
-    })
+    .to_string()
 }
 
-/// Assemble a validated [`Trigger`], or `None` (with diagnostics) when the
-/// event is unknown or the action is missing/ambiguous.
-fn build_trigger(
-    raw: RawTrigger,
-    path: &std::path::Path,
-    diags: &mut Vec<Diagnostic>,
-) -> Option<Trigger> {
-    let on = required(raw.on, "trigger `on` event", path, raw.line, diags)?;
-    if !TRIGGER_EVENTS.contains(&on.as_str()) {
-        diags.push(diag(
-            path,
-            raw.line,
-            &format!("unknown trigger event `{on}` (one of {})", TRIGGER_EVENTS.join(", ")),
-        ));
-        return None;
-    }
-    let run = raw.run.filter(|s| !s.trim().is_empty());
-    let notify = raw.notify.filter(|s| !s.trim().is_empty());
-    let invoke = raw.invoke.filter(|s| !s.trim().is_empty());
-    let count = [&run, &notify, &invoke].iter().filter(|o| o.is_some()).count();
-    if count != 1 {
-        diags.push(diag(
-            path,
-            raw.line,
-            "a trigger needs exactly one action: `run`, `notify`, or `invoke`",
-        ));
-        return None;
-    }
-    let action = if let Some(text) = run {
-        TriggerAction::Run {
-            text,
-            target: raw.target.unwrap_or_default(),
-        }
-    } else if let Some(text) = notify {
-        TriggerAction::Notify { text }
-    } else {
-        TriggerAction::Invoke {
-            method: invoke.expect("exactly one action"),
-        }
-    };
-    Some(Trigger {
-        on,
-        when: raw.when.filter(|s| !s.trim().is_empty()),
-        action,
-    })
-}
-
-fn runtimekey(
-    raw: &mut RawPlugin,
-    key: &str,
-    val: &str,
-    path: &std::path::Path,
-    line: usize,
-    diags: &mut Vec<Diagnostic>,
-) {
-    match key {
-        "command" => raw.runtime_command = Some(val.to_string()),
-        "wasm" => raw.runtime_wasm = Some(val.to_string()),
-        "type" => match RuntimeKind::parse(val) {
-            Some(k) => raw.runtime_type = Some(k),
-            None => diags.push(diag(path, line, "runtime type must be `process` or `wasm`")),
-        },
-        _ => diags.push(diag(path, line, &format!("unknown runtime key `{key}`"))),
-    }
-}
-
-fn panelkey(
-    raw: &mut RawPlugin,
-    key: &str,
-    val: &str,
-    path: &std::path::Path,
-    line: usize,
-    diags: &mut Vec<Diagnostic>,
-) {
-    match key {
-        "id" => raw.panel_id = Some(val.to_string()),
-        "title" => raw.panel_title = Some(val.to_string()),
-        "icon" => raw.panel_icon = Some(val.to_string()),
-        _ => diags.push(diag(path, line, &format!("unknown panel key `{key}`"))),
-    }
-}
-
-fn webviewkey(
-    raw: &mut RawPlugin,
-    key: &str,
-    val: &str,
-    path: &std::path::Path,
-    line: usize,
-    diags: &mut Vec<Diagnostic>,
-) {
-    match key {
-        "id" => raw.webview_id = Some(val.to_string()),
-        "title" => raw.webview_title = Some(val.to_string()),
-        "icon" => raw.webview_icon = Some(val.to_string()),
-        "placement" => match Placement::parse(val) {
-            Some(p) => raw.webview_placement = Some(p),
-            None => diags.push(diag(
-                path,
-                line,
-                "webview placement must be `panel`, `tab`, or `window`",
-            )),
-        },
-        "url" => raw.webview_url = Some(val.to_string()),
-        "entry" => raw.webview_entry = Some(val.to_string()),
-        "boot" => raw.webview_boot = matches!(val, "true" | "1" | "yes"),
-        _ => diags.push(diag(path, line, &format!("unknown webview key `{key}`"))),
-    }
-}
-
-/// Assemble a validated [`Webview`] from the raw `[webview]` keys, or `None`
-/// (with diagnostics) when the source is missing or ambiguous.
-#[allow(clippy::too_many_arguments)]
-fn build_webview(
-    raw_id: Option<String>,
-    raw_title: Option<String>,
-    raw_icon: Option<String>,
-    placement: Option<Placement>,
-    raw_url: Option<String>,
-    raw_entry: Option<String>,
-    boot: bool,
-    id_default: &str,
-    name_default: &str,
-    path: &std::path::Path,
-    diags: &mut Vec<Diagnostic>,
-) -> Option<Webview> {
-    let id = raw_id
-        .filter(|s| !s.trim().is_empty())
-        .unwrap_or_else(|| id_default.to_string());
-    if !validid(&id) {
-        diags.push(diag(
-            path,
-            0,
-            "webview id must use lowercase letters, numbers, `.` or `-`",
-        ));
-        return None;
-    }
-    let url = raw_url.filter(|s| !s.trim().is_empty());
-    let entry = raw_entry.filter(|s| !s.trim().is_empty());
-    let source = match (url, entry) {
-        (Some(u), None) => WebviewSource::Url(u),
-        (None, Some(e)) => WebviewSource::Entry(e),
-        (Some(_), Some(_)) => {
-            diags.push(diag(
-                path,
-                0,
-                "[webview] needs exactly one of `url` or `entry`, not both",
-            ));
-            return None;
-        }
-        (None, None) => {
-            diags.push(diag(path, 0, "[webview] requires a `url` or `entry`"));
-            return None;
-        }
-    };
-    Some(Webview {
-        id,
-        title: raw_title
-            .filter(|s| !s.trim().is_empty())
-            .unwrap_or_else(|| name_default.to_string()),
-        icon: raw_icon
-            .filter(|s| !s.trim().is_empty())
-            .unwrap_or_else(|| "\u{25f1}".to_string()),
-        placement: placement.unwrap_or_default(),
-        source,
-        boot,
-    })
-}
-
-fn buildcommand(
-    raw: RawCommand,
-    path: &std::path::Path,
-    diags: &mut Vec<Diagnostic>,
-) -> Option<Command> {
-    let id = required(raw.id, "command id", path, raw.line, diags)?;
-    if !validid(&id) {
-        diags.push(diag(
-            path,
-            raw.line,
-            "command id must use lowercase letters, numbers, `.` or `-`",
-        ));
-        return None;
-    }
-    let run = required(raw.run, "command run", path, raw.line, diags)?;
-    if run.trim().is_empty() {
-        diags.push(diag(path, raw.line, "command run cannot be empty"));
-        return None;
-    }
-    Some(Command {
-        title: raw.title.unwrap_or_else(|| id.clone()),
-        id,
-        run,
-        mode: raw.mode.unwrap_or_default(),
-        keybind: raw.keybind.filter(|s| !s.trim().is_empty()),
-    })
-}
-
-fn required(
-    value: Option<String>,
-    name: &str,
-    path: &std::path::Path,
-    line: usize,
-    diags: &mut Vec<Diagnostic>,
-) -> Option<String> {
-    match value.filter(|s| !s.trim().is_empty()) {
+fn required(value: Option<String>, name: &str, path: &Path, diags: &mut Vec<Diagnostic>) -> Option<String> {
+    match value.filter(nonblank) {
         Some(value) => Some(value),
         None => {
-            diags.push(diag(path, line, &format!("missing {name}")));
+            diags.push(diag(path, &format!("missing {name}")));
             None
         }
     }
+}
+
+/// Predicate for `Option::<String>::filter`, which hands the closure a `&String`.
+#[allow(clippy::ptr_arg)]
+fn nonblank(s: &String) -> bool {
+    !s.trim().is_empty()
 }
 
 fn validid(s: &str) -> bool {
@@ -643,42 +398,6 @@ fn validid(s: &str) -> bool {
             .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'.' || b == b'-')
 }
 
-fn value(s: &str) -> String {
-    let s = s.trim();
-    if s.len() >= 2 && s.starts_with('"') && s.ends_with('"') {
-        unescape(&s[1..s.len() - 1])
-    } else {
-        s.to_string()
-    }
-}
-
-fn unescape(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    let mut chars = s.chars();
-    while let Some(c) = chars.next() {
-        if c != '\\' {
-            out.push(c);
-            continue;
-        }
-        match chars.next() {
-            Some('n') => out.push('\n'),
-            Some('t') => out.push('\t'),
-            Some('"') => out.push('"'),
-            Some('\\') => out.push('\\'),
-            Some(other) => {
-                out.push('\\');
-                out.push(other);
-            }
-            None => out.push('\\'),
-        }
-    }
-    out
-}
-
-fn diag(path: &std::path::Path, line: usize, message: &str) -> Diagnostic {
-    Diagnostic {
-        path: path.to_path_buf(),
-        line,
-        message: message.to_string(),
-    }
+fn diag(path: &Path, message: &str) -> Diagnostic {
+    Diagnostic { path: path.to_path_buf(), line: 0, message: message.to_string() }
 }

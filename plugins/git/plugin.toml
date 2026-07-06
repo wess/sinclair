@@ -2,8 +2,7 @@ id = "git"
 name = "Git"
 version = "0.1.0"
 description = "A live git panel: branch, changes, and one-click actions"
-capability = "commands"
-capability = "filesystem"
+capabilities = ["commands", "filesystem"]
 
 [runtime]
 command = "bun run plugin.ts"

@@ -2,8 +2,7 @@ id = "sysinfo"
 name = "System"
 version = "0.1.0"
 description = "A live panel with host load and disk, plus a monitor shortcut"
-capability = "commands"
-capability = "filesystem"
+capabilities = ["commands", "filesystem"]
 
 [runtime]
 command = "bun run plugin.ts"
@@ -18,4 +17,8 @@ icon = "❖"
 [[tool]]
 id = "stats"
 description = "Read host system stats: hostname, load averages, and disk usage for the given directory. Returns structured JSON."
-param = "cwd | string | Directory to report disk usage for (defaults to the process cwd)"
+
+[[tool.param]]
+name = "cwd"
+type = "string"
+description = "Directory to report disk usage for (defaults to the process cwd)"

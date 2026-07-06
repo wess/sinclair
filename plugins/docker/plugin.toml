@@ -2,7 +2,7 @@ id = "docker"
 name = "Docker"
 version = "0.1.0"
 description = "A live panel listing running containers, with a stats shortcut"
-capability = "commands"
+capabilities = ["commands"]
 
 [runtime]
 command = "bun run plugin.ts"
