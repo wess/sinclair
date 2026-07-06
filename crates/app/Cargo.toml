@@ -28,6 +28,8 @@ assets = [
     ["target/release/notes", "usr/bin/notes", "755"],
     ["../../assets/prompt.desktop", "usr/share/applications/prompt.desktop", "644"],
     ["../../assets/icon512.png", "usr/share/pixmaps/prompt.png", "644"],
+    # First-party bundled Notes plugin, discovered at share/prompt/plugins.
+    ["../../plugins/notes/plugin.toml", "usr/share/prompt/plugins/notes/plugin.toml", "644"],
 ]
 
 [dependencies]

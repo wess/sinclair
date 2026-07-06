@@ -45,6 +45,10 @@ mkdir -p "$appdir/usr/bin" "$appdir/usr/share/applications" "$appdir/usr/share/p
 cp "$bin" "$appdir/usr/bin/prompt"
 # The Notes vault-server sidecar, found by the app beside its executable.
 cp "$notes_bin" "$appdir/usr/bin/notes"
+# First-party bundled plugins, discovered at `<prefix>/share/prompt/plugins`.
+# Notes is a plugin now (plugins/notes); ship its manifest with the app.
+mkdir -p "$appdir/usr/share/prompt/plugins"
+cp -r plugins/notes "$appdir/usr/share/prompt/plugins/notes"
 cp assets/prompt.desktop "$appdir/usr/share/applications/prompt.desktop"
 # 512px icon: linuxdeploy only accepts standard icon sizes (<=512), not the
 # 1024px master.

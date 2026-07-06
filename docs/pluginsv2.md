@@ -360,15 +360,22 @@ model with capability-consent enforcement and checksum verification are all in.
    persistent = true` plugins (spawned once, newline-JSON request/response loop),
    wired into the tool bridge; one-shot plugins keep the spawn-per-event path.
    (GUI-panel warm path reuses the same manager — follow-up.)
-5. ✅ **Webview overhaul** — the host-managed sidecar mechanism: a
-   `[webview] service = "…"` (manifest `WebviewSource::Service`) maps to
-   `Boot::Command`, which spawns the sidecar (detached, own process group), waits
-   on a liveness check, and reads its `.service.json` (`{port, token}`, 0600). The
-   `notes` binary binds port 0, writes `.service.json` with the real bound port,
-   and `resolve_program` resolves the bundled sidecar as a sibling of the exe.
-   File → Notes opens the plugin path (`Boot::Server` retired), and the bridge is
-   symmetric: page→host (`__promptResolve`) and host→page (`post_to_page` →
-   `__promptDeliver`).
+5. ✅ **Webview overhaul + Notes is now a real plugin** — the host-managed
+   sidecar mechanism: a `[webview] service = "…"` (manifest
+   `WebviewSource::Service`) maps to `Boot::Command`, which spawns the sidecar
+   (detached, own process group) in a writable per-plugin data dir
+   (`<config>/prompt/data/<id>`, not the possibly read-only plugin dir), waits on
+   a liveness check, and reads its `.service.json` (`{port, token}`, 0600). The
+   `notes` binary publishes its real bound port in `.service.json`, and
+   `resolve_program` resolves the bundled sidecar as a sibling of the exe.
+   **Bundled-plugin discovery** (`plugin::load`) loads first-party plugins shipped
+   with the app (`Contents/Resources/plugins` on macOS,
+   `share/prompt/plugins` on Linux, the workspace `plugins/` in dev); a
+   user-installed plugin of the same id overrides the bundled copy. Notes is now
+   the bundled `plugins/notes` plugin — File → Notes resolves and opens it from
+   its manifest (`Boot::Server` retired), with a direct-sidecar fallback for a
+   bare binary run outside a bundle. The bridge is symmetric: page→host
+   (`__promptResolve`) and host→page (`post_to_page` → `__promptDeliver`).
 6. ✅ **SDK** — `prompt-plugin` crate + `@prompt/plugin` (`componentize-js`) + docs;
    port `promptdesigner`.
 7. ✅ **Registry & trust** — the install-state model: `installed.toml`

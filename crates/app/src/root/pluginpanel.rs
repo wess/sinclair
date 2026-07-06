@@ -97,6 +97,15 @@ impl WorkspaceView {
         }
     }
 
+    /// Whether a loaded plugin contributes a `[webview]` with this id — so a
+    /// built-in entry point (e.g. File → Notes) can prefer the plugin path and
+    /// fall back only when the plugin isn't present.
+    pub(crate) fn has_webview_plugin(&self, id: &str) -> bool {
+        self.plugins
+            .iter()
+            .any(|p| p.webview.as_ref().map(|w| w.id.as_str()) == Some(id))
+    }
+
     /// Open a plugin's `[webview]` per its manifest placement: a sidebar panel,
     /// or a standalone window (also the current fallback for `tab`).
     pub(crate) fn open_webview(&mut self, id: &str, window: &mut Window, cx: &mut Context<Self>) {

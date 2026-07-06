@@ -88,7 +88,10 @@ impl WebviewSurface {
                 url_template: "http://127.0.0.1:{port}/?token={token}".to_string(),
                 boot: Boot::Command {
                     command: cmd.clone(),
-                    dir: plugin.path.clone(),
+                    // A sidecar needs a writable working dir for its
+                    // `.service.json` and state; the plugin's own dir may be
+                    // read-only (a bundled plugin lives inside the app).
+                    dir: service_dir(&plugin.id),
                 },
             },
             None => SurfaceContent::Url(String::new()),
@@ -412,6 +415,18 @@ fn run_service(command: &str, dir: &std::path::Path) -> Result<(u16, String), St
         }
     }
     Err("the plugin service did not report its address".into())
+}
+
+/// Writable working directory for a plugin's host-managed sidecar service:
+/// `<config>/prompt/data/<plugin-id>`. Kept separate from the (possibly
+/// read-only, bundled) plugin dir; this is where the sidecar writes its
+/// `.service.json`. `run_service` creates it on demand.
+fn service_dir(plugin_id: &str) -> PathBuf {
+    let base = std::env::var_os("XDG_CONFIG_HOME")
+        .map(PathBuf::from)
+        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config")))
+        .unwrap_or_else(|| PathBuf::from("."));
+    base.join("prompt").join("data").join(plugin_id)
 }
 
 /// Whether something is accepting connections on `127.0.0.1:port`.

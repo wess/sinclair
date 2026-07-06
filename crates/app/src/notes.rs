@@ -1,35 +1,42 @@
-//! Notes: the markdown-vault editor, opened as a webview tab backed by the
-//! bundled `notes` sidecar via the **host-managed service** webview path — the
-//! same `[[webview]] service` mechanism any plugin uses (see `plugins/notes`).
-//! The old bespoke server boot (`ensure_server` + `Boot::Server` fn-pointer +
-//! the hardcoded port) is retired: `run_service` spawns `notes serve 0`, notes
-//! picks a free port and reports `{port, token}` via `.service.json`, and the
-//! page loads from that origin.
+//! Notes: the markdown-vault editor. It is now the first-party **Notes plugin**
+//! (`plugins/notes`), bundled with the app and opened through the plugin system
+//! like any other `[webview] service` plugin — the manifest is the single source
+//! of truth. File → Notes resolves the loaded `notes` plugin and opens it.
+//!
+//! For a bare binary run outside a bundle (`cargo run -p app --release` — no
+//! `Contents/Resources/plugins`), the plugin may not be discoverable; the
+//! fallback opens the same bundled `notes` sidecar directly, identical behavior
+//! minus the manifest indirection.
 
 use gpui::{Context, Window};
 
 use crate::pluginwebview::{Boot, SurfaceContent, WebviewSurface};
 use crate::root::WorkspaceView;
 
-/// Where the notes sidecar runs and writes its `.service.json` (its data dir).
+/// Working dir for the fallback sidecar, matching the plugin path's data dir.
 fn notes_dir() -> std::path::PathBuf {
     let base = std::env::var_os("XDG_CONFIG_HOME")
         .map(std::path::PathBuf::from)
         .or_else(|| std::env::var_os("HOME").map(|h| std::path::PathBuf::from(h).join(".config")))
         .unwrap_or_else(|| std::path::PathBuf::from("."));
-    base.join("prompt").join("notes")
+    base.join("prompt").join("data").join("notes")
 }
 
 impl WorkspaceView {
-    /// Open the Notes vault in a new tab via the host-managed sidecar.
+    /// Open the Notes vault in a new tab. Prefers the bundled Notes plugin;
+    /// falls back to spawning the sidecar directly when it isn't loaded.
     pub(crate) fn open_notes(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.has_webview_plugin("notes") {
+            self.open_webview("notes", window, cx);
+            return;
+        }
         let surface = WebviewSurface {
             id: "notes".to_string(),
             title: "Notes".to_string(),
             content: SurfaceContent::Boot {
                 url_template: "http://127.0.0.1:{port}/?token={token}".to_string(),
                 boot: Boot::Command {
-                    command: "notes serve 0".to_string(),
+                    command: "notes serve".to_string(),
                     dir: notes_dir(),
                 },
             },
