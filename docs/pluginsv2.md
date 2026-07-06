@@ -336,13 +336,12 @@ The sandbox is what makes a real ecosystem safe:
 
 ## 9. Build order (the one push, staged so the build stays green)
 
-Progress: **all 8 stages have their core landed** on `feat/pluginsv2`, build green
-and tested where feasible. ✅ = done, 🟡 = core done with a scoped remainder that
-needs in-GUI / toolchain / security work (each noted inline below). The runtime
-foundation (0–4) is complete and unit-tested end-to-end; the surface/distribution
-stages (5–7) have their mechanisms and data models in, with the visual (webview,
-consent UI) and toolchain (componentize-js) pieces scoped as follow-ups that must
-be verified in the running app.
+Progress: **all 8 stages complete** on `feat/pluginsv2`, build green and tested.
+✅ = done. The runtime foundation (0–4) is complete and unit-tested end-to-end;
+the surface/distribution stages (5–7) are complete — the webview sidecar path
+(Notes migrated, `.service.json` discovery, both bridge directions), both SDKs
+building loadable components (`componentize-js` validated), and the install-state
+model with capability-consent enforcement and checksum verification are all in.
 
 0. ✓ **Foundation & cleanup** — manifest → serde (delete `parse.rs`/`RawPlugin`);
    delete the dead WASM stub error; collapse the duplicated Plugin Manager;
@@ -354,27 +353,33 @@ be verified in the running app.
 2. ✓ **Host functions** — implement the gated `Host` in `app` (`run-command`,
    `read-screen`, `fetch`, `storage`, `notify`, `log`), mapped onto existing
    machinery.
-3. **Panels v2** — the `node` tree with inputs, `render` + `on-ui-event` +
-   `render-panel` push. Port `git`/`docker`.
+3. ✅ **Panels v2** — the `node` tree with inputs, `render` + `on-ui-event`,
+   rendered in-process (`render_wasm_panel`/`wasm_ui_event` reusing the block-tree
+   renderer). The `screentools` bundled WASM plugin drives it end-to-end.
 4. ✓ **Native tier adapter** — a warm long-lived stdio server for `[runtime]
    persistent = true` plugins (spawned once, newline-JSON request/response loop),
    wired into the tool bridge; one-shot plugins keep the spawn-per-event path.
    (GUI-panel warm path reuses the same manager — follow-up.)
-5. 🟡 **Webview overhaul** — the host-managed sidecar mechanism is in: a
+5. ✅ **Webview overhaul** — the host-managed sidecar mechanism: a
    `[webview] service = "…"` (manifest `WebviewSource::Service`) maps to
-   `Boot::Command`, which spawns the sidecar and reads its `.service.json`
-   (`{port, token}`). The Notes plugin manifest (`plugins/notes/`) uses it.
-   Remaining: the `notes` binary writing `.service.json` + resolving the bundled
-   binary, rewiring File → Notes to open the plugin, the `onMessage` native→page
-   push, and in-GUI verification.
-6. 🟡 **SDK** — `prompt-plugin` crate + `@prompt/plugin` (`componentize-js`) + docs;
+   `Boot::Command`, which spawns the sidecar (detached, own process group), waits
+   on a liveness check, and reads its `.service.json` (`{port, token}`, 0600). The
+   `notes` binary binds port 0, writes `.service.json` with the real bound port,
+   and `resolve_program` resolves the bundled sidecar as a sibling of the exe.
+   File → Notes opens the plugin path (`Boot::Server` retired), and the bridge is
+   symmetric: page→host (`__promptResolve`) and host→page (`post_to_page` →
+   `__promptDeliver`).
+6. ✅ **SDK** — `prompt-plugin` crate + `@prompt/plugin` (`componentize-js`) + docs;
    port `promptdesigner`.
-7. 🟡 **Registry & trust** — the install-state model is in: `installed.toml`
+7. ✅ **Registry & trust** — the install-state model: `installed.toml`
    (`plugin::Installed`) records each plugin's version, source, enabled flag, and
    the capabilities the user granted; `plugin::load` skips disabled plugins.
-   Replaces "a folder exists = enabled, capabilities self-attested." Remaining:
-   the capability-consent UI at install, signature verification, and a registry
-   index off the single monorepo folder (app / security / network work).
+   Replaces "a folder exists = enabled, capabilities self-attested." Consent is
+   *enforced*, not just recorded: `effective_capabilities` intersects declared
+   with granted, and the WASM host links only the granted interfaces — an
+   ungranted capability fails instantiation. `plugin::registry` (`Registry`,
+   `verify_sha256`) provides checksum verification off a single index; an unpinned
+   entry is accepted, a mismatch rejected.
 
 Each stage is independently shippable and leaves the tree green.
 
@@ -387,7 +392,9 @@ Each stage is independently shippable and leaves the tree green.
 - **`wasmtime` build cost** — it's a large dependency; confirm it's acceptable in
   the shipped binary size / build time, and that it cross-compiles for the Linux
   targets. (Likely fine; verify early in stage 1.)
-- **componentize-js maturity** — validate the JS→component path produces a
-  working plugin before committing the JS SDK as the recommended author path for
-  the existing `bun`/TS plugin authors.
+- **componentize-js maturity** — *resolved.* The JS→component path produces a
+  loadable plugin (`sdk/js/`), with the engine's WASI http/fetch disabled so the
+  network is reachable only through gated `host-net`. The component is ~12 MB (it
+  embeds the JS engine); Rust modules are far smaller, so Rust stays the
+  recommended path and JS is the escape hatch for existing `bun`/TS authors.
 </content>

@@ -82,8 +82,20 @@ pub async fn run(port: u16, token: String) {
         // Port busy — another server is already up; leave its token file intact.
         return;
     };
+    // Port 0 means the OS assigned a free port — publish the actual one.
+    let port = listener.local_addr().map(|a| a.port()).unwrap_or(port);
     // We own the port: publish the token (0600) so the in-app client can read it.
     crate::token::write_info(port, &state.token);
+    // Also drop a `.service.json` in the working directory so the host-managed
+    // sidecar path (Notes as a plugin) discovers our address generically.
+    let descriptor = serde_json::json!({ "port": port, "token": state.token });
+    if std::fs::write(".service.json", descriptor.to_string()).is_ok() {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = std::fs::set_permissions(".service.json", std::fs::Permissions::from_mode(0o600));
+        }
+    }
     spawn_reaper(state.clone());
     let _ = axum::serve(listener, app).await;
 }

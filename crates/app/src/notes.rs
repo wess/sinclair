@@ -1,97 +1,37 @@
-//! Notes: a built-in markdown-vault surface, hosted as a webview tab. The vault
-//! server ships as the bundled `notes` sidecar (no runtime dependency); this
-//! module manages that sidecar directly — spawning it on demand like the relay
-//! binary — and opens the surface via the shared `boot` webview flow. No
-//! synthetic plugin, no plugin runtime.
-
-use std::net::{Ipv4Addr, SocketAddrV4, TcpStream};
-use std::time::Duration;
+//! Notes: the markdown-vault editor, opened as a webview tab backed by the
+//! bundled `notes` sidecar via the **host-managed service** webview path — the
+//! same `[[webview]] service` mechanism any plugin uses (see `plugins/notes`).
+//! The old bespoke server boot (`ensure_server` + `Boot::Server` fn-pointer +
+//! the hardcoded port) is retired: `run_service` spawns `notes serve 0`, notes
+//! picks a free port and reports `{port, token}` via `.service.json`, and the
+//! page loads from that origin.
 
 use gpui::{Context, Window};
 
 use crate::pluginwebview::{Boot, SurfaceContent, WebviewSurface};
 use crate::root::WorkspaceView;
 
-/// The fixed port the vault server binds; the app health-checks and reuses it.
-const PORT: u16 = 4319;
-
-/// The bundled `notes` binary: prefer a sibling of the running executable
-/// (inside the app bundle / target dir), else fall back to `PATH`.
-fn binary() -> String {
-    if let Ok(exe) = std::env::current_exe() {
-        if let Some(dir) = exe.parent() {
-            let cand = dir.join("notes");
-            if cand.exists() {
-                return cand.to_string_lossy().into_owned();
-            }
-        }
-    }
-    "notes".to_string()
-}
-
-/// Is something accepting connections on `127.0.0.1:port`?
-fn alive(port: u16) -> bool {
-    let addr = SocketAddrV4::new(Ipv4Addr::LOCALHOST, port);
-    TcpStream::connect_timeout(&addr.into(), Duration::from_millis(200)).is_ok()
-}
-
-/// Path to the server's info file: `~/.config/prompt/notes/server.json`.
-fn info_path() -> Option<std::path::PathBuf> {
-    let home = std::env::var_os("HOME")?;
-    Some(std::path::Path::new(&home).join(".config/prompt/notes/server.json"))
-}
-
-/// Read the session auth token the server published on bind. Retried briefly
-/// because the file lands just after the port opens.
-fn read_token() -> Result<String, String> {
-    for _ in 0..40 {
-        if let Some(tok) = info_path()
-            .and_then(|p| std::fs::read_to_string(p).ok())
-            .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
-            .and_then(|v| v.get("token").and_then(|t| t.as_str()).map(str::to_string))
-            .filter(|t| !t.is_empty())
-        {
-            return Ok(tok);
-        }
-        std::thread::sleep(Duration::from_millis(50));
-    }
-    Err("the notes server did not publish an auth token".to_string())
-}
-
-/// Ensure the vault server is running and return its `(port, token)`, spawning
-/// the bundled `notes serve` (detached) if nothing is listening yet. Runs off
-/// the UI thread (called from the surface's boot), so the blocking wait is fine.
-fn ensure_server() -> Result<(u16, String), String> {
-    if alive(PORT) {
-        return Ok((PORT, read_token()?));
-    }
-    use std::os::unix::process::CommandExt;
-    std::process::Command::new(binary())
-        .args(["serve", &PORT.to_string()])
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .process_group(0) // outlive the app that spawned it
-        .spawn()
-        .map_err(|e| format!("spawn `notes`: {e}. Is it installed beside prompt?"))?;
-    for _ in 0..60 {
-        if alive(PORT) {
-            return Ok((PORT, read_token()?));
-        }
-        std::thread::sleep(Duration::from_millis(50));
-    }
-    Err("the notes server did not start".to_string())
+/// Where the notes sidecar runs and writes its `.service.json` (its data dir).
+fn notes_dir() -> std::path::PathBuf {
+    let base = std::env::var_os("XDG_CONFIG_HOME")
+        .map(std::path::PathBuf::from)
+        .or_else(|| std::env::var_os("HOME").map(|h| std::path::PathBuf::from(h).join(".config")))
+        .unwrap_or_else(|| std::path::PathBuf::from("."));
+    base.join("prompt").join("notes")
 }
 
 impl WorkspaceView {
-    /// Open the Notes vault in a new tab.
+    /// Open the Notes vault in a new tab via the host-managed sidecar.
     pub(crate) fn open_notes(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let surface = WebviewSurface {
             id: "notes".to_string(),
             title: "Notes".to_string(),
             content: SurfaceContent::Boot {
                 url_template: "http://127.0.0.1:{port}/?token={token}".to_string(),
-                boot: Boot::Server(ensure_server),
+                boot: Boot::Command {
+                    command: "notes serve 0".to_string(),
+                    dir: notes_dir(),
+                },
             },
             runtime: None,
         };

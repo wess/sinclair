@@ -41,13 +41,10 @@ pub enum Boot {
     /// Invoke the surface's plugin `runtime` `boot` method; it returns `{ url }`
     /// or `{ port }` (a plugin starting its own server).
     Runtime,
-    /// Ensure a bundled server is running and use its address. The function
-    /// spawns the server if needed and returns its `(port, token)`, substituted
-    /// into `{port}`/`{token}` in the template (a built-in like Notes).
-    Server(fn() -> Result<(u16, String), String>),
-    /// A data-driven host-managed sidecar (`[[webview]] service = "…"`): the host
-    /// spawns the command in `dir` and reads `dir/.service.json` (`{port, token}`)
-    /// for its address. Generalizes `Server` so any plugin can ship a backend.
+    /// A data-driven host-managed sidecar (`[[webview]] service = "…"`, and how
+    /// the built-in Notes now works): the host spawns the command in `dir` and
+    /// reads `dir/.service.json` (`{port, token}`) for its address. Any plugin
+    /// can ship a backend this way.
     Command { command: String, dir: PathBuf },
 }
 
@@ -213,23 +210,6 @@ impl PluginWebView {
         let webview = self.webview.clone();
         let executor = cx.background_executor().clone();
         match boot {
-            Boot::Server(f) => {
-                let f = *f;
-                cx.spawn(async move |_this, cx| {
-                    let target = executor
-                        .spawn(async move {
-                            f().map(|(port, token)| {
-                                url.replace("{port}", &port.to_string()).replace("{token}", &token)
-                            })
-                        })
-                        .await;
-                    webview.update(cx, |wv, cx| match target {
-                        Ok(u) => wv.load_url(u, cx),
-                        Err(e) => wv.load_html(failure_html(&e), cx),
-                    });
-                })
-                .detach();
-            }
             Boot::Command { command, dir } => {
                 let command = command.clone();
                 let dir = dir.clone();
@@ -361,6 +341,18 @@ impl PluginWebView {
             .evaluate_script(&format!("window.__promptResolve({id}, {ok}, {vjson});"));
     }
 
+    /// Push a message to the page's `Prompt.onMessage(cb)` listeners — the
+    /// host→page direction of the bridge. `__promptDeliver` was defined in the
+    /// injected JS but had no Rust caller (a v1 dead end); this is it. Available
+    /// for a feature that pushes to a plugin webview (e.g. a subscribed event).
+    #[allow(dead_code)]
+    pub(crate) fn post_to_page(&self, message: &Value, cx: &Context<Self>) {
+        let json = serde_json::to_string(message).unwrap_or_else(|_| "null".to_string());
+        self.webview
+            .read(cx)
+            .evaluate_script(&format!("window.__promptDeliver({json});"));
+    }
+
     /// The focused pane's working directory on the main workspace, so a plugin
     /// runtime acts on the right place.
     fn focused_cwd(&self, cx: &mut Context<Self>) -> Option<String> {
@@ -390,27 +382,59 @@ impl PluginWebView {
 /// Lifecycle/reaping is a follow-up.
 fn run_service(command: &str, dir: &std::path::Path) -> Result<(u16, String), String> {
     let descriptor = dir.join(".service.json");
-    if let Some(addr) = read_service(&descriptor) {
-        return Ok(addr);
+    // Reuse a running instance (a second window shares one server); ignore a
+    // stale descriptor whose port no longer answers.
+    if let Some((port, token)) = read_service(&descriptor) {
+        if port_alive(port) {
+            return Ok((port, token));
+        }
     }
+    std::fs::create_dir_all(dir).ok();
     let mut parts = command.split_whitespace();
-    let program = parts.next().ok_or("empty service command")?;
+    let program = resolve_program(parts.next().ok_or("empty service command")?);
     let args: Vec<&str> = parts.collect();
-    std::process::Command::new(program)
+    use std::os::unix::process::CommandExt;
+    std::process::Command::new(&program)
         .args(&args)
         .current_dir(dir)
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
+        .process_group(0) // outlive the app that spawned it
         .spawn()
         .map_err(|e| format!("spawn `{program}`: {e}"))?;
     for _ in 0..60 {
         std::thread::sleep(std::time::Duration::from_millis(50));
-        if let Some(addr) = read_service(&descriptor) {
-            return Ok(addr);
+        if let Some((port, token)) = read_service(&descriptor) {
+            if port_alive(port) {
+                return Ok((port, token));
+            }
         }
     }
     Err("the plugin service did not report its address".into())
+}
+
+/// Whether something is accepting connections on `127.0.0.1:port`.
+fn port_alive(port: u16) -> bool {
+    let addr = std::net::SocketAddr::from(([127, 0, 0, 1], port));
+    std::net::TcpStream::connect_timeout(&addr, std::time::Duration::from_millis(200)).is_ok()
+}
+
+/// Resolve a bare program name to a sibling of the current executable if one
+/// exists (bundled binaries like `notes` aren't on the user's `$PATH`); else
+/// leave it for a normal `$PATH` lookup.
+fn resolve_program(program: &str) -> String {
+    if program.contains('/') {
+        return program.to_string();
+    }
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(sibling) = exe.parent().map(|d| d.join(program)) {
+            if sibling.is_file() {
+                return sibling.to_string_lossy().into_owned();
+            }
+        }
+    }
+    program.to_string()
 }
 
 /// Read a `.service.json` descriptor's `(port, token)`.
