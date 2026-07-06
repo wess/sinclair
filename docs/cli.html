@@ -32,6 +32,8 @@
               <tr><td><code>prompt</code></td><td>Load config and launch the GUI (opens a default window).</td></tr>
               <tr><td><code>prompt mcp</code></td><td>Run the Model Context Protocol server over stdio, bridging tool calls into a running GUI instance.</td></tr>
               <tr><td><code>prompt notify [--title T] &lt;message&gt;</code></td><td>Post a desktop notification.</td></tr>
+              <tr><td><code>prompt agent-status &lt;state&gt;</code></td><td>Report an agent's semantic state (working/blocked/done/idle) to the running window.</td></tr>
+              <tr><td><code>prompt agent-hooks &lt;install|uninstall&gt; [--project]</code></td><td>Wire (or remove) the Claude Code lifecycle hooks that drive the status dots.</td></tr>
               <tr><td><code>prompt export &lt;in.cast&gt; &lt;out.gif|mp4|mov|webm&gt;</code></td><td>Render a session recording to a GIF or video file.</td></tr>
               <tr><td><code>prompt --toggle-quick</code></td><td>Tell a running instance to summon/hide the quick terminal, then exit.</td></tr>
             </tbody>
@@ -70,6 +72,52 @@ prompt notify --title "CI" "tests passed ✓"</code></pre>
           <p>From inside a shell session you can also trigger notifications directly with
           OSC escape sequences (OSC 9 / 777 / 99) — <code>prompt notify</code> is the
           out-of-band equivalent for tools that only have a shell command.</p>
+        </div>
+
+        <h2>prompt agent-status</h2>
+        <p>
+          Reports the calling pane's semantic work state back to the running window,
+          which draws it as a colored dot on the tab and rolls it up in the
+          <a href="productivity.html">Activity</a> panel. The state is one of
+          <code>working</code>, <code>blocked</code> (waiting on you), <code>done</code>,
+          or <code>idle</code>. It travels over Prompt's single-instance socket and is
+          addressed by the <code>PROMPT_PANE</code> token that every session gets, so it
+          lands on the right tab even from a background process. It's best-effort and
+          never blocks — if no window is listening, it simply exits.
+        </p>
+        <pre><code>prompt agent-status working
+prompt agent-status blocked
+prompt agent-status done</code></pre>
+        <p>
+          Optional flags let a wrapper address a specific pane or carry a session id:
+          <code>--pane &lt;token&gt;</code>, <code>--name &lt;n&gt;</code>, and
+          <code>--session &lt;id&gt;</code>. You rarely call this by hand — the hooks below
+          wire it into Claude Code's lifecycle for you.
+        </p>
+
+        <h2>prompt agent-hooks</h2>
+        <p>
+          Installs (or removes) the Claude Code lifecycle hooks that report status
+          automatically, so a Claude Code session running in a pane lights up its tab as
+          it works. It is idempotent — installing twice is a no-op — and the uninstall is
+          surgical, touching only the entries Prompt added.
+        </p>
+        <pre><code>prompt agent-hooks install              <span class="c"># wire hooks in ~/.claude/settings.json</span>
+prompt agent-hooks install --project    <span class="c"># scope them to this repo's .claude/settings.json</span>
+prompt agent-hooks uninstall            <span class="c"># remove Prompt's entries again</span></code></pre>
+        <p>
+          The hooks map Claude Code's events onto states: session start → <code>idle</code>,
+          a submitted prompt → <code>working</code>, a notification (Claude is waiting on
+          you) → <code>blocked</code>, and stop → <code>done</code>. Each one shells out to
+          <code>prompt agent-status</code>. See the
+          <a href="statushooks.html">Agent status at a glance</a> tutorial for the full
+          workflow.
+        </p>
+        <div class="callout tip">
+          <span class="label">Tip</span>
+          <p>Agents on the relay mesh don't need the hooks — they can report the same
+          states with the <code>report_status</code> tool. See the
+          <a href="agents.html">Agent mesh</a>.</p>
         </div>
 
         <h2>prompt export</h2>

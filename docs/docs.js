@@ -12,6 +12,29 @@ const MANIFEST = [
     ],
   },
   {
+    title: "Tutorials · Terminal",
+    pages: [
+      { slug: "tutorials", title: "All tutorials", href: "tutorials.html" },
+      { slug: "quickstart", title: "Your first 10 minutes", href: "quickstart.html" },
+      { slug: "workspacesetup", title: "Organize your workspace", href: "workspacesetup.html" },
+      { slug: "appearance", title: "Themes, fonts & appearance", href: "appearance.html" },
+      { slug: "configkeys", title: "Configuration & keybindings", href: "configkeys.html" },
+      { slug: "navigate", title: "Navigate & select", href: "navigate.html" },
+      { slug: "clipboard", title: "Clipboard, snippets & pickers", href: "clipboard.html" },
+      { slug: "awareness", title: "Triggers & notifications", href: "awareness.html" },
+      { slug: "recording", title: "Record & share", href: "recording.html" },
+    ],
+  },
+  {
+    title: "Tutorials · Agents",
+    pages: [
+      { slug: "agentteams", title: "Run an agent team", href: "agentteams.html" },
+      { slug: "worktreeagents", title: "Parallel agents in worktrees", href: "worktreeagents.html" },
+      { slug: "statushooks", title: "Agent status at a glance", href: "statushooks.html" },
+      { slug: "automation", title: "Automate with MCP", href: "automation.html" },
+    ],
+  },
+  {
     title: "Configuration",
     pages: [
       { slug: "configuration", title: "Configuration", href: "configuration.html" },

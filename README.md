@@ -52,10 +52,22 @@ exactly how you work.
   screen) to a text file from **File → Save Buffer…** (⌘S).
 - **MCP server** — `prompt mcp` exposes the running terminal to Model Context
   Protocol clients (Claude Desktop, Claude Code) so an agent can run commands,
-  read the screen, replay macros, and switch tabs.
+  read the screen, replay macros, switch tabs, and manage git worktrees.
 - **Relay** — run a team of coding agents (Claude Code, Codex, …) that share a
   bus and message each other, launched into splits and managed from Settings →
   AI. See [`docs/relay.md`](docs/relay.md).
+- **Agent status** — every pane self-reports a semantic state (working, blocked,
+  done, idle) shown as a colored dot on its tab and rolled up in the Activity
+  panel; `prompt agent-hooks install` wires Claude Code's lifecycle to it, and
+  mesh agents report over `report_status`/`wait_status`.
+- **Git worktrees** — create, open, and remove worktrees as keybind actions or
+  MCP verbs that open a tab at the checkout — one isolated branch per agent — with
+  `worktree_created`/`worktree_removed` triggers for setup and teardown.
+- **Session resume** — with `session-restore` on, agent panes relaunch *resumed*
+  (reloading their own session, Claude Code today) instead of dropping to a bare
+  shell.
+- **Tutorials** — hands-on walkthroughs from your first splits to parallel agent
+  teams. See the [tutorials](https://wess.github.io/prompt/tutorials.html).
 
 ## Install
 

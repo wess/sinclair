@@ -81,6 +81,11 @@ mcp-server-enabled = true</code></pre>
               <tr><td><code>notify</code></td><td>Post a desktop notification.</td><td><code>body</code>; <code>title</code> (optional)</td></tr>
               <tr><td><code>list_macros</code></td><td>List saved command macros and what each replays.</td><td>—</td></tr>
               <tr><td><code>run_macro</code></td><td>Replay a saved macro into the focused pane.</td><td><code>name</code></td></tr>
+              <tr><td><code>worktree_create</code></td><td>Create a git worktree from the focused pane's repository and open it in a new tab.</td><td><code>path</code>; <code>branch</code> (optional)</td></tr>
+              <tr><td><code>worktree_open</code></td><td>Open an existing git worktree path in a new tab.</td><td><code>path</code></td></tr>
+              <tr><td><code>worktree_list</code></td><td>List the git worktrees of the focused pane's repository.</td><td>—</td></tr>
+              <tr><td><code>worktree_remove</code></td><td>Remove a git worktree by path (<code>git worktree remove</code>).</td><td><code>path</code></td></tr>
+              <tr><td><code>agent_states</code></td><td>Read every pane's reported agent status (working/blocked/done/idle) across the window.</td><td>—</td></tr>
             </tbody>
           </table>
         </div>

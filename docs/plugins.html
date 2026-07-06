@@ -197,6 +197,8 @@ notify = "A command failed"  <span class="c"># one action: notify | run | invoke
             <tr><td><code>exit</code></td><td>the pane's process exits</td><td>exit-code class</td></tr>
             <tr><td><code>command_finished</code></td><td>a command finishes (OSC 133 <code>D</code>)</td><td>exit-code class</td></tr>
             <tr><td><code>dir_changed</code></td><td>the cwd changes (OSC 7)</td><td>substring of the path</td></tr>
+            <tr><td><code>worktree_created</code></td><td>a git worktree is created</td><td>substring of the path</td></tr>
+            <tr><td><code>worktree_removed</code></td><td>a git worktree is removed</td><td>substring of the path</td></tr>
           </tbody>
         </table></div>
         <p><code>command_finished</code> and <code>dir_changed</code> need shell integration enabled. The exit-code filter is <code>any</code>, <code>zero</code>/<code>success</code>, or <code>nonzero</code>/<code>failure</code>.</p>

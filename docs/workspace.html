@@ -189,6 +189,40 @@
           </p>
         </div>
 
+        <h2 id="worktrees">Git worktrees</h2>
+        <p>
+          A git worktree is a second checkout of the same repository on its own
+          branch, in its own directory — so you can work on two branches at once
+          without stashing or re-cloning. Prompt turns that into a one-keystroke
+          workflow: <code>worktree_create:PATH</code> runs
+          <code>git worktree add</code> from the focused pane's repository,
+          branching from <code>HEAD</code>, and opens the new checkout in a fresh
+          tab already <code>cd</code>'d into it. Append <code>@branch</code> to
+          name the branch; otherwise the path's basename is used.
+        </p>
+        <pre><code><span class="c"># bind these in your config, or call them over MCP</span>
+worktree_create:../pr-1234@fix/login   <span class="c"># add + open a worktree on a new branch</span>
+worktree_open:../pr-1234               <span class="c"># open an existing worktree in a tab</span>
+worktree_remove:../pr-1234             <span class="c"># git worktree remove, when you're done</span></code></pre>
+        <p>
+          The same verbs are exposed over MCP and the single-instance socket
+          (<code>worktree_create</code>, <code>worktree_open</code>,
+          <code>worktree_list</code>, <code>worktree_remove</code>), so an agent can
+          branch off an isolated checkout for a task and open it beside your work
+          — see <a href="mcp.html">MCP &amp; automation</a>. Creating or removing a
+          worktree also fires the <code>worktree_created</code> /
+          <code>worktree_removed</code> <a href="plugins.html">plugin triggers</a>,
+          so a plugin can react (install dependencies, warm a build, post a note).
+        </p>
+        <div class="callout tip">
+          <p>
+            Worktrees are the backbone of running several coding agents in
+            parallel without them stepping on each other's files. The
+            <a href="worktreeagents.html">Parallel agents in git worktrees</a>
+            tutorial walks the whole flow end to end.
+          </p>
+        </div>
+
         <h2 id="read-only-restore">Read-only &amp; restore</h2>
         <p>
           <code>toggle_read_only</code> locks a pane against input without
@@ -200,7 +234,11 @@
           Turn on the <code>session-restore</code> config option and Prompt
           reopens the previous window's tabs, splits, and working directories
           the next time it launches, so you pick up exactly where you left off.
-          The <code>window-inherit-working-directory</code> option makes every
+          A pane that was running a coding agent is remembered as one: on restore
+          it relaunches the agent — <em>resumed</em>, reloading its own session
+          rather than starting cold where the provider supports it (Claude Code
+          today) — instead of dropping to a bare shell. Plain shells restore as
+          before. The <code>window-inherit-working-directory</code> option makes every
           new tab and split open in the focused pane's current directory instead
           of your home folder, which keeps related shells rooted in the same
           project.

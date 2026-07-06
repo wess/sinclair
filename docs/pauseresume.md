@@ -1,6 +1,6 @@
 # Pause & resume with work persistence
 
-Status: **steps 1–3 shipped (1.21.3); step 4 remaining.** This is the response to
+Status: **complete — steps 1–3 shipped (1.21.3), step 4 shipped (1.23.0).** This is the response to
 issue #4 (*feat: Pause and resume support with work persistence*). The literal
 ask — pause the manager and its agents mid-task, serialize the in-flight work,
 and on resume have each agent pick up from its last checkpoint — cannot be met by
@@ -114,30 +114,35 @@ providers keep fresh context until they expose an equivalent. Foreground
 (human-driven) agents aren't resumed this way — they `exec` over the shell and
 own their own `/resume`.
 
-### 4. Make session-restore agent-aware
+### 4. Make session-restore agent-aware — ✓ shipped (1.23.0)
 
-Close the loop on the app side. Remember that a pane was an agent
-(provider / name / role) in `TabState` (`crates/app/src/sessionstate.rs`) instead
-of dropping it to a plain shell on restore (`crates/app/src/root/persist.rs`),
-and on restore offer to relaunch that agent — optionally with `--resume` once
-step 3 exists — rather than spawning a bare shell at its cwd.
+The loop is closed on the app side. An agent pane now persists its launch
+command and native session id in `TabState` (`crates/app/src/sessionstate.rs`,
+`crates/app/src/resume.rs`) instead of being dropped to a plain shell on restore
+(`crates/app/src/root/persist.rs`). On restore it relaunches the agent
+*resumed* — threading the provider's `--resume`/session id through where the
+provider supports it (claude today, per step 3) — rather than spawning a bare
+shell at its cwd. Plain shells restore exactly as before.
 
-*Effort:* medium. *Honest caveat:* depends on step 3 for the "with work intact"
-half; without it, restore can relaunch the agent fresh but cannot recover its
-transcript. Also needs a decision on the current "skip save if a pane holds a
-webview" rule, which agent panes may trip.
+*Honest caveat:* the "with work intact" half is still bounded by the agent CLI —
+Prompt reloads the session id, the provider reloads the transcript. Providers
+without a resume flag relaunch fresh at the right cwd. Foreground human-driven
+agents own their own `/resume`.
 
 ## Status & what's left
 
-Steps 1–3 shipped in 1.21.3: you can pause and resume the mesh (`relay
-pause`/`resume`, or AI → Relay ▸ Pause/Resume Mesh), the background-worker roster
-survives a restart, and each claude worker resumes its own session so its work
-continues rather than starting cold.
+All four steps have shipped. Steps 1–3 (1.21.3): you can pause and resume the
+mesh (`relay pause`/`resume`, or AI → Relay ▸ Pause/Resume Mesh), the
+background-worker roster survives a restart, and each claude worker resumes its
+own session so its work continues rather than starting cold.
 
-**Step 4 — agent-aware session restore** is the remaining piece: teach Prompt's
-app-level `session-restore` (`crates/app/src/sessionstate.rs`,
-`crates/app/src/root/persist.rs`) to remember that a pane was an agent
-(provider / name / role) and offer to relaunch it — with `--resume` — instead of
-dropping to a bare shell, and to revisit the "skip save if a pane holds a
-webview" rule that agent panes can trip. That closes the loop between the app's
-window restore and the mesh's now-durable workers.
+Step 4 (1.23.0): app-level `session-restore` is now agent-aware. A pane that was
+running an agent is remembered as one (launch command + native session id in
+`crates/app/src/sessionstate.rs` / `crates/app/src/resume.rs`) and relaunches
+*resumed* on restore instead of dropping to a bare shell — closing the loop
+between the app's window restore and the mesh's durable workers.
+
+What remains is the one genuine blocker, unchanged: "pause mid-turn and resume
+with the exact in-flight reasoning intact" is owned by the agent CLI, not Prompt.
+Prompt threads the session id; the provider reloads the transcript. Real,
+detachable mux-style sessions (`docs/parity.md`) remain the larger follow-up.

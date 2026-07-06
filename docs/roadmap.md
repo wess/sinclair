@@ -340,3 +340,18 @@ Conventions (non-negotiable):
   GitHub on launch + hourly and offers to update — deferring to Homebrew/apt for
   managed installs, or swapping a manual `.dmg`/AppImage in place and relaunching
   via gpui's restart hook (`auto-update`, modeled on Zed's `auto_update`).
+- 2026-07-06: agent status, session resume, and git worktrees (1.23.0). Semantic
+  agent state across the session. Status dots: every pane self-reports
+  `working`/`blocked`/`done`/`idle`, drawn as a colored dot on the tab (new guise
+  `on_item_dot` hook) and rolled up in the Activity sidebar; mesh agents show
+  their state in the Relay panel. Hooks: `prompt agent-status <state>` reports
+  over the single-instance socket, addressed by a `PROMPT_PANE` token injected
+  into every session; `prompt agent-hooks install|uninstall [--project]` wires
+  Claude Code's lifecycle hooks (idempotent install, surgical uninstall). Mesh:
+  relay gains `report_status`/`wait_status` tools and a status column, riding the
+  `/control` snapshot + events stream. Session resume closes step 4 of
+  `docs/pauseresume.md` — an agent pane persists its launch command + native
+  session id and relaunches *resumed* on restore, while plain shells restore as
+  before. Git worktrees: `worktree_create`/`open`/`list`/`remove` as keybind
+  actions and MCP/IPC verbs that open a tab at the worktree, with new
+  `worktree_created`/`worktree_removed` plugin triggers. See `docs/parity.md`.

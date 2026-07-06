@@ -30,6 +30,7 @@
         <a href="#terminal">Terminal</a>
         <a href="#agents">Agents</a>
         <a href="#plugins">Plugins</a>
+        <a href="tutorials.html">Tutorials</a>
         <a href="docs.html">Docs</a>
         <a href="#install">Install</a>
       </nav>
@@ -121,7 +122,7 @@ running 583 tests
         </div>
         <div>
           <strong>Agent ready</strong>
-          <span>MCP bridge, notifications, macros, teams, panes, and a local SQLite relay bus.</span>
+          <span>MCP bridge, live status dots, per-agent git worktrees, resumable sessions, and a local SQLite relay bus.</span>
         </div>
       </section>
 
@@ -165,6 +166,18 @@ running 583 tests
             whole team — by hand or with an AI-guided builder — and open it into
             a tiled layout.
           </p>
+          <p>
+            Every pane reports what it's doing as a <strong>colored status
+            dot</strong> — working, blocked, done, idle — so you can read a whole
+            team at a glance. Give each agent its own <strong>git worktree</strong>
+            so they never clobber each other's files, and when you reopen Prompt,
+            agent panes <strong>resume their sessions</strong> instead of starting
+            cold.
+          </p>
+          <div class="actions" aria-label="Agent actions">
+            <a class="button primary" href="agentteams.html">Run your first team</a>
+            <a class="button secondary" href="agents.html">Read the mesh docs</a>
+          </div>
         </div>
         <div class="mesh" aria-label="Relay mesh diagram">
           <div class="node lead">lead</div>
@@ -253,11 +266,19 @@ keybind = "cmd+ctrl+l"</code></pre>
           </article>
           <article>
             <h3>Guardrails &amp; glance</h3>
-            <p>Redact secrets from every copy, fire notifications on regex output triggers, timestamp and annotate lines, and see who's working, blocked, or idle across tabs in the Activity panel.</p>
+            <p>Redact secrets from every copy, fire notifications on regex output triggers, timestamp and annotate lines, and read who's working, blocked, done, or idle across every tab from the Activity panel's status dots.</p>
+          </article>
+          <article>
+            <h3>A worktree per agent</h3>
+            <p>Spin up a git worktree in a new tab with one action — or let an agent create its own over MCP — so several agents work the same repo on isolated branches without colliding. New worktrees fire plugin triggers, so setup runs itself.</p>
+          </article>
+          <article>
+            <h3>Resume where you left off</h3>
+            <p>Turn on session restore and Prompt reopens your tabs, splits, and directories — and relaunches agent panes <em>resumed</em>, reloading their own session instead of starting cold.</p>
           </article>
           <article>
             <h3>Scriptable by design</h3>
-            <p><code>prompt mcp</code> exposes tabs, panes, screen reads, input, macros, splits, commands, and notifications to local tools.</p>
+            <p><code>prompt mcp</code> exposes tabs, panes, screen reads, input, macros, splits, git worktrees, agent status, and notifications to local tools — plus every tool your plugins add.</p>
           </article>
           <article>
             <h3>Keeps itself current</h3>
@@ -289,9 +310,10 @@ keybind = "cmd+ctrl+l"</code></pre>
     </main>
 
     <footer class="footer">
-      <span>Prompt 1.3.4</span>
+      <span>Prompt 1.23.0</span>
       <a href="https://github.com/wess/prompt">GitHub</a>
       <a href="docs.html">Documentation</a>
+      <a href="tutorials.html">Tutorials</a>
       <a href="plugins.html">Plugin guide</a>
       <a href="https://github.com/wess/prompt/releases">Releases</a>
       <a href="coverage.html">Feature coverage</a>

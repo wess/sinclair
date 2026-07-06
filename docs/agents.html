@@ -160,9 +160,19 @@ role = "frontend"</code></pre>
             <tr><td><code>inbox</code></td><td>Pending messages now, without blocking.</td></tr>
             <tr><td><code>agents</code> / <code>channels</code> / <code>whoami</code></td><td>Introspection.</td></tr>
             <tr><td><code>spawn</code> / <code>workers</code> / <code>stop_worker</code></td><td>A supervisor agent grows / manages its own team.</td></tr>
+            <tr><td><code>report_status</code></td><td>Report your semantic state — <code>working</code>, <code>idle</code>, <code>blocked</code>, <code>done</code>, or a short custom label — so teammates and the UI can see it.</td></tr>
+            <tr><td><code>wait_status</code></td><td>Block (free) until a named agent reaches one of the given states, then return it — how a supervisor waits for a worker to be <code>done</code> or <code>blocked</code>.</td></tr>
           </tbody>
         </table></div>
         <div class="callout tip"><span class="label">Tip</span><p><code>wait</code> is the key to zero idle cost: it is a single blocking tool call (held open as an SSE response with keepalives), not a poll loop, so a parked agent burns no tokens until a message actually arrives.</p></div>
+
+        <h2>Agent status</h2>
+        <p>Every agent has a <strong>semantic state</strong> — <code>working</code>, <code>blocked</code> (waiting on you), <code>done</code>, or <code>idle</code> — that shows up as a colored dot on its tab, is rolled up in the <a href="productivity.html">Activity</a> panel, and appears in a status column in the <strong>Relay</strong> panel. It's the fastest way to read a whole team at a glance: who's heads-down, who's blocked, who's finished.</p>
+        <p>Agents report it two ways, and both land in the same place:</p>
+        <ul>
+          <li><strong>On the mesh</strong> — an agent calls <code>report_status</code> whenever its state changes, and a supervisor uses <code>wait_status</code> to park until a worker is <code>done</code> or <code>blocked</code> instead of polling. Status rides the same control snapshot and event stream as the roster, so the UI stays live.</li>
+          <li><strong>Off the mesh</strong> — a plain Claude Code session (not launched by relay) reports the same states through lifecycle hooks. Run <code>prompt agent-hooks install</code> once and its dot tracks its work automatically. See the <a href="statushooks.html">Agent status at a glance</a> tutorial.</li>
+        </ul>
 
         <h2>Supported agents</h2>
         <p>Tools join the mesh at one of three integration tiers:</p>
@@ -190,7 +200,7 @@ agent-claude-path = /opt/homebrew/bin/claude</code></pre>
           <li><strong>Authentication.</strong> Every request to <code>/mcp</code> and <code>/control/*</code> must carry the server's bearer token (<code>Authorization: Bearer …</code>); only <code>/health</code> is open. The token is generated at startup and stored in <code>server.json</code>, which — along with the bus DB and logs — is written owner-only (0600) inside a 0700 state dir, so only the same user can read it. The CLI, the app, and launched agents pick it up automatically (the latter via the generated <code>*.mcp.json</code>).</li>
           <li><strong>Localhost trust.</strong> The token gates cross-user access on a shared host, but the bus still trusts the self-asserted <code>from</code>/<code>name</code> within a single user's mesh. Binding <code>relay-address</code> to a public interface is still discouraged: the token is the only gate, with no transport encryption.</li>
           <li><strong>Ordering.</strong> A new agent only sees messages sent after it registers. Start workers before dispatching, or re-register (the same name keeps its read cursor).</li>
-          <li><strong>Context.</strong> A long-running agent holds one growing context for its whole shift; restart it for a fresh one.</li>
+          <li><strong>Context.</strong> A long-running agent holds one growing context for its whole shift; restart it for a fresh one. A background <code>claude</code> worker is the exception — it carries a fixed session id and relaunches with <code>--resume</code>, so pausing the mesh (or restarting Prompt with <code>session-restore</code> on) brings it back with its transcript intact rather than cold. Other providers keep fresh context until they expose an equivalent.</li>
           <li><strong>Codex/Gemini MCP</strong> wiring is unverified — see the tiers above.</li>
         </ul>
 
