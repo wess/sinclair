@@ -92,7 +92,9 @@ impl WarmPlugins {
         }
     }
 
-    /// Drop a resident process (e.g. on plugin disable/reload).
+    /// Drop a resident process (e.g. on plugin disable/reload). Exercised by
+    /// tests; wired to plugin lifecycle in the registry stage's UI work.
+    #[allow(dead_code)]
     pub fn evict(&mut self, id: &str) {
         self.procs.remove(id);
     }

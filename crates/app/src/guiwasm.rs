@@ -17,7 +17,6 @@ pub struct QueuedCommand {
 #[derive(Default)]
 struct Shared {
     commands: Vec<QueuedCommand>,
-    screen: String,
 }
 
 /// Resident wasm panel instances plus the shared host channel.
@@ -32,11 +31,6 @@ impl GuiWasm {
             rt: Runtime::new().ok()?,
             shared: Arc::new(Mutex::new(Shared::default())),
         })
-    }
-
-    /// Set the screen snapshot a wasm plugin's `read_screen` sees for the next call.
-    pub fn set_screen(&self, screen: String) {
-        lock(&self.shared).screen = screen;
     }
 
     /// Drain the commands the last call queued, to dispatch on the UI thread.
@@ -115,7 +109,8 @@ impl AppHost for GuiHost {
         Ok(())
     }
     fn read_screen(&mut self, _lines: u32) -> Result<String, String> {
-        Ok(lock(&self.shared).screen.clone())
+        // A live screen snapshot for panels is a follow-up; empty for now.
+        Ok(String::new())
     }
     fn selection(&mut self) -> Option<String> {
         None

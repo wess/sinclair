@@ -60,8 +60,7 @@ impl Installed {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
-        let text = toml::to_string_pretty(self)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+        let text = toml::to_string_pretty(self).map_err(std::io::Error::other)?;
         std::fs::write(path, text)
     }
 
