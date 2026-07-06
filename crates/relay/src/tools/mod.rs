@@ -58,7 +58,22 @@ pub fn list() -> Value {
         tool("inbox", "Return any pending messages immediately without blocking (may be empty).", json!({
             "type": "object", "properties": {}
         })),
-        tool("agents", "List all agents, their roles, and whether they are online.", json!({
+        tool("report_status", "Report your current semantic work state so others (and the UI) can see it at a glance: 'working', 'idle', 'blocked' (waiting on input), or 'done'. A custom label is also allowed. Cheap; call it whenever your state changes.", json!({
+            "type": "object",
+            "properties": {
+                "status": {"type": "string", "description": "One of 'working', 'idle', 'blocked', 'done', or a short custom label."}
+            },
+            "required": ["status"]
+        })),
+        tool("wait_status", "Block until another agent reaches one of the given states, then return its status. Use this to coordinate: e.g. wait for a worker to be 'done' or 'blocked'. Returns the current status on timeout — call again to keep waiting.", json!({
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "The agent to watch."},
+                "status": {"type": ["array", "string"], "items": {"type": "string"}, "description": "State(s) to wait for, e.g. 'done' or ['done','blocked']. Empty matches any reported state."}
+            },
+            "required": ["name"]
+        })),
+        tool("agents", "List all agents, their roles, whether they are online, and their last-reported status.", json!({
             "type": "object", "properties": {}
         })),
         tool("channels", "List channels and their subscriber counts.", json!({
@@ -197,13 +212,31 @@ pub async fn call(app: &App, session: &str, name: &str, args: &Value) -> Value {
         }
         "inbox" => drain(app, &me, false).await,
         "wait" => drain(app, &me, true).await,
+        "report_status" => {
+            let Some(status) = arg(args, "status") else {
+                return fail("report_status requires a 'status'");
+            };
+            match crate::bus::report_status(app, &me, status).await {
+                Ok(_) => text(format!("status set to '{status}'")),
+                Err(e) => fail(format!("report_status failed: {e}")),
+            }
+        }
+        "wait_status" => {
+            let Some(target) = arg(args, "name") else {
+                return fail("wait_status requires a 'name'");
+            };
+            let want = parse_list(args.get("status"));
+            let status =
+                crate::bus::await_status(app, target, &want, true, WAIT_MAX).await;
+            text(serde_json::to_string_pretty(&json!({"name": target, "status": status})).unwrap_or_default())
+        }
         "agents" => match db::list_agents(&app.db).await {
             Ok(rows) => {
                 let list: Vec<Value> = rows
                     .into_iter()
-                    .map(|(n, r, reg, c, ls)| {
+                    .map(|(n, r, st, reg, c, ls)| {
                         let online = app.is_live(&n, ls);
-                        json!({"name": n, "role": r, "online": online, "registered": reg, "channels": c, "last_seen": ls})
+                        json!({"name": n, "role": r, "status": st, "online": online, "registered": reg, "channels": c, "last_seen": ls})
                     })
                     .collect();
                 text(serde_json::to_string_pretty(&json!({"agents": list})).unwrap_or_default())
@@ -344,7 +377,7 @@ async fn roster_text(app: &App) -> String {
         Ok(rows) if !rows.is_empty() => {
             let names: Vec<String> = rows
                 .into_iter()
-                .map(|(n, r, _reg, _c, ls)| {
+                .map(|(n, r, _st, _reg, _c, ls)| {
                     let live = app.is_live(&n, ls);
                     format!("  - {n} ({r}){}", if live { "" } else { " [offline]" })
                 })

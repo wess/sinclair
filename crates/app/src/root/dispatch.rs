@@ -181,6 +181,21 @@ impl WorkspaceView {
                 crate::relaywatch::start(&self.opts, cx);
                 self.refresh_menus_soon(window, cx);
             }
+            Action::WorktreeCreate(spec) => {
+                if let Err(e) = self.worktree_create(&spec, window, cx) {
+                    eprintln!("prompt: worktree create failed: {e}");
+                }
+            }
+            Action::WorktreeOpen(path) => {
+                if let Err(e) = self.worktree_open(&path, window, cx) {
+                    eprintln!("prompt: worktree open failed: {e}");
+                }
+            }
+            Action::WorktreeRemove(path) => {
+                if let Err(e) = self.worktree_remove(&path, window, cx) {
+                    eprintln!("prompt: worktree remove failed: {e}");
+                }
+            }
             Action::Tile(id) => self.apply_tile(&id, window, cx),
             Action::SaveLayout => self.open_save_layout(window, cx),
             Action::Sidebar(payload) => self.toggle_sidebar(&payload, cx),

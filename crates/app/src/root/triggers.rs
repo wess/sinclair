@@ -8,6 +8,20 @@ use super::*;
 use crate::view::TriggerEvent;
 
 impl WorkspaceView {
+    /// Every loaded plugin trigger that matches `ev`, snapshotted so running the
+    /// actions (which mutate the workspace) doesn't hold a borrow of the plugins.
+    fn matched_triggers(&self, ev: &TriggerEvent) -> Vec<(plugin::Plugin, plugin::Trigger)> {
+        self.plugins
+            .iter()
+            .flat_map(|p| {
+                p.triggers
+                    .iter()
+                    .filter(|t| trigger_matches(t, ev))
+                    .map(move |t| (p.clone(), t.clone()))
+            })
+            .collect()
+    }
+
     /// Run every plugin trigger that matches `ev` (fired by `item`).
     pub(crate) fn fire_triggers(
         &mut self,
@@ -16,18 +30,7 @@ impl WorkspaceView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        // Snapshot matches up front so we don't hold a borrow of `self.plugins`
-        // while running actions (which mutate the workspace).
-        let matched: Vec<(plugin::Plugin, plugin::Trigger)> = self
-            .plugins
-            .iter()
-            .flat_map(|p| {
-                p.triggers
-                    .iter()
-                    .filter(|t| trigger_matches(t, ev))
-                    .map(move |t| (p.clone(), t.clone()))
-            })
-            .collect();
+        let matched = self.matched_triggers(ev);
         if matched.is_empty() {
             return;
         }
@@ -38,6 +41,21 @@ impl WorkspaceView {
             .and_then(|it| it.content.cwd_path(cx));
         for (plugin, trigger) in matched {
             self.run_trigger(&plugin, &trigger.action, ev, cwd.as_deref(), window, cx);
+        }
+    }
+
+    /// Run every plugin trigger matching a workspace-level event `ev` (one not
+    /// tied to a pane's own output — e.g. a worktree was created), passing `cwd`
+    /// as the trigger's working directory.
+    pub(crate) fn fire_workspace_trigger(
+        &mut self,
+        ev: &TriggerEvent,
+        cwd: Option<&std::path::Path>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        for (plugin, trigger) in self.matched_triggers(ev) {
+            self.run_trigger(&plugin, &trigger.action, ev, cwd, window, cx);
         }
     }
 

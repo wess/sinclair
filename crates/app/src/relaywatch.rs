@@ -91,6 +91,7 @@ fn parse(line: &str) -> RelayStatus {
                     registered: x["registered"].as_bool().unwrap_or(true),
                     channels: x["channels"].as_i64().unwrap_or(0),
                     last_seen: x["last_seen"].as_i64().unwrap_or(0),
+                    status: x["status"].as_str().unwrap_or_default().to_string(),
                 })
                 .collect()
         })

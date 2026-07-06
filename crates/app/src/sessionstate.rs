@@ -9,7 +9,9 @@ use serde::{Deserialize, Serialize};
 use crate::tiles::Layout;
 
 /// One restored tab: its split tree, the working directory of each pane (in
-/// pre-order leaf order), and the tab title.
+/// pre-order leaf order), and the tab title. For panes that were running a
+/// reporting agent, `commands`/`sessions` carry the launch command and the
+/// native session id so the agent can be relaunched and resumed on restore.
 #[derive(Clone, Serialize, Deserialize)]
 pub struct TabState {
     pub layout: Layout,
@@ -17,6 +19,13 @@ pub struct TabState {
     pub cwds: Vec<Option<String>>,
     #[serde(default)]
     pub title: Option<String>,
+    /// Per-pane launch command (pre-order leaf order); `None` for plain shells.
+    #[serde(default)]
+    pub commands: Vec<Option<String>>,
+    /// Per-pane native agent session id (pre-order leaf order); `None` when the
+    /// pane wasn't running a session-reporting agent.
+    #[serde(default)]
+    pub sessions: Vec<Option<String>>,
 }
 
 /// A whole window: its tabs and which one was active.

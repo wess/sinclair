@@ -65,6 +65,67 @@ pub async fn await_messages(app: &App, name: &str, block: bool, max_wait: Durati
     }
 }
 
+/// Park until `target`'s reported status is one of `want` (when `block`), then
+/// return the matching status. Returns the current status immediately when it
+/// already matches, and the current status (matching or not) on timeout. Reuses
+/// the same per-agent wake signal messages use: `set_status` wakes `target`'s
+/// waiter, so a status change re-checks the predicate here. `want` is matched
+/// case-insensitively; an empty `want` matches any non-empty status.
+pub async fn await_status(
+    app: &App,
+    target: &str,
+    want: &[String],
+    block: bool,
+    max_wait: Duration,
+) -> String {
+    let deadline = tokio::time::Instant::now() + max_wait;
+    // Arm the watched agent's signal *before* the first read so a concurrent
+    // `set_status` that runs after our read still wakes us (no lost wakeup).
+    let signal = app.waiter(target).await;
+    loop {
+        let notified = signal.notified();
+        tokio::pin!(notified);
+        notified.as_mut().enable();
+
+        let status = db::status_of(&app.db, target).await.unwrap_or_default();
+        if status_matches(&status, want) {
+            return status;
+        }
+        if !block {
+            return status;
+        }
+        let Ok(_permit) = app.waits.try_acquire() else {
+            return status;
+        };
+        tokio::select! {
+            _ = &mut notified => continue,
+            _ = tokio::time::sleep_until(deadline) => return status,
+        }
+    }
+}
+
+/// Whether `status` satisfies the `want` set (case-insensitive). An empty `want`
+/// means "any non-empty status".
+fn status_matches(status: &str, want: &[String]) -> bool {
+    if status.is_empty() {
+        return false;
+    }
+    if want.is_empty() {
+        return true;
+    }
+    want.iter().any(|w| w.eq_ignore_ascii_case(status))
+}
+
+/// Record an agent's semantic status and wake anyone parked on it (both a
+/// message `wait` — which harmlessly re-checks — and any `await_status` watching
+/// this agent). Bumps the event stream so `/control/events` re-emits the roster.
+pub async fn report_status(app: &App, name: &str, status: &str) -> anyhow::Result<()> {
+    db::set_status(&app.db, name, status).await?;
+    app.wake_one(name).await;
+    app.bump();
+    Ok(())
+}
+
 /// Insert a message and wake parked waiters.
 pub async fn deliver(
     app: &App,
@@ -161,6 +222,47 @@ mod tests {
         assert!(loaded[0].keep_alive);
         db::delete_worker(&app.db, "backend").await.unwrap();
         assert!(db::load_workers(&app.db).await.unwrap().is_empty());
+        cleanup(&path);
+    }
+
+    /// A reported status is stored and returned; a non-blocking `await_status`
+    /// matches once the state is set and reports the current state otherwise.
+    #[tokio::test]
+    async fn status_report_and_wait() {
+        let (app, path) = app().await;
+        db::upsert_agent(&app.db, "worker", "worker", "").await.unwrap();
+        // Nothing reported yet: an empty `want` (any non-empty) does not match.
+        let s = await_status(&app, "worker", &[], false, Duration::from_millis(10)).await;
+        assert_eq!(s, "", "no status reported yet");
+        report_status(&app, "worker", "working").await.unwrap();
+        let s = await_status(&app, "worker", &["done".into()], false, Duration::from_millis(10)).await;
+        assert_eq!(s, "working", "returns current status when it does not match");
+        report_status(&app, "worker", "done").await.unwrap();
+        let s = await_status(&app, "worker", &["done".into(), "blocked".into()], false, Duration::from_millis(10)).await;
+        assert_eq!(s, "done", "matches once the target reaches the wanted state");
+        cleanup(&path);
+    }
+
+    /// A blocking `await_status` parked on one agent is woken when *that* agent
+    /// reports the wanted state from another task.
+    #[tokio::test]
+    async fn wait_status_wakes_on_report() {
+        let (app, path) = app().await;
+        db::upsert_agent(&app.db, "builder", "worker", "").await.unwrap();
+        let waiter = {
+            let app = app.clone();
+            tokio::spawn(async move {
+                await_status(&app, "builder", &["done".into()], true, Duration::from_secs(5)).await
+            })
+        };
+        // Give the waiter a moment to park, then flip the status.
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        report_status(&app, "builder", "done").await.unwrap();
+        let got = tokio::time::timeout(Duration::from_secs(2), waiter)
+            .await
+            .expect("waiter should wake promptly")
+            .unwrap();
+        assert_eq!(got, "done");
         cleanup(&path);
     }
 

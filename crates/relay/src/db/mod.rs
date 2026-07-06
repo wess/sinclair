@@ -32,12 +32,20 @@ async fn migrate(pool: &SqlitePool) -> Result<()> {
             caps      TEXT NOT NULL DEFAULT '',
             cursor    INTEGER NOT NULL DEFAULT 0,
             online    INTEGER NOT NULL DEFAULT 1,
-            last_seen INTEGER NOT NULL DEFAULT 0
+            last_seen INTEGER NOT NULL DEFAULT 0,
+            status    TEXT NOT NULL DEFAULT ''
         );
         "#,
     )
     .execute(pool)
     .await?;
+
+    // Bring an older DB up to date: add the semantic work-state column if a
+    // prior version created the table without it. A duplicate-column error just
+    // means it is already there, so the result is ignored.
+    let _ = sqlx::query("ALTER TABLE agents ADD COLUMN status TEXT NOT NULL DEFAULT ''")
+        .execute(pool)
+        .await;
 
     sqlx::query(
         r#"
@@ -155,6 +163,30 @@ pub async fn touch(pool: &SqlitePool, name: &str) -> Result<()> {
         .execute(pool)
         .await?;
     Ok(())
+}
+
+/// Record an agent's self-reported semantic work state ("working", "idle",
+/// "blocked", "done", or a custom label). Also bumps `last_seen`, since a report
+/// proves the agent is alive. Pre-creates a placeholder row if the agent has not
+/// registered yet, so a status set before `register` is not lost.
+pub async fn set_status(pool: &SqlitePool, name: &str, status: &str) -> Result<()> {
+    ensure_agent(pool, name).await?;
+    sqlx::query("UPDATE agents SET status = ?2, last_seen = ?3 WHERE name = ?1")
+        .bind(name)
+        .bind(status)
+        .bind(now())
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
+/// An agent's last-reported semantic status, or empty when none/unknown.
+pub async fn status_of(pool: &SqlitePool, name: &str) -> Result<String> {
+    let row: Option<(String,)> = sqlx::query_as("SELECT status FROM agents WHERE name = ?1")
+        .bind(name)
+        .fetch_optional(pool)
+        .await?;
+    Ok(row.map(|r| r.0).unwrap_or_default())
 }
 
 pub async fn insert_message(
@@ -292,14 +324,16 @@ pub async fn subs_of(pool: &SqlitePool, agent: &str) -> Result<Vec<String>> {
     Ok(rows.into_iter().map(|r| r.0).collect())
 }
 
-/// (name, role, registered, channel_count, last_seen) for every known agent.
-/// `registered` is the stored online bit — false for a not-yet-registered
+/// (name, role, status, registered, channel_count, last_seen) for every known
+/// agent. `registered` is the stored online bit — false for a not-yet-registered
 /// placeholder (see [`ensure_agent`]); true liveness is computed by the caller
 /// from `last_seen` plus the in-memory parked set (see [`crate::state::App`]).
-pub async fn list_agents(pool: &SqlitePool) -> Result<Vec<(String, String, bool, i64, i64)>> {
-    let rows: Vec<(String, String, i64, i64, i64)> = sqlx::query_as(
+/// `status` is the agent's last self-reported semantic work state (empty when
+/// none).
+pub async fn list_agents(pool: &SqlitePool) -> Result<Vec<(String, String, String, bool, i64, i64)>> {
+    let rows: Vec<(String, String, String, i64, i64, i64)> = sqlx::query_as(
         r#"
-        SELECT a.name, a.role, a.online,
+        SELECT a.name, a.role, a.status, a.online,
                (SELECT COUNT(*) FROM subs s WHERE s.agent = a.name) AS chans,
                a.last_seen
         FROM agents a
@@ -310,7 +344,7 @@ pub async fn list_agents(pool: &SqlitePool) -> Result<Vec<(String, String, bool,
     .await?;
     Ok(rows
         .into_iter()
-        .map(|(n, r, o, c, ls)| (n, r, o != 0, c, ls))
+        .map(|(n, r, st, o, c, ls)| (n, r, st, o != 0, c, ls))
         .collect())
 }
 

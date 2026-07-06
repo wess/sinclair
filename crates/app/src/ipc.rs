@@ -102,6 +102,14 @@ fn peer_uid(stream: &UnixStream) -> Option<u32> {
     }
 }
 
+/// The socket path as a string, for injecting into a spawned session's
+/// environment (`PROMPT_SOCKET`) so an agent hook can reach the running instance
+/// directly. Reporting via `prompt agent-status` derives the same path itself;
+/// this is for external tooling that speaks the wire protocol.
+pub fn socket_env() -> String {
+    socket_path().to_string_lossy().into_owned()
+}
+
 /// Client: ask a running instance to toggle the quick terminal. Returns
 /// whether one answered.
 pub fn send_toggle() -> bool {

@@ -204,6 +204,8 @@ pub const TRIGGER_EVENTS: &[&str] = &[
     "exit",
     "command_finished",
     "dir_changed",
+    "worktree_created",
+    "worktree_removed",
 ];
 
 /// `[[trigger]]` — run an action when a terminal event fires. The plugin

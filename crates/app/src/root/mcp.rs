@@ -205,6 +205,37 @@ impl WorkspaceView {
                 self.activate_item(item, window, cx);
                 Ok(json!({ "ok": true, "index": index }))
             }
+            "agent_states" => Ok(self.agent_states(cx)),
+            "worktree_create" => {
+                let path = args
+                    .get("path")
+                    .and_then(Value::as_str)
+                    .ok_or("worktree_create requires a `path` string")?;
+                let branch = args.get("branch").and_then(Value::as_str);
+                let spec = match branch {
+                    Some(b) if !b.is_empty() => format!("{path}@{b}"),
+                    _ => path.to_string(),
+                };
+                let abs = self.worktree_create(&spec, window, cx)?;
+                Ok(json!({ "ok": true, "path": abs.to_string_lossy() }))
+            }
+            "worktree_open" => {
+                let path = args
+                    .get("path")
+                    .and_then(Value::as_str)
+                    .ok_or("worktree_open requires a `path` string")?;
+                let abs = self.worktree_open(path, window, cx)?;
+                Ok(json!({ "ok": true, "path": abs.to_string_lossy() }))
+            }
+            "worktree_remove" => {
+                let path = args
+                    .get("path")
+                    .and_then(Value::as_str)
+                    .ok_or("worktree_remove requires a `path` string")?;
+                let abs = self.worktree_remove(path, window, cx)?;
+                Ok(json!({ "ok": true, "path": abs.to_string_lossy() }))
+            }
+            "worktree_list" => self.worktree_list(cx),
             other => Err(format!("unknown op `{other}`")),
         }
     }
@@ -249,7 +280,11 @@ impl WorkspaceView {
         let cwd = options.spawn.cwd.clone();
         options.spawn = commandspawn(&self.opts, command);
         options.spawn.cwd = cwd;
-        self.spawn(options, window, cx)
+        let id = self.spawn(options, window, cx)?;
+        // Remember the command so a restored session can relaunch (and, for
+        // agents that reported a native session id, resume) this pane.
+        self.set_item_command(id, command);
+        Some(id)
     }
 
     /// Launch `profile` as a container-backed tab. Resolves the engine, builds

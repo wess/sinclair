@@ -82,6 +82,11 @@ pub enum TriggerEvent {
     CommandFinished(Option<i32>),
     /// The working directory changed (OSC 7).
     DirChanged(String),
+    /// A git worktree was created at this path (fired by the worktree verbs, not
+    /// a pane's own output).
+    WorktreeCreated(String),
+    /// A git worktree was removed from this path.
+    WorktreeRemoved(String),
 }
 
 impl TriggerEvent {
@@ -94,6 +99,8 @@ impl TriggerEvent {
             TriggerEvent::Exit(_) => "exit",
             TriggerEvent::CommandFinished(_) => "command_finished",
             TriggerEvent::DirChanged(_) => "dir_changed",
+            TriggerEvent::WorktreeCreated(_) => "worktree_created",
+            TriggerEvent::WorktreeRemoved(_) => "worktree_removed",
         }
     }
 
@@ -108,7 +115,10 @@ impl TriggerEvent {
     /// The text a `when` substring filter matches against (title/notify/dir).
     pub fn match_text(&self) -> Option<&str> {
         match self {
-            TriggerEvent::TitleChanged(s) | TriggerEvent::DirChanged(s) => Some(s),
+            TriggerEvent::TitleChanged(s)
+            | TriggerEvent::DirChanged(s)
+            | TriggerEvent::WorktreeCreated(s)
+            | TriggerEvent::WorktreeRemoved(s) => Some(s),
             TriggerEvent::Notify { body, .. } => Some(body),
             _ => None,
         }
@@ -129,6 +139,12 @@ impl TriggerEvent {
                 serde_json::json!({ "event": "command_finished", "exit_code": c })
             }
             TriggerEvent::DirChanged(d) => serde_json::json!({ "event": "dir_changed", "dir": d }),
+            TriggerEvent::WorktreeCreated(p) => {
+                serde_json::json!({ "event": "worktree_created", "path": p })
+            }
+            TriggerEvent::WorktreeRemoved(p) => {
+                serde_json::json!({ "event": "worktree_removed", "path": p })
+            }
         }
     }
 }

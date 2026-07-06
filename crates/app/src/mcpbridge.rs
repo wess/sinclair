@@ -221,6 +221,48 @@ pub fn tools() -> Vec<mcp::Tool> {
                 "required": ["index"]
             }),
         ),
+        mcp::Tool::new(
+            "agent_states",
+            "List the panes in this window with each one's reported agent state \
+             (working / blocked / done / idle) and native session id.",
+            json!({ "type": "object", "properties": {} }),
+        ),
+        mcp::Tool::new(
+            "worktree_create",
+            "Create a git worktree from the focused pane's repository and open it \
+             in a new tab. `branch` names a new branch (default: the path's basename).",
+            json!({
+                "type": "object",
+                "properties": {
+                    "path": { "type": "string", "description": "Worktree path (relative to the repo, or absolute)." },
+                    "branch": { "type": "string", "description": "Optional new branch name." }
+                },
+                "required": ["path"]
+            }),
+        ),
+        mcp::Tool::new(
+            "worktree_open",
+            "Open an existing git worktree path in a new tab.",
+            json!({
+                "type": "object",
+                "properties": { "path": { "type": "string", "description": "Worktree path to open." } },
+                "required": ["path"]
+            }),
+        ),
+        mcp::Tool::new(
+            "worktree_list",
+            "List the git worktrees of the focused pane's repository.",
+            json!({ "type": "object", "properties": {} }),
+        ),
+        mcp::Tool::new(
+            "worktree_remove",
+            "Remove a git worktree by path (`git worktree remove`).",
+            json!({
+                "type": "object",
+                "properties": { "path": { "type": "string", "description": "Worktree path to remove." } },
+                "required": ["path"]
+            }),
+        ),
     ]
 }
 
@@ -235,6 +277,30 @@ pub fn handle(op: &str, args: &Value, cx: &mut App) -> Result<Value, String> {
         let title = args.get("title").and_then(Value::as_str).unwrap_or("Prompt");
         crate::view::post_os_notification(title, body);
         return Ok(json!({ "ok": true }));
+    }
+    // An agent status report is addressed by pane token (`PROMPT_PANE`), which
+    // may belong to any window — not necessarily the active one — so search all
+    // workspaces for the pane rather than dispatching to the frontmost.
+    if op == "report_agent" {
+        let token = args.get("pane").and_then(Value::as_u64).unwrap_or(0);
+        let state = args.get("state").and_then(Value::as_str).unwrap_or_default().to_string();
+        let session = args.get("session").and_then(Value::as_str).map(str::to_string);
+        let mut applied = false;
+        for handle in cx.windows() {
+            let Some(workspace) = handle.downcast::<WorkspaceView>() else {
+                continue;
+            };
+            let found = workspace
+                .update(cx, |view, _window, cx| {
+                    view.apply_agent_report(token, &state, session.as_deref(), cx)
+                })
+                .unwrap_or(false);
+            if found {
+                applied = true;
+                break;
+            }
+        }
+        return Ok(json!({ "ok": applied }));
     }
     let workspace = active_workspace(cx).ok_or("no active terminal window")?;
     let op = op.to_string();

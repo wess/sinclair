@@ -6,6 +6,7 @@
 //! module owns the items (creating/destroying their real content), reacts to
 //! the group's events, and drives layout mutations through the group's methods.
 
+mod agents;
 mod boot;
 mod containers;
 mod dialogs;
@@ -22,6 +23,7 @@ mod savebuffer;
 mod sidebar;
 mod triggers;
 mod tabs;
+mod worktrees;
 
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
@@ -110,6 +112,9 @@ pub struct AgentConn {
     pub channels: i64,
     /// Epoch seconds of the agent's last activity (0 if never seen).
     pub last_seen: i64,
+    /// The agent's last self-reported semantic state (`working`/`blocked`/
+    /// `done`/`idle`, or a custom label); empty when none reported.
+    pub status: String,
 }
 
 /// A live Relay worker (spawned agent process) from the status stream.
@@ -240,6 +245,18 @@ struct Item {
     content: PaneContent,
     /// The terminal event bridge; `None` for webview items (they emit none).
     _subscription: Option<Subscription>,
+    /// A process-globally-unique token injected into the session's environment
+    /// as `PROMPT_PANE`, so an agent's hooks can report state for exactly this
+    /// pane (across all windows). `0` for items with no backing session.
+    pane_token: u64,
+    /// The agent's last self-reported semantic state, driving the tab/sidebar
+    /// status dot. `None` when this pane isn't running a reporting agent.
+    agent: Option<crate::agentstate::AgentState>,
+    /// The agent's last-reported native session id, persisted for resume.
+    agent_session: Option<String>,
+    /// The command this pane was launched with (for agent panes), persisted so a
+    /// restored session can relaunch — and resume — the agent.
+    command: Option<String>,
 }
 
 /// The host-owned item map the `PaneGroup` reads through its render/title
@@ -571,6 +588,16 @@ impl WorkspaceView {
                             .get(&id)
                             .map(|it| SharedString::from(it.content.title(cx)))
                             .unwrap_or_default()
+                    }
+                })
+                .on_item_dot({
+                    let items = items.clone();
+                    move |id, _cx| {
+                        items
+                            .borrow()
+                            .get(&id)
+                            .and_then(|it| it.agent)
+                            .map(|st| colors::hsla(st.color()))
                     }
                 })
         })

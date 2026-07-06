@@ -1,7 +1,9 @@
 //! Prompt: a terminal emulator. Tabs of split panes, one shell per pane.
 
 mod about;
+mod agenthooks;
 mod agentpicker;
+mod agentstate;
 mod appkit;
 mod boxdraw;
 mod bridge;
@@ -39,9 +41,11 @@ mod relay;
 mod relaywatch;
 mod reload;
 mod rename;
+mod resume;
 mod root;
 mod session;
 mod sessionstate;
+mod worktree;
 mod settings;
 mod suggest;
 mod teambuilder;
@@ -99,6 +103,18 @@ fn main() {
         let (title, body) = notify_args(&args[1..]);
         view::notify_command(&title, &body);
         return;
+    }
+
+    // An agent (or its lifecycle hook) reporting its semantic state back to the
+    // running GUI over the single-instance socket. Best-effort; never blocks the
+    // GUI path.
+    if args.first().map(String::as_str) == Some("agent-status") {
+        std::process::exit(agenthooks::report(&args[1..]));
+    }
+
+    // Install / remove the Claude Code lifecycle hooks that drive the status dots.
+    if args.first().map(String::as_str) == Some("agent-hooks") {
+        std::process::exit(agenthooks::hooks(&args[1..]));
     }
 
     if args.first().map(String::as_str) == Some("export") {

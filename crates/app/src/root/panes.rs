@@ -1,5 +1,12 @@
+use std::sync::atomic::{AtomicU64, Ordering};
+
 use super::*;
 use gpui::prelude::*;
+
+/// Process-global allocator for pane tokens: a stable id, unique across every
+/// window, injected into each spawned session as `PROMPT_PANE` so an agent's
+/// hooks can report state for exactly this pane (see `agenthooks.rs`).
+static PANE_SEQ: AtomicU64 = AtomicU64::new(0);
 
 impl WorkspaceView {
     /// Spawn a session, wrap it in a terminal view, wire its event bridge and
@@ -7,10 +14,17 @@ impl WorkspaceView {
     /// spawn. The caller places the returned item into the group.
     pub(crate) fn spawn(
         &mut self,
-        options: terminal::SessionOptions,
+        mut options: terminal::SessionOptions,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Option<ItemId> {
+        // Tag the session so an agent's hooks can address this exact pane.
+        let token = PANE_SEQ.fetch_add(1, Ordering::Relaxed) + 1;
+        options.spawn.env.push(("PROMPT_PANE".to_string(), token.to_string()));
+        options
+            .spawn
+            .env
+            .push(("PROMPT_SOCKET".to_string(), crate::ipc::socket_env()));
         let (session, events) = match Session::spawn(options) {
             Ok(pair) => pair,
             Err(error) => {
@@ -55,16 +69,27 @@ impl WorkspaceView {
         })
         .detach();
 
-        Some(self.register_item(PaneContent::Terminal(view), window, cx))
+        Some(self.insert_item(PaneContent::Terminal(view), token, window, cx))
     }
 
-    /// Register existing content as an item: allocate an id, wire the terminal
-    /// `ViewEvent` bridge to this workspace (webviews emit none), insert it into
-    /// `items`. Used by `spawn` and by tear-off adoption (re-homing a live
-    /// terminal into a new window).
+    /// Register existing content as an item with no pane token. Used by tear-off
+    /// adoption (re-homing a live terminal into a new window; its original token
+    /// stays in the session's environment but is not re-tracked here).
     pub(crate) fn register_item(
         &mut self,
         content: PaneContent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> ItemId {
+        self.insert_item(content, 0, window, cx)
+    }
+
+    /// Allocate an id, wire the terminal `ViewEvent` bridge to this workspace
+    /// (webviews emit none), and insert the item into `items` under `token`.
+    fn insert_item(
+        &mut self,
+        content: PaneContent,
+        token: u64,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> ItemId {
@@ -84,6 +109,10 @@ impl WorkspaceView {
             Item {
                 content,
                 _subscription: subscription,
+                pane_token: token,
+                agent: None,
+                agent_session: None,
+                command: None,
             },
         );
         id
@@ -103,6 +132,10 @@ impl WorkspaceView {
             Item {
                 content: PaneContent::Webview(view),
                 _subscription: None,
+                pane_token: 0,
+                agent: None,
+                agent_session: None,
+                command: None,
             },
         );
         id

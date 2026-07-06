@@ -99,9 +99,9 @@ documented limits), **✗** not yet.
 
 ### Larger / blocked follow-ups (not yet done)
 
-- **Persistent, detachable sessions** (tmux/wezterm-mux/herdr style) — a live
+- **Persistent, detachable sessions** (tmux/wezterm-mux style) — a live
   mux server you detach/reattach; a multi-week subsystem. Session *restore* on
-  quit exists; a live server does not.
+  quit exists (agent panes resume their native sessions); a live server does not.
 - **Kitty graphics protocol** — blocked on the pinned vte 0.13 (its `Perform`
   has no APC callback, so `ESC _ G … ST` can't be captured); needs a vte
   bump/fork or a byte-level APC pre-parser. Sixel works.

@@ -383,7 +383,12 @@ impl WorkspaceView {
                 // or recently active; otherwise hollow with how long it's been
                 // quiet, so a crashed agent no longer reads as alive (issue #9).
                 let state = if a.online {
-                    String::new()
+                    // Prefer the agent's self-reported work state over bare liveness.
+                    if a.status.is_empty() {
+                        String::new()
+                    } else {
+                        format!("  ·  {}", a.status)
+                    }
                 } else if !a.registered {
                     "  ·  pending".to_string()
                 } else if a.last_seen > 0 {
@@ -391,13 +396,15 @@ impl WorkspaceView {
                 } else {
                     "  ·  offline".to_string()
                 };
+                // A semantic dot for a known work state, else bare liveness.
+                let dot = match crate::agentstate::AgentState::parse(&a.status) {
+                    Some(st) if a.online => st.glyph(),
+                    _ if a.online => "\u{25cf}", // ●
+                    _ => "\u{25cb}",             // ○
+                };
                 let label = format!(
                     "{} {}  ·  {}  ch:{}{}",
-                    if a.online { "\u{25cf}" } else { "\u{25cb}" },
-                    a.name,
-                    a.role,
-                    a.channels,
-                    state
+                    dot, a.name, a.role, a.channels, state
                 );
                 body = body.child(self.sidebar_row(("sb-agentconn", i), label, false, false, false));
             }
@@ -419,38 +426,45 @@ impl WorkspaceView {
         body.into_any_element()
     }
 
-    /// Activity panel: every tab with a status dot — 🔴 attention (a bell / OSC 9
-    /// fired), 🟡 working (a foreground command is running), or 🟢 idle. Click a
-    /// row to focus that tab. A herdr-style "who's blocked / working / done".
+    /// Activity panel: every tab rolled up to a status dot — who's blocked,
+    /// working, done, or idle at a glance across the whole session. An agent's
+    /// self-reported state (🔴 blocked, 🟡 working, 🔵 done, 🟢 idle) wins when
+    /// present; otherwise the dot falls back to the terminal's own signals — 🔴
+    /// attention (a bell / OSC 9 fired), 🟡 a foreground command is running, 🟢
+    /// idle. Click a row to focus that tab.
     fn panel_activity(&self, cx: &mut Context<Self>) -> AnyElement {
         let mut body = self.sidebar_body("sb-activity");
         let active_item = self.group.read(cx).active_item();
         for (i, item) in self.group.read(cx).items().into_iter().enumerate() {
-            let (working, attention, title) = {
+            let (agent, working, attention, title) = {
                 let map = self.items.borrow();
                 match map.get(&item) {
                     Some(it) => (
+                        it.agent,
                         it.content.has_running_process(cx),
                         it.content.needs_attention(cx),
                         it.content.title(cx),
                     ),
-                    None => (false, false, String::new()),
+                    None => (None, false, false, String::new()),
                 }
             };
-            let dot = if attention {
-                "\u{1f534}" // 🔴
-            } else if working {
-                "\u{1f7e1}" // 🟡
-            } else {
-                "\u{1f7e2}" // 🟢
+            let dot = match agent {
+                Some(state) => state.glyph(),
+                None if attention => "\u{1f534}", // 🔴
+                None if working => "\u{1f7e1}",   // 🟡
+                None => "\u{1f7e2}",              // 🟢
             };
             let name = if title.trim().is_empty() {
                 format!("Terminal {}", i + 1)
             } else {
                 title
             };
+            let label = match agent {
+                Some(state) => format!("{dot}  {name}  \u{00b7}  {}", state.label()),
+                None => format!("{dot}  {name}"),
+            };
             body = body.child(
-                self.sidebar_row(("sb-activity", i), format!("{dot}  {name}"), item == active_item, false, false)
+                self.sidebar_row(("sb-activity", i), label, item == active_item, false, false)
                     .on_click(cx.listener(move |this, _: &gpui::ClickEvent, window, cx| {
                         this.activate_item(item, window, cx);
                     })),

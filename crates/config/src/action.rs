@@ -295,6 +295,14 @@ pub enum Action {
     RelayStop,
     /// Restart the Relay server daemon.
     RelayRestart,
+    /// Create a git worktree at the given path (branched from HEAD) and open it
+    /// in a new tab. The payload is the worktree path; append `@branch` to name
+    /// the branch (else the path's basename is used).
+    WorktreeCreate(String),
+    /// Open an existing git worktree path in a new tab.
+    WorktreeOpen(String),
+    /// Remove the git worktree at the given path (`git worktree remove`).
+    WorktreeRemove(String),
     /// Apply a tile layout by id (preset or saved custom).
     Tile(String),
     /// Save the current tab's layout as a named custom tile.
@@ -458,6 +466,11 @@ impl Action {
             "relay_start" => only(Self::RelayStart, &name, param),
             "relay_stop" => only(Self::RelayStop, &name, param),
             "relay_restart" => only(Self::RelayRestart, &name, param),
+            "worktree_create" | "worktree_new" => {
+                Ok(Self::WorktreeCreate(req(&name, param)?.to_string()))
+            }
+            "worktree_open" => Ok(Self::WorktreeOpen(req(&name, param)?.to_string())),
+            "worktree_remove" => Ok(Self::WorktreeRemove(req(&name, param)?.to_string())),
             "tile" => Ok(Self::Tile(req(&name, param)?.to_string())),
             "save_layout" => only(Self::SaveLayout, &name, param),
             "sidebar" => Ok(Self::Sidebar(req(&name, param)?.to_string())),
@@ -527,6 +540,9 @@ impl Action {
             Self::RelayStart => "relay_start".into(),
             Self::RelayStop => "relay_stop".into(),
             Self::RelayRestart => "relay_restart".into(),
+            Self::WorktreeCreate(s) => format!("worktree_create:{s}"),
+            Self::WorktreeOpen(s) => format!("worktree_open:{s}"),
+            Self::WorktreeRemove(s) => format!("worktree_remove:{s}"),
             Self::Tile(s) => format!("tile:{s}"),
             Self::SaveLayout => "save_layout".into(),
             Self::Sidebar(s) => format!("sidebar:{s}"),

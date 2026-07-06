@@ -1,23 +1,34 @@
 use super::*;
 use gpui::prelude::*;
 
+/// One pane's restore seed: its working directory, and (for agent panes) the
+/// launch command plus the native session id used to resume it.
+#[derive(Default, Clone)]
+pub(crate) struct RestoredPane {
+    cwd: Option<std::path::PathBuf>,
+    command: Option<String>,
+    session: Option<String>,
+}
+
 impl WorkspaceView {
     /// Realize a restored arrangement: spawn its root item into the focused
-    /// pane, then split to rebuild the tree, seeding each pane from its saved cwd.
+    /// pane, then split to rebuild the tree, seeding each pane from its saved
+    /// cwd (and resuming agents that saved a session).
     fn restore_layout(
         &mut self,
         layout: &crate::tiles::Layout,
-        cwds: &[Option<std::path::PathBuf>],
+        panes: &[RestoredPane],
         title: Option<&str>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some(root) = self.spawn_cwd(cwds.first().cloned().flatten(), window, cx) else {
+        let seed = panes.first().cloned().unwrap_or_default();
+        let Some(root) = self.spawn_restored(&seed, window, cx) else {
             return;
         };
         self.group.update(cx, |g, cx| g.add_to_focused(root, cx));
         let host = self.group.read(cx).focused_pane();
-        self.realize_restore(layout, host, 0, cwds, window, cx);
+        self.realize_restore(layout, host, 0, panes, window, cx);
         if let Some(t) = title {
             self.rename_item(root, t, cx);
         }
@@ -25,13 +36,13 @@ impl WorkspaceView {
     }
 
     /// Like [`Self::realize_into`] but seeds panes from saved working
-    /// directories instead of commands.
+    /// directories (and resumes agents) instead of fresh commands.
     fn realize_restore(
         &mut self,
         node: &crate::tiles::Layout,
         host: PaneId,
         host_index: usize,
-        cwds: &[Option<std::path::PathBuf>],
+        panes: &[RestoredPane],
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -45,13 +56,57 @@ impl WorkspaceView {
             return;
         };
         let second_index = host_index + first.leaves();
-        let cwd = cwds.get(second_index).cloned().flatten();
-        let Some(item) = self.spawn_cwd(cwd, window, cx) else {
+        let seed = panes.get(second_index).cloned().unwrap_or_default();
+        let Some(item) = self.spawn_restored(&seed, window, cx) else {
             return;
         };
         let new_pane = self.split_pane(host, axis.axis(), *ratio, item, cx);
-        self.realize_restore(first, host, host_index, cwds, window, cx);
-        self.realize_restore(second, new_pane, second_index, cwds, window, cx);
+        self.realize_restore(first, host, host_index, panes, window, cx);
+        self.realize_restore(second, new_pane, second_index, panes, window, cx);
+    }
+
+    /// Spawn one restored pane: relaunch (and resume) a saved agent when both a
+    /// command and a native session id are present, else a plain shell at the
+    /// saved cwd. Only session-backed agent panes are relaunched, so ordinary
+    /// shells never re-run a stale command.
+    fn spawn_restored(
+        &mut self,
+        seed: &RestoredPane,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Option<ItemId> {
+        match (seed.command.as_deref(), seed.session.as_deref()) {
+            (Some(command), Some(session)) if !session.is_empty() => {
+                let run = crate::resume::resume_command(command, session);
+                let id = self.spawn_command_cwd(&run, seed.cwd.clone(), window, cx)?;
+                // Keep the original command + session so a further restart resumes
+                // again (resume_command is a no-op on an already-resumed command).
+                if let Some(it) = self.items.borrow_mut().get_mut(&id) {
+                    it.command = Some(command.to_string());
+                    it.agent_session = Some(session.to_string());
+                }
+                Some(id)
+            }
+            _ => self.spawn_cwd(seed.cwd.clone(), window, cx),
+        }
+    }
+
+    /// Spawn `command` rooted at `cwd` (like [`Self::spawncommand`] but with an
+    /// explicit working directory rather than the focused pane's).
+    fn spawn_command_cwd(
+        &mut self,
+        command: &str,
+        cwd: Option<std::path::PathBuf>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Option<ItemId> {
+        let mut options = session::options(&self.opts, SPAWN_COLS, SPAWN_ROWS, cwd);
+        let saved_cwd = options.spawn.cwd.clone();
+        options.spawn = commandspawn(&self.opts, command);
+        options.spawn.cwd = saved_cwd;
+        let id = self.spawn(options, window, cx)?;
+        self.set_item_command(id, command);
+        Some(id)
     }
 
     /// Rebuild the saved session into this fresh window, then drop the empty
@@ -65,12 +120,14 @@ impl WorkspaceView {
         }
         let initial = self.group.read(cx).active_item();
         for tab in &state.tabs {
-            let cwds: Vec<Option<std::path::PathBuf>> = tab
-                .cwds
-                .iter()
-                .map(|s| s.as_ref().map(std::path::PathBuf::from))
+            let panes: Vec<RestoredPane> = (0..tab.cwds.len().max(tab.commands.len()))
+                .map(|i| RestoredPane {
+                    cwd: tab.cwds.get(i).cloned().flatten().map(std::path::PathBuf::from),
+                    command: tab.commands.get(i).cloned().flatten(),
+                    session: tab.sessions.get(i).cloned().flatten(),
+                })
                 .collect();
-            self.restore_layout(&tab.layout, &cwds, tab.title.as_deref(), window, cx);
+            self.restore_layout(&tab.layout, &panes, tab.title.as_deref(), window, cx);
         }
         // Drop the placeholder shell the window launched with.
         self.close_item(initial, window, cx);
@@ -136,29 +193,34 @@ impl WorkspaceView {
             });
             return;
         }
-        let cwds = panes
-            .iter()
-            .map(|&p| {
-                let first = self
-                    .group
-                    .read(cx)
-                    .pane_items(p)
-                    .and_then(|items| items.first().copied());
-                first
-                    .and_then(|id| {
-                        self.items
-                            .borrow()
-                            .get(&id)
-                            .and_then(|it| it.content.cwd(cx))
-                    })
+        let mut cwds = Vec::with_capacity(panes.len());
+        let mut commands = Vec::with_capacity(panes.len());
+        let mut sessions = Vec::with_capacity(panes.len());
+        for &p in &panes {
+            let first = self
+                .group
+                .read(cx)
+                .pane_items(p)
+                .and_then(|items| items.first().copied());
+            let items = self.items.borrow();
+            let it = first.and_then(|id| items.get(&id));
+            cwds.push(
+                it.and_then(|it| it.content.cwd(cx))
                     .and_then(|osc| session::cwdpath(&osc))
-                    .map(|p| p.to_string_lossy().into_owned())
-            })
-            .collect();
+                    .map(|p| p.to_string_lossy().into_owned()),
+            );
+            // Only agent panes (those that reported a native session) carry a
+            // command; ordinary shells restore fresh so nothing is re-run.
+            let is_agent = it.is_some_and(|it| it.agent_session.is_some());
+            commands.push(is_agent.then(|| it.and_then(|it| it.command.clone())).flatten());
+            sessions.push(it.and_then(|it| it.agent_session.clone()));
+        }
         let tabs = vec![crate::sessionstate::TabState {
             layout: crate::tiles::from_tree(tree.root()),
             cwds,
             title: None,
+            commands,
+            sessions,
         }];
         crate::sessionstate::save(&crate::sessionstate::SessionState { tabs, active: 0 });
     }
