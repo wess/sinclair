@@ -7,9 +7,11 @@
 mod install;
 mod load;
 mod manifest;
+mod registry;
 
 pub use install::{Entry, Installed};
 pub use load::{defaultdir, load};
+pub use registry::{sha256_hex, verify_sha256, Registry, RegistryEntry};
 pub use manifest::{
     parse, Command, CommandMode, Diagnostic, Panel, Placement, Plugin, Runtime, RuntimeKind, Tool,
     ToolParam, Trigger, TriggerAction, TriggerTarget, Webview, WebviewSource, CAPABILITIES,

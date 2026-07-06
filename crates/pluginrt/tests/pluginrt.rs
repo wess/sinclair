@@ -91,6 +91,30 @@ fn missing_capability_blocks_instantiation() {
     assert!(result.is_err(), "instantiation must fail without the commands capability");
 }
 
+/// The JS SDK's component (built via componentize-js) loads and runs the same
+/// way a Rust one does. Skipped when `sdk/js/plugin.wasm` isn't built (CI),
+/// since the 12 MB artifact isn't committed.
+#[test]
+fn js_component_loads_and_runs_if_built() {
+    let path =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../sdk/js/plugin.wasm");
+    if !path.exists() {
+        eprintln!("skipping: sdk/js/plugin.wasm not built");
+        return;
+    }
+    let wasm = std::fs::read(path).unwrap();
+    let eng = engine().unwrap();
+    let host = Box::new(MockHost {
+        commands: Arc::new(Mutex::new(Vec::new())),
+        screen: "one two three\n".to_string(),
+    });
+    let mut plugin = PluginInstance::new(&eng, &wasm, &["screen".to_string()], host)
+        .expect("instantiate the JS component");
+    let out = plugin.call_tool("wordcount", "{}").unwrap().unwrap();
+    let value: serde_json::Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(value["words"], 3, "{out}");
+}
+
 /// An infinite-loop tool traps on fuel exhaustion instead of hanging the host.
 #[test]
 fn runaway_guest_is_fuel_bounded() {

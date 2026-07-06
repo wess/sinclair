@@ -6187,6 +6187,7 @@ name = "plugin"
 version = "1.21.3"
 dependencies = [
  "serde",
+ "sha2",
  "toml 0.8.23",
 ]
 

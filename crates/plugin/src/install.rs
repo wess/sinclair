@@ -80,6 +80,22 @@ impl Installed {
         self.plugins.get(id).map(|e| e.granted.as_slice()).unwrap_or(&[])
     }
 
+    /// The capabilities a plugin may actually reach: what it *declares*, narrowed
+    /// to what the user *granted*. An untracked plugin (a built-in or a
+    /// dropped-in local dir) gets its declared set — implicit consent for local
+    /// trust. A registry-installed plugin is limited to `granted ∩ declared`, so
+    /// a plugin can't widen its reach past what the user consented to at install.
+    pub fn effective_capabilities(&self, id: &str, declared: &[String]) -> Vec<String> {
+        match self.plugins.get(id) {
+            None => declared.to_vec(),
+            Some(entry) => declared
+                .iter()
+                .filter(|cap| entry.granted.iter().any(|g| g == *cap))
+                .cloned()
+                .collect(),
+        }
+    }
+
     /// Record an install (or update): version, source, and the granted caps the
     /// user consented to.
     pub fn record(&mut self, id: &str, version: &str, source: &str, granted: Vec<String>) {

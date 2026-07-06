@@ -72,9 +72,19 @@ id = "screentools"
 title = "Screen Tools"
 ```
 
-## JavaScript / TypeScript
+## JavaScript
 
-Authoring in JS against the same WIT via `componentize-js` — so today's `bun`/TS
-authors keep their language but ship a self-contained `.wasm` — is the next
-addition; it needs the `componentize-js` toolchain wired into the build. Until
-then, use the Rust template or the native tier.
+Author against the same WIT and build to a component with `componentize-js` — so
+`bun`/TS authors keep their language but ship a self-contained `.wasm` with no
+runtime dependency.
+
+1. Copy `sdk/js/` and `npm install`.
+2. Edit `plugin.js` — export a `guest` object (`init`, `callTool`, `render`,
+   `onUiEvent`). Import host functions from their versioned interface, e.g.
+   `import { readScreen } from 'prompt:plugin/host-screen@0.1.0'`.
+3. `npm run build` → `plugin.wasm`.
+
+The build **disables the engine's WASI http/fetch** (`disableFeatures: ['http',
+'fetch-event']` in `build.mjs`) so a JS plugin reaches the network only through
+the gated `host-net`, keeping the capability boundary. The component is ~12 MB
+(it embeds the JS engine); the Rust path produces far smaller modules.

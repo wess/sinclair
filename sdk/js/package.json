@@ -1,0 +1,13 @@
+{
+  "name": "prompt-plugin-js-template",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Authoring a Prompt WASM plugin in JavaScript, built to a component with componentize-js.",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "devDependencies": {
+    "@bytecodealliance/componentize-js": "latest"
+  }
+}

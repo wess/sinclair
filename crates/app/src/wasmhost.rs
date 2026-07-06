@@ -41,8 +41,11 @@ impl WasmRuntime {
             let wasm = std::fs::read(&wasm_path)
                 .map_err(|e| format!("read {}: {e}", wasm_path.display()))?;
             let host = Box::new(SocketHost::new(plugin.id.clone(), plugin.path.clone()));
+            // Enforce consent: link only the capabilities the user granted.
+            let caps = plugin::Installed::load()
+                .effective_capabilities(&plugin.id, &plugin.capabilities);
             self.rt
-                .ensure(&plugin.id, &wasm, &plugin.capabilities, host)
+                .ensure(&plugin.id, &wasm, &caps, host)
                 .map_err(|e| e.to_string())?;
         }
         let params = serde_json::to_string(args).map_err(|e| e.to_string())?;
