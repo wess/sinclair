@@ -336,14 +336,13 @@ The sandbox is what makes a real ecosystem safe:
 
 ## 9. Build order (the one push, staged so the build stays green)
 
-Progress: **Stages 0–2 shipped**, plus fuel-bounded guest calls and the **Stage 3
-render *data path*** (the guest `render` export returns a node-tree JSON; proven
-by a test where `screentools` renders a panel). What remains of Stage 3 is the
-GUI half — mapping the node-tree JSON to guise components and wiring the pushed
-`render-panel` updates — which needs iteration in the running app. Stages 4–7
-below (native warm-process, webview + Notes, SDK, registry) are likewise
-substantial app / webview / toolchain integration that must be built and verified
-in the running GUI, not generated in one pass.
+Progress: **all 8 stages have their core landed** on `feat/pluginsv2`, build green
+and tested where feasible. ✅ = done, 🟡 = core done with a scoped remainder that
+needs in-GUI / toolchain / security work (each noted inline below). The runtime
+foundation (0–4) is complete and unit-tested end-to-end; the surface/distribution
+stages (5–7) have their mechanisms and data models in, with the visual (webview,
+consent UI) and toolchain (componentize-js) pieces scoped as follow-ups that must
+be verified in the running app.
 
 0. ✓ **Foundation & cleanup** — manifest → serde (delete `parse.rs`/`RawPlugin`);
    delete the dead WASM stub error; collapse the duplicated Plugin Manager;
