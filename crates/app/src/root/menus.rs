@@ -186,8 +186,8 @@ impl WorkspaceView {
             vec![
                 Some(Self::status_item(status)),
                 Some(MenuItem::separator()),
-                self.pick(a, "Start Server", Action::RelayStart),
-                self.pick(a, "Stop Server", Action::RelayStop),
+                self.pick(a, "Resume Mesh (start)", Action::RelayStart),
+                self.pick(a, "Pause Mesh (stop)", Action::RelayStop),
                 self.pick(a, "Restart Server", Action::RelayRestart),
                 Some(MenuItem::separator()),
                 self.pick(a, "View Logs", Action::RelayLog),

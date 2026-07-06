@@ -152,6 +152,10 @@ struct SpawnReq {
     cwd: String,
     #[serde(default = "yes")]
     keep_alive: bool,
+    /// Fixed claude session id for a resumable worker (issue #4); `None` = not
+    /// resumable.
+    #[serde(default)]
+    session_id: Option<String>,
 }
 
 fn worker_role() -> String {
@@ -169,6 +173,8 @@ async fn spawn_worker(State(app): State<App>, Json(req): Json<SpawnReq>) -> Json
         args: req.args,
         cwd: req.cwd,
         keep_alive: req.keep_alive,
+        session_id: req.session_id,
+        resume: false,
     };
     match spawn::launch(&app, spec).await {
         Ok(log) => Json(json!({ "ok": true, "log": log })),
@@ -183,5 +189,7 @@ struct StopReq {
 
 async fn stop_worker(State(app): State<App>, Json(req): Json<StopReq>) -> Json<Value> {
     let ok = spawn::stop(&app, &req.name).await;
+    // Explicit stop (relay kill): forget it so a restart doesn't resurrect it.
+    let _ = db::delete_worker(&app.db, &req.name).await;
     Json(json!({ "ok": ok }))
 }

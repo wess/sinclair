@@ -29,6 +29,12 @@ enum Cmd {
     Start(ServeArgs),
     /// Stop the running server (and its workers).
     Stop,
+    /// Pause the mesh: stop the daemon. The SQLite bus and the persisted worker
+    /// registry survive on disk, so `resume` brings the team back.
+    Pause,
+    /// Resume the mesh: start the daemon, rehydrating persisted workers and
+    /// resuming each one's prior session.
+    Resume(ServeArgs),
     /// Restart the server.
     Restart(ServeArgs),
     /// Show whether the server is running.
@@ -219,6 +225,11 @@ pub struct LaunchArgs {
     /// the agent keeps its project/user MCP servers alongside relay (issue #3).
     #[arg(long = "strict-mcp")]
     pub strict_mcp: bool,
+    /// Pre-grant a tool to this agent (repeatable), passed to `claude
+    /// --allowedTools`, e.g. `--allow-tool Read --allow-tool "Bash(git:*)"`.
+    /// Merges with the role's `tools`. See issue #8.
+    #[arg(long = "allow-tool")]
+    pub allow_tools: Vec<String>,
     /// Extra flag appended to the agent's own CLI (repeatable), e.g.
     /// `--agent-arg --dangerously-skip-permissions`.
     #[arg(long = "agent-arg")]
@@ -233,6 +244,8 @@ pub async fn run(cli: Cli) -> Result<()> {
         Cmd::Serve(a) => server::serve(a).await,
         Cmd::Start(a) => server::start(a),
         Cmd::Stop => server::stop(),
+        Cmd::Pause => server::stop(),
+        Cmd::Resume(a) => server::start(a),
         Cmd::Restart(a) => server::restart(a),
         Cmd::Status => server::status(),
         Cmd::Launch(a) => launch::launch(a).await,

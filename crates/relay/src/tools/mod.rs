@@ -74,6 +74,7 @@ pub fn list() -> Value {
                 "role": {"type": "string", "description": "Role, e.g. 'backend dev'."},
                 "task": {"type": "string", "description": "Standing focus/instructions for the worker."},
                 "agent": {"type": "string", "description": "Agent CLI to run: 'claude' (default) or 'codex'."},
+                "tools": {"type": "array", "items": {"type": "string"}, "description": "Pre-granted tool rules (claude --allowedTools), e.g. ['Read','Edit','Bash(git:*)']. Merges with the role's tools."},
                 "channels": {"type": "array", "items": {"type": "string"}, "description": "Channels the worker should join."},
                 "model": {"type": "string", "description": "Optional model override, e.g. 'claude-sonnet-4-6'."},
                 "cwd": {"type": "string", "description": "Working directory for the worker (defaults to the server's cwd)."},
@@ -243,9 +244,15 @@ pub async fn call(app: &App, session: &str, name: &str, args: &Value) -> Value {
                 Ok(p) => p,
                 Err(e) => return fail(format!("spawn failed: {e}")),
             };
-            let brief = crate::cli::role::resolve(role)
-                .map(|r| r.description)
-                .unwrap_or_default();
+            let role_def = crate::cli::role::resolve(role);
+            let brief = role_def.as_ref().map(|r| r.description.clone()).unwrap_or_default();
+            // Tool access from the role's `tools` plus an optional `tools` arg (#8).
+            let mut allowed_tools = role_def.as_ref().map(|r| r.tools.clone()).unwrap_or_default();
+            for t in parse_list(args.get("tools")) {
+                if !allowed_tools.contains(&t) {
+                    allowed_tools.push(t);
+                }
+            }
             let prompt = crate::cli::agent::harness_prompt(wname, role, &brief, &channels, task, false, false);
             let built = match crate::cli::agent::build(&crate::cli::agent::Spec {
                 agent,
@@ -260,11 +267,15 @@ pub async fn call(app: &App, session: &str, name: &str, args: &Value) -> Value {
                 channels: &channels,
                 skip_perms: true,
                 strict_mcp: false,
+                allowed_tools: &allowed_tools,
                 extra_args: &[],
             }) {
                 Ok(b) => b,
                 Err(e) => return fail(format!("spawn failed: {e}")),
             };
+            // A resumable claude worker gets a fixed session id so it can resume
+            // its context after a crash or daemon restart (issue #4).
+            let session_id = (agent == "claude").then(|| uuid::Uuid::new_v4().to_string());
             let spec = spawn::Spec {
                 name: wname.to_string(),
                 role: role.to_string(),
@@ -272,6 +283,8 @@ pub async fn call(app: &App, session: &str, name: &str, args: &Value) -> Value {
                 args: built.args,
                 cwd,
                 keep_alive,
+                session_id,
+                resume: false,
             };
             match spawn::launch(app, spec).await {
                 Ok(log) => text(format!(
@@ -303,6 +316,8 @@ pub async fn call(app: &App, session: &str, name: &str, args: &Value) -> Value {
                 return fail("stop_worker requires 'name'");
             };
             if spawn::stop(app, wname).await {
+                // Explicit stop: forget it so a restart doesn't resurrect it.
+                let _ = db::delete_worker(&app.db, wname).await;
                 text(format!("stopping worker '{wname}'"))
             } else {
                 fail(format!("no worker named '{wname}'"))

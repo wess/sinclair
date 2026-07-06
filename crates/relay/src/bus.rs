@@ -133,6 +133,37 @@ mod tests {
         cleanup(&path);
     }
 
+    /// Issue #4: a spawned worker round-trips through the DB so a restarted
+    /// daemon can bring it back, and an explicit delete forgets it.
+    #[tokio::test]
+    async fn workers_persist_reload_and_delete() {
+        let (app, path) = app().await;
+        let args = vec!["-p".to_string(), "hi".to_string()];
+        db::save_worker(
+            &app.db,
+            &db::PersistedWorker {
+                name: "backend".into(),
+                role: "backend".into(),
+                program: "claude".into(),
+                args: args.clone(),
+                cwd: "/tmp".into(),
+                keep_alive: true,
+                session_id: Some("sess-1".into()),
+            },
+        )
+        .await
+        .unwrap();
+        let loaded = db::load_workers(&app.db).await.unwrap();
+        assert_eq!(loaded.len(), 1);
+        assert_eq!(loaded[0].name, "backend");
+        assert_eq!(loaded[0].args, args);
+        assert_eq!(loaded[0].session_id.as_deref(), Some("sess-1"));
+        assert!(loaded[0].keep_alive);
+        db::delete_worker(&app.db, "backend").await.unwrap();
+        assert!(db::load_workers(&app.db).await.unwrap().is_empty());
+        cleanup(&path);
+    }
+
     /// A newcomer still must NOT see broadcast history from before it joined —
     /// the pre-create only applies to direct recipients, so this stays intact.
     #[tokio::test]

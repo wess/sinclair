@@ -71,6 +71,28 @@ pub async fn serve(args: ServeArgs) -> Result<()> {
         .merge(guarded);
 
     let listener = tokio::net::TcpListener::bind(&addr).await?;
+
+    // Rehydrate background workers persisted by a previous daemon (issue #4).
+    // The socket is bound (connections queue), so respawned workers can reach the
+    // bus. The bearer token is regenerated each run, so refresh each worker's MCP
+    // config in place first, then relaunch it resuming its prior claude session.
+    for w in db::load_workers(&app.db).await.unwrap_or_default() {
+        let _ = paths::write_mcp_config(&paths::endpoint(&addr), &w.name, &token);
+        let spec = spawn::Spec {
+            name: w.name,
+            role: w.role,
+            program: w.program,
+            args: w.args,
+            cwd: w.cwd,
+            keep_alive: w.keep_alive,
+            session_id: w.session_id,
+            resume: true,
+        };
+        if let Err(e) = spawn::launch(&app, spec).await {
+            tracing::warn!("relay: could not rehydrate worker: {e}");
+        }
+    }
+
     paths::write_info(&ServerInfo {
         pid: std::process::id(),
         addr: addr.clone(),

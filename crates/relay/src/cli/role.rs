@@ -49,6 +49,12 @@ struct RoleFile {
     /// [`crate::cli::agent::harness_prompt`].
     #[serde(default)]
     driver: bool,
+    /// Tool-access allow-list for agents in this role, passed to the agent CLI
+    /// (`claude --allowedTools`). Each entry is a Claude Code tool rule, e.g.
+    /// `"Read"`, `"Edit"`, `"Bash(git commit:*)"`, `"mcp__context7__*"`. Empty =
+    /// no pre-grant (the agent falls back to your settings.json permissions).
+    #[serde(default)]
+    tools: Vec<String>,
 }
 
 #[derive(Clone)]
@@ -59,6 +65,7 @@ pub struct Role {
     pub model: Option<String>,
     pub description: String,
     pub driver: bool,
+    pub tools: Vec<String>,
     pub source: Source,
 }
 
@@ -71,6 +78,7 @@ fn parse(name: &str, text: &str, source: Source) -> Result<Role> {
         model: f.model,
         description: f.description.trim().to_string(),
         driver: f.driver,
+        tools: f.tools,
         source,
     })
 }
@@ -190,6 +198,9 @@ fn info(name: &str) -> Result<()> {
     if let Some(m) = &role.model {
         println!("model:   {m}");
     }
+    if !role.tools.is_empty() {
+        println!("tools:   {}", role.tools.join(", "));
+    }
     println!("---\n{}", role.description);
     Ok(())
 }
@@ -203,6 +214,7 @@ fn scaffold(name: &str) -> String {
          # channels = [\"{name}\"]\n\
          # agent = \"claude\"\n\
          # model = \"\"\n\
+         # tools = [\"Read\", \"Edit\", \"Bash(git:*)\"]   # pre-granted tools (claude --allowedTools)\n\
          description = \"\"\"\n\
          Describe what the {name} role does, what it owns, and how it should\n\
          coordinate with the rest of the mesh.\n\
@@ -263,6 +275,15 @@ fn serialize(role: Role) -> String {
     }
     if role.driver {
         out.push_str("driver = true\n");
+    }
+    if !role.tools.is_empty() {
+        let list = role
+            .tools
+            .iter()
+            .map(|t| format!("{:?}", t))
+            .collect::<Vec<_>>()
+            .join(", ");
+        out.push_str(&format!("tools = [{list}]\n"));
     }
     out.push_str(&format!("description = \"\"\"\n{}\n\"\"\"\n", role.description));
     out

@@ -1,3 +1,4 @@
+use crate::db;
 use crate::state::App;
 use anyhow::{bail, Result};
 use std::fs;
@@ -22,6 +23,14 @@ pub struct Spec {
     pub args: Vec<String>,
     pub cwd: String,
     pub keep_alive: bool,
+    /// A fixed claude session id (uuid) for a resumable worker: passed as
+    /// `--session-id` on the first launch, then `--resume` on every respawn, so
+    /// context survives a crash or a daemon restart (issue #4). `None` for
+    /// non-resumable / non-claude workers.
+    pub session_id: Option<String>,
+    /// Resume the session from the very first attempt (a rehydrated worker whose
+    /// session already exists), rather than creating it with `--session-id`.
+    pub resume: bool,
 }
 
 /// A tracked headless worker. Arc fields are shared with its monitor task.
@@ -82,6 +91,20 @@ pub async fn launch(app: &App, spec: Spec) -> Result<String> {
         .lock()
         .await
         .insert(spec.name.clone(), worker.clone());
+    // Persist so a restarted daemon can bring this worker back (issue #4).
+    let _ = db::save_worker(
+        &app.db,
+        &db::PersistedWorker {
+            name: spec.name.clone(),
+            role: spec.role.clone(),
+            program: spec.program.clone(),
+            args: spec.args.clone(),
+            cwd: spec.cwd.clone(),
+            keep_alive: spec.keep_alive,
+            session_id: spec.session_id.clone(),
+        },
+    )
+    .await;
     app.bump();
 
     tokio::spawn(monitor(app.clone(), spec, worker));
@@ -102,6 +125,7 @@ async fn monitor(app: App, spec: Spec, worker: Worker) {
             Ok(f) => f,
             Err(e) => {
                 *worker.status.lock().await = format!("log open failed: {e}");
+                let _ = db::delete_worker(&app.db, &worker.name).await;
                 app.bump();
                 return;
             }
@@ -110,14 +134,25 @@ async fn monitor(app: App, spec: Spec, worker: Worker) {
             Ok(f) => f,
             Err(e) => {
                 *worker.status.lock().await = format!("log clone failed: {e}");
+                let _ = db::delete_worker(&app.db, &worker.name).await;
                 app.bump();
                 return;
             }
         };
 
         let mut cmd = Command::new(&spec.program);
-        cmd.args(&spec.args)
-            .current_dir(&spec.cwd)
+        cmd.args(&spec.args);
+        // Resumable claude worker: fix the session on the first attempt, then
+        // resume it on every respawn so context survives a crash (issue #4).
+        if let Some(sid) = &spec.session_id {
+            let attempt = worker.restarts.load(Ordering::SeqCst);
+            if spec.resume || attempt > 0 {
+                cmd.arg("--resume").arg(sid);
+            } else {
+                cmd.arg("--session-id").arg(sid);
+            }
+        }
+        cmd.current_dir(&spec.cwd)
             .stdin(Stdio::null())
             .stdout(Stdio::from(log))
             .stderr(Stdio::from(errlog));
@@ -127,6 +162,7 @@ async fn monitor(app: App, spec: Spec, worker: Worker) {
             Err(e) => {
                 *worker.status.lock().await =
                     format!("spawn failed: {e} (is `{}` on PATH?)", spec.program);
+                let _ = db::delete_worker(&app.db, &worker.name).await;
                 app.bump();
                 return;
             }
@@ -150,11 +186,14 @@ async fn monitor(app: App, spec: Spec, worker: Worker) {
         app.bump();
 
         if !spec.keep_alive {
+            // One-shot worker finished — it should not come back on restart.
+            let _ = db::delete_worker(&app.db, &worker.name).await;
             break;
         }
         let n = worker.restarts.fetch_add(1, Ordering::SeqCst) + 1;
         if n > MAX_RESTARTS {
             *worker.status.lock().await = format!("gave up after {MAX_RESTARTS} restarts");
+            let _ = db::delete_worker(&app.db, &worker.name).await;
             app.bump();
             break;
         }

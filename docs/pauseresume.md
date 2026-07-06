@@ -1,13 +1,14 @@
-# Pause & resume with work persistence (design)
+# Pause & resume with work persistence
 
-Status: **design.** This is the design response to issue #4 (*feat: Pause and
-resume support with work persistence*). The literal ask — pause the manager and
-its agents mid-task, serialize the in-progress work to disk, and on resume have
-each agent pick up from its last checkpoint — is **not** fully implementable by
-Prompt alone today: the in-flight work lives inside the agent CLI's own context,
-which Prompt does not own. This doc records what already survives a restart,
-names the one hard blocker, and lays out a scoped build order that delivers the
-realistic subsets smallest-first.
+Status: **steps 1–3 shipped (1.21.3); step 4 remaining.** This is the response to
+issue #4 (*feat: Pause and resume support with work persistence*). The literal
+ask — pause the manager and its agents mid-task, serialize the in-flight work,
+and on resume have each agent pick up from its last checkpoint — cannot be met by
+Prompt *alone*: the in-flight reasoning lives inside the agent CLI's own context,
+which Prompt doesn't own. What Prompt *can* do — and now does — is pause/resume
+the mesh, persist the worker roster, and ask the agent CLI to reload its own
+session. This doc records what survives a restart, names the one hard blocker,
+and tracks the build order (steps 1–3 done, step 4 next).
 
 ## Why
 
@@ -74,49 +75,44 @@ most Prompt can do is ask the CLI to reload its own checkpoint (step 3).
 Build order, smallest first. Each step stands on its own and is honest about
 what it does *not* do.
 
-### 1. Pause / Resume mesh control
+### 1. Pause / Resume mesh control — ✓ shipped (1.21.3)
 
 A thin surface over what already works. **Pause** = stop the daemon (SIGTERM +
 `stop_all` workers) while the WAL bus persists on disk; **resume** = start it
-again. This is nearly implemented already: `RelayStart` / `RelayStop` /
-`RelayRestart` menu actions exist (`crates/app/src/root/dispatch.rs`, dispatching
-to `crates/app/src/relay/mod.rs`). The work is a labelled Pause/Resume affordance
-plus copy.
+again. Shipped as `relay pause` / `relay resume` CLI verbs and the AI → Relay ▸
+**Pause Mesh** / **Resume Mesh** menu items (reusing the existing
+`RelayStop`/`RelayStart` actions).
 
-*Effort:* small. *Honest caveat:* this stops the *daemon*, not any agent's
-in-flight turn, and any workers that were running come back only if step 2 lands
-— otherwise resume brings up the bus with fresh-context agents and no live
-workers. Bus messages and read cursors survive; reasoning does not.
+*Honest caveat:* this stops the *daemon*, not any agent's in-flight turn. With
+steps 2–3 also shipped, resume now brings the workers back *and* resumes their
+sessions; bus messages and read cursors survive throughout.
 
-### 2. Persist + reload the worker registry
+### 2. Persist + reload the worker registry — ✓ shipped (1.21.3)
 
-Make "resume the daemon" actually bring the workers back. Write each background
-worker's spec to the DB in `spawn::launch` (`crates/relay/src/spawn/mod.rs`), add
-a `workers` table alongside `agents`/`subs`/`messages`
-(`crates/relay/src/db/mod.rs`), and rehydrate it on daemon startup so the server
-respawns them. Self-contained and independently useful — it also fixes the
-current crash-recovery gap where a daemon restart silently drops live workers.
+"Resume the daemon" now brings the workers back. `spawn::launch`
+(`crates/relay/src/spawn/mod.rs`) persists each background worker to a `workers`
+table alongside `agents`/`subs`/`messages` (`crates/relay/src/db/mod.rs`); the
+daemon rehydrates and respawns them on startup (`cli/server.rs`). A worker is
+forgotten only on an explicit `stop_worker`, a one-shot completion, or terminal
+failure — a graceful shutdown keeps it so `resume` restores it. This also fixes
+the crash-recovery gap where a daemon restart silently dropped live workers.
 
-*Effort:* medium. *Honest caveat:* respawned workers still start with fresh
-context (they re-register under the same name and reclaim their bus cursor, but
-not their transcript). This restores *presence*, not *work*.
+### 3. Resume `claude` sessions — ✓ shipped (1.21.3)
 
-### 3. Surface `claude --resume <session-id>`
+The route to real work-intact resume. A background claude worker is assigned a
+fixed session id (`claude --session-id <uuid>`) on its first launch, persisted
+with its worker row (step 2). On any respawn — a crash within a run, or a daemon
+resume — it relaunches with `claude --resume <uuid>` (`crates/relay/src/spawn/
+mod.rs` picks the flag per attempt; the id is minted in `tools/mod.rs` /
+`cli/launch.rs`). So a resumed worker re-registers under the same name
+(reclaiming its bus cursor via `upsert_agent`) **and** reloads its own claude
+transcript.
 
-The **only** route to real work-intact resume, and the centerpiece that delivers
-the literal "resume from checkpoint" the issue asks for. Capture each agent's
-session id from the agent CLI's stream output at launch, store it beside the
-saved agent definition, and add a `--resume <id>` path to the launch builder
-(`crates/relay/src/cli/agent.rs`). On relaunch the agent then does two things at
-once: re-registers under the same name (reclaiming its bus cursor, per step's
-prerequisite behaviour in `upsert_agent`) **and** reloads its own transcript via
-the CLI.
-
-*Effort:* medium. *Honest caveat:* correctness is bounded entirely by the agent
-CLI — Prompt is only threading an id through. It works for providers that expose
-a resumable session id (Claude Code's `--resume`, Codex's equivalent) and not
-for those that don't; the fidelity of the resumed context is the CLI's to
-guarantee, not ours.
+*Honest caveat:* correctness is bounded entirely by the agent CLI — Prompt only
+threads the id through. It applies to `claude` (session-id/resume); other
+providers keep fresh context until they expose an equivalent. Foreground
+(human-driven) agents aren't resumed this way — they `exec` over the shell and
+own their own `/resume`.
 
 ### 4. Make session-restore agent-aware
 
@@ -131,15 +127,17 @@ half; without it, restore can relaunch the agent fresh but cannot recover its
 transcript. Also needs a decision on the current "skip save if a pane holds a
 webview" rule, which agent panes may trip.
 
-## Recommendation
+## Status & what's left
 
-Defer the full "pause and resume with work persistence" feature to this design;
-do not promise it wholesale against issue #4. The small piece extractable now is
-**step 1** — a labelled Pause / Resume mesh control over the existing
-Start/Stop/Restart actions, shipped with the honest caveat that it parks the bus,
-not agents' in-flight reasoning. **Step 3** (`claude --resume`) is the
-highest-value follow-up: it is the single change that turns "resume" from
-"relaunch cold" into the checkpoint-resume the issue actually wants, and its cost
-and correctness are both bounded by the agent CLI rather than by Prompt. Steps 2
-and 4 are the connective tissue that make step 3 feel seamless — worth doing, but
-only after 1 and 3 have established the surface and the mechanism.
+Steps 1–3 shipped in 1.21.3: you can pause and resume the mesh (`relay
+pause`/`resume`, or AI → Relay ▸ Pause/Resume Mesh), the background-worker roster
+survives a restart, and each claude worker resumes its own session so its work
+continues rather than starting cold.
+
+**Step 4 — agent-aware session restore** is the remaining piece: teach Prompt's
+app-level `session-restore` (`crates/app/src/sessionstate.rs`,
+`crates/app/src/root/persist.rs`) to remember that a pane was an agent
+(provider / name / role) and offer to relaunch it — with `--resume` — instead of
+dropping to a bare shell, and to revisit the "skip save if a pane holds a
+webview" rule that agent panes can trip. That closes the loop between the app's
+window restore and the mesh's now-durable workers.

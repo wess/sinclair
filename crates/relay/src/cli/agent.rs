@@ -24,6 +24,9 @@ pub struct Spec<'a> {
     /// agent keeps its project/user MCP servers *and* gains relay; opt in for a
     /// hermetic worker. See issue #3.
     pub strict_mcp: bool,
+    /// Tool-access allow-list, passed as `claude --allowedTools <rule...>` (one
+    /// argv token per rule). Empty = no pre-grant. See issue #8.
+    pub allowed_tools: &'a [String],
     /// Extra CLI flags appended verbatim to the agent's own argv (e.g.
     /// `--dangerously-skip-permissions`). Configured per provider by the host.
     pub extra_args: &'a [String],
@@ -155,6 +158,13 @@ fn claude(spec: &Spec) -> Launch {
     if spec.strict_mcp {
         args.push("--strict-mcp-config".into());
     }
+    // Pre-granted tools (issue #8). `--allowedTools` is variadic; one argv token
+    // per rule keeps rules with spaces like `Bash(git commit:*)` intact, and the
+    // list ends at the next `--flag`.
+    if !spec.allowed_tools.is_empty() {
+        args.push("--allowedTools".into());
+        args.extend(spec.allowed_tools.iter().cloned());
+    }
     if let Some(m) = spec.model {
         args.extend(["--model".into(), m.into()]);
     }
@@ -259,6 +269,7 @@ mod tests {
             channels: &[],
             skip_perms: false,
             strict_mcp: false,
+            allowed_tools: &[],
             extra_args: extra,
         }
     }
@@ -285,6 +296,27 @@ mod tests {
         s.strict_mcp = true;
         let launch = build(&s).unwrap();
         assert!(launch.args.iter().any(|a| a == "--strict-mcp-config"));
+    }
+
+    #[test]
+    fn claude_allowed_tools_are_passed_verbatim() {
+        // Issue #8: each rule is its own argv token so `Bash(git commit:*)` stays
+        // intact, and the variadic list is followed by --model.
+        let tools = vec!["Read".to_string(), "Bash(git commit:*)".to_string()];
+        let mut s = spec("claude", &[]);
+        s.allowed_tools = &tools;
+        s.model = Some("claude-sonnet-4-6");
+        let launch = build(&s).unwrap();
+        let at = launch.args.iter().position(|a| a == "--allowedTools").unwrap();
+        assert_eq!(launch.args[at + 1], "Read");
+        assert_eq!(launch.args[at + 2], "Bash(git commit:*)");
+        assert_eq!(launch.args[at + 3], "--model");
+    }
+
+    #[test]
+    fn no_allowed_tools_flag_when_empty() {
+        let launch = build(&spec("claude", &[])).unwrap();
+        assert!(!launch.args.iter().any(|a| a == "--allowedTools"));
     }
 
     #[test]

@@ -28,6 +28,13 @@ pub async fn launch(a: LaunchArgs) -> Result<()> {
         .model
         .clone()
         .or_else(|| role.as_ref().and_then(|r| r.model.clone()));
+    // Tool access: the role's `tools` plus any --allow-tool flags (issue #8).
+    let mut allowed_tools = role.as_ref().map(|r| r.tools.clone()).unwrap_or_default();
+    for t in &a.allow_tools {
+        if !allowed_tools.contains(t) {
+            allowed_tools.push(t.clone());
+        }
+    }
 
     let cwd = a.cwd.clone().unwrap_or_else(|| {
         std::env::current_dir()
@@ -52,6 +59,7 @@ pub async fn launch(a: LaunchArgs) -> Result<()> {
         channels: &channels,
         skip_perms: a.background,
         strict_mcp: a.strict_mcp,
+        allowed_tools: &allowed_tools,
         extra_args: &a.agent_args,
     })?;
 
@@ -62,6 +70,9 @@ pub async fn launch(a: LaunchArgs) -> Result<()> {
     }
 
     if a.background {
+        // A background claude worker gets a fixed session id so it can resume its
+        // context after a crash or daemon restart (issue #4).
+        let session_id = (agent_name == "claude").then(|| uuid::Uuid::new_v4().to_string());
         let body = serde_json::json!({
             "name": name,
             "role": a.role,
@@ -69,6 +80,7 @@ pub async fn launch(a: LaunchArgs) -> Result<()> {
             "args": built.args,
             "cwd": cwd,
             "keep_alive": true,
+            "session_id": session_id,
         })
         .to_string();
         let resp = http::post(&info.addr, "/control/spawn", &body)?;

@@ -74,6 +74,8 @@ standalone it defaults to `./.relay` in the current directory.
 ```
 relay start            # start the server (background daemon)
 relay stop             # stop it (and its workers)
+relay pause            # stop the daemon; the bus + worker roster persist on disk
+relay resume           # start it again, rehydrating workers (resumes claude sessions)
 relay restart
 relay status
 
@@ -88,7 +90,9 @@ relay team <list|info|create|edit|delete>   # manage teams (layout + roster)
 
 `launch` flags: `--agent claude|codex|gemini`, `--role`, `--task`, `--channel`
 (repeatable), `--model`, `--cwd`, `--cmd <template>`, `--background`, `--lead`
-(launch interactively as the human-driven lead).
+(launch interactively as the human-driven lead), `--allow-tool <rule>`
+(repeatable, pre-grants a tool via `claude --allowedTools`), `--strict-mcp`
+(load only relay's MCP server).
 
 - **Foreground** `launch` replaces the calling shell with the agent (you see and
   steer it).
@@ -130,6 +134,7 @@ channels = ["frontend"]   # auto-joined at launch
 agent = "claude"          # default agent CLI (optional)
 # model = "claude-..."    # default model (optional)
 # driver = true           # human-driven lead: stay interactive, don't park on wait
+# tools = ["Read", "Edit", "Bash(git:*)"]   # pre-granted tools (claude --allowedTools)
 description = """
 You own the frontend. Follow the existing component conventions and report
 blockers to the supervisor.
@@ -271,8 +276,11 @@ button that checks it's reachable (CLI `--version`, or the Ollama API port).
   `--dangerously-skip-permissions` by design. Pass extra flags to every launched
   agent with `agent-claude-args` (e.g. `--permission-mode acceptEdits`).
 - **Context.** A long-running agent holds one growing context for its whole
-  shift; restart it for a fresh one. Pausing/resuming a whole session with work
-  intact is a larger, agent-CLI-bound effort — see `docs/pauseresume.md`.
+  shift. You can pause and resume the mesh (`relay pause` / `relay resume`, or
+  AI → Relay ▸ **Pause/Resume Mesh**): the bus and the background-worker roster
+  persist on disk, and each background claude worker resumes its own session on
+  restart, so its work continues rather than starting cold. Foreground
+  (human-driven) agents restart fresh. See `docs/pauseresume.md`.
 - **Codex/Gemini MCP** wiring is unverified — see above.
 
 ## Internals

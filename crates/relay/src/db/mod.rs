@@ -66,6 +66,23 @@ async fn migrate(pool: &SqlitePool) -> Result<()> {
     .execute(pool)
     .await?;
 
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS workers (
+            name       TEXT PRIMARY KEY,
+            role       TEXT NOT NULL DEFAULT '',
+            program    TEXT NOT NULL,
+            args       TEXT NOT NULL,
+            cwd        TEXT NOT NULL,
+            keep_alive INTEGER NOT NULL DEFAULT 1,
+            session_id TEXT,
+            created    INTEGER NOT NULL
+        );
+        "#,
+    )
+    .execute(pool)
+    .await?;
+
     sqlx::query("CREATE INDEX IF NOT EXISTS idx_messages_target ON messages(target, id)")
         .execute(pool)
         .await?;
@@ -294,6 +311,69 @@ pub async fn list_agents(pool: &SqlitePool) -> Result<Vec<(String, String, bool,
     Ok(rows
         .into_iter()
         .map(|(n, r, o, c, ls)| (n, r, o != 0, c, ls))
+        .collect())
+}
+
+/// A background worker persisted across daemon restarts (issue #4).
+pub struct PersistedWorker {
+    pub name: String,
+    pub role: String,
+    pub program: String,
+    pub args: Vec<String>,
+    pub cwd: String,
+    pub keep_alive: bool,
+    pub session_id: Option<String>,
+}
+
+type WorkerRow = (String, String, String, String, String, i64, Option<String>);
+
+/// Persist a spawned worker so a restarted daemon can bring it back. `args` is
+/// stored as a JSON array. `INSERT OR REPLACE` keeps it idempotent per name.
+pub async fn save_worker(pool: &SqlitePool, w: &PersistedWorker) -> Result<()> {
+    let args_json = serde_json::to_string(&w.args).unwrap_or_else(|_| "[]".into());
+    sqlx::query(
+        "INSERT OR REPLACE INTO workers (name, role, program, args, cwd, keep_alive, session_id, created) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+    )
+    .bind(&w.name)
+    .bind(&w.role)
+    .bind(&w.program)
+    .bind(args_json)
+    .bind(&w.cwd)
+    .bind(w.keep_alive as i64)
+    .bind(&w.session_id)
+    .bind(now())
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+/// Forget a worker (explicit stop, one-shot completion, or terminal failure).
+pub async fn delete_worker(pool: &SqlitePool, name: &str) -> Result<()> {
+    sqlx::query("DELETE FROM workers WHERE name = ?1")
+        .bind(name)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
+/// Every persisted worker, for rehydration on daemon startup.
+pub async fn load_workers(pool: &SqlitePool) -> Result<Vec<PersistedWorker>> {
+    let rows: Vec<WorkerRow> = sqlx::query_as(
+        "SELECT name, role, program, args, cwd, keep_alive, session_id FROM workers",
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(rows
+        .into_iter()
+        .map(|(name, role, program, args, cwd, ka, session_id)| PersistedWorker {
+            name,
+            role,
+            program,
+            args: serde_json::from_str(&args).unwrap_or_default(),
+            cwd,
+            keep_alive: ka != 0,
+            session_id,
+        })
         .collect())
 }
 
