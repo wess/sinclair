@@ -1,0 +1,19 @@
+# Its own workspace so the wasm32-wasip2 build is independent of the host tree.
+[workspace]
+
+[package]
+name = "prompt-plugin-template"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wit-bindgen = "0.34"
+serde_json = "1"
+
+[profile.release]
+lto = true
+opt-level = "s"
