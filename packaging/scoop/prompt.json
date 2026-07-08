@@ -1,0 +1,30 @@
+{
+    "version": "0.0.0",
+    "description": "A GPU-accelerated terminal emulator.",
+    "homepage": "https://github.com/wess/prompt",
+    "license": "Apache-2.0",
+    "notes": "Windows builds are beta and currently unsigned.",
+    "architecture": {
+        "64bit": {
+            "url": "https://github.com/wess/prompt/releases/download/v0.0.0/prompt-0.0.0-windows-x86_64.zip",
+            "hash": "0000000000000000000000000000000000000000000000000000000000000000",
+            "extract_dir": "prompt-0.0.0-windows-x86_64"
+        }
+    },
+    "bin": "prompt.exe",
+    "shortcuts": [
+        [
+            "prompt.exe",
+            "Prompt"
+        ]
+    ],
+    "checkver": "github",
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "https://github.com/wess/prompt/releases/download/v$version/prompt-$version-windows-x86_64.zip",
+                "extract_dir": "prompt-$version-windows-x86_64"
+            }
+        }
+    }
+}
