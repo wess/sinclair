@@ -1,0 +1,62 @@
+name: Windows Build
+
+# Phase 0 Windows de-risk spike. The point of this job is information, not a
+# shippable artifact: it proves (or kills) the make-or-break dependency — gpui
+# at our pinned zed rev, plus the guise component library on top of it —
+# compiling on Windows, and confirms the platform-independent crates build
+# cleanly. A final informational step compiles the whole workspace to log the
+# remaining Windows porting surface (pty/terminal/app are still Unix-only)
+# without failing the gate.
+#
+# Every probe carries `if: always()` so one failure never hides the others: a
+# single run collects gpui, guise, and full-workspace logs together.
+on:
+  workflow_dispatch: {}
+  pull_request:
+    paths:
+      - "crates/**"
+      - "vendor/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/windows.yml"
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      # The make-or-break dependency: does gpui at our zed rev compile on
+      # Windows at all? Everything above the UI layer is wasted if this fails.
+      - name: Probe gpui (zed rev)
+        run: cargo build -p gpui
+
+      # Our component library resolved against gpui-on-Windows (through this
+      # workspace's [patch.crates-io], not guise's own crates.io pin).
+      - name: Probe guise-ui
+        if: always()
+        run: cargo build -p guise-ui
+
+      # Platform-independent crates: pure logic, no OS calls. These must build.
+      - name: Build portable crates
+        if: always()
+        run: >
+          cargo build
+          -p vt -p input -p workspace -p theme -p config
+          -p macros -p mcp -p cast -p plugin
+
+      # Informational only: compile the whole workspace so the log captures the
+      # full remaining Windows surface (pty/terminal are #![cfg(unix)] and app
+      # depends on them unconditionally). Expected to fail today; never gates.
+      - name: Full workspace surface (informational)
+        if: always()
+        continue-on-error: true
+        run: cargo build --workspace

@@ -20,12 +20,22 @@ pub use watch::{watch, WatchHandle};
 
 use std::path::PathBuf;
 
-/// Default config file path:
-/// `$XDG_CONFIG_HOME/prompt/config`, else `~/.config/prompt/config`.
+/// Default config file path: `$XDG_CONFIG_HOME/prompt/config`, else on Windows
+/// `%APPDATA%\prompt\config`, else `~/.config/prompt/config`.
 pub fn default_path() -> Option<PathBuf> {
     if let Some(xdg) = std::env::var_os("XDG_CONFIG_HOME") {
         if !xdg.is_empty() {
             return Some(PathBuf::from(xdg).join("prompt").join("config"));
+        }
+    }
+    #[cfg(windows)]
+    {
+        // Windows has no HOME by default; the roaming app-data dir is the home
+        // for per-user config.
+        if let Some(appdata) = std::env::var_os("APPDATA") {
+            if !appdata.is_empty() {
+                return Some(PathBuf::from(appdata).join("prompt").join("config"));
+            }
         }
     }
     let home = std::env::var_os("HOME")?;
