@@ -22,6 +22,11 @@ pub struct MouseState {
     pub last_motion: Option<(usize, usize)>,
     /// Fractional wheel lines carried between scroll events.
     pub wheel: f32,
+    /// Link under the pointer while the open-modifier is held, as
+    /// `(row, start_col, end_col_inclusive)` in viewport cells. Drives the
+    /// hover underline and the pointing-hand cursor. `None` when not hovering
+    /// a link (or the modifier isn't held).
+    pub hover_link: Option<(usize, usize, usize)>,
 }
 
 /// Whether mouse events go to the pty instead of driving selection.

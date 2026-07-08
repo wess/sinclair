@@ -6,7 +6,7 @@ use crate::sgr;
 
 use super::Inner;
 
-/// Most saved titles the XTWINOPS stack keeps (matches xterm's default).
+/// Most saved titles the XTWINOPS stack keeps (a sensible default).
 const TITLE_STACK_MAX: usize = 10;
 
 /// Handle a complete CSI sequence. Unknown sequences are ignored.

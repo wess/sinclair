@@ -1,4 +1,4 @@
-//! Mouse reporting encoders (xterm semantics): SGR (1006), legacy X10,
+//! Mouse reporting encoders: SGR (1006), legacy X10,
 //! and alternate-scroll (1007) arrow synthesis.
 
 use crate::csi;
@@ -26,7 +26,7 @@ pub enum MouseAction {
 /// Legacy X10 coordinate ceiling (32 + 223 = byte 255).
 const LEGACY_MAX: u32 = 223;
 
-/// Base xterm button code.
+/// Base button code.
 fn base_code(button: MouseButton) -> u32 {
     match button {
         MouseButton::Left => 0,

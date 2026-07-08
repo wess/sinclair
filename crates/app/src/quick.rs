@@ -237,6 +237,7 @@ fn open(cx: &mut App) {
     let option_as_alt = opts.macos_option_as_alt;
     let paste_protection = opts.clipboard_paste_protection;
     let clipboard_write = opts.clipboard_write;
+    let unfocused_split_opacity = opts.unfocused_split_opacity;
     let suggest_cfg = crate::suggest::SuggestConfig::from_opts(&opts);
 
     let bounds = dropdown_bounds(cx);
@@ -271,6 +272,7 @@ fn open(cx: &mut App) {
                     option_as_alt,
                     paste_protection,
                     clipboard_write,
+                    unfocused_split_opacity,
                     suggest_cfg,
                     fallback,
                     window,
@@ -330,6 +332,7 @@ impl QuickTerminalView {
         option_as_alt: config::OptionAsAlt,
         paste_protection: bool,
         clipboard_write: config::ClipboardAccess,
+        unfocused_split_opacity: f32,
         suggest_cfg: crate::suggest::SuggestConfig,
         fallback: String,
         window: &mut gpui::Window,
@@ -350,6 +353,7 @@ impl QuickTerminalView {
                 option_as_alt,
                 paste_protection,
                 clipboard_write,
+                unfocused_split_opacity,
                 suggest_cfg,
                 fallback,
                 window,

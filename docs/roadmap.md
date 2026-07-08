@@ -36,7 +36,7 @@ Conventions (non-negotiable):
   input. Pulled forward from phase 7: SGR/X10 mouse reporting (1000/1002/
   1003/1006) since app-side mouse plumbing lands here, with shift-bypass
   for selection.
-- [x] **5. Tabs & splits** — Zed-style workspace/pane tree model, keybindings,
+- [x] **5. Tabs & splits** — workspace/pane tree model, keybindings,
   pane resize, tab bar UI.
 - [x] **6. Config & themes deep pass** — live reload, all core
   options (fonts, padding, cursor style, shell, keybind = trigger=action,
@@ -79,7 +79,7 @@ Conventions (non-negotiable):
 - [x] **12. Feature coverage audit** — feature-by-feature coverage map in
   `docs/parity.md`, with implemented areas, partial areas, and the
   remaining gaps prioritized.
-- [x] **13. Plugin foundation** — Zed-style manifest plugins under
+- [x] **13. Plugin foundation** — manifest plugins under
   `~/.config/prompt/plugins/*/plugin.toml` (plus explicit `plugin = path`
   config entries). Plugins contribute command actions with optional default
   keybindings, resolved through the same keymap pipeline as built-ins. Command
@@ -198,7 +198,7 @@ Conventions (non-negotiable):
 - 2026-06-23: UI, working-directory, and packaging pass (v0.3.0). About panel
   (`app/about.rs`): app menu → About Prompt shows the icon, version, and the
   release date (stamped from the HEAD commit by `app/build.rs`), plus a repo
-  link. Zed-style window chrome: the window opens with a transparent native
+  link. Window chrome: the window opens with a transparent native
   title bar and `app/titlebar.rs` draws the strip — tabs folded in, drag-to-move
   (`start_window_move`), macOS traffic-light inset, and on Linux app-drawn
   minimize/maximize/close controls + resize edges (client-side decorations).
@@ -274,7 +274,7 @@ Conventions (non-negotiable):
   OS Tab picker: focus the image field on open (deferred to first paint) and
   match its colors to the guise theme so it no longer looks disabled.
 - 2026-07-02: terminal power-feature pass (1.10.0–1.11.0). A broad sweep toward
-  parity with iTerm2/kitty/wezterm/Warp/ghostty, every feature configurable and
+  parity with modern terminals, every feature configurable and
   wired into Settings. Selection & navigation: smart selection (`vt::semantic`),
   hint mode (`hints`, cmd+shift+u), vi/copy mode (`copy_mode`, cmd+shift+space),
   middle-click paste, focus-follows-mouse. Command blocks: `copy_command_output`
@@ -339,7 +339,7 @@ Conventions (non-negotiable):
   windows (guise PaneGroup), keeping the live shell. Self-update: Prompt checks
   GitHub on launch + hourly and offers to update — deferring to Homebrew/apt for
   managed installs, or swapping a manual `.dmg`/AppImage in place and relaunching
-  via gpui's restart hook (`auto-update`, modeled on Zed's `auto_update`).
+  via gpui's restart hook (`auto-update`).
 - 2026-07-06: agent status, session resume, and git worktrees (1.23.0). Semantic
   agent state across the session. Status dots: every pane self-reports
   `working`/`blocked`/`done`/`idle`, drawn as a colored dot on the tab (new guise

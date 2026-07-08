@@ -29,7 +29,7 @@ bitflags::bitflags! {
         /// SGR mouse encoding (?1006).
         const MOUSE_SGR       = 1 << 11;
         /// Alternate scroll (?1007): wheel sends arrow keys on the alt
-        /// screen. Default off, matching xterm.
+        /// screen. Default off.
         const ALT_SCROLL      = 1 << 12;
         /// Focus reporting (?1004): emit CSI I / CSI O on focus changes.
         const FOCUS_REPORT    = 1 << 13;

@@ -14,7 +14,7 @@ fn take_snapshot(
         width: 8.0,
         height: 16.0,
     };
-    snapshot(term, colors, search, cell, &mut std::collections::HashMap::new())
+    snapshot(term, colors, search, cell, &mut std::collections::HashMap::new(), None)
 }
 
 #[test]

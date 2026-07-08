@@ -23,7 +23,7 @@ documented limits), **✗** not yet.
 
 | Area | Status | Notes |
 |------|--------|-------|
-| Legacy xterm key encoding | ✓ | modifiers, cursor/tilde/function keys, app cursor/keypad |
+| Legacy key encoding | ✓ | modifiers, cursor/tilde/function keys, app cursor/keypad |
 | Mouse reporting | ✓ | X10/normal/button/any + SGR (1000/1002/1003/1006), alt-scroll |
 | Bracketed paste | ✓ | |
 | Kitty keyboard protocol | ◑ | negotiation + disambiguation encoding; **press-only** (no release/repeat events from the host, so event-type/alternate-key/associated-text flags are tracked but not encoded) |
@@ -99,7 +99,7 @@ documented limits), **✗** not yet.
 
 ### Larger / blocked follow-ups (not yet done)
 
-- **Persistent, detachable sessions** (tmux/wezterm-mux style) — a live
+- **Persistent, detachable sessions** — a live
   mux server you detach/reattach; a multi-week subsystem. Session *restore* on
   quit exists (agent panes resume their native sessions); a live server does not.
 - **Kitty graphics protocol** — blocked on the pinned vte 0.13 (its `Perform`

@@ -15,7 +15,7 @@ pub struct Padding {
 }
 
 /// Line height as a multiple of the font size. Terminal rows are denser
-/// than editor lines; 1.3 tracks zed's "standard" terminal line height.
+/// than editor lines; 1.3 is a standard terminal line height.
 pub const LINE_HEIGHT: f32 = 1.3;
 
 /// Fallback advance-to-font-size ratio when the font cannot be measured.

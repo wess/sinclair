@@ -35,8 +35,7 @@ pub use notify::{notify_command, post_os_notification};
 pub use timestamps::install as install_timestamps;
 
 /// Maximum time a frame is withheld for synchronized output before it is
-/// painted anyway, so a stuck ?2026 cannot freeze the view (xterm/contour
-/// use a similar bound).
+/// painted anyway, so a stuck ?2026 cannot freeze the view.
 const SYNC_TIMEOUT: Duration = Duration::from_millis(150);
 
 /// Pane events the workspace root reacts to.
@@ -215,6 +214,9 @@ pub struct Appearance {
     pub paste_protection: bool,
     pub clipboard_write: config::ClipboardAccess,
     pub suggest: crate::suggest::SuggestConfig,
+    /// Opacity applied to a pane while it is not focused, so the active split is
+    /// obvious. `1.0` disables the dimming.
+    pub unfocused_split_opacity: f32,
 }
 
 pub struct TerminalView {
@@ -238,8 +240,14 @@ pub struct TerminalView {
     /// Policy for program-initiated clipboard writes via OSC 52
     /// (`clipboard-write`): allow silently, ask first, or deny outright.
     clipboard_write: config::ClipboardAccess,
+    /// Opacity applied while this pane is unfocused, so the active split reads
+    /// clearly. `1.0` means no dimming.
+    unfocused_split_opacity: f32,
     /// Open right-click menu, at its window-coordinate anchor.
     context_menu: Option<Point<Pixels>>,
+    /// The grid's window-space bounds, captured each frame, so a right-click
+    /// position can be mapped back to a cell (and thus a link) for the menu.
+    grid_bounds: gpui::Bounds<Pixels>,
     /// Pointer state shared with the element's per-frame event closures.
     mouse: Rc<RefCell<MouseState>>,
     /// Decoded sixel textures, keyed by placement id; persists across frames.
@@ -306,6 +314,7 @@ impl TerminalView {
         option_as_alt: config::OptionAsAlt,
         paste_protection: bool,
         clipboard_write: config::ClipboardAccess,
+        unfocused_split_opacity: f32,
         suggest_cfg: crate::suggest::SuggestConfig,
         fallback: String,
         window: &mut Window,
@@ -343,7 +352,9 @@ impl TerminalView {
             option_as_alt,
             paste_protection,
             clipboard_write,
+            unfocused_split_opacity,
             context_menu: None,
+            grid_bounds: gpui::Bounds::default(),
             mouse: Rc::new(RefCell::new(MouseState::default())),
             image_cache: Rc::new(RefCell::new(std::collections::HashMap::new())),
             focus,
@@ -428,6 +439,7 @@ impl TerminalView {
         self.option_as_alt = a.option_as_alt;
         self.paste_protection = a.paste_protection;
         self.clipboard_write = a.clipboard_write;
+        self.unfocused_split_opacity = a.unfocused_split_opacity;
         self.suggest_cfg = a.suggest;
         self.session
             .with_term(|term| term.set_report_colors(colors::report_colors(&self.colors)));
@@ -586,15 +598,38 @@ impl Render for TerminalView {
         let menu = self
             .context_menu
             .map(|pos| self.context_menu_overlay(pos, cx));
+        // Dim a pane while it is not focused so the active split is obvious;
+        // `1.0` (the opt default when unset) leaves it untouched.
+        let dim = if self.focused {
+            1.0
+        } else {
+            self.unfocused_split_opacity.clamp(0.0, 1.0)
+        };
+        // Pointing-hand cursor while the open-modifier hovers a link.
+        let link_hover = self.mouse.borrow().hover_link.is_some();
         div()
             .relative()
             .size_full()
-            .bg(colors::rgba(self.colors.bg))
+            .opacity(dim)
+            .when(link_hover, |d| d.cursor_pointer())
             .key_context("Terminal")
             .track_focus(&self.focus)
             .capture_key_down(cx.listener(Self::capture_key))
             .on_key_down(cx.listener(Self::key_down))
             .on_mouse_down(MouseButton::Right, cx.listener(Self::right_down))
+            .child({
+                // Record the grid's bounds each frame for the context menu's
+                // position-to-link mapping (see `context_menu_overlay`).
+                let this = cx.entity();
+                gpui::canvas(
+                    move |bounds, _window, cx| {
+                        this.update(cx, |view, _| view.grid_bounds = bounds);
+                    },
+                    |_, _, _, _| {},
+                )
+                .absolute()
+                .size_full()
+            })
             .child(TerminalElement::new(
                 self.session.clone(),
                 self.colors.clone(),
@@ -607,6 +642,7 @@ impl Render for TerminalView {
                 self.copy_on_select,
                 self.smart_select,
                 self.middle_click_paste,
+                self.focused,
                 query,
                 self.suggestion_ghost(),
                 self.image_cache.clone(),

@@ -51,7 +51,7 @@ impl Quantizer {
             }
         }
 
-        // Fill any remaining slots from the xterm cube so 256-color and
+        // Fill any remaining slots from the 256-color cube so 256-color and
         // truecolor content still maps somewhere reasonable.
         let mut i = 16u16;
         while entries.len() < 256 && i < 256 {

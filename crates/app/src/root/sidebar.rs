@@ -1,4 +1,4 @@
-//! VS Code / zed.dev-style side drawers. A drawer pairs a thin activity bar of
+//! Side drawers. A drawer pairs a thin activity bar of
 //! panel icons with the active panel's content; both left and right drawers
 //! reuse the same renderers. Panels: Terminals (tab/pane tree), Layouts (tile
 //! presets + saved layouts), Relay (live server status from the `RelayStatus`

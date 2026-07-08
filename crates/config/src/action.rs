@@ -209,7 +209,7 @@ pub enum Action {
     SelectAll,
     /// Extend the active selection's moving end one step. With no active
     /// selection the binding is a no-op and the key falls through to its
-    /// normal escape sequence (matching Ghostty's shift+navigation).
+    /// normal escape sequence, so shift+navigation stays "performable".
     AdjustSelection(SelectAdjust),
     /// Write raw bytes straight to the pty. Built from
     /// `text:<chars>` (literal, with `\xNN`/`\e`/`\n`… escapes) and

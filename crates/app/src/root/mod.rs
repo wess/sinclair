@@ -1,4 +1,4 @@
-//! Workspace root: a `guise::PaneGroup` (the Zed model — splits contain tabs,
+//! Workspace root: a `guise::PaneGroup` (splits contain tabs,
 //! each pane has its own tab bar) plus a map from the group's `ItemId`s to the
 //! terminal/webview entities that back them.
 //!
@@ -430,6 +430,10 @@ pub struct WorkspaceView {
     dark: bool,
     /// Keeps the OS-appearance observer alive.
     _appearance: Option<gpui::Subscription>,
+    /// The transparency currently applied to the platform window, synced in
+    /// `render` so a live `background-opacity` change flips the window between
+    /// opaque and transparent.
+    bg_transparent: bool,
 }
 
 /// Whether a gpui window appearance is one of the dark variants.
@@ -508,6 +512,8 @@ impl WorkspaceView {
             verified_agents: None,
             dark: is_dark(window.appearance()),
             _appearance: None,
+            // main.rs always opens the window transparent-capable.
+            bg_transparent: true,
         };
         // Follow the OS light/dark appearance when `theme-light`/`theme-dark` are set.
         this._appearance = Some(cx.observe_window_appearance(window, |view, window, cx| {
@@ -808,6 +814,7 @@ impl WorkspaceView {
             paste_protection: self.opts.clipboard_paste_protection,
             clipboard_write: self.opts.clipboard_write,
             suggest: crate::suggest::SuggestConfig::from_opts(&self.opts),
+            unfocused_split_opacity: self.opts.unfocused_split_opacity,
         };
         let terminals: Vec<_> = self
             .items

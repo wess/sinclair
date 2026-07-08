@@ -4,6 +4,7 @@ mod about;
 mod agenthooks;
 mod agentpicker;
 mod agentstate;
+mod appid;
 mod appkit;
 mod boxdraw;
 mod bridge;
@@ -218,16 +219,18 @@ pub(crate) fn open_window(
         window_bounds: Some(WindowBounds::Windowed(bounds)),
         window_min_size: Some(size(px(200.0), px(200.0))),
         titlebar: Some(TitlebarOptions {
-            title: Some("prompt".into()),
+            title: Some(appid::id().into()),
             appears_transparent: true,
             traffic_light_position: Some(point(px(9.0), px(9.0))),
         }),
-        app_id: Some("prompt".into()),
+        app_id: Some(appid::id().into()),
         ..Default::default()
     };
-    if opts.background_opacity < 1.0 {
-        options.window_background = gpui::WindowBackgroundAppearance::Transparent;
-    }
+    // Always open transparent-capable so `background-opacity` can be lowered
+    // live: a macOS window created opaque can't be flipped back to transparent
+    // at runtime. At opacity 1.0 the root fill is fully opaque, so it still
+    // looks solid — the window backing just permits alpha when it's lowered.
+    options.window_background = gpui::WindowBackgroundAppearance::Transparent;
     #[cfg(target_os = "linux")]
     {
         options.window_decorations = Some(gpui::WindowDecorations::Client);

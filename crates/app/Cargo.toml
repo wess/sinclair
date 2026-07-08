@@ -6,8 +6,12 @@ edition.workspace = true
 license.workspace = true
 description = "A fast, modern terminal that gets out of your way"
 
+# The bin target is `promptdev`: a dev build (`cargo run`/`cargo build`) is
+# named that so it never collides with an installed `prompt`. The release
+# scripts (bundle.sh / linux.sh) and the .deb assets below install this same
+# binary as `prompt`.
 [[bin]]
-name = "prompt"
+name = "promptdev"
 path = "src/main.rs"
 
 # Linux .deb packaging (see scripts/linux.sh). The `prompt` binary is added
@@ -24,7 +28,7 @@ extended-description = "Prompt is a GPU-accelerated terminal emulator with tabs,
 # the binary is listed here too. cargo-deb remaps the `target/release/` prefix
 # to the actual --target/profile path.
 assets = [
-    ["target/release/prompt", "usr/bin/prompt", "755"],
+    ["target/release/promptdev", "usr/bin/prompt", "755"],
     ["target/release/notes", "usr/bin/notes", "755"],
     ["../../assets/prompt.desktop", "usr/share/applications/prompt.desktop", "644"],
     ["../../assets/icon512.png", "usr/share/pixmaps/prompt.png", "644"],

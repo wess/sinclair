@@ -1,4 +1,4 @@
-//! A pane: a tabbed container of items (the Zed model — splits contain tabs).
+//! A pane: a tabbed container of items (splits contain tabs).
 //! Pure logic over opaque [`ItemId`]s; the host maps them to terminals/webviews.
 //! A pane always holds at least one item.
 

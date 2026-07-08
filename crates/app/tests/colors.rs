@@ -30,7 +30,7 @@ fn ansi_indices_come_from_scheme() {
 #[test]
 fn cube_and_grayscale_resolve() {
     let c = colors();
-    // 16 + 36*5 + 6*0 + 0 = 196 -> pure red in the xterm cube.
+    // 16 + 36*5 + 6*0 + 0 = 196 -> pure red in the 6x6x6 color cube.
     let red = cell_rgb(
         vt::Color::Indexed(196),
         c.fg,

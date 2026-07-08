@@ -32,4 +32,4 @@ pub use screen::Screen;
 pub use search::Match;
 pub use selection::{Point, Selection, SelectionAdjust, SelectionMode};
 pub use sixel::Image;
-pub use term::{Clipboard, Notification, ReportColors, Terminal};
+pub use term::{Clipboard, LinkHit, Notification, ReportColors, Terminal};

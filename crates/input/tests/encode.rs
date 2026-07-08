@@ -167,7 +167,7 @@ fn ctrl_alt_prefixes_esc() {
 
 #[test]
 fn ctrl_unmapped_falls_back_to_text() {
-    // xterm sends the plain character for ctrl+digit outside the table.
+    // A legacy terminal sends the plain character for ctrl+digit outside the table.
     assert_eq!(enc("1", Some("1"), CTRL, NORMAL).unwrap(), b"1");
 }
 

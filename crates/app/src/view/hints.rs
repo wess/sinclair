@@ -109,7 +109,12 @@ impl TerminalView {
         }
         if let Some(url) = open {
             self.hints = None;
-            cx.open_url(&with_scheme(&url));
+            let url = with_scheme(&url);
+            if crate::pointer::openable(&url) {
+                cx.open_url(&url);
+            } else {
+                eprintln!("prompt: refused to open link with disallowed scheme: {url}");
+            }
         } else if cancel {
             self.hints = None;
         }

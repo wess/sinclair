@@ -1,4 +1,4 @@
-//! CSI/SS3 sequence builders and xterm modifier-parameter math.
+//! CSI/SS3 sequence builders and modifier-parameter math.
 
 use crate::Mods;
 
@@ -9,7 +9,7 @@ pub(crate) fn is_modified(mods: Mods) -> bool {
     mods.shift || mods.alt || mods.ctrl
 }
 
-/// xterm modifier parameter: 1 + (shift=1, alt=2, ctrl=4).
+/// Modifier parameter: 1 + (shift=1, alt=2, ctrl=4).
 pub(crate) fn modifier_param(mods: Mods) -> u8 {
     let mut sum = 0;
     if mods.shift {

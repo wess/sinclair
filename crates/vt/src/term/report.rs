@@ -32,9 +32,9 @@ pub struct Notification {
     pub body: String,
 }
 
-/// Format an 8-bit RGB triple as an xterm color reply body:
+/// Format an 8-bit RGB triple as a color reply body:
 /// `rgb:RRRR/GGGG/BBBB`, where each channel is widened to 16 bits by
-/// replication (0xAB -> 0xABAB), matching xterm's query answers.
+/// replication (0xAB -> 0xABAB), matching standard query answers.
 pub fn format_rgb(rgb: (u8, u8, u8)) -> String {
     let wide = |c: u8| (c as u16) * 0x101;
     format!(

@@ -2,7 +2,7 @@
 //! titlebar (it reserves the traffic-light inset and is the window drag
 //! handle), so this module is now just the macOS traffic-light clearance
 //! constant, the Linux window controls (min/max/close), and the Linux resize
-//! edges. Zed-style.
+//! edges.
 
 // Linux-only drawing below; macOS/Windows have native controls and only read
 // the inset constant.

@@ -9,8 +9,8 @@ impl SettingsView {
             .into_any_element()
     }
 
-    fn stepper_row(&self, n: Num, glyph: &str, color: theme::Rgb, cx: &mut Context<Self>) -> AnyElement {
-        self.row(self.icon(glyph, color, px(22.0)), n.label(), self.stepper(n, cx))
+    fn slider_row(&self, n: Num, glyph: &str, color: theme::Rgb, cx: &mut Context<Self>) -> AnyElement {
+        self.row(self.icon(glyph, color, px(22.0)), n.label(), self.slider(n, color, cx))
             .into_any_element()
     }
 
@@ -68,7 +68,7 @@ impl SettingsView {
             self.field_row(Field::SelectionForeground, "S", theme::Rgb::new(10, 132, 255), cx),
             self.field_row(Field::SelectionBackground, "S", theme::Rgb::new(48, 209, 88), cx),
             self.toggle_row(Bool::BoldIsBright, "\u{2600}", theme::Rgb::new(255, 214, 10), cx),
-            self.stepper_row(Num::MinContrast, "\u{25d1}", theme::Rgb::new(142, 142, 147), cx),
+            self.slider_row(Num::MinContrast, "\u{25d1}", theme::Rgb::new(142, 142, 147), cx),
         ]
     }
 
@@ -76,15 +76,15 @@ impl SettingsView {
         let t = Section::Terminal.accent();
         let blue = theme::Rgb::new(90, 200, 250);
         vec![
-            self.stepper_row(Num::FontSize, "T", t, cx),
-            self.stepper_row(Num::CellWidth, "W", blue, cx),
-            self.stepper_row(Num::CellHeight, "H", blue, cx),
-            self.stepper_row(Num::PaddingX, "X", blue, cx),
-            self.stepper_row(Num::PaddingY, "Y", blue, cx),
-            self.stepper_row(Num::WindowWidth, "\u{2194}", theme::Rgb::new(88, 86, 214), cx),
-            self.stepper_row(Num::WindowHeight, "\u{2195}", theme::Rgb::new(88, 86, 214), cx),
-            self.stepper_row(Num::Scrollback, "\u{2630}", theme::Rgb::new(142, 142, 147), cx),
-            self.stepper_row(Num::ScrollMultiplier, "\u{2207}", theme::Rgb::new(255, 159, 10), cx),
+            self.slider_row(Num::FontSize, "T", t, cx),
+            self.slider_row(Num::CellWidth, "W", blue, cx),
+            self.slider_row(Num::CellHeight, "H", blue, cx),
+            self.slider_row(Num::PaddingX, "X", blue, cx),
+            self.slider_row(Num::PaddingY, "Y", blue, cx),
+            self.slider_row(Num::WindowWidth, "\u{2194}", theme::Rgb::new(88, 86, 214), cx),
+            self.slider_row(Num::WindowHeight, "\u{2195}", theme::Rgb::new(88, 86, 214), cx),
+            self.slider_row(Num::Scrollback, "\u{2630}", theme::Rgb::new(142, 142, 147), cx),
+            self.slider_row(Num::ScrollMultiplier, "\u{2207}", theme::Rgb::new(255, 159, 10), cx),
             self.toggle_row(Bool::MouseHide, "\u{2196}", theme::Rgb::new(170, 170, 170), cx),
             self.toggle_row(Bool::SmartSelect, "\u{2318}", theme::Rgb::new(52, 199, 89), cx),
             self.toggle_row(Bool::MiddleClickPaste, "\u{2504}", theme::Rgb::new(90, 200, 250), cx),
@@ -98,8 +98,8 @@ impl SettingsView {
             self.toggle_row(Bool::AutosuggestCommands, "\u{2318}", theme::Rgb::new(90, 200, 250), cx),
             self.toggle_row(Bool::AutosuggestPaths, "\u{1f4c1}", theme::Rgb::new(255, 159, 10), cx),
             self.toggle_row(Bool::AutosuggestAssist, "\u{2726}", theme::Rgb::new(94, 92, 230), cx),
-            self.stepper_row(Num::SplitOpacity, "\u{25d0}", theme::Rgb::new(94, 92, 230), cx),
-            self.stepper_row(Num::BgOpacity, "\u{25d1}", theme::Rgb::new(94, 92, 230), cx),
+            self.slider_row(Num::SplitOpacity, "\u{25d0}", theme::Rgb::new(94, 92, 230), cx),
+            self.slider_row(Num::BgOpacity, "\u{25d1}", theme::Rgb::new(94, 92, 230), cx),
             self.field_row(Field::BgImage, "\u{1f5bc}", theme::Rgb::new(94, 92, 230), cx),
             self.field_row(Field::Badge, "\u{25ce}", theme::Rgb::new(142, 142, 147), cx),
             self.field_row(Field::SplitDivider, "\u{2503}", theme::Rgb::new(99, 99, 102), cx),

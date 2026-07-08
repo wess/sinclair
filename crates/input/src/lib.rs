@@ -1,4 +1,4 @@
-//! Pure keystroke/paste -> pty-byte encoding: xterm-compatible legacy
+//! Pure keystroke/paste -> pty-byte encoding: standard legacy
 //! encoding plus the kitty keyboard protocol's disambiguation forms. No
 //! deps, no IO.
 

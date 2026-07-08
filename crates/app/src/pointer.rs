@@ -22,10 +22,20 @@ use crate::mouse::{self, MouseState, WheelRoute};
 /// refused instead of being passed to `open_url`.
 const OPENABLE_SCHEMES: &[&str] = &["http", "https", "ftp", "ftps", "file", "mailto", "tel"];
 
+/// The held modifier that turns a left click or hover into a link action:
+/// Cmd on macOS, Ctrl elsewhere.
+fn open_mod(m: &input::Mods) -> bool {
+    if cfg!(target_os = "macos") {
+        m.cmd
+    } else {
+        m.ctrl
+    }
+}
+
 /// Whether `url` carries a scheme we are willing to open. A real scheme is
 /// non-empty, holds no path separator (otherwise the `:` was inside a path),
 /// and appears in [`OPENABLE_SCHEMES`].
-fn openable(url: &str) -> bool {
+pub(crate) fn openable(url: &str) -> bool {
     let Some((scheme, _)) = url.split_once(':') else {
         return false;
     };
@@ -142,6 +152,21 @@ pub fn down(p: &Pointer, e: &MouseDownEvent, window: &mut Window, _cx: &mut App)
 pub fn moved(p: &Pointer, e: &MouseMoveEvent, window: &mut Window, _cx: &mut App) {
     let m = mods(&e.modifiers);
 
+    // Link hover: while the open-modifier is held, find the link under the
+    // pointer so the view can underline it and show the pointing-hand cursor.
+    let hover = if open_mod(&m) && !p.state.borrow().selecting && p.bounds.contains(&e.position) {
+        let (row, col) = cell_at(p, e.position);
+        p.session
+            .with_term(|t| t.link_at(row, col))
+            .map(|l| (row, l.start_col, l.end_col))
+    } else {
+        None
+    };
+    if p.state.borrow().hover_link != hover {
+        p.state.borrow_mut().hover_link = hover;
+        window.refresh();
+    }
+
     if p.state.borrow().selecting && e.pressed_button == Some(gpui::MouseButton::Left) {
         let top = p.bounds.origin.y + px(p.pad.y);
         let bottom = p.bounds.origin.y + p.bounds.size.height - px(p.pad.y);
@@ -207,16 +232,9 @@ pub fn up(p: &Pointer, e: &MouseUpEvent, window: &mut Window, cx: &mut App) {
         return;
     }
 
-    if e.button == gpui::MouseButton::Left && m.cmd {
+    if e.button == gpui::MouseButton::Left && open_mod(&m) {
         let (row, col) = cell_at(p, e.position);
-        let url = p.session.with_term(|t| {
-            t.visible_row(row)
-                .cells
-                .get(col)
-                .copied()
-                .and_then(|c| t.cell_hyperlink(&c).map(str::to_string))
-                .or_else(|| t.visible_url_at(row, col))
-        });
+        let url = p.session.with_term(|t| t.link_at(row, col).map(|l| l.url));
         if let Some(url) = url {
             if openable(&url) {
                 cx.open_url(&url);

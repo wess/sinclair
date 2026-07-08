@@ -171,7 +171,7 @@ impl TerminalView {
     }
 
     /// The find bar, pinned full-width to the top of the pane (right below the
-    /// tab, Zed/Ghostty style): a query field with a caret, the match count, and
+    /// tab): a query field with a caret, the match count, and
     /// clickable previous / next / close controls.
     pub(crate) fn search_bar(
         &self,

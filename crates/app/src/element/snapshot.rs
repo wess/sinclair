@@ -99,6 +99,7 @@ pub(crate) fn snapshot(
     search: Option<&SearchQuery>,
     cell: CellSize,
     image_cache: &mut HashMap<u64, Arc<RenderImage>>,
+    hover_link: Option<(usize, usize, usize)>,
 ) -> Snapshot {
     term.set_cell_pixels(cell.width.round() as u16, cell.height.round() as u16);
     // TODO(perf): use the damage to clip painting; for now drain it so the
@@ -196,6 +197,13 @@ pub(crate) fn snapshot(
             let mut style = flags & STYLE_FLAGS;
             if cell.hyperlink.is_some() {
                 style.insert(CellFlags::UNDERLINE);
+            }
+            // Underline the link currently hovered with the open-modifier held,
+            // so auto-detected URLs (which carry no OSC 8 id) read as clickable.
+            if let Some((hr, hs, he)) = hover_link {
+                if row_i == hr && col >= hs && col <= he {
+                    style.insert(CellFlags::UNDERLINE);
+                }
             }
             if cell.ch == ' '
                 && !style.intersects(CellFlags::ANY_UNDERLINE | CellFlags::STRIKETHROUGH)

@@ -332,7 +332,7 @@ pub fn default_keybinds() -> Vec<Keybind> {
     for n in 1..=9 {
         binds.push(kb(cmd, &n.to_string(), Action::GotoTab(n)));
     }
-    // Shift+navigation extends an active selection (the macOS / Ghostty
+    // Shift+navigation extends an active selection (the macOS
     // convention). With no selection the action is a no-op and the key
     // falls through to its standard escape sequence, so TUI apps still see
     // `CSI 1;2D` etc. Cross-platform: shift is never remapped.

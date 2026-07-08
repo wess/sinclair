@@ -8,8 +8,8 @@ mod ui;
 
 use gpui::prelude::*;
 use gpui::{
-    bounds, point, px, size, App, Context, FocusHandle, KeyDownEvent, TitlebarOptions, Window,
-    WindowBounds, WindowOptions,
+    bounds, point, px, size, App, Bounds, Context, FocusHandle, KeyDownEvent, Pixels,
+    TitlebarOptions, Window, WindowBounds, WindowOptions,
 };
 
 use guise::TextEdit;
@@ -51,6 +51,10 @@ pub struct SettingsView {
     focus: FocusHandle,
     relay_running: bool,
     tool_tests: std::collections::HashMap<&'static str, ToolTest>,
+    /// Each slider track's window-space bounds, captured every frame so a
+    /// mouse-down (which carries a position but not the element's bounds) can
+    /// be mapped to a value. Keyed by the option's config key.
+    slider_bounds: std::collections::HashMap<&'static str, Bounds<Pixels>>,
 }
 
 pub fn open(parent: &Window, cx: &mut App) {
@@ -89,6 +93,7 @@ impl SettingsView {
             focus: cx.focus_handle(),
             relay_running: crate::relay::running(),
             tool_tests: std::collections::HashMap::new(),
+            slider_bounds: std::collections::HashMap::new(),
         };
         view.reload();
         view.poll_relay_status(cx);
@@ -226,10 +231,16 @@ impl SettingsView {
         cx.notify();
     }
 
-    fn step(&mut self, n: Num, dir: i32, cx: &mut Context<Self>) {
-        write_config(n.key(), &n.write_value(&self.opts, dir));
-        self.reload();
-        cx.notify();
+    /// Persist the value at slider fraction `frac` for `n`, but only when the
+    /// snapped result actually changes — so a drag rewrites the config once per
+    /// step it crosses, not once per pointer tick.
+    fn slide_to(&mut self, n: Num, frac: f32, cx: &mut Context<Self>) {
+        let value = n.value_at_fraction(frac);
+        if (value - n.current(&self.opts)).abs() >= f32::EPSILON {
+            write_config(n.key(), &n.fmt(value));
+            self.reload();
+            cx.notify();
+        }
     }
 
     fn cycle(&mut self, c: Choice, dir: i32, cx: &mut Context<Self>) {

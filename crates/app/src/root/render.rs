@@ -3,9 +3,20 @@ use gpui::prelude::*;
 
 impl Render for WorkspaceView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        // `window` is only read on Linux (resize handles); keep it "used".
-        #[cfg(not(target_os = "linux"))]
-        let _ = &window;
+        // Sync the platform window's opacity to the setting. At opacity 1.0 the
+        // window is marked opaque so the compositor ignores the framebuffer's
+        // alpha entirely (a residual-alpha frame from a prior translucent state
+        // would otherwise keep bleeding through); below 1.0 it's transparent so
+        // the root fill's alpha shows the desktop. Flip only on change.
+        let want_transparent = self.opts.background_opacity < 1.0;
+        if want_transparent != self.bg_transparent {
+            self.bg_transparent = want_transparent;
+            window.set_background_appearance(if want_transparent {
+                gpui::WindowBackgroundAppearance::Transparent
+            } else {
+                gpui::WindowBackgroundAppearance::Opaque
+            });
+        }
         // Root fill; its alpha is the window background opacity. Default-bg cells
         // aren't painted by the element, so they show this (and the desktop when
         // the window is transparent); colored cells stay opaque.

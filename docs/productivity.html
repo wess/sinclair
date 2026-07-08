@@ -127,7 +127,7 @@ profile = repl | python3</code></pre>
         <p><kbd>⌘⌥E</kbd> (<code>unicode_picker</code>) opens a searchable list of common emoji and symbols — arrows, math signs, box glyphs, and more — each named so you can fuzzy-find it. Pick one and Prompt sends the glyph to the focused pane.</p>
 
         <h2>Output triggers</h2>
-        <p>Triggers watch a pane's output and fire a desktop notification when a line matches a regular expression — iTerm2-style. Each <code>trigger</code> entry is a regex, optionally followed by <code>| Title</code> for a custom notification title. The matched line becomes the notification body. Useful for surfacing build failures or long-running jobs that finish while you're in another window.</p>
+        <p>Triggers watch a pane's output and fire a desktop notification when a line matches a regular expression. Each <code>trigger</code> entry is a regex, optionally followed by <code>| Title</code> for a custom notification title. The matched line becomes the notification body. Useful for surfacing build failures or long-running jobs that finish while you're in another window.</p>
         <pre><code><span class="c"># ~/.config/prompt/config</span>
 trigger = error|Build failed
 trigger = \bDONE\b | Job finished</code></pre>

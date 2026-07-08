@@ -21,6 +21,15 @@ use crate::mode::{Modes, MouseMode};
 use crate::screen::Screen;
 use crate::selection::Selection;
 
+/// A link found under a viewport cell: its target and the inclusive
+/// cell-column span it occupies on that row. See [`Term::link_at`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LinkHit {
+    pub url: String,
+    pub start_col: usize,
+    pub end_col: usize,
+}
+
 /// Full terminal state. Feed pty bytes with [`Terminal::feed`], drain
 /// responses for the pty with [`Terminal::take_output`], and read cells via
 /// the grid/row accessors when rendering.
@@ -417,7 +426,7 @@ impl Terminal {
     }
 
     /// Alternate scroll (?1007): wheel sends arrow keys on the alternate
-    /// screen. Defaults off, matching xterm.
+    /// screen. Defaults off.
     pub fn alternate_scroll(&self) -> bool {
         self.inner.modes.contains(Modes::ALT_SCROLL)
     }
@@ -546,6 +555,55 @@ impl Terminal {
             out.push((sb.len() + r, row.text(), row.prompt));
         }
         out
+    }
+
+    /// The link under viewport `row`/`col` — an OSC 8 hyperlink if the cell
+    /// carries one (expanded to the contiguous same-id run), else a detectable
+    /// URL in the row's text. Returns the target plus the inclusive cell-column
+    /// span, so callers can open it, underline it, or select it uniformly.
+    pub fn link_at(&self, row: usize, col: usize) -> Option<LinkHit> {
+        if row >= self.rows() {
+            return None;
+        }
+        let cells = &self.visible_row(row).cells;
+        // OSC 8 hyperlink: expand over the run of cells sharing the same id.
+        if let Some(cell) = cells.get(col) {
+            if let Some(hid) = cell.hyperlink {
+                let url = self.hyperlink(hid)?.uri.clone();
+                let mut start = col;
+                while start > 0 && cells[start - 1].hyperlink == Some(hid) {
+                    start -= 1;
+                }
+                let mut end = col;
+                while end + 1 < cells.len() && cells[end + 1].hyperlink == Some(hid) {
+                    end += 1;
+                }
+                return Some(LinkHit { url, start_col: start, end_col: end });
+            }
+        }
+        // Auto-detected URL in the row text (skip wide-cell spacers).
+        let mut chars: Vec<char> = Vec::with_capacity(cells.len());
+        let mut col_of: Vec<usize> = Vec::with_capacity(cells.len());
+        for (c, cell) in cells.iter().enumerate() {
+            if cell.is_wide_spacer() {
+                continue;
+            }
+            chars.push(cell.ch);
+            col_of.push(c);
+        }
+        for (start, end) in crate::url::find(&chars) {
+            let start_col = col_of[start];
+            let last = col_of[end - 1];
+            let end_col = last + usize::from(cells[last].is_wide());
+            if col >= start_col && col <= end_col {
+                return Some(LinkHit {
+                    url: chars[start..end].iter().collect(),
+                    start_col,
+                    end_col,
+                });
+            }
+        }
+        None
     }
 
     /// The URL under viewport row/col, if the text there is a detectable

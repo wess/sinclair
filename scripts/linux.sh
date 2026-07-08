@@ -34,7 +34,8 @@ mkdir -p "$out"
 # --- build ----------------------------------------------------------------
 rustup target add "$triple" >/dev/null 2>&1 || true
 cargo build --release -p app -p notes --target "$triple"
-bin="target/$triple/release/prompt"
+# The cargo bin target is `promptdev`; it's installed as `prompt` below.
+bin="target/$triple/release/promptdev"
 notes_bin="target/$triple/release/notes"
 strip "$bin" 2>/dev/null || true
 strip "$notes_bin" 2>/dev/null || true

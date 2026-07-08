@@ -234,7 +234,7 @@ impl Bool {
     }
 }
 
-/// A numeric option rendered as a stepper.
+/// A numeric option rendered as a slider.
 #[derive(Clone, Copy)]
 pub enum Num {
     FontSize,
@@ -286,7 +286,7 @@ impl Num {
         }
     }
 
-    fn current(self, o: &Options) -> f32 {
+    pub fn current(self, o: &Options) -> f32 {
         match self {
             Num::FontSize => o.font_size,
             Num::CellWidth => o.adjust_cell_width as f32,
@@ -331,11 +331,29 @@ impl Num {
         fmt_num(v, is_int)
     }
 
-    /// The value to persist after stepping by `dir` (+1 / -1).
-    pub fn write_value(self, o: &Options, dir: i32) -> String {
-        let (step, min, max, is_int) = self.spec();
-        let next = (self.current(o) + dir as f32 * step).clamp(min, max);
-        fmt_num(next, is_int)
+    /// The current value's position along its range, as a fraction in `0..=1`.
+    /// Drives the slider's filled portion and knob position.
+    pub fn fraction(self, o: &Options) -> f32 {
+        let (_, min, max, _) = self.spec();
+        if max <= min {
+            0.0
+        } else {
+            ((self.current(o) - min) / (max - min)).clamp(0.0, 1.0)
+        }
+    }
+
+    /// The value at slider fraction `frac` (0..=1), snapped to `step` and
+    /// clamped to the range. Shared by click-to-jump and drag.
+    pub fn value_at_fraction(self, frac: f32) -> f32 {
+        let (step, min, max, _) = self.spec();
+        let raw = min + frac.clamp(0.0, 1.0) * (max - min);
+        ((raw / step).round() * step).clamp(min, max)
+    }
+
+    /// Format a value for persistence (integer or decimal, per this option).
+    pub fn fmt(self, v: f32) -> String {
+        let (_, _, _, is_int) = self.spec();
+        fmt_num(v, is_int)
     }
 }
 

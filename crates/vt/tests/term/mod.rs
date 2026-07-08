@@ -115,7 +115,7 @@ fn mouse_mode_tracks_decset() {
 #[test]
 fn alternate_scroll_defaults_off_and_tracks_1007() {
     let mut t = Terminal::new(10, 3, 0);
-    assert!(!t.alternate_scroll()); // xterm default
+    assert!(!t.alternate_scroll()); // default
     t.feed(b"\x1b[?1007h");
     assert!(t.alternate_scroll());
     t.feed(b"\x1b[?1007l");

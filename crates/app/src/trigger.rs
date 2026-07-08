@@ -1,4 +1,4 @@
-//! Regex output triggers (iTerm2-style): when new terminal output matches a
+//! Regex output triggers: when new terminal output matches a
 //! configured pattern, fire a desktop notification. App-wide, shared as a gpui
 //! global and refreshed on config load. Distinct from plugin `[[trigger]]`
 //! event hooks (`root/triggers.rs`), which react to terminal *events*.

@@ -1,6 +1,6 @@
 //! The custom gpui element that paints the terminal grid.
 //!
-//! Painting happens in three layers, zed-style: per-cell background rects
+//! Painting happens in three layers: per-cell background rects
 //! (merged into horizontal runs), shaped text runs grouped by style, then
 //! the cursor. Cell data is snapshotted quickly under the terminal lock;
 //! shaping happens after the lock is released.
@@ -54,6 +54,9 @@ pub struct TerminalElement {
     copy_on_select: bool,
     smart_select: bool,
     middle_click_paste: bool,
+    /// Whether this pane holds keyboard focus; an unfocused pane paints no
+    /// cursor, so the active pane is unambiguous in a split.
+    focused: bool,
     search: Option<SearchQuery>,
     /// Autosuggestion ghost suffix drawn dimmed at the cursor, if any.
     ghost: Option<String>,
@@ -76,6 +79,7 @@ impl TerminalElement {
         copy_on_select: bool,
         smart_select: bool,
         middle_click_paste: bool,
+        focused: bool,
         search: Option<SearchQuery>,
         ghost: Option<String>,
         image_cache: Rc<RefCell<HashMap<u64, Arc<RenderImage>>>>,
@@ -92,6 +96,7 @@ impl TerminalElement {
             copy_on_select,
             smart_select,
             middle_click_paste,
+            focused,
             search,
             ghost,
             image_cache,
@@ -169,10 +174,11 @@ impl Element for TerminalElement {
             let _ = self.session.resize(cols, rows);
         }
 
+        let hover_link = self.mouse.borrow().hover_link;
         let snap = {
             let mut cache = self.image_cache.borrow_mut();
             self.session.with_term(|term| {
-                snapshot(term, &self.colors, self.search.as_ref(), self.cell, &mut cache)
+                snapshot(term, &self.colors, self.search.as_ref(), self.cell, &mut cache, hover_link)
             })
         };
 
@@ -257,10 +263,11 @@ impl Element for TerminalElement {
             })
             .collect();
 
-        let cursor = snap
-            .cursor
-            .as_ref()
-            .filter(|c| c.row < rows && c.col < cols)
+        // Only the focused pane draws a cursor; an unfocused split shows none.
+        let cursor = self
+            .focused
+            .then(|| snap.cursor.as_ref().filter(|c| c.row < rows && c.col < cols))
+            .flatten()
             .map(|c| self.cursor_frame(c, origin, window));
 
         // Ghost text: dimmed suggestion suffix starting at the cursor cell.

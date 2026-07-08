@@ -37,16 +37,14 @@ fn socket_dir() -> PathBuf {
     std::env::temp_dir().join(format!("prompt-{uid}"))
 }
 
-/// Per-user socket path under [`socket_dir`].
+/// Per-user socket path under [`socket_dir`], keyed by app identity so a dev
+/// build (`promptdev`) and an installed `prompt` own separate sockets and run as
+/// fully independent instances. This is intentionally derived, not read from
+/// `PROMPT_SOCKET`: the running app injects that var into child shells (so
+/// external tooling can reach it), and honoring it here would make a dev build
+/// launched from inside a Prompt session bind the parent's socket instead.
 fn socket_path() -> PathBuf {
-    // Debug builds honor PROMPT_SOCKET so a throwaway test instance can own its
-    // own socket without colliding with the user's installed app. Release builds
-    // ignore it and always use the fixed per-user path.
-    #[cfg(debug_assertions)]
-    if let Some(p) = std::env::var_os("PROMPT_SOCKET") {
-        return PathBuf::from(p);
-    }
-    socket_dir().join("prompt-quick.sock")
+    socket_dir().join(format!("{}-quick.sock", crate::appid::id()))
 }
 
 /// Make sure the socket's directory exists and is private to us: a real

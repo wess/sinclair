@@ -3,7 +3,7 @@
 use crate::rgb::Rgb;
 use crate::scheme::Scheme;
 
-/// Component values of the standard xterm 6x6x6 color cube.
+/// Component values of the standard 6x6x6 color cube.
 pub const CUBE_STEPS: [u8; 6] = [0, 95, 135, 175, 215, 255];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -21,7 +21,7 @@ impl Palette {
     }
 }
 
-/// Standard xterm color for indices 16..=255 (cube + grayscale ramp).
+/// Standard 256-color palette for indices 16..=255 (cube + grayscale ramp).
 /// Indices 0..=15 fall back to the cube formula's nearest definition
 /// only via [`build`]; this function is defined for 16..=255 and
 /// returns black for 0..=15.

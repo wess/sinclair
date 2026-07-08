@@ -21,23 +21,99 @@ impl TerminalView {
         cx.notify();
     }
 
+    /// One clickable menu row that runs `on_click` (and closes the menu).
+    fn menu_row(
+        &self,
+        label: impl Into<SharedString>,
+        cx: &mut Context<Self>,
+        on_click: impl Fn(&mut Self, &mut Context<Self>) + 'static,
+    ) -> gpui::Div {
+        div()
+            .px_2()
+            .py(px(4.0))
+            .rounded(px(5.0))
+            .hover(|s| s.bg(colors::rgba(self.colors.selection_bg)))
+            .child(label.into())
+            .on_mouse_down(
+                MouseButton::Left,
+                cx.listener(move |this, _e: &MouseDownEvent, _w, cx| {
+                    this.context_menu = None;
+                    on_click(this, cx);
+                    cx.stop_propagation();
+                    cx.notify();
+                }),
+            )
+    }
+
+    /// A menu row that dispatches a bound [`Action`] (so it matches keybinds).
+    fn menu_action(&self, label: &'static str, action: Action, cx: &mut Context<Self>) -> gpui::Div {
+        self.menu_row(label, cx, move |_this, cx| cx.emit(ViewEvent::Action(action.clone())))
+    }
+
+    fn menu_divider(&self) -> gpui::Div {
+        let mut line = colors::rgba(self.colors.fg);
+        line.a = 0.15;
+        div().my_1().mx_2().h(px(1.0)).bg(line)
+    }
+
+    /// The link under a window-space `pos`, mapping through the grid bounds
+    /// captured in `render`. Used to offer Open/Copy Link on right-click.
+    fn link_at_pos(&self, pos: Point<Pixels>) -> Option<String> {
+        let (cols, rows) = self.session.with_term(|t| (t.cols(), t.rows()));
+        let (row, col) = crate::metrics::cell_at(
+            (f32::from(pos.x), f32::from(pos.y)),
+            (
+                f32::from(self.grid_bounds.origin.x),
+                f32::from(self.grid_bounds.origin.y),
+            ),
+            self.pad,
+            self.cell,
+            cols,
+            rows,
+        );
+        self.session.with_term(|t| t.link_at(row, col)).map(|l| l.url)
+    }
+
+    /// Open a URL via the OS, refusing schemes outside the allow-list.
+    pub(crate) fn open_url(&mut self, url: String, cx: &mut Context<Self>) {
+        if crate::pointer::openable(&url) {
+            cx.open_url(&url);
+        } else {
+            eprintln!("prompt: refused to open link with disallowed scheme: {url}");
+        }
+    }
+
+    fn copy_text(&mut self, text: String, cx: &mut Context<Self>) {
+        cx.write_to_clipboard(ClipboardItem::new_string(text));
+    }
+
+    /// Search the web for `query` with the default browser's search.
+    fn search_web(&mut self, query: &str, cx: &mut Context<Self>) {
+        let q: String = query.chars().take(256).collect();
+        cx.open_url(&format!("https://www.google.com/search?q={}", percent_encode(&q)));
+    }
+
+    /// macOS "Look Up": open the system dictionary for `term`.
+    #[cfg(target_os = "macos")]
+    fn look_up(&mut self, term: &str, cx: &mut Context<Self>) {
+        let t: String = term.chars().take(64).collect();
+        cx.open_url(&format!("dict://{}", percent_encode(&t)));
+    }
+
     /// The right-click menu overlay anchored at `pos`, with a full-pane
-    /// backdrop that dismisses it on an outside click.
+    /// backdrop that dismisses it on an outside click. Context-aware: shows
+    /// Open/Copy Link over a URL and Look Up / Search Web over a selection.
     pub(crate) fn context_menu_overlay(&self, pos: Point<Pixels>, cx: &mut Context<Self>) -> AnyElement {
-        let items: [Option<(&str, Action)>; 8] = [
-            Some(("Copy", Action::Copy)),
-            Some(("Paste", Action::Paste)),
-            Some(("Select All", Action::SelectAll)),
-            None,
-            Some(("Split Right", Action::NewSplit(SplitDirection::Right))),
-            Some(("Split Down", Action::NewSplit(SplitDirection::Down))),
-            None,
-            Some(("Clear", Action::ClearScreen)),
-        ];
+        let link = self.link_at_pos(pos);
+        let selection = self
+            .session
+            .with_term(|t| t.selection_text())
+            .filter(|s| !s.trim().is_empty());
+
         let mut menu = div()
             .flex()
             .flex_col()
-            .min_w(px(180.0))
+            .min_w(px(200.0))
             .p_1()
             .rounded(px(8.0))
             .border_1()
@@ -45,35 +121,49 @@ impl TerminalView {
             .bg(colors::rgba(self.colors.bg))
             .text_color(colors::rgba(self.colors.fg))
             .shadow_lg();
-        for item in items {
-            match item {
-                None => {
-                    let mut line = colors::rgba(self.colors.fg);
-                    line.a = 0.15;
-                    menu = menu.child(div().my_1().mx_2().h(px(1.0)).bg(line));
-                }
-                Some((label, action)) => {
-                    let action = action.clone();
-                    menu = menu.child(
-                        div()
-                            .px_2()
-                            .py(px(4.0))
-                            .rounded(px(5.0))
-                            .hover(|s| s.bg(colors::rgba(self.colors.selection_bg)))
-                            .child(SharedString::from(label))
-                            .on_mouse_down(
-                                MouseButton::Left,
-                                cx.listener(move |this, _e: &MouseDownEvent, _w, cx| {
-                                    this.context_menu = None;
-                                    cx.emit(ViewEvent::Action(action.clone()));
-                                    cx.stop_propagation();
-                                    cx.notify();
-                                }),
-                            ),
-                    );
-                }
-            }
+
+        if let Some(url) = link {
+            let open = url.clone();
+            menu = menu.child(self.menu_row("Open Link", cx, move |this, cx| {
+                this.open_url(open.clone(), cx)
+            }));
+            let copy = url.clone();
+            menu = menu.child(self.menu_row("Copy Link Address", cx, move |this, cx| {
+                this.copy_text(copy.clone(), cx)
+            }));
+            menu = menu.child(self.menu_divider());
         }
+
+        menu = menu
+            .child(self.menu_action("Copy", Action::Copy, cx))
+            .child(self.menu_action("Paste", Action::Paste, cx))
+            .child(self.menu_action("Select All", Action::SelectAll, cx));
+
+        if let Some(sel) = selection {
+            menu = menu.child(self.menu_divider());
+            let label = trunc(&sel);
+            #[cfg(target_os = "macos")]
+            {
+                let term = sel.clone();
+                menu = menu.child(self.menu_row(format!("Look Up \u{201c}{label}\u{201d}"), cx, move |this, cx| {
+                    this.look_up(&term, cx)
+                }));
+            }
+            let query = sel.clone();
+            menu = menu.child(self.menu_row(format!("Search Web for \u{201c}{label}\u{201d}"), cx, move |this, cx| {
+                this.search_web(&query, cx)
+            }));
+        }
+
+        menu = menu
+            .child(self.menu_divider())
+            .child(self.menu_action("New Tab", Action::NewTab, cx))
+            .child(self.menu_action("Split Right", Action::NewSplit(SplitDirection::Right), cx))
+            .child(self.menu_action("Split Down", Action::NewSplit(SplitDirection::Down), cx))
+            .child(self.menu_action("Close Pane", Action::CloseSurface, cx))
+            .child(self.menu_divider())
+            .child(self.menu_action("Clear", Action::ClearScreen, cx));
+
         let dismiss = |this: &mut Self, _e: &MouseDownEvent, _w: &mut Window, cx: &mut Context<Self>| {
             this.context_menu = None;
             cx.stop_propagation();
@@ -172,8 +262,8 @@ impl TerminalView {
     /// Extend the active selection one step in `dir`. With no active
     /// selection this falls through to the key's normal escape sequence, so
     /// shift+navigation extends a selection when one exists and otherwise
-    /// behaves exactly as if unbound, matching Ghostty's "performable"
-    /// shift+navigation.
+    /// behaves exactly as if unbound, keeping shift+navigation
+    /// "performable".
     pub fn adjust_selection(&mut self, dir: config::SelectAdjust, cx: &mut Context<Self>) {
         // `key` (gpui's spelling, used only on the fall-through) cannot be
         // derived from `config::SelectAdjust::as_str`, which spells the paged
@@ -243,5 +333,31 @@ impl TerminalView {
             term.update_selection(vt::Point::new(bottom, cols - 1));
         });
         cx.notify();
+    }
+}
+
+/// Percent-encode a query string for a URL (RFC 3986 unreserved set kept).
+fn percent_encode(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for b in s.bytes() {
+        match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                out.push(b as char)
+            }
+            _ => out.push_str(&format!("%{b:02X}")),
+        }
+    }
+    out
+}
+
+/// Truncate menu text (a selection or link) to a short, single-line label.
+fn trunc(s: &str) -> String {
+    let flat = s.replace(['\n', '\r', '\t'], " ");
+    let flat = flat.trim();
+    let short: String = flat.chars().take(28).collect();
+    if flat.chars().count() > 28 {
+        format!("{short}\u{2026}")
+    } else {
+        short
     }
 }

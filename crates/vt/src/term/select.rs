@@ -63,7 +63,7 @@ impl Terminal {
     /// anchor fixed, and scroll the view to keep the new end visible.
     /// Returns `false` (a no-op) when there is no selection, which is the
     /// host's cue to fall through to the key's normal escape sequence,
-    /// the same "performable" semantics Ghostty uses for shift+navigation.
+    /// the "performable" semantics for shift+navigation.
     ///
     /// The selection collapses to exact cells here (a fixed anchor and a
     /// moving caret): word/line expansion only shapes the initial mouse

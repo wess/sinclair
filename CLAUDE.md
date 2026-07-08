@@ -11,8 +11,13 @@ same guidance.
 
 Prompt is a GPU-accelerated terminal emulator for macOS and Linux, written in
 Rust as a Cargo workspace. The GUI is built on [gpui](https://github.com/zed-industries/zed)
-(pulled as a git dependency from the zed repo). The binary is `app`; the
-shipped command is `prompt`.
+(pulled as a git dependency from the zed repo). The GUI is the `app` crate,
+whose bin target is `promptdev`: a dev build (`cargo run -p app`, debug or
+`--release`) is named `promptdev` so it never collides with an installed
+`prompt` — it gets its own window title, app id, and single-instance socket and
+runs side by side. The release scripts install the same binary as the shipped
+`prompt` command. The app derives this name from its own executable at runtime
+(see `crates/app/src/appid.rs`).
 
 ## Commands
 

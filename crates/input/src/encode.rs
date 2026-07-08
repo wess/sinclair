@@ -1,4 +1,4 @@
-//! `encode_key`: one keystroke -> the bytes a legacy xterm would send.
+//! `encode_key`: one keystroke -> the bytes a legacy terminal would send.
 
 use crate::csi;
 use crate::kitty;

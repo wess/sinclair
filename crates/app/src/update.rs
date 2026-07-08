@@ -1,6 +1,6 @@
 //! Self-update: check GitHub for a newer release (on launch + hourly) and, when
-//! one is found, download it and swap it in place. Modeled on Zed's
-//! `auto_update` — the app updates itself; it never shells out to a package
+//! one is found, download it and swap it in place: the app updates itself;
+//! it never shells out to a package
 //! manager (no `brew`, no `apt`).
 //!
 //! A macOS `.app` (however it was installed, Homebrew included) and a Linux
@@ -16,7 +16,7 @@ use std::process::Command;
 /// The GitHub repo releases are published to.
 const REPO: &str = "wess/prompt";
 
-/// How often to re-check while running (Zed's stable channel cadence).
+/// How often to re-check while running (a conservative hourly cadence).
 pub const POLL: std::time::Duration = std::time::Duration::from_secs(60 * 60);
 
 /// This build's version.

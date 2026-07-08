@@ -144,7 +144,7 @@ impl WorkspaceView {
 
     /// Open a Spotlight over the configured snippets (`snippet = label | cmd`);
     /// picking one inserts the command into the focused pane (not run — the user
-    /// can edit before pressing Enter). Warp-style workflows.
+    /// can edit before pressing Enter).
     pub(crate) fn open_snippets(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let snippets: Vec<(String, String)> = self
             .opts

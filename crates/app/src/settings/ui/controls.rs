@@ -1,7 +1,14 @@
 use super::*;
 use super::super::model::{Bool, Choice, Num};
 use super::super::{EditTarget, SettingsView};
-use gpui::{div, px, AnyElement, Context, MouseButton, SharedString};
+use gpui::{
+    canvas, div, px, relative, AnyElement, Context, DragMoveEvent, Empty, MouseButton,
+    MouseDownEvent, SharedString,
+};
+
+/// Drag payload identifying which slider a scrub belongs to, so the shared
+/// `on_drag_move` listener only acts on the track the drag started on.
+struct SliderDrag(Num);
 
 impl SettingsView {
     pub(crate) fn icon(&self, glyph: &str, color: theme::Rgb, size: gpui::Pixels) -> impl IntoElement {
@@ -165,31 +172,110 @@ impl SettingsView {
             )
     }
 
-    pub(crate) fn stepper(&self, n: Num, cx: &mut Context<Self>) -> impl IntoElement {
+    /// A draggable value track for a numeric option. Press anywhere on the
+    /// track to jump to that value; press and drag to scrub — the drag follows
+    /// the pointer anywhere in the window (like a real slider), not just while
+    /// it stays over the track. The row's accent colors the fill and knob.
+    pub(crate) fn slider(&self, n: Num, accent: theme::Rgb, cx: &mut Context<Self>) -> impl IntoElement {
+        let frac = n.fraction(&self.opts);
+
+        let bar = div()
+            .absolute()
+            .left(px(0.0))
+            .right(px(0.0))
+            .top(px(7.0))
+            .h(px(6.0))
+            .rounded(px(3.0))
+            .bg(hsla(FIELD_BG));
+
+        let fill = div()
+            .absolute()
+            .left(px(0.0))
+            .top(px(7.0))
+            .w(relative(frac))
+            .h(px(6.0))
+            .rounded(px(3.0))
+            .bg(hsla(accent));
+
+        let knob = div()
+            .absolute()
+            .left(relative(frac))
+            .ml(px(-7.0))
+            .top(px(3.0))
+            .w(px(14.0))
+            .h(px(14.0))
+            .rounded(px(7.0))
+            .bg(hsla(TEXT))
+            .border_2()
+            .border_color(hsla(accent));
+
+        // Invisible probe that records the track's window-space bounds each
+        // frame, so a mouse-down (position only, no bounds) maps to a value.
+        let key = n.key();
+        let entity = cx.entity();
+        let probe = canvas(
+            move |bounds, _window, cx| {
+                entity.update(cx, |view, _| {
+                    view.slider_bounds.insert(key, bounds);
+                });
+            },
+            |_, _, _, _| {},
+        )
+        .absolute()
+        .size_full();
+
+        let track = div()
+            .id(n.key())
+            .relative()
+            .w(px(150.0))
+            .h(px(20.0))
+            .cursor_pointer()
+            .child(probe)
+            .child(bar)
+            .child(fill)
+            .child(knob)
+            .on_mouse_down(
+                MouseButton::Left,
+                cx.listener(move |this, event: &MouseDownEvent, _window, cx| {
+                    if let Some(b) = this.slider_bounds.get(n.key()).copied() {
+                        let width = f32::from(b.size.width);
+                        if width > 0.0 {
+                            let frac = (f32::from(event.position.x - b.left()) / width).clamp(0.0, 1.0);
+                            this.slide_to(n, frac, cx);
+                        }
+                    }
+                }),
+            )
+            .on_drag(SliderDrag(n), |_drag, _offset, _window, cx| cx.new(|_| Empty))
+            .on_drag_move::<SliderDrag>(cx.listener(
+                move |this, event: &DragMoveEvent<SliderDrag>, _window, cx| {
+                    // Every track's listener fires for any slider drag; act only
+                    // on the one the drag started on, using this track's bounds.
+                    if event.drag(cx).0.key() != n.key() {
+                        return;
+                    }
+                    let b = event.bounds;
+                    let width = f32::from(b.size.width);
+                    if width > 0.0 {
+                        let frac = (f32::from(event.event.position.x - b.left()) / width).clamp(0.0, 1.0);
+                        this.slide_to(n, frac, cx);
+                    }
+                },
+            ));
+
         div()
             .flex()
             .items_center()
-            .gap_1()
-            .child(self.step_button("\u{2212}", n, -1, cx))
+            .gap_3()
+            .child(track)
             .child(
                 div()
-                    .w(px(76.0))
+                    .w(px(56.0))
                     .flex()
-                    .justify_center()
+                    .justify_end()
                     .text_color(hsla(TEXT))
                     .child(SharedString::from(n.display(&self.opts))),
             )
-            .child(self.step_button("+", n, 1, cx))
-    }
-
-    fn step_button(&self, glyph: &str, n: Num, dir: i32, cx: &mut Context<Self>) -> impl IntoElement {
-        button_box(glyph).on_mouse_down(
-            MouseButton::Left,
-            cx.listener(move |this, _ev, _window, cx| {
-                this.step(n, dir, cx);
-                cx.stop_propagation();
-            }),
-        )
     }
 
     pub(crate) fn cycle_control(&self, c: Choice, cx: &mut Context<Self>) -> impl IntoElement {

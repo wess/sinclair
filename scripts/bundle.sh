@@ -10,6 +10,8 @@ root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
 
 app_name="Prompt"
+# The cargo bin target is `promptdev`; the shipped executable is `prompt`.
+src_bin="promptdev"
 bin_name="prompt"
 bundle_id="io.wess.prompt"
 identity="${CODESIGN_IDENTITY:--}"
@@ -32,7 +34,7 @@ contents="$app/Contents"
 rm -rf "$app"
 mkdir -p "$contents/MacOS" "$contents/Resources"
 
-cp "target/release/$bin_name" "$contents/MacOS/$bin_name"
+cp "target/release/$src_bin" "$contents/MacOS/$bin_name"
 # The Relay agent-mesh sidecar, found by the app as a sibling of its executable.
 cp "target/release/relay" "$contents/MacOS/relay"
 # The Notes vault-server sidecar, likewise a sibling of the executable.
