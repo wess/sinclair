@@ -59,8 +59,11 @@ pub fn write_info(port: u16, token: &str) {
     let body =
         serde_json::json!({ "port": port, "pid": std::process::id(), "token": token }).to_string();
     if std::fs::write(&path, body).is_ok() {
-        use std::os::unix::fs::PermissionsExt;
-        let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600));
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600));
+        }
     }
 }
 

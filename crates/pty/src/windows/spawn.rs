@@ -171,18 +171,18 @@ fn quote(arg: &str) -> String {
             '\\' => backslashes += 1,
             '"' => {
                 // Escape the run of backslashes preceding the quote, then the quote.
-                out.extend(std::iter::repeat('\\').take(backslashes * 2 + 1));
+                out.push_str(&"\\".repeat(backslashes * 2 + 1));
                 out.push('"');
                 backslashes = 0;
             }
             _ => {
-                out.extend(std::iter::repeat('\\').take(backslashes));
+                out.push_str(&"\\".repeat(backslashes));
                 backslashes = 0;
                 out.push(c);
             }
         }
     }
-    out.extend(std::iter::repeat('\\').take(backslashes * 2));
+    out.push_str(&"\\".repeat(backslashes * 2));
     out.push('"');
     out
 }

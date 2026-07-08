@@ -235,6 +235,12 @@ pub(crate) fn open_window(
     {
         options.window_decorations = Some(gpui::WindowDecorations::Client);
     }
+    // Windows draws its own caption and frame (native decorations); our tab bar
+    // sits in the client area below it.
+    #[cfg(target_os = "windows")]
+    {
+        options.window_decorations = Some(gpui::WindowDecorations::Server);
+    }
     let handle = cx
         .open_window(
             options,

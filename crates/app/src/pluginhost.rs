@@ -111,6 +111,23 @@ pub enum Block {
     Unknown,
 }
 
+/// Force-terminate the process `pid` (a plugin runtime that blew its timeout).
+#[cfg(unix)]
+fn force_kill(pid: u32) {
+    unsafe { libc::kill(pid as libc::pid_t, libc::SIGKILL) };
+}
+
+/// Force-terminate the process `pid` via `taskkill /F /T` (also reaps its
+/// child tree). Dependency-free; `taskkill` ships with Windows.
+#[cfg(windows)]
+fn force_kill(pid: u32) {
+    let _ = Command::new("taskkill")
+        .args(["/PID", &pid.to_string(), "/F", "/T"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status();
+}
+
 /// Invoke `plugin`'s runtime with `req`, returning the parsed response. The
 /// process runs in the plugin's own directory (so relative entrypoints like
 /// `plugin.ts` resolve); the target directory travels in `req.cwd`.
@@ -167,7 +184,7 @@ pub fn invoke(plugin: &plugin::Plugin, req: &Request) -> Result<Response, String
             waited += POLL;
         }
         if !flag.load(Ordering::Relaxed) {
-            unsafe { libc::kill(pid as libc::pid_t, libc::SIGKILL) };
+            force_kill(pid);
         }
     });
 

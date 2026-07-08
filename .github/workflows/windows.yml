@@ -53,11 +53,16 @@ jobs:
           -p vt -p input -p workspace -p theme -p config
           -p macros -p mcp -p cast -p plugin
 
+      # The terminal application and its backend: pty (ConPTY), terminal, notes,
+      # and app itself all build on Windows.
+      - name: Build terminal app
+        if: always()
+        run: cargo build -p pty -p terminal -p notes -p app
+
       # Informational only: compile the whole workspace so the log captures the
-      # full remaining Windows surface (pty/terminal are #![cfg(unix)] and app
-      # depends on them unconditionally). `--keep-going` enumerates every
-      # failing crate in one run instead of stopping at the first. Expected to
-      # fail today; never gates.
+      # remaining Windows surface. `relay` (the standalone sidecar) is still
+      # Unix-only; `--keep-going` enumerates every failing crate in one run.
+      # Expected to fail on relay today; never gates.
       - name: Full workspace surface (informational)
         if: always()
         continue-on-error: true

@@ -396,15 +396,28 @@ fn run_service(command: &str, dir: &std::path::Path) -> Result<(u16, String), St
     let mut parts = command.split_whitespace();
     let program = resolve_program(parts.next().ok_or("empty service command")?);
     let args: Vec<&str> = parts.collect();
-    use std::os::unix::process::CommandExt;
-    std::process::Command::new(&program)
-        .args(&args)
+    let mut cmd = std::process::Command::new(&program);
+    cmd.args(&args)
         .current_dir(dir)
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .process_group(0) // outlive the app that spawned it
-        .spawn()
+        .stderr(std::process::Stdio::null());
+    // Detach so the service outlives the app that spawned it.
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        cmd.process_group(0);
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        // CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS: a new group with no
+        // inherited console, so it survives the parent exiting.
+        const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
+        const DETACHED_PROCESS: u32 = 0x0000_0008;
+        cmd.creation_flags(CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS);
+    }
+    cmd.spawn()
         .map_err(|e| format!("spawn `{program}`: {e}"))?;
     for _ in 0..60 {
         std::thread::sleep(std::time::Duration::from_millis(50));

@@ -60,8 +60,9 @@ impl Render for WorkspaceView {
 
         // No separate titlebar: the pane group's top-row tab bar *is* the
         // titlebar (it reserves the traffic-light inset and drags the window).
-        // Platforms without native controls overlay their own at the top-right.
-        #[cfg(not(target_os = "macos"))]
+        // macOS uses native traffic lights and Windows native caption controls;
+        // only Linux (client-side decorations) overlays its own at the top-right.
+        #[cfg(target_os = "linux")]
         {
             base = base.child(crate::titlebar::window_controls_overlay(&self.colors));
         }
