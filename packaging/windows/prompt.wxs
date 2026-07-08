@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Prompt MSI (WiX v4). Installs prompt.exe, the notes.exe sidecar, and the
+  bundled plugins into Program Files, with a Start-menu shortcut. Files are
+  harvested from the staging tree the build script assembles (StageDir); the
+  version is injected from the workspace Cargo.toml. Both are passed with
+  `wix build -define`. Unsigned for now — installers show a SmartScreen
+  "unknown publisher" prompt until an Authenticode certificate is wired in.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package
+      Name="Prompt"
+      Manufacturer="Wess Cope"
+      Version="$(Version)"
+      UpgradeCode="A39BFEE4-EF10-4433-BDEB-73371AC90172"
+      Scope="perMachine">
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of Prompt is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="Prompt" />
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="AppShortcutDir" Name="Prompt" />
+    </StandardDirectory>
+
+    <!-- Everything the build script staged (prompt.exe, notes.exe, plugins,
+         LICENSE, README) harvested into the install folder. -->
+    <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
+      <Files Include="$(StageDir)\**" />
+    </ComponentGroup>
+
+    <!-- Start-menu shortcut to the terminal. -->
+    <Component Id="AppShortcut" Directory="AppShortcutDir" Guid="*">
+      <Shortcut Id="PromptStartMenu"
+                Name="Prompt"
+                Target="[INSTALLFOLDER]prompt.exe"
+                WorkingDirectory="INSTALLFOLDER" />
+      <RemoveFolder Id="RemoveAppShortcutDir" On="uninstall" />
+      <RegistryValue Root="HKCU" Key="Software\Prompt" Name="installed"
+                     Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+
+    <Feature Id="Main" Title="Prompt" Level="1">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentRef Id="AppShortcut" />
+    </Feature>
+  </Package>
+</Wix>
