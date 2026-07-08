@@ -211,9 +211,7 @@ pub async fn stop(app: &App, name: &str) -> bool {
     w.stop.store(true, Ordering::SeqCst);
     let pid = w.pid.load(Ordering::SeqCst);
     if pid != 0 {
-        unsafe {
-            libc::kill(pid as i32, libc::SIGTERM);
-        }
+        crate::proc::terminate(pid);
     }
     true
 }

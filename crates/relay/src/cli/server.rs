@@ -11,7 +11,6 @@ use axum::http::{header::AUTHORIZATION, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::Router;
-use std::os::unix::process::CommandExt;
 use std::process::{Command, Stdio};
 use std::time::Duration;
 
@@ -145,11 +144,19 @@ fn constant_time_eq(a: &str, b: &str) -> bool {
 }
 
 async fn shutdown(app: App) {
-    use tokio::signal::unix::{signal, SignalKind};
-    let mut term = signal(SignalKind::terminate()).expect("sigterm");
-    tokio::select! {
-        _ = tokio::signal::ctrl_c() => {}
-        _ = term.recv() => {}
+    #[cfg(unix)]
+    {
+        use tokio::signal::unix::{signal, SignalKind};
+        let mut term = signal(SignalKind::terminate()).expect("sigterm");
+        tokio::select! {
+            _ = tokio::signal::ctrl_c() => {}
+            _ = term.recv() => {}
+        }
+    }
+    #[cfg(windows)]
+    {
+        // No SIGTERM on Windows; Ctrl-C (or a hard terminate) ends the daemon.
+        let _ = tokio::signal::ctrl_c().await;
     }
     tracing::info!("shutting down; stopping workers");
     spawn::stop_all(&app).await;
@@ -183,11 +190,24 @@ pub fn start(args: ServeArgs) -> Result<()> {
         .stdin(Stdio::null())
         .stdout(Stdio::from(log))
         .stderr(Stdio::from(errlog));
+    // Detach into a new session/group so the daemon survives the launching
+    // shell exiting.
+    #[cfg(unix)]
     unsafe {
+        use std::os::unix::process::CommandExt;
         cmd.pre_exec(|| {
             libc::setsid();
             Ok(())
         });
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        // DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW.
+        const DETACHED_PROCESS: u32 = 0x0000_0008;
+        const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        cmd.creation_flags(DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW);
     }
     cmd.spawn()?;
 
@@ -211,9 +231,7 @@ pub fn stop() -> Result<()> {
         println!("relay was not running (cleaned stale record)");
         return Ok(());
     }
-    unsafe {
-        libc::kill(info.pid as i32, libc::SIGTERM);
-    }
+    crate::proc::terminate(info.pid);
     for _ in 0..40 {
         if !paths::alive(info.pid) {
             paths::clear_info();

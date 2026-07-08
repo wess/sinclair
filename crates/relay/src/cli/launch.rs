@@ -1,7 +1,6 @@
 use super::{agent, http, paths, role, LaunchArgs};
 use anyhow::{anyhow, Result};
 use std::io::Write;
-use std::os::unix::process::CommandExt;
 use std::process::Command;
 
 /// Launch an agent wired to the bus. Foreground takes over this terminal;
@@ -101,11 +100,26 @@ pub async fn launch(a: LaunchArgs) -> Result<()> {
     } else {
         let label = if a.cmd.is_some() { "custom" } else { agent_name.as_str() };
         println!("launching {label} as '{name}' on {endpoint} …");
-        let err = Command::new(&built.program)
-            .args(&built.args)
-            .current_dir(&cwd)
-            .exec();
-        Err(anyhow!("failed to exec {}: {err}", built.program))
+        // Foreground: replace this process on Unix; on Windows, run it to
+        // completion and exit with its status (there is no exec()).
+        #[cfg(unix)]
+        {
+            use std::os::unix::process::CommandExt;
+            let err = Command::new(&built.program)
+                .args(&built.args)
+                .current_dir(&cwd)
+                .exec();
+            Err(anyhow!("failed to exec {}: {err}", built.program))
+        }
+        #[cfg(windows)]
+        {
+            let status = Command::new(&built.program)
+                .args(&built.args)
+                .current_dir(&cwd)
+                .status()
+                .map_err(|e| anyhow!("failed to run {}: {e}", built.program))?;
+            std::process::exit(status.code().unwrap_or(1));
+        }
     }
 }
 

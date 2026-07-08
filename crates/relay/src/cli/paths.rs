@@ -44,15 +44,21 @@ pub fn abs_dir() -> PathBuf {
 pub fn ensure_dir() -> Result<()> {
     let d = dir();
     std::fs::create_dir_all(&d)?;
-    use std::os::unix::fs::PermissionsExt;
-    let _ = std::fs::set_permissions(&d, std::fs::Permissions::from_mode(0o700));
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(&d, std::fs::Permissions::from_mode(0o700));
+    }
     Ok(())
 }
 
 /// Restrict a freshly written file in the state dir to owner read/write.
-pub fn lock_file(path: &std::path::Path) {
-    use std::os::unix::fs::PermissionsExt;
-    let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600));
+pub fn lock_file(_path: &std::path::Path) {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(_path, std::fs::Permissions::from_mode(0o600));
+    }
 }
 
 pub fn info_path() -> PathBuf {
@@ -108,7 +114,7 @@ pub fn endpoint(addr: &str) -> String {
 
 /// True if a process with this pid is alive.
 pub fn alive(pid: u32) -> bool {
-    unsafe { libc::kill(pid as i32, 0) == 0 }
+    crate::proc::alive(pid)
 }
 
 /// Pids of spawned workers, persisted so a fresh daemon can reap children left
@@ -169,9 +175,7 @@ pub fn reap_stray_workers() {
     let me = std::process::id();
     for pid in read_pids() {
         if pid != 0 && pid != me && alive(pid) {
-            unsafe {
-                libc::kill(pid as i32, libc::SIGKILL);
-            }
+            crate::proc::kill(pid);
         }
     }
     let _ = std::fs::remove_file(workers_pids_path());

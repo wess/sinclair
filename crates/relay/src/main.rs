@@ -3,6 +3,7 @@ mod cli;
 mod control;
 mod db;
 mod mcp;
+mod proc;
 mod protocol;
 mod spawn;
 mod state;
