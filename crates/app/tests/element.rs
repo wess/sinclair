@@ -130,8 +130,10 @@ fn snapshot_underlined_space_is_kept() {
 #[test]
 fn snapshot_selection_overrides_colors() {
     // Default fg must differ from selection fg for the span split.
-    let mut opts = config::Options::default();
-    opts.foreground = Some("#abb2bf".to_string());
+    let opts = config::Options {
+        foreground: Some("#abb2bf".to_string()),
+        ..Default::default()
+    };
     let colors = colors::from_config(&opts, true);
     assert_ne!(colors.fg, colors.selection_fg);
     let mut term = vt::Terminal::new(20, 2, 0);

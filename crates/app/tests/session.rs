@@ -13,10 +13,12 @@ fn options_default_is_login_shell() {
 
 #[test]
 fn options_honors_command_and_cwd() {
-    let mut opts = config::Options::default();
-    opts.shell = Some("/bin/bash -i".to_string());
-    opts.working_directory = Some("/tmp".to_string());
-    opts.scrollback_limit = 42;
+    let opts = config::Options {
+        shell: Some("/bin/bash -i".to_string()),
+        working_directory: Some("/tmp".to_string()),
+        scrollback_limit: 42,
+        ..Default::default()
+    };
     let session = options(&opts, 80, 24, None);
     assert_eq!(session.spawn.argv, vec!["/bin/bash", "-i"]);
     assert!(!session.spawn.login);
@@ -26,8 +28,7 @@ fn options_honors_command_and_cwd() {
 
 #[test]
 fn options_empty_command_falls_back_to_shell() {
-    let mut opts = config::Options::default();
-    opts.shell = Some("   ".to_string());
+    let opts = config::Options { shell: Some("   ".to_string()), ..Default::default() };
     let session = options(&opts, 80, 24, None);
     assert!(session.spawn.login);
     assert!(!session.spawn.argv.is_empty());
@@ -35,8 +36,10 @@ fn options_empty_command_falls_back_to_shell() {
 
 #[test]
 fn options_inherited_cwd_beats_config() {
-    let mut opts = config::Options::default();
-    opts.working_directory = Some("/tmp".to_string());
+    let opts = config::Options {
+        working_directory: Some("/tmp".to_string()),
+        ..Default::default()
+    };
     let session = options(&opts, 80, 24, Some(PathBuf::from("/work")));
     assert_eq!(session.spawn.cwd, Some(PathBuf::from("/work")));
 }

@@ -35,7 +35,7 @@ fn round_trips_exact_grids() {
 
 #[test]
 fn line_height_factor_is_sane() {
-    assert!(LINE_HEIGHT > 1.0 && LINE_HEIGHT < 2.0);
+    const { assert!(LINE_HEIGHT > 1.0 && LINE_HEIGHT < 2.0) }
 }
 
 #[test]

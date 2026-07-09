@@ -11,10 +11,12 @@ fn default_cell_is_blank() {
 
 #[test]
 fn erased_keeps_pen_background_only() {
-    let mut pen = Cell::default();
-    pen.bg = Color::Indexed(4);
-    pen.fg = Color::Indexed(1);
-    pen.flags = CellFlags::BOLD | CellFlags::UNDERLINE;
+    let pen = Cell {
+        bg: Color::Indexed(4),
+        fg: Color::Indexed(1),
+        flags: CellFlags::BOLD | CellFlags::UNDERLINE,
+        ..Default::default()
+    };
     let e = Cell::erased(pen);
     assert_eq!(e.bg, Color::Indexed(4));
     assert_eq!(e.fg, Color::Default);

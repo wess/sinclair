@@ -89,9 +89,12 @@ fn wheel_release_is_none_both_encodings() {
     }
 }
 
+/// One legacy-encoding case: action, button, col, row, mods, expected bytes.
+type LegacyCase = (MouseAction, MouseButton, u32, u32, Mods, [u8; 6]);
+
 #[test]
 fn legacy_bytes() {
-    let cases: &[(MouseAction, MouseButton, u32, u32, Mods, [u8; 6])] = &[
+    let cases: &[LegacyCase] = &[
         // 32+code, 32+col, 32+row
         (Press, Left, 1, 1, NONE, [0x1b, b'[', b'M', 32, 33, 33]),
         (Press, Middle, 10, 5, NONE, [0x1b, b'[', b'M', 33, 42, 37]),

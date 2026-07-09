@@ -26,8 +26,10 @@ fn skips_invalid_entries() {
 
 #[test]
 fn build_uses_primary_and_fallbacks() {
-    let mut opts = config::Options::default();
-    opts.font_family = vec!["JetBrains Mono".into(), "Menlo".into()];
+    let opts = config::Options {
+        font_family: vec!["JetBrains Mono".into(), "Menlo".into()],
+        ..Default::default()
+    };
     let font = build(&opts);
     assert_eq!(font.family.as_ref(), "JetBrains Mono");
     let fb = font.fallbacks.expect("fallbacks");

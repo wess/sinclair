@@ -21,8 +21,7 @@ fn fill_resets_wrap() {
 #[test]
 fn resize_pads_and_truncates() {
     let mut r = Row::new(3);
-    let mut blank = Cell::default();
-    blank.bg = Color::Indexed(2);
+    let blank = Cell { bg: Color::Indexed(2), ..Default::default() };
     r.resize(6, blank);
     assert_eq!(r.len(), 6);
     assert_eq!(r.cells[5].bg, Color::Indexed(2));

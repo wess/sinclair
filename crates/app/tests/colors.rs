@@ -97,10 +97,12 @@ fn truecolor_passes_through() {
 
 #[test]
 fn config_overrides_apply() {
-    let mut opts = config::Options::default();
-    opts.foreground = Some("#102030".to_string());
-    opts.background = Some("#abcdef".to_string());
-    opts.palette = vec![(1, "#ff0000".to_string()), (200, "#00ff00".to_string())];
+    let opts = config::Options {
+        foreground: Some("#102030".to_string()),
+        background: Some("#abcdef".to_string()),
+        palette: vec![(1, "#ff0000".to_string()), (200, "#00ff00".to_string())],
+        ..Default::default()
+    };
     let c = from_config(&opts, true);
     assert_eq!(c.fg, Rgb::new(0x10, 0x20, 0x30));
     assert_eq!(c.bg, Rgb::new(0xab, 0xcd, 0xef));
@@ -118,9 +120,11 @@ fn selection_colors_come_from_scheme() {
 
 #[test]
 fn bad_config_colors_fall_back() {
-    let mut opts = config::Options::default();
-    opts.foreground = Some("nonsense".to_string());
-    opts.palette = vec![(1, "alsobad".to_string())];
+    let opts = config::Options {
+        foreground: Some("nonsense".to_string()),
+        palette: vec![(1, "alsobad".to_string())],
+        ..Default::default()
+    };
     let c = from_config(&opts, true);
     let scheme = theme::default_scheme();
     assert_eq!(c.fg, scheme.foreground);
