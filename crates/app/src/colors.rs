@@ -43,13 +43,19 @@ pub fn from_config(opts: &config::Options, dark: bool) -> Colors {
         palette: theme::build(scheme, &overrides),
         fg: parse(&opts.foreground, scheme.foreground),
         bg: parse(&opts.background, scheme.background),
-        cursor: scheme.cursor,
-        cursor_text: scheme.cursor_text,
+        cursor: parse(&opts.cursor_color, scheme.cursor),
+        cursor_text: parse(&opts.cursor_text, scheme.cursor_text),
         selection_bg: scheme.selection_background,
         selection_fg: scheme.selection_foreground,
         min_contrast: opts.minimum_contrast,
     }
 }
+
+/// Contrast floor the cursor keeps against the cell it covers. Unlike
+/// `minimum_contrast` (opt-in, for text) this is always on: themes pick their
+/// cursor color against the theme background, but full-screen programs paint
+/// their own cell backgrounds and can otherwise swallow the cursor entirely.
+pub const CURSOR_MIN_CONTRAST: f32 = 3.0;
 
 /// Relative luminance (WCAG) of an sRGB color, 0.0 (black) .. 1.0 (white).
 fn luminance(c: Rgb) -> f32 {

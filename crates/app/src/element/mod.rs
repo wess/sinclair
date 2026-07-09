@@ -54,8 +54,8 @@ pub struct TerminalElement {
     copy_on_select: bool,
     smart_select: bool,
     middle_click_paste: bool,
-    /// Whether this pane holds keyboard focus; an unfocused pane paints no
-    /// cursor, so the active pane is unambiguous in a split.
+    /// Whether this pane holds keyboard focus; an unfocused pane paints a
+    /// hollow cursor, so the active pane is unambiguous in a split.
     focused: bool,
     search: Option<SearchQuery>,
     /// Autosuggestion ghost suffix drawn dimmed at the cursor, if any.
@@ -122,6 +122,8 @@ pub(crate) struct CursorFrame {
     bounds: Bounds<Pixels>,
     color: Hsla,
     glyph: Option<(Point<Pixels>, ShapedLine)>,
+    /// Outline only (unfocused pane): the glyph beneath shows through.
+    hollow: bool,
 }
 
 impl Element for TerminalElement {
@@ -263,11 +265,12 @@ impl Element for TerminalElement {
             })
             .collect();
 
-        // Only the focused pane draws a cursor; an unfocused split shows none.
-        let cursor = self
-            .focused
-            .then(|| snap.cursor.as_ref().filter(|c| c.row < rows && c.col < cols))
-            .flatten()
+        // The focused pane draws a filled cursor; an unfocused pane keeps a
+        // hollow outline so the cursor stays findable after a focus switch.
+        let cursor = snap
+            .cursor
+            .as_ref()
+            .filter(|c| c.row < rows && c.col < cols)
             .map(|c| self.cursor_frame(c, origin, window));
 
         // Ghost text: dimmed suggestion suffix starting at the cursor cell.
@@ -336,11 +339,22 @@ impl Element for TerminalElement {
                     .ok();
             }
             if let Some(cursor) = &frame.cursor {
-                window.paint_quad(fill(cursor.bounds, cursor.color));
-                if let Some((pos, glyph)) = &cursor.glyph {
-                    glyph
-                        .paint(*pos, line_height, TextAlign::Left, None, window, cx)
-                        .ok();
+                if cursor.hollow {
+                    window.paint_quad(gpui::quad(
+                        cursor.bounds,
+                        Corners::default(),
+                        gpui::transparent_black(),
+                        gpui::Edges::all(px(1.5)),
+                        cursor.color,
+                        gpui::BorderStyle::default(),
+                    ));
+                } else {
+                    window.paint_quad(fill(cursor.bounds, cursor.color));
+                    if let Some((pos, glyph)) = &cursor.glyph {
+                        glyph
+                            .paint(*pos, line_height, TextAlign::Left, None, window, cx)
+                            .ok();
+                    }
                 }
             }
             if let Some(indicator) = frame.indicator {

@@ -106,6 +106,33 @@ fn snapshot_cursor_honors_osc12_color() {
 }
 
 #[test]
+fn snapshot_cursor_keeps_contrast_over_painted_background() {
+    let colors = test_colors();
+    // A full-screen program paints the cell under the cursor the same color
+    // as the theme cursor (white on the default dark scheme).
+    let mut term = vt::Terminal::new(20, 2, 0);
+    term.feed(b"\x1b[48;2;255;255;255m \x1b[0m\x1b[D");
+    let snap = take_snapshot(&mut term, &colors, None);
+    let cursor = snap.cursor.expect("cursor");
+    assert_eq!((cursor.row, cursor.col), (0, 0));
+    // The theme cursor would vanish on that cell: it must adjust.
+    assert_ne!(cursor.color, colors.cursor);
+}
+
+#[test]
+fn snapshot_cursor_contrast_sees_inverse_cells() {
+    let colors = test_colors();
+    // An inverse cell (how TUIs draw their own cursor) puts the theme
+    // foreground behind the cursor; the light theme cursor must adjust.
+    let mut term = vt::Terminal::new(20, 2, 0);
+    term.feed(b"\x1b[7mx\x1b[0m\x1b[D");
+    let snap = take_snapshot(&mut term, &colors, None);
+    let cursor = snap.cursor.expect("cursor");
+    assert_eq!((cursor.row, cursor.col), (0, 0));
+    assert_ne!(cursor.color, colors.cursor);
+}
+
+#[test]
 fn cursor_shape_mapping() {
     use config::CursorStyle as C;
     use vt::CursorStyle as V;

@@ -60,19 +60,35 @@ impl TerminalElement {
         );
         let width = if snap.wide { cell_w * 2.0 } else { cell_w };
         let color = colors::hsla(snap.color);
-        match cursor_shape(snap.style, self.cursor_default) {
-            config::CursorStyle::Bar => CursorFrame {
-                bounds: Bounds::new(cell_origin, size(px(2.0), cell_h)),
+        if !self.focused {
+            // Unfocused: a hollow block outline whatever the shape, so the
+            // cursor stays findable across splits and windows while the
+            // filled cursor still marks the active pane unambiguously.
+            return CursorFrame {
+                bounds: Bounds::new(cell_origin, size(width, cell_h)),
                 color,
                 glyph: None,
+                hollow: true,
+            };
+        }
+        // Bar/underline thickness scales with the cell so large fonts don't
+        // get a hairline cursor.
+        let thick = px((self.cell.width / 6.0).max(2.0));
+        match cursor_shape(snap.style, self.cursor_default) {
+            config::CursorStyle::Bar => CursorFrame {
+                bounds: Bounds::new(cell_origin, size(thick, cell_h)),
+                color,
+                glyph: None,
+                hollow: false,
             },
             config::CursorStyle::Underline => CursorFrame {
                 bounds: Bounds::new(
-                    point(cell_origin.x, cell_origin.y + cell_h - px(2.0)),
-                    size(width, px(2.0)),
+                    point(cell_origin.x, cell_origin.y + cell_h - thick),
+                    size(width, thick),
                 ),
                 color,
                 glyph: None,
+                hollow: false,
             },
             config::CursorStyle::Block => {
                 let glyph = (snap.ch != ' ').then(|| {
@@ -97,6 +113,7 @@ impl TerminalElement {
                     bounds: Bounds::new(cell_origin, size(width, cell_h)),
                     color,
                     glyph,
+                    hollow: false,
                 }
             }
         }

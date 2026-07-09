@@ -243,17 +243,37 @@ pub(crate) fn snapshot(
     let cursor = (term.cursor_visible() && term.display_offset() == 0).then(|| {
         let (row, col) = term.cursor_pos();
         let cell = term.cell(row, col);
+        // Resolve the effective background under the cursor (inverse and
+        // selection included): full-screen programs paint their own cell
+        // backgrounds, so the cursor must keep contrast against those, not
+        // just the theme background.
+        let mut cell_bg = if cell.flags.contains(CellFlags::INVERSE) {
+            let bold = cell.flags.contains(CellFlags::BOLD);
+            colors::cell_rgb(cell.fg, colors.fg, bold, &colors.palette, ovr)
+        } else {
+            colors::cell_rgb(cell.bg, colors.bg, false, &colors.palette, ovr)
+        };
+        if selection
+            .as_ref()
+            .is_some_and(|sel| sel.contains(metrics::selection_point(row, col, offset)))
+        {
+            cell_bg = colors.selection_bg;
+        }
+        let color = term
+            .cursor_color()
+            .map(|(r, g, b)| Rgb::new(r, g, b))
+            .unwrap_or(colors.cursor);
+        let color = colors::enforce_contrast(color, cell_bg, colors::CURSOR_MIN_CONTRAST);
+        let text_color =
+            colors::enforce_contrast(colors.cursor_text, color, colors::CURSOR_MIN_CONTRAST);
         CursorSnap {
             row,
             col,
             style: term.cursor_style(),
             wide: cell.is_wide(),
             ch: cell.ch,
-            color: term
-                .cursor_color()
-                .map(|(r, g, b)| Rgb::new(r, g, b))
-                .unwrap_or(colors.cursor),
-            text_color: colors.cursor_text,
+            color,
+            text_color,
         }
     });
 

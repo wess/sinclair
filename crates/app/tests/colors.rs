@@ -111,6 +111,25 @@ fn config_overrides_apply() {
 }
 
 #[test]
+fn cursor_overrides_apply() {
+    let opts = config::Options {
+        cursor_color: Some("#ff00ff".to_string()),
+        cursor_text: Some("#001122".to_string()),
+        ..Default::default()
+    };
+    let c = from_config(&opts, true);
+    assert_eq!(c.cursor, Rgb::new(0xff, 0x00, 0xff));
+    assert_eq!(c.cursor_text, Rgb::new(0x00, 0x11, 0x22));
+    // Bad values fall back to the scheme.
+    let opts = config::Options {
+        cursor_color: Some("nonsense".to_string()),
+        ..Default::default()
+    };
+    let c = from_config(&opts, true);
+    assert_eq!(c.cursor, theme::default_scheme().cursor);
+}
+
+#[test]
 fn selection_colors_come_from_scheme() {
     let c = colors();
     let scheme = theme::default_scheme();
