@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Triggers, notifications &amp; annotations — Prompt docs</title>
+    <title>Triggers, notifications &amp; annotations — Sinclair docs</title>
     <meta name="description" content="Stay aware of what your terminal is doing: fire notifications on output triggers, post banners from a script, stamp scrollback with relative times, pin line annotations, watermark panes, and roll every tab up in the Activity dashboard.">
     <meta name="theme-color" content="#05070c">
     <link rel="icon" href="icon.png">
@@ -39,7 +39,7 @@
           title; the <strong>matched line becomes the notification body</strong>. Add a
           couple to your config:
         </p>
-        <pre><code><span class="c"># ~/.config/prompt/config</span>
+        <pre><code><span class="c"># ~/.config/sinclair/config</span>
 trigger = error|Build failed
 trigger = \bDONE\b | Job finished</code></pre>
         <p>
@@ -65,18 +65,18 @@ trigger = \bDONE\b | Job finished</code></pre>
           scripts and agent hooks that can't easily emit an escape sequence, post one straight
           from the command line:
         </p>
-        <pre><code>prompt notify --title "Deploy" "Production is live"</code></pre>
+        <pre><code>sinclair notify --title "Deploy" "Production is live"</code></pre>
         <p>
-          The general form is <code>prompt notify [--title T] &lt;message&gt;</code>. Drop it
+          The general form is <code>sinclair notify [--title T] &lt;message&gt;</code>. Drop it
           at the end of a slow script and you'll hear about it wherever you are:
         </p>
-        <pre><code>./scripts/migrate.sh &amp;&amp; prompt notify "Migration complete"</code></pre>
+        <pre><code>./scripts/migrate.sh &amp;&amp; sinclair notify "Migration complete"</code></pre>
         <p>
           The awareness carries into the tab strip, too. When a <strong>background</strong>
           tab posts a notification, it grows a <strong>yellow attention dot</strong> that
           stays until you focus that tab — so even if you missed the banner, you can see at a
           glance which session was trying to reach you. See the <a href="cli.html">CLI</a>
-          page for <code>prompt notify</code>.
+          page for <code>sinclair notify</code>.
         </p>
 
         <h2>3. Stamp scrollback with relative times</h2>
@@ -84,7 +84,7 @@ trigger = \bDONE\b | Job finished</code></pre>
           "How long ago did that line print?" is a question you ask constantly while a job
           churns. Answer it permanently with one config key:
         </p>
-        <pre><code><span class="c"># ~/.config/prompt/config</span>
+        <pre><code><span class="c"># ~/.config/sinclair/config</span>
 timestamps = true</code></pre>
         <p>
           Now each scrollback row carries a faint relative time beside it —
@@ -115,7 +115,7 @@ timestamps = true</code></pre>
           <code>badge</code> to any text, and <code>{cwd}</code> and <code>{host}</code> are
           substituted per pane:
         </p>
-        <pre><code><span class="c"># ~/.config/prompt/config</span>
+        <pre><code><span class="c"># ~/.config/sinclair/config</span>
 badge = {host} · {cwd}</code></pre>
         <p>
           Every pane now quietly labels itself with its own host and working directory. It

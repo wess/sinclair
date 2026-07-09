@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Install — Prompt docs</title>
-    <meta name="description" content="Install Prompt on macOS with Homebrew or the DMG, on Linux with the AppImage/deb/tarball, or build it from source.">
+    <title>Install — Sinclair docs</title>
+    <meta name="description" content="Install Sinclair on macOS with Homebrew or the DMG, on Linux with the AppImage/deb/tarball, or build it from source.">
     <meta name="theme-color" content="#05070c">
     <link rel="icon" href="icon.png">
     <link rel="stylesheet" href="style.css">
@@ -17,18 +17,18 @@
         <p class="kicker">Getting started</p>
         <h1>Install</h1>
         <p class="lede">
-          Prompt ships from GitHub releases with a Homebrew cask for macOS and
+          Sinclair ships from GitHub releases with a Homebrew cask for macOS and
           AppImage, deb, and tarball packages for Linux on both x86_64 and aarch64.
           You can also build it from source.
         </p>
 
         <h2>macOS</h2>
-        <p>The Homebrew cask is the simplest path and keeps Prompt up to date:</p>
-        <pre><code>brew install --cask wess/packages/prompt</code></pre>
+        <p>The Homebrew cask is the simplest path and keeps Sinclair up to date:</p>
+        <pre><code>brew install --cask wess/packages/sinclair</code></pre>
         <p>
-          Prefer a direct download? Grab the latest <code>Prompt.dmg</code> from the
-          <a href="https://github.com/wess/prompt/releases">releases page</a>, open it,
-          and drag <strong>Prompt.app</strong> into <code>/Applications</code>.
+          Prefer a direct download? Grab the latest <code>Sinclair.dmg</code> from the
+          <a href="https://github.com/wess/sinclair/releases">releases page</a>, open it,
+          and drag <strong>Sinclair.app</strong> into <code>/Applications</code>.
         </p>
         <div class="callout note">
           <span class="label">Note</span>
@@ -43,27 +43,27 @@
         </p>
 
         <h3>AppImage (no install)</h3>
-        <pre><code>chmod +x Prompt-*-x86_64.AppImage
-./Prompt-*-x86_64.AppImage</code></pre>
+        <pre><code>chmod +x Sinclair-*-x86_64.AppImage
+./Sinclair-*-x86_64.AppImage</code></pre>
 
         <h3>Debian / Ubuntu (.deb)</h3>
         <pre><code>sudo apt install ./prompt_*_amd64.deb</code></pre>
 
         <h3>Tarball</h3>
-        <pre><code>tar xzf prompt-*-linux-x86_64.tar.gz
+        <pre><code>tar xzf sinclair-*-linux-x86_64.tar.gz
 # run it directly…
-./prompt-*-linux-x86_64/usr/bin/prompt
+./sinclair-*-linux-x86_64/usr/bin/sinclair
 # …or install the tree under /usr/local
 </code></pre>
 
         <h2>From source</h2>
         <p>
-          Prompt is a Cargo workspace. The GUI lives in the <code>app</code> crate and
-          the shipped binary is <code>prompt</code>. A recent stable Rust toolchain is
+          Sinclair is a Cargo workspace. The GUI lives in the <code>app</code> crate and
+          the shipped binary is <code>sinclair</code>. A recent stable Rust toolchain is
           required.
         </p>
-        <pre><code>git clone https://github.com/wess/prompt
-cd prompt
+        <pre><code>git clone https://github.com/wess/sinclair
+cd sinclair
 cargo run -p app --release</code></pre>
 
         <p>To assemble distributable packages locally:</p>
@@ -73,8 +73,8 @@ cargo run -p app --release</code></pre>
               <tr><th>Command</th><th>Produces</th></tr>
             </thead>
             <tbody>
-              <tr><td><code>scripts/bundle.sh</code></td><td>A release build assembled into <code>dist/Prompt.app</code> (macOS).</td></tr>
-              <tr><td><code>scripts/dmg.sh</code></td><td><code>dist/Prompt.dmg</code> (run <code>bundle.sh</code> first).</td></tr>
+              <tr><td><code>scripts/bundle.sh</code></td><td>A release build assembled into <code>dist/Sinclair.app</code> (macOS).</td></tr>
+              <tr><td><code>scripts/dmg.sh</code></td><td><code>dist/Sinclair.dmg</code> (run <code>bundle.sh</code> first).</td></tr>
               <tr><td><code>scripts/linux.sh [x86_64|aarch64]</code></td><td><code>.tar.gz</code>, <code>.deb</code>, and <code>.AppImage</code> (Linux).</td></tr>
             </tbody>
           </table>
@@ -82,7 +82,7 @@ cargo run -p app --release</code></pre>
 
         <h2>First run</h2>
         <p>
-          Launch Prompt and you get a single tab running your login shell. From here:
+          Launch Sinclair and you get a single tab running your login shell. From here:
         </p>
         <ul>
           <li>Open the in-app settings with <kbd>⌘,</kbd>, or edit the config file directly — see <a href="configuration.html">Configuration</a>.</li>
@@ -91,18 +91,18 @@ cargo run -p app --release</code></pre>
         </ul>
         <div class="callout tip">
           <span class="label">Tip</span>
-          <p>Config changes apply live — there's no need to restart Prompt after editing
+          <p>Config changes apply live — there's no need to restart Sinclair after editing
           your theme, fonts, padding, or keybindings.</p>
         </div>
 
-        <h2>Keeping Prompt up to date</h2>
-        <p>Prompt checks GitHub for a newer release on launch and once an hour, and offers to update when one is available. You can also check any time from <strong>Prompt → Check for Updates…</strong>. Turn the automatic check off with <code>auto-update = false</code>.</p>
-        <p>How the update is applied depends on how you installed Prompt:</p>
+        <h2>Keeping Sinclair up to date</h2>
+        <p>Sinclair checks GitHub for a newer release on launch and once an hour, and offers to update when one is available. You can also check any time from <strong>Sinclair → Check for Updates…</strong>. Turn the automatic check off with <code>auto-update = false</code>.</p>
+        <p>How the update is applied depends on how you installed Sinclair:</p>
         <ul>
-          <li><strong>Homebrew</strong> — Prompt runs <code>brew upgrade --cask prompt</code> in a new tab, so the cask stays the source of truth.</li>
-          <li><strong>Debian/Ubuntu (<code>.deb</code>)</strong> — Prompt shows the <code>apt</code> upgrade command to run.</li>
-          <li><strong>Manual <code>.dmg</code></strong> — Prompt downloads the notarized disk image, swaps the app in place, and relaunches into the new version.</li>
-          <li><strong>AppImage</strong> — Prompt downloads the new image, replaces the running one, and relaunches.</li>
+          <li><strong>Homebrew</strong> — Sinclair runs <code>brew upgrade --cask prompt</code> in a new tab, so the cask stays the source of truth.</li>
+          <li><strong>Debian/Ubuntu (<code>.deb</code>)</strong> — Sinclair shows the <code>apt</code> upgrade command to run.</li>
+          <li><strong>Manual <code>.dmg</code></strong> — Sinclair downloads the notarized disk image, swaps the app in place, and relaunches into the new version.</li>
+          <li><strong>AppImage</strong> — Sinclair downloads the new image, replaces the running one, and relaunches.</li>
         </ul>
         <div class="callout note"><span class="label">Note</span><p>Package-managed installs always defer to the package manager rather than swapping the binary themselves, so <code>brew</code>/<code>apt</code> never lose track of what's installed.</p></div>
       </article>

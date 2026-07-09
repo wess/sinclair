@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Your first 10 minutes — Prompt docs</title>
-    <meta name="description" content="A hands-on quickstart for Prompt: install it, open splits and tabs, switch themes live, edit the config, and learn the two shortcuts that unlock everything else.">
+    <title>Your first 10 minutes — Sinclair docs</title>
+    <meta name="description" content="A hands-on quickstart for Sinclair: install it, open splits and tabs, switch themes live, edit the config, and learn the two shortcuts that unlock everything else.">
     <meta name="theme-color" content="#05070c">
     <link rel="icon" href="icon.png">
     <link rel="stylesheet" href="style.css">
@@ -15,9 +15,9 @@
     <main id="doc-main" class="doc-main">
       <article class="doc-article" data-doc-page="quickstart">
         <p class="kicker">Tutorial</p>
-        <h1>Your first 10 minutes with Prompt</h1>
+        <h1>Your first 10 minutes with Sinclair</h1>
         <p class="lede">
-          By the end of this you'll have Prompt installed, a couple of shells running
+          By the end of this you'll have Sinclair installed, a couple of shells running
           side by side, your favorite theme applied, and the two keystrokes that let you
           reach every other feature without memorizing anything. No configuration required
           to start — but you'll edit the config once, just to see how fast it reloads.
@@ -31,18 +31,18 @@
 
         <h2>1. Install and launch</h2>
         <p>On macOS, install the Homebrew cask:</p>
-        <pre><code>brew install --cask wess/packages/prompt</code></pre>
+        <pre><code>brew install --cask wess/packages/sinclair</code></pre>
         <p>
           On Linux, grab the AppImage, <code>.deb</code>, or tarball from the
-          <a href="https://github.com/wess/prompt/releases">releases page</a> — full steps
-          are on the <a href="install.html">Install</a> page. Open Prompt and you get one
+          <a href="https://github.com/wess/sinclair/releases">releases page</a> — full steps
+          are on the <a href="install.html">Install</a> page. Open Sinclair and you get one
           window running your login shell. That's the whole setup; everything below happens
           inside that window.
         </p>
 
         <h2>2. Split the window</h2>
         <p>
-          Every pane in Prompt is a full, independent shell. Make a second one beside the
+          Every pane in Sinclair is a full, independent shell. Make a second one beside the
           first with <kbd>⌘D</kbd>, and a third underneath with <kbd>⌘⇧D</kbd>:
         </p>
         <div class="tablewrap">
@@ -85,10 +85,10 @@
         <p>
           Open settings with <kbd>⌘,</kbd> and pick from 22 built-in color schemes. The
           window repaints the instant you choose one — no restart. Prefer to follow your
-          system? Prompt can track the OS light/dark setting and switch automatically.
+          system? Sinclair can track the OS light/dark setting and switch automatically.
           Everything is also a plain config key, so a theme is one line:
         </p>
-        <pre><code><span class="c"># ~/.config/prompt/config</span>
+        <pre><code><span class="c"># ~/.config/sinclair/config</span>
 theme = "Catppuccin Mocha"</code></pre>
         <p>
           You can override individual colors, set transparency, drop in a background image,
@@ -98,12 +98,12 @@ theme = "Catppuccin Mocha"</code></pre>
 
         <h2>5. Edit the config and watch it reload</h2>
         <p>
-          Prompt's settings live in a readable text file at
-          <code>~/.config/prompt/config</code> (or <code>$XDG_CONFIG_HOME/prompt/config</code>).
+          Sinclair's settings live in a readable text file at
+          <code>~/.config/sinclair/config</code> (or <code>$XDG_CONFIG_HOME/sinclair/config</code>).
           It's watched live: <strong>save the file and the change applies immediately</strong>,
           no relaunch. Try a few:
         </p>
-        <pre><code><span class="c"># ~/.config/prompt/config</span>
+        <pre><code><span class="c"># ~/.config/sinclair/config</span>
 font-family = "JetBrains Mono"
 font-size = 14
 window-inherit-working-directory = true   <span class="c"># new tabs open in the current dir</span>
@@ -133,7 +133,7 @@ session-restore = true                     <span class="c"># reopen tabs &amp; s
 
         <h2>7. Two niceties you'll use constantly</h2>
         <ul>
-          <li><strong>Autosuggestions.</strong> As you type, Prompt completes your command
+          <li><strong>Autosuggestions.</strong> As you type, Sinclair completes your command
           from history, common commands, and paths as faint ghost text. Accept the whole
           thing with <kbd>→</kbd>. (Optional completion popup, Tab-cycling, and an AI
           fallback each toggle on their own — see <a href="productivity.html">Productivity</a>.)</li>
@@ -146,7 +146,7 @@ session-restore = true                     <span class="c"># reopen tabs &amp; s
         <p>You now know your way around. Two good directions:</p>
         <div class="cards">
           <a href="productivity.html"><strong>Go deeper on the terminal</strong>Hint mode, copy mode, clipboard history, snippets, redaction, triggers, recording, and more.</a>
-          <a href="agentteams.html"><strong>Run an agent team</strong>The reason a lot of people install Prompt — coordinate multiple coding agents in real panes.</a>
+          <a href="agentteams.html"><strong>Run an agent team</strong>The reason a lot of people install Sinclair — coordinate multiple coding agents in real panes.</a>
         </div>
       </article>
     </main>

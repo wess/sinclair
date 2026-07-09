@@ -4,7 +4,7 @@
 use crate::{fetch, semver};
 
 /// The GitHub repo releases are published to.
-const REPO: &str = "wess/prompt";
+const REPO: &str = "wess/sinclair";
 
 /// A published release.
 #[derive(Clone, Debug, PartialEq, Eq)]

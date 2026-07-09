@@ -2,7 +2,7 @@
 //! own `plugins/` directory on GitHub. Browsing reads the GitHub contents API;
 //! installing downloads a plugin folder's files into the user's plugin dir.
 //!
-//! The source repo is fixed (`wess/prompt`) — we never fetch from an arbitrary
+//! The source repo is fixed (`wess/sinclair`) — we never fetch from an arbitrary
 //! location — and plugin names are validated before they touch the filesystem.
 
 use std::path::PathBuf;
@@ -10,7 +10,7 @@ use std::process::Command;
 
 use serde_json::Value;
 
-const REPO: &str = "wess/prompt";
+const REPO: &str = "wess/sinclair";
 
 /// Names of plugins available in the catalog (the directories under `plugins/`),
 /// sorted. Hits the GitHub contents API via `curl`.
@@ -29,7 +29,7 @@ pub fn list() -> Result<Vec<String>, String> {
 }
 
 /// Download every file of catalog plugin `name` into
-/// `~/.config/prompt/plugins/<name>`. Only flat plugin folders are supported.
+/// `~/.config/sinclair/plugins/<name>`. Only flat plugin folders are supported.
 pub fn install(name: &str) -> Result<PathBuf, String> {
     if !valid_name(name) {
         return Err(format!("invalid plugin name {name:?}"));
@@ -134,7 +134,7 @@ pub(crate) fn fetch(url: &str) -> Result<Vec<u8>, String> {
             "-H",
             "Accept: application/vnd.github+json",
             "-H",
-            "User-Agent: prompt-terminal",
+            "User-Agent: sinclair-terminal",
             "--",
             url,
         ])

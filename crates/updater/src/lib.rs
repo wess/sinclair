@@ -21,15 +21,22 @@
 //! - Anything else ([`Install::Unknown`]: a root-owned distro package, a dev
 //!   build, Windows) can't be rewritten in place — the UI opens the release
 //!   page instead.
+//!
+//! [`migrate_bundle`] is the one exception to "never touch the bundle
+//! directory", and it runs at startup rather than during an install: a
+//! `Prompt.app` that has already updated its *contents* to Sinclair renames
+//! itself once and relaunches at the new path. See [`migrate`].
 
 mod appimage;
 mod fetch;
 mod install;
 mod mac;
+mod migrate;
 mod release;
 mod semver;
 
 pub use install::{detect, install, Install, Relaunch};
+pub use migrate::migrate_bundle;
 pub use release::{check, Release};
 pub use semver::is_newer;
 

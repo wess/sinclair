@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Agent status at a glance — Prompt docs</title>
+    <title>Agent status at a glance — Sinclair docs</title>
     <meta name="description" content="Wire Claude Code's lifecycle hooks so every pane shows a live status dot — working, blocked, done, or idle — and roll them up in the Activity panel and the mesh.">
     <meta name="theme-color" content="#05070c">
     <link rel="icon" href="icon.png">
@@ -18,7 +18,7 @@
         <h1>Agent status at a glance</h1>
         <p class="lede">
           When you're running more than one agent, the hardest part isn't the work — it's
-          knowing <em>which one needs you</em>. Prompt gives every pane a semantic status
+          knowing <em>which one needs you</em>. Sinclair gives every pane a semantic status
           dot: working, blocked, done, or idle. This walkthrough wires Claude Code's
           lifecycle hooks so that dot updates itself, then shows how to report status from
           anything else — a script, a build, or an agent on the mesh.
@@ -52,17 +52,17 @@
         <p>
           One command wires Claude Code to report its state automatically:
         </p>
-        <pre><code>prompt agent-hooks install</code></pre>
+        <pre><code>sinclair agent-hooks install</code></pre>
         <p>
           That writes a few hook entries into your Claude Code settings
           (<code>~/.claude/settings.json</code>). It's <strong>idempotent</strong> — running
           it again changes nothing — and the uninstall is surgical, touching only the entries
-          Prompt added. To scope the hooks to just the current repository instead, add
+          Sinclair added. To scope the hooks to just the current repository instead, add
           <code>--project</code> (they land in the repo's
           <code>.claude/settings.json</code>, which you can commit so your whole team gets
           them):
         </p>
-        <pre><code>prompt agent-hooks install --project</code></pre>
+        <pre><code>sinclair agent-hooks install --project</code></pre>
 
         <h2>3. See it work</h2>
         <p>
@@ -77,7 +77,7 @@
         <h2>4. What actually got wired</h2>
         <p>
           No magic — the hooks just map Claude Code's lifecycle events onto states, each one
-          shelling out to <code>prompt agent-status</code>:
+          shelling out to <code>sinclair agent-status</code>:
         </p>
         <div class="tablewrap">
           <table>
@@ -91,8 +91,8 @@
           </table>
         </div>
         <p>
-          The report travels over Prompt's single-instance socket and is addressed by a
-          <code>PROMPT_PANE</code> token that every session gets in its environment — that's
+          The report travels over Sinclair's single-instance socket and is addressed by a
+          <code>SINCLAIR_PANE</code> token that every session gets in its environment — that's
           how the status lands on the <em>right</em> tab even when it comes from a background
           hook process.
         </p>
@@ -103,15 +103,15 @@
           which is handy for a long build, a deploy script, or a coding tool that isn't
           Claude Code:
         </p>
-        <pre><code>prompt agent-status working
+        <pre><code>sinclair agent-status working
 long-build-or-deploy
-prompt agent-status done</code></pre>
+sinclair agent-status done</code></pre>
         <p>
           It's best-effort and never blocks — if no window is listening it just exits.
           Optional flags let a wrapper target a specific pane or thread a session id:
           <code>--pane &lt;token&gt;</code>, <code>--name &lt;n&gt;</code>,
           <code>--session &lt;id&gt;</code>. See the
-          <a href="cli.html#prompt-agent-status">CLI reference</a>.
+          <a href="cli.html#sinclair-agent-status">CLI reference</a>.
         </p>
 
         <h2>6. Status on the mesh</h2>
@@ -133,9 +133,9 @@ wait_status(name: "backend",  status: "done")</code></pre>
         </p>
 
         <h2>7. Removing the hooks</h2>
-        <p>Changed your mind, or want them out of a repo? The uninstall removes only Prompt's entries:</p>
-        <pre><code>prompt agent-hooks uninstall
-prompt agent-hooks uninstall --project   <span class="c"># the project-scoped ones</span></code></pre>
+        <p>Changed your mind, or want them out of a repo? The uninstall removes only Sinclair's entries:</p>
+        <pre><code>sinclair agent-hooks uninstall
+sinclair agent-hooks uninstall --project   <span class="c"># the project-scoped ones</span></code></pre>
 
         <h2>Where to next</h2>
         <div class="cards">

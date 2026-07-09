@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Themes, fonts &amp; appearance — Prompt docs</title>
-    <meta name="description" content="A hands-on walkthrough for making Prompt yours: pick a theme, follow the OS light/dark, override individual colors, tune fonts and ligatures, style the cursor, add transparency and a background image, and polish the padding — every setting live the moment you save.">
+    <title>Themes, fonts &amp; appearance — Sinclair docs</title>
+    <meta name="description" content="A hands-on walkthrough for making Sinclair yours: pick a theme, follow the OS light/dark, override individual colors, tune fonts and ligatures, style the cursor, add transparency and a background image, and polish the padding — every setting live the moment you save.">
     <meta name="theme-color" content="#05070c">
     <link rel="icon" href="icon.png">
     <link rel="stylesheet" href="style.css">
@@ -15,9 +15,9 @@
     <main id="doc-main" class="doc-main">
       <article class="doc-article" data-doc-page="appearance">
         <p class="kicker">Tutorial</p>
-        <h1>Make Prompt yours: themes, fonts &amp; appearance</h1>
+        <h1>Make Sinclair yours: themes, fonts &amp; appearance</h1>
         <p class="lede">
-          This is the fun part. Everything that shapes how Prompt looks — the theme, the
+          This is the fun part. Everything that shapes how Sinclair looks — the theme, the
           colors, the typeface, the cursor, transparency, padding — is a plain line in your
           config file, and <strong>every one of them applies live the moment you save</strong>.
           No restart, no reload dance. Keep the file open in one pane, edit in another, and
@@ -26,15 +26,15 @@
 
         <div class="callout note">
           <span class="label">Note</span>
-          <p>The config lives at <code>~/.config/prompt/config</code> (or
-          <code>$XDG_CONFIG_HOME/prompt/config</code>). It's watched live — save and the
+          <p>The config lives at <code>~/.config/sinclair/config</code> (or
+          <code>$XDG_CONFIG_HOME/sinclair/config</code>). It's watched live — save and the
           change is on screen instantly. A bad line never aborts the load; it just becomes a
           diagnostic while the rest applies.</p>
         </div>
 
         <h2>1. Pick a theme</h2>
         <p>
-          Start with a base. The <code>theme</code> key takes any of Prompt's <strong>22
+          Start with a base. The <code>theme</code> key takes any of Sinclair's <strong>22
           hand-tuned built-ins</strong> — a big enough library that you'll almost certainly
           find one you like before you touch a single color:
         </p>
@@ -86,12 +86,12 @@
 
         <h2>2. Follow the OS light/dark automatically</h2>
         <p>
-          If your desktop flips between light and dark through the day, Prompt can follow it.
+          If your desktop flips between light and dark through the day, Sinclair can follow it.
           Set <code>theme-light</code> and <code>theme-dark</code> to a scheme each, and
-          Prompt watches the OS appearance and rebuilds its colors live when it flips —
+          Sinclair watches the OS appearance and rebuilds its colors live when it flips —
           picking the matching one, no restart and no manual toggle:
         </p>
-        <pre><code><span class="c"># ~/.config/prompt/config</span>
+        <pre><code><span class="c"># ~/.config/sinclair/config</span>
 theme-light = github light
 theme-dark  = github dark</code></pre>
         <p>
@@ -231,7 +231,7 @@ cursor-text = #0b0e14</code></pre>
           <li><code>badge</code> paints a faint watermark in each pane's corner, with
           <code>{cwd}</code> and <code>{host}</code> substituted per pane.</li>
         </ul>
-        <pre><code><span class="c"># ~/.config/prompt/config</span>
+        <pre><code><span class="c"># ~/.config/sinclair/config</span>
 background-opacity = 0.85
 background-image = ~/Pictures/wallpaper.png
 minimum-contrast = 4.5

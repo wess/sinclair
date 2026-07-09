@@ -102,7 +102,7 @@ pub struct AgentArgs {
 pub enum TeamCmd {
     /// List teams (project, user, built-in).
     List {
-        /// Emit JSON (for Prompt).
+        /// Emit JSON (for Sinclair).
         #[arg(long)]
         json: bool,
     },
@@ -130,7 +130,7 @@ pub enum TeamCmd {
         #[arg(long)]
         user: bool,
     },
-    /// Save a team from a JSON spec on stdin (non-interactive; used by Prompt's
+    /// Save a team from a JSON spec on stdin (non-interactive; used by Sinclair's
     /// team builder). JSON: {name, layout, members:[{name, role, agent}]}.
     Save {
         /// Write to the user dir instead of the project (./.relay/teams).
@@ -143,7 +143,7 @@ pub enum TeamCmd {
 pub enum RoleCmd {
     /// List available roles (project, user, built-in).
     List {
-        /// Emit JSON (for Prompt).
+        /// Emit JSON (for Sinclair).
         #[arg(long)]
         json: bool,
     },

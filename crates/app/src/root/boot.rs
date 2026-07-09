@@ -18,10 +18,10 @@ pub(crate) fn loadplugins(opts: &config::Options) -> Vec<plugin::Plugin> {
     let (plugins, diags) = plugin::load(&opts.plugin);
     for d in &diags {
         if d.line == 0 {
-            eprintln!("prompt: plugin {}: {}", d.path.display(), d.message);
+            eprintln!("sinclair: plugin {}: {}", d.path.display(), d.message);
         } else {
             eprintln!(
-                "prompt: plugin {} line {}: {}",
+                "sinclair: plugin {} line {}: {}",
                 d.path.display(),
                 d.line,
                 d.message

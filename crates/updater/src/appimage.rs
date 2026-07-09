@@ -11,7 +11,7 @@ pub(crate) fn install(release: &Release, target: &Path) -> Result<Relaunch, Stri
     let url = release.asset(".AppImage").ok_or("release has no AppImage asset")?;
     // Stage *next to* the target, not in the temp dir: the final rename must
     // not cross filesystems (`/tmp` is often tmpfs), or it fails with EXDEV.
-    let name = target.file_name().and_then(|n| n.to_str()).unwrap_or("Prompt.AppImage");
+    let name = target.file_name().and_then(|n| n.to_str()).unwrap_or("Sinclair.AppImage");
     let staged = target.with_file_name(format!(".{name}.update"));
     fetch::file(url, &staged)?;
     promote(&staged, target)

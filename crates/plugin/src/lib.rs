@@ -1,4 +1,4 @@
-//! Manifest-based plugins for Prompt.
+//! Manifest-based plugins for Sinclair.
 //!
 //! A plugin is a directory containing `plugin.toml`. The first extension
 //! point is command contributions: plugins can expose shell commands, give

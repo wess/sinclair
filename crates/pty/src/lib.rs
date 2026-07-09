@@ -1,4 +1,4 @@
-//! Pseudo-terminal management for the Prompt terminal emulator.
+//! Pseudo-terminal management for the Sinclair terminal emulator.
 //!
 //! Open a pty, spawn a shell (or any argv) attached to it, and drive it: read
 //! child output, write input, resize, kill/wait. Two backends implement one

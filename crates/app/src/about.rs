@@ -1,4 +1,4 @@
-//! "About Prompt" panel, opened from the application menu, the macOS
+//! "About Sinclair" panel, opened from the application menu, the macOS
 //! convention of a small centered card showing the app icon, version, and
 //! build date. Static content; no interaction beyond closing the window.
 //!
@@ -23,10 +23,10 @@ const ICON: &[u8] = include_bytes!("../../../assets/icon.png");
 
 /// Compiled-in release metadata.
 const VERSION: &str = env!("CARGO_PKG_VERSION");
-const RELEASE_DATE: &str = env!("PROMPT_RELEASE_DATE");
+const RELEASE_DATE: &str = env!("SINCLAIR_RELEASE_DATE");
 
 /// Project home page, opened when the link is clicked.
-const REPO: &str = "https://github.com/wess/prompt";
+const REPO: &str = "https://github.com/wess/sinclair";
 
 /// Open the About panel centered over `parent`.
 pub fn open(parent: &Window, cx: &mut App) {
@@ -51,14 +51,14 @@ pub fn open(parent: &Window, cx: &mut App) {
             is_resizable: false,
             is_minimizable: false,
             titlebar: Some(TitlebarOptions {
-                title: Some("About Prompt".into()),
+                title: Some("About Sinclair".into()),
                 appears_transparent: true,
                 traffic_light_position: Some(point(px(12.0), px(12.0))),
             }),
             ..Default::default()
         },
         |window, cx| {
-            window.set_window_title("About Prompt");
+            window.set_window_title("About Sinclair");
             cx.new(|_| AboutView::new())
         },
     );
@@ -91,7 +91,7 @@ impl Render for AboutView {
             .pb(px(28.0))
             .px(px(28.0))
             .child(img(self.icon.clone()).w(px(128.0)).h(px(128.0)).mb_5())
-            .child(Title::new("Prompt").order(2))
+            .child(Title::new("Sinclair").order(2))
             .child(
                 div()
                     .mt_1()
@@ -106,7 +106,7 @@ impl Render for AboutView {
             )
             .child(
                 div().mt_3().child(
-                    Anchor::new("about-repo-link", "github.com/wess/prompt")
+                    Anchor::new("about-repo-link", "github.com/wess/sinclair")
                         .size(Size::Sm)
                         .on_click(|_: &ClickEvent, _, cx| cx.open_url(REPO)),
                 ),

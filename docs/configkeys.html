@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Configuration &amp; keybindings — Prompt docs</title>
-    <meta name="description" content="A hands-on walkthrough for configuring Prompt: where the config file lives, live reload, friendly diagnostics, the settings UI, and rebinding keys to any action.">
+    <title>Configuration &amp; keybindings — Sinclair docs</title>
+    <meta name="description" content="A hands-on walkthrough for configuring Sinclair: where the config file lives, live reload, friendly diagnostics, the settings UI, and rebinding keys to any action.">
     <meta name="theme-color" content="#05070c">
     <link rel="icon" href="icon.png">
     <link rel="stylesheet" href="style.css">
@@ -17,7 +17,7 @@
         <p class="kicker">Tutorial</p>
         <h1>Configuration &amp; keybindings</h1>
         <p class="lede">
-          Prompt reads a single plain-text file of <code>key = value</code> lines, and it
+          Sinclair reads a single plain-text file of <code>key = value</code> lines, and it
           watches that file while it runs. In this walkthrough you'll find the config, save a
           change and watch it apply live, see what happens when you fat-finger a line, and then
           rebind a key to any action in the catalog. Nothing here needs a restart — every save
@@ -32,8 +32,8 @@
 
         <h2>1. Find the config file</h2>
         <p>
-          Prompt loads its config from <code>$XDG_CONFIG_HOME/prompt/config</code>, falling back
-          to <code>~/.config/prompt/config</code> when <code>XDG_CONFIG_HOME</code> is unset. The
+          Sinclair loads its config from <code>$XDG_CONFIG_HOME/sinclair/config</code>, falling back
+          to <code>~/.config/sinclair/config</code> when <code>XDG_CONFIG_HOME</code> is unset. The
           file is created on demand, so you can start from an empty file — or none at all — and
           add only the keys you care about.
         </p>
@@ -44,14 +44,14 @@
           wins; a handful are <em>repeatable</em> (like <code>font-family</code> and
           <code>keybind</code>) and accumulate into a list. Save one line and see for yourself:
         </p>
-        <pre><code><span class="c"># ~/.config/prompt/config</span>
+        <pre><code><span class="c"># ~/.config/sinclair/config</span>
 theme = Catppuccin Mocha
 font-family = JetBrains Mono
 font-size = 14.0
 cursor-style = bar
 copy-on-select = true</code></pre>
         <p>
-          Prompt watches the file. Appearance settings — fonts, theme, colors, padding, cursor —
+          Sinclair watches the file. Appearance settings — fonts, theme, colors, padding, cursor —
           and keybindings <strong>take effect the moment you save</strong>, with no need to quit
           and relaunch.
         </p>
@@ -67,7 +67,7 @@ copy-on-select = true</code></pre>
           becomes a friendly diagnostic surfaced on startup, and the rest of the file is applied
           normally. Add a nonsense key and a broken one alongside your good keys:
         </p>
-        <pre><code><span class="c"># ~/.config/prompt/config</span>
+        <pre><code><span class="c"># ~/.config/sinclair/config</span>
 theme = Catppuccin Mocha
 fnot-size = 14.0        <span class="c"># unknown key → diagnostic, not a crash</span>
 font-size = huge        <span class="c"># malformed value → diagnostic, not a crash</span>
@@ -88,7 +88,7 @@ cursor-style = bar</code></pre>
 
         <h2>4. Rebind a key</h2>
         <p>
-          Every command in Prompt is an <em>action</em>, and any action can be bound to any key
+          Every command in Sinclair is an <em>action</em>, and any action can be bound to any key
           combination from your config. Keybindings live in the same file, on <code>keybind</code>
           lines. That key is <strong>repeatable</strong> — list as many as you like. Each binding
           is a single line:
@@ -143,7 +143,7 @@ keybind = cmd+shift+1=goto_tab:1</code></pre>
         <h2>5. Remove a default you never use</h2>
         <p>
           To reclaim a default shortcut, bind its trigger to the <code>unbind</code> action.
-          Prompt then stops handling that combination and lets it fall through — handy when you
+          Sinclair then stops handling that combination and lets it fall through — handy when you
           want a key back for the shell:
         </p>
         <pre><code><span class="c"># Reclaim Cmd+K for the shell</span>

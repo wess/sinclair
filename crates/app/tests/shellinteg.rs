@@ -17,7 +17,7 @@ fn zsh_sets_zdotdir_and_chains_original() {
     let env = |k: &str| (k == "ZDOTDIR").then(|| "/home/me/.zsh".to_string());
     let got = env_overrides("/bin/zsh", dir, env);
     assert!(got.contains(&("ZDOTDIR".to_string(), "/cfg/shell-integration".to_string())));
-    assert!(got.contains(&("PROMPT_ZDOTDIR".to_string(), "/home/me/.zsh".to_string())));
+    assert!(got.contains(&("SINCLAIR_ZDOTDIR".to_string(), "/home/me/.zsh".to_string())));
 }
 
 #[test]

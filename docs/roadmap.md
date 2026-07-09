@@ -1,6 +1,6 @@
 # prompt roadmap
 
-Prompt is a terminal emulator written in Rust.
+Sinclair is a terminal emulator written in Rust.
 
 - Feature target: a complete, modern terminal feature set
 - Architecture: Zed-style (https://github.com/zed-industries/zed) — a cargo
@@ -80,7 +80,7 @@ Conventions (non-negotiable):
   `docs/parity.md`, with implemented areas, partial areas, and the
   remaining gaps prioritized.
 - [x] **13. Plugin foundation** — manifest plugins under
-  `~/.config/prompt/plugins/*/plugin.toml` (plus explicit `plugin = path`
+  `~/.config/sinclair/plugins/*/plugin.toml` (plus explicit `plugin = path`
   config entries). Plugins contribute command actions with optional default
   keybindings, resolved through the same keymap pipeline as built-ins. Command
   targets: focused pane, new tab, right split, down split. Deferred: richer
@@ -185,18 +185,18 @@ Conventions (non-negotiable):
   Linux+Windows. 539 tests green.
 - 2026-06-18: command macros + MCP server. New `macros` crate: a keystroke
   `Recorder` (captures typed command lines, segmented on Enter) and plain
-  per-macro text storage under `~/.config/prompt/macros`. Actions
+  per-macro text storage under `~/.config/sinclair/macros`. Actions
   `macro_record` (toggle capture; names/saves via the rename modal) and
   `macro:<name>` (replay into the focused pane, paced off OSC 133 prompt
   marks with a fixed-delay fallback). New `mcp` crate: a dependency-light
   Model Context Protocol server over stdio (`initialize`/`tools/list`/
-  `tools/call`). `prompt mcp` bridges tool calls to the running instance over
+  `tools/call`). `sinclair mcp` bridges tool calls to the running instance over
   the existing single-instance socket (`ipc.rs` grew a JSON request/response
   protocol; `mcpbridge.rs` maps ops onto the active `WorkspaceView`). Tools:
   run_command, read_screen, list_macros, run_macro, list_tabs, focus_tab.
   575 tests green.
 - 2026-06-23: UI, working-directory, and packaging pass (v0.3.0). About panel
-  (`app/about.rs`): app menu → About Prompt shows the icon, version, and the
+  (`app/about.rs`): app menu → About Sinclair shows the icon, version, and the
   release date (stamped from the HEAD commit by `app/build.rs`), plus a repo
   link. Window chrome: the window opens with a transparent native
   title bar and `app/titlebar.rs` draws the strip — tabs folded in, drag-to-move
@@ -218,11 +218,11 @@ Conventions (non-negotiable):
   agents cost nothing). The `relay` CLI manages the daemon (`start`/`stop`/
   `restart`/`status`) and launches agents under it (`launch`, foreground or
   `--background` monitored workers; `ps`/`kill`/`feed`), all keyed to a `--home`
-  state dir. Prompt integration: a **Settings → AI** section (master AI toggle,
+  state dir. Sinclair integration: a **Settings → AI** section (master AI toggle,
   MCP-server toggle, Relay enable, start-on-launch, address, default agent — all
   config keys, no env vars), a **Relay** menu (Launch Agent…, Open Feed) that
   opens agents/feeds into splits, and `app/relay.rs` which starts/stops the
-  bundled daemon off settings. `scripts/bundle.sh` ships `relay` beside `prompt`
+  bundled daemon off settings. `scripts/bundle.sh` ships `relay` beside `sinclair`
   in the `.app`. Roles: `relay role {list,info,create,edit,delete}` with an
   `$EDITOR` drop-in and TOML files layered project → user → built-in (seven
   built-ins embedded); `launch --role` injects the brief and applies the role's
@@ -231,8 +231,8 @@ Conventions (non-negotiable):
   presets (columns/rows/grid/main-bottom/main-right, generated for any N as a
   binary split tree) applied via the **Workspace** menu into a fresh tab; **Save Current
   Layout…** captures the focused tab's tree and stores it as JSON under
-  `~/.config/prompt/layouts/` (named via the rename modal). Teams (`relay team
-  {list,info,create,edit,delete}`, `--json` for Prompt; layered project → user →
+  `~/.config/sinclair/layouts/` (named via the rename modal). Teams (`relay team
+  {list,info,create,edit,delete}`, `--json` for Sinclair; layered project → user →
   built-in, two built-ins): a layout + ordered roster. The keybind menu became an
   **AI** menu (shown when AI is enabled) with Launch Agent / Open Feed and a
   **Teams ▸** submenu that opens a team as a tiled set of agents (each pane runs
@@ -266,7 +266,7 @@ Conventions (non-negotiable):
   `.cast` to GIF or MP4/MOV/WebM: a `cast::Reader` (the recorder's inverse), an
   idle-cap/speed timeline, replay through `vt`, a software rasterizer (bundled
   JetBrains Mono) plus a global-palette GIF encoder and an ffmpeg video encoder.
-  `prompt export` drives it from the CLI; **Export Recording** (File menu +
+  `sinclair export` drives it from the CLI; **Export Recording** (File menu +
   command palette, `export_recording`) runs it in the background on the latest
   recording and notifies when the file is ready. On macOS an optional fidelity
   renderer (`app/fidelity.rs`) shapes and rasterizes through gpui's CoreText text
@@ -301,11 +301,11 @@ Conventions (non-negotiable):
   `std::fs`, `notify` file-watching, the CM6 web app embedded via include_dir)
   with a launcher mode that plugs into the existing `boot` webview flow. Notes
   is now File → Notes with no runtime dependency; shipped and signed beside
-  `prompt` on macOS and Linux. See `crates/notes/readme.md`.
+  `sinclair` on macOS and Linux. See `crates/notes/readme.md`.
 - 2026-07-02: agent-native plugins (phase 1 of the plugin push). Plugins can now
-  contribute tools to Prompt's MCP server via a new `[[tool]]` manifest section
+  contribute tools to Sinclair's MCP server via a new `[[tool]]` manifest section
   (`id`, `description`, `param = "name | type | description | required"`). Every
-  plugin tool joins the built-in terminal tools that `prompt mcp` exposes, named
+  plugin tool joins the built-in terminal tools that `sinclair mcp` exposes, named
   `<plugin-id>_<tool-id>`, so any MCP client (Claude, or a relay-session agent)
   can call it. Tool calls route directly to the plugin's `[runtime]` with a
   `tool` request (no GUI needed), keeping the bridge process trivial. The bundled
@@ -336,7 +336,7 @@ Conventions (non-negotiable):
   (accept with →/End), a completion popup, Tab-cycling, and an AI fallback,
   sourced from history/common-commands/paths/assist, driven by a new OSC 133;B
   input mark and per-pane history in `vt`. Workspace: tabs tear off into new
-  windows (guise PaneGroup), keeping the live shell. Self-update: Prompt checks
+  windows (guise PaneGroup), keeping the live shell. Self-update: Sinclair checks
   GitHub on launch + hourly and offers to update — deferring to Homebrew/apt for
   managed installs, or swapping a manual `.dmg`/AppImage in place and relaunching
   via gpui's restart hook (`auto-update`).
@@ -344,9 +344,9 @@ Conventions (non-negotiable):
   agent state across the session. Status dots: every pane self-reports
   `working`/`blocked`/`done`/`idle`, drawn as a colored dot on the tab (new guise
   `on_item_dot` hook) and rolled up in the Activity sidebar; mesh agents show
-  their state in the Relay panel. Hooks: `prompt agent-status <state>` reports
-  over the single-instance socket, addressed by a `PROMPT_PANE` token injected
-  into every session; `prompt agent-hooks install|uninstall [--project]` wires
+  their state in the Relay panel. Hooks: `sinclair agent-status <state>` reports
+  over the single-instance socket, addressed by a `SINCLAIR_PANE` token injected
+  into every session; `sinclair agent-hooks install|uninstall [--project]` wires
   Claude Code's lifecycle hooks (idempotent install, surgical uninstall). Mesh:
   relay gains `report_status`/`wait_status` tools and a status column, riding the
   `/control` snapshot + events stream. Session resume closes step 4 of

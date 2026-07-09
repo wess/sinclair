@@ -1,8 +1,8 @@
 //! Single-instance IPC over a per-user unix socket.
 //!
-//! Two clients use it: `prompt --toggle-quick` summons the quick terminal
+//! Two clients use it: `sinclair --toggle-quick` summons the quick terminal
 //! (the Wayland global-summon path, since a Wayland client cannot grab a
-//! global hotkey itself), and `prompt mcp` bridges Model Context Protocol
+//! global hotkey itself), and `sinclair mcp` bridges Model Context Protocol
 //! tool calls into the running instance.
 //!
 //! The wire protocol is one newline-terminated JSON request per connection,
@@ -38,11 +38,11 @@ fn socket_dir() -> PathBuf {
 }
 
 /// Per-user socket path under [`socket_dir`], keyed by app identity so a dev
-/// build (`promptdev`) and an installed `prompt` own separate sockets and run as
+/// build (`sinclairdev`) and an installed `prompt` own separate sockets and run as
 /// fully independent instances. This is intentionally derived, not read from
-/// `PROMPT_SOCKET`: the running app injects that var into child shells (so
+/// `SINCLAIR_SOCKET`: the running app injects that var into child shells (so
 /// external tooling can reach it), and honoring it here would make a dev build
-/// launched from inside a Prompt session bind the parent's socket instead.
+/// launched from inside a Sinclair session bind the parent's socket instead.
 fn socket_path() -> PathBuf {
     socket_dir().join(format!("{}-quick.sock", crate::appid::id()))
 }
@@ -101,8 +101,8 @@ fn peer_uid(stream: &UnixStream) -> Option<u32> {
 }
 
 /// The socket path as a string, for injecting into a spawned session's
-/// environment (`PROMPT_SOCKET`) so an agent hook can reach the running instance
-/// directly. Reporting via `prompt agent-status` derives the same path itself;
+/// environment (`SINCLAIR_SOCKET`) so an agent hook can reach the running instance
+/// directly. Reporting via `sinclair agent-status` derives the same path itself;
 /// this is for external tooling that speaks the wire protocol.
 pub fn socket_env() -> String {
     socket_path().to_string_lossy().into_owned()
@@ -114,28 +114,28 @@ pub fn send_toggle() -> bool {
     match request("toggle_quick", &json!({})) {
         Ok(_) => true,
         Err(_) => {
-            eprintln!("prompt: no running instance to toggle the quick terminal");
+            eprintln!("sinclair: no running instance to toggle the quick terminal");
             false
         }
     }
 }
 
-/// Dev-only CLI: `prompt ipc <op> [json-args]`. Sends one op to the running
+/// Dev-only CLI: `sinclair ipc <op> [json-args]`. Sends one op to the running
 /// instance and prints the JSON reply (or the error). `json-args` defaults to
 /// `{}`. Returns the process exit code. Used to script UI testing — e.g.
-/// `prompt ipc send_input '{"text":"git st"}'` then
-/// `prompt ipc read_suggestion '{}'`.
+/// `sinclair ipc send_input '{"text":"git st"}'` then
+/// `sinclair ipc read_suggestion '{}'`.
 #[cfg(debug_assertions)]
 pub fn run_cli(args: &[String]) -> i32 {
     let Some(op) = args.first() else {
-        eprintln!("usage: prompt ipc <op> [json-args]");
+        eprintln!("usage: sinclair ipc <op> [json-args]");
         return 2;
     };
     let parsed = match args.get(1) {
         Some(raw) => match serde_json::from_str::<Value>(raw) {
             Ok(v) => v,
             Err(e) => {
-                eprintln!("prompt ipc: bad JSON args: {e}");
+                eprintln!("sinclair ipc: bad JSON args: {e}");
                 return 2;
             }
         },
@@ -147,7 +147,7 @@ pub fn run_cli(args: &[String]) -> i32 {
             0
         }
         Err(e) => {
-            eprintln!("prompt ipc: {e}");
+            eprintln!("sinclair ipc: {e}");
             1
         }
     }
@@ -157,7 +157,7 @@ pub fn run_cli(args: &[String]) -> i32 {
 /// an error string (no instance, transport failure, or a server-side error).
 pub fn request(op: &str, args: &Value) -> Result<Value, String> {
     let mut stream = UnixStream::connect(socket_path())
-        .map_err(|_| "no running prompt instance".to_string())?;
+        .map_err(|_| "no running sinclair instance".to_string())?;
     let line = json!({ "op": op, "args": args }).to_string();
     stream
         .write_all(line.as_bytes())

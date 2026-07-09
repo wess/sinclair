@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Run your first agent team — Prompt docs</title>
+    <title>Run your first agent team — Sinclair docs</title>
     <meta name="description" content="A hands-on walkthrough: enable the relay, launch a supervisor and two workers, drive them from one pane, and watch them coordinate over the local bus.">
     <meta name="theme-color" content="#05070c">
     <link rel="icon" href="icon.png">
@@ -19,7 +19,7 @@
         <p class="lede">
           One agent is an assistant. A <em>team</em> is a supervisor delegating to workers
           that message each other, run in their own panes, and park for free between tasks.
-          In about ten minutes you'll enable Prompt's built-in relay, open a team into a
+          In about ten minutes you'll enable Sinclair's built-in relay, open a team into a
           tiled tab, give the supervisor a job, and watch the work flow across the bus.
         </p>
 
@@ -39,7 +39,7 @@
           activity at all) and <strong>Relay agent mesh</strong>. That's enough; the relay
           daemon starts on demand. The same settings round-trip through the config file:
         </p>
-        <pre><code><span class="c"># ~/.config/prompt/config</span>
+        <pre><code><span class="c"># ~/.config/sinclair/config</span>
 ai-enabled = true
 relay-enabled = true
 relay-start-on-launch = true   <span class="c"># optional: bring the mesh up automatically</span></code></pre>
@@ -53,7 +53,7 @@ relay-start-on-launch = true   <span class="c"># optional: bring the mesh up aut
         <h2>2. Open a team the fast way</h2>
         <p>
           The quickest start is a built-in team. In the <strong>AI</strong> menu, open
-          <strong>Teams ▸ web</strong>. Prompt opens a fresh tab, tiles it into four panes,
+          <strong>Teams ▸ web</strong>. Sinclair opens a fresh tab, tiles it into four panes,
           and launches an agent in each:
         </p>
         <div class="tablewrap">

@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Automate your terminal — Prompt docs</title>
-    <meta name="description" content="Three ways to automate Prompt: let an MCP client drive your live window, record and replay command macros, and react to terminal events with triggers.">
+    <title>Automate your terminal — Sinclair docs</title>
+    <meta name="description" content="Three ways to automate Sinclair: let an MCP client drive your live window, record and replay command macros, and react to terminal events with triggers.">
     <meta name="theme-color" content="#05070c">
     <link rel="icon" href="icon.png">
     <link rel="stylesheet" href="style.css">
@@ -17,7 +17,7 @@
         <p class="kicker">Tutorial</p>
         <h1>Automate your terminal with MCP</h1>
         <p class="lede">
-          Prompt gives you three layers of automation that stack: let an AI client
+          Sinclair gives you three layers of automation that stack: let an AI client
           <strong>drive your live window</strong> over MCP, record the keystrokes you repeat
           into replayable <strong>macros</strong>, and have the terminal <strong>react to its
           own events</strong> with triggers. This walkthrough wires up all three around one
@@ -27,25 +27,25 @@
 
         <h2>1. Let an agent drive your terminal</h2>
         <p>
-          <code>prompt mcp</code> is a Model Context Protocol server. It's a thin stdio
-          process that forwards every tool call to your <em>already-running</em> Prompt
+          <code>sinclair mcp</code> is a Model Context Protocol server. It's a thin stdio
+          process that forwards every tool call to your <em>already-running</em> Sinclair
           window over a per-user socket — so the agent acts in the same terminal you're
           looking at, not a hidden headless one. First enable it in
           <strong>Settings → AI</strong> (<kbd>⌘,</kbd>):
         </p>
-        <pre><code><span class="c"># ~/.config/prompt/config</span>
+        <pre><code><span class="c"># ~/.config/sinclair/config</span>
 ai-enabled = true
 mcp-server-enabled = true</code></pre>
         <p>Then point a client at it. With Claude Code that's one line:</p>
-        <pre><code>claude mcp add prompt -- prompt mcp</code></pre>
+        <pre><code>claude mcp add sinclair -- sinclair mcp</code></pre>
         <p>Any MCP client works — the generic form is just a command to spawn:</p>
         <pre><code>{
   "mcpServers": {
-    "prompt": { "command": "prompt", "args": ["mcp"] }
+    "sinclair": { "command": "sinclair", "args": ["mcp"] }
   }
 }</code></pre>
         <div class="callout note">
-          <p>Keep a Prompt window open — <code>prompt mcp</code> bridges to the running
+          <p>Keep a Sinclair window open — <code>sinclair mcp</code> bridges to the running
           instance. If nothing's listening, there's nothing to drive.</p>
         </div>
 
@@ -84,7 +84,7 @@ mcp-server-enabled = true</code></pre>
           It's stored as plain text you can version-control, and you replay it with a
           keybinding or <code>macro:NAME</code>:
         </p>
-        <pre><code><span class="c"># bind a recorded macro to a key, in ~/.config/prompt/config</span>
+        <pre><code><span class="c"># bind a recorded macro to a key, in ~/.config/sinclair/config</span>
 keybind = cmd+ctrl+m=macro:morning-setup</code></pre>
         <p>
           Replay is paced by shell prompt marks when they're available, so a macro waits for
@@ -125,8 +125,8 @@ notify = "A command failed"</code></pre>
           same ligatures, fonts, and box-drawing you see on screen — the full walkthrough is
           in <a href="recording.html">Record &amp; share your terminal</a>. From the CLI:
         </p>
-        <pre><code>prompt export session.cast demo.gif
-prompt export session.cast demo.mp4 --fidelity --fps 30</code></pre>
+        <pre><code>sinclair export session.cast demo.gif
+sinclair export session.cast demo.mp4 --fidelity --fps 30</code></pre>
 
         <h2>Putting it together</h2>
         <p>

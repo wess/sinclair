@@ -11,8 +11,8 @@ fn scratch(name: &str) -> std::path::PathBuf {
 #[test]
 fn promote_swaps_and_marks_executable() {
     let dir = scratch("promote");
-    let target = dir.join("Prompt.AppImage");
-    let staged = dir.join(".Prompt.AppImage.update");
+    let target = dir.join("Sinclair.AppImage");
+    let staged = dir.join(".Sinclair.AppImage.update");
     std::fs::write(&target, b"old").unwrap();
     std::fs::write(&staged, b"new").unwrap();
 

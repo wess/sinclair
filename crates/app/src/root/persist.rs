@@ -144,7 +144,7 @@ impl WorkspaceView {
         }
         let answer = window.prompt(
             gpui::PromptLevel::Warning,
-            "Quit Prompt?",
+            "Quit Sinclair?",
             Some("A process is still running in one of your terminals. Quitting will end it."),
             &["Quit", "Cancel"],
             cx,
@@ -277,7 +277,7 @@ impl WorkspaceView {
     /// Apply a tile layout (preset or saved custom) as plain shells.
     pub(crate) fn apply_tile(&mut self, id: &str, window: &mut Window, cx: &mut Context<Self>) {
         let Some((layout, n)) = crate::tiles::resolve(id) else {
-            eprintln!("prompt: unknown tile `{id}`");
+            eprintln!("sinclair: unknown tile `{id}`");
             return;
         };
         let label = crate::tiles::presets()
@@ -293,7 +293,7 @@ impl WorkspaceView {
     pub(crate) fn open_team(&mut self, name: &str, window: &mut Window, cx: &mut Context<Self>) {
         crate::relay::ensure_running(&self.opts);
         let Some((shape, members)) = crate::relay::team_info(name) else {
-            eprintln!("prompt: team `{name}` not found");
+            eprintln!("sinclair: team `{name}` not found");
             return;
         };
         if members.is_empty() {
@@ -329,7 +329,7 @@ impl WorkspaceView {
         self.splitcommand(cmd, SplitAxis::Horizontal, false, window, cx);
     }
 
-    /// Prompt for a name and save the current arrangement as a custom tile.
+    /// Sinclair for a name and save the current arrangement as a custom tile.
     pub(crate) fn open_save_layout(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let layout = crate::tiles::from_tree(self.group.read(cx).tree().root());
         self.open_rename(crate::rename::Target::Layout(layout), String::new(), window, cx);
@@ -341,8 +341,8 @@ impl WorkspaceView {
             return;
         }
         match crate::tiles::save(name, &layout) {
-            Ok(path) => eprintln!("prompt: saved layout {}", path.display()),
-            Err(e) => eprintln!("prompt: save layout failed: {e}"),
+            Ok(path) => eprintln!("sinclair: saved layout {}", path.display()),
+            Err(e) => eprintln!("sinclair: save layout failed: {e}"),
         }
         self.setmenus(cx);
     }

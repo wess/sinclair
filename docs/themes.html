@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Themes & appearance — Prompt docs</title>
-    <meta name="description" content="Prompt's 22 built-in themes, per-color overrides, fonts, cursor, and padding.">
+    <title>Themes & appearance — Sinclair docs</title>
+    <meta name="description" content="Sinclair's 22 built-in themes, per-color overrides, fonts, cursor, and padding.">
     <meta name="theme-color" content="#05070c">
     <link rel="icon" href="icon.png">
     <link rel="stylesheet" href="style.css">
@@ -17,7 +17,7 @@
         <p class="kicker">Configuration</p>
         <h1>Themes &amp; appearance</h1>
         <p class="lede">
-          Prompt ships with 22 hand-tuned built-in themes, and layers
+          Sinclair ships with 22 hand-tuned built-in themes, and layers
           fine-grained control over individual colors, fonts, and the cursor on
           top of whichever one you pick. Every setting here lives in your config
           file and applies live the moment you save — no restart required.
@@ -73,8 +73,8 @@
         </div>
 
         <h2>Automatic light &amp; dark</h2>
-        <p>Set <code>theme-light</code> and <code>theme-dark</code> to follow your operating system's appearance. Prompt watches the OS light/dark setting and rebuilds its colors live when it flips, picking the matching scheme — no restart, no manual toggle. Either key on its own also works; whichever is set wins for that appearance, and <code>theme</code> is the fallback.</p>
-        <pre><code><span class="c"># ~/.config/prompt/config</span>
+        <p>Set <code>theme-light</code> and <code>theme-dark</code> to follow your operating system's appearance. Sinclair watches the OS light/dark setting and rebuilds its colors live when it flips, picking the matching scheme — no restart, no manual toggle. Either key on its own also works; whichever is set wins for that appearance, and <code>theme</code> is the fallback.</p>
+        <pre><code><span class="c"># ~/.config/sinclair/config</span>
 theme-light = github light
 theme-dark  = github dark</code></pre>
 
@@ -86,7 +86,7 @@ theme-dark  = github dark</code></pre>
           <li><code>minimum-contrast</code> (1–21) nudges each cell's foreground toward black or white until it meets that WCAG contrast ratio against its background — a floor on readability for low-contrast color schemes.</li>
           <li><code>badge</code> paints a faint watermark in each pane's corner, with <code>{cwd}</code> and <code>{host}</code> substituted per pane.</li>
         </ul>
-        <pre><code><span class="c"># ~/.config/prompt/config</span>
+        <pre><code><span class="c"># ~/.config/sinclair/config</span>
 background-opacity = 0.85
 background-image = ~/Pictures/wallpaper.png
 minimum-contrast = 4.5

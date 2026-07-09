@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Build Prompt (release) for Linux and produce a .tar.gz, a .deb, and an
-# AppImage under dist/linux. The binary is the `prompt` bin from crates/app;
+# Build Sinclair (release) for Linux and produce a .tar.gz, a .deb, and an
+# AppImage under dist/linux. The binary is the `sinclair` bin from crates/app;
 # the version is read from the workspace Cargo.toml. Builds natively for the
 # host architecture (no cross-compiling) — pass x86_64 or aarch64 only to label
 # the artifacts and pick the right helper downloads.
@@ -25,7 +25,7 @@ cd "$root"
 
 version="$(sed -n 's/^version = "\([0-9][^"]*\)".*/\1/p' Cargo.toml | head -1)"
 [ -n "$version" ] || { echo "error: could not read version from Cargo.toml" >&2; exit 1; }
-echo "[linux] Prompt $version for $triple"
+echo "[linux] Sinclair $version for $triple"
 
 out="$root/dist/linux"
 rm -rf "$out"
@@ -34,8 +34,8 @@ mkdir -p "$out"
 # --- build ----------------------------------------------------------------
 rustup target add "$triple" >/dev/null 2>&1 || true
 cargo build --release -p app -p notes --target "$triple"
-# The cargo bin target is `promptdev`; it's installed as `prompt` below.
-bin="target/$triple/release/promptdev"
+# The cargo bin target is `sinclairdev`; it's installed as `sinclair` below.
+bin="target/$triple/release/sinclairdev"
 notes_bin="target/$triple/release/notes"
 strip "$bin" 2>/dev/null || true
 strip "$notes_bin" 2>/dev/null || true
@@ -43,20 +43,20 @@ strip "$notes_bin" 2>/dev/null || true
 # --- staging tree (shared by tar.gz and the AppImage AppDir) ---------------
 appdir="$out/AppDir"
 mkdir -p "$appdir/usr/bin" "$appdir/usr/share/applications" "$appdir/usr/share/pixmaps"
-cp "$bin" "$appdir/usr/bin/prompt"
+cp "$bin" "$appdir/usr/bin/sinclair"
 # The Notes vault-server sidecar, found by the app beside its executable.
 cp "$notes_bin" "$appdir/usr/bin/notes"
-# First-party bundled plugins, discovered at `<prefix>/share/prompt/plugins`.
+# First-party bundled plugins, discovered at `<prefix>/share/sinclair/plugins`.
 # Notes is a plugin now (plugins/notes); ship its manifest with the app.
-mkdir -p "$appdir/usr/share/prompt/plugins"
-cp -r plugins/notes "$appdir/usr/share/prompt/plugins/notes"
-cp assets/prompt.desktop "$appdir/usr/share/applications/prompt.desktop"
+mkdir -p "$appdir/usr/share/sinclair/plugins"
+cp -r plugins/notes "$appdir/usr/share/sinclair/plugins/notes"
+cp assets/sinclair.desktop "$appdir/usr/share/applications/sinclair.desktop"
 # 512px icon: linuxdeploy only accepts standard icon sizes (<=512), not the
 # 1024px master.
-cp assets/icon512.png "$appdir/usr/share/pixmaps/prompt.png"
+cp assets/icon512.png "$appdir/usr/share/pixmaps/sinclair.png"
 
 # --- .tar.gz ---------------------------------------------------------------
-stem="prompt-$version-linux-$arch"
+stem="sinclair-$version-linux-$arch"
 stage="$out/$stem"
 mkdir -p "$stage"
 cp -r "$appdir/usr" "$stage/usr"
@@ -67,8 +67,8 @@ echo "[linux] -> $stem.tar.gz"
 
 # --- .deb (cargo-deb) ------------------------------------------------------
 command -v cargo-deb >/dev/null 2>&1 || cargo install cargo-deb --locked
-cargo deb -p app --no-build --target "$triple" --output "$out/prompt_${version}_${debarch}.deb"
-echo "[linux] -> prompt_${version}_${debarch}.deb"
+cargo deb -p app --no-build --target "$triple" --output "$out/sinclair_${version}_${debarch}.deb"
+echo "[linux] -> sinclair_${version}_${debarch}.deb"
 
 # --- AppImage (linuxdeploy + appimagetool) ---------------------------------
 # Runners often lack FUSE, so extract-and-run the helper AppImages.
@@ -81,11 +81,11 @@ curl -fsSL -o "$ld" "https://github.com/linuxdeploy/linuxdeploy/releases/downloa
 curl -fsSL -o "$ait" "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-$arch.AppImage"
 chmod +x "$ld" "$ait"
 "$ld" --appdir "$appdir" \
-  --executable "$appdir/usr/bin/prompt" \
-  --desktop-file "$appdir/usr/share/applications/prompt.desktop" \
-  --icon-file "$appdir/usr/share/pixmaps/prompt.png"
-ARCH="$arch" "$ait" "$appdir" "$out/Prompt-$version-$arch.AppImage"
-echo "[linux] -> Prompt-$version-$arch.AppImage"
+  --executable "$appdir/usr/bin/sinclair" \
+  --desktop-file "$appdir/usr/share/applications/sinclair.desktop" \
+  --icon-file "$appdir/usr/share/pixmaps/sinclair.png"
+ARCH="$arch" "$ait" "$appdir" "$out/Sinclair-$version-$arch.AppImage"
+echo "[linux] -> Sinclair-$version-$arch.AppImage"
 
 # --- cleanup intermediates, leave only shippable artifacts -----------------
 rm -rf "$appdir" "$tools"

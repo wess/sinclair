@@ -59,25 +59,25 @@ pub(crate) use boot::{
 /// table. A single action type keeps every binding flowing through one
 /// handler regardless of which config action it carries.
 #[derive(Clone, PartialEq, Default, Debug, gpui::Action)]
-#[action(namespace = prompt, no_json)]
+#[action(namespace = sinclair, no_json)]
 pub struct RunBind(pub usize);
 
 /// Open the documentation window. Its own action (rather than a `RunBind`) so
 /// the Help menu item works without depending on a configured keybind.
 #[derive(Clone, PartialEq, Default, Debug, gpui::Action)]
-#[action(namespace = prompt, no_json)]
+#[action(namespace = sinclair, no_json)]
 pub struct ShowDocs;
 
 /// Open the About panel. Its own action so the application-menu item works
 /// without depending on a configured keybind.
 #[derive(Clone, PartialEq, Default, Debug, gpui::Action)]
-#[action(namespace = prompt, no_json)]
+#[action(namespace = sinclair, no_json)]
 pub struct ShowAbout;
 
 /// Dispatch a menu item that has no keybind: the index into the workspace's
 /// `menu_actions` table built alongside the native menu.
 #[derive(Clone, PartialEq, Default, Debug, gpui::Action)]
-#[action(namespace = prompt, no_json)]
+#[action(namespace = sinclair, no_json)]
 pub struct MenuPick(pub usize);
 
 /// App-global command-macro recorder. Recording is a single, app-wide mode
@@ -246,7 +246,7 @@ struct Item {
     /// The terminal event bridge; `None` for webview items (they emit none).
     _subscription: Option<Subscription>,
     /// A process-globally-unique token injected into the session's environment
-    /// as `PROMPT_PANE`, so an agent's hooks can report state for exactly this
+    /// as `SINCLAIR_PANE`, so an agent's hooks can report state for exactly this
     /// pane (across all windows). `0` for items with no backing session.
     pane_token: u64,
     /// The agent's last self-reported semantic state, driving the tab/sidebar
@@ -464,7 +464,7 @@ impl WorkspaceView {
         let plugins = loadplugins(&opts);
         let (keybinds, diags) = resolvekeys(&opts, &plugins);
         for d in &diags {
-            eprintln!("prompt: {}: {}", d.key, d.message);
+            eprintln!("sinclair: {}: {}", d.key, d.message);
         }
         if cx.try_global::<MacroRecorder>().is_none() {
             cx.set_global(MacroRecorder(macros::Recorder::new()));
@@ -676,7 +676,7 @@ impl WorkspaceView {
             .borrow()
             .get(&item)
             .map(|it| it.content.title(cx))
-            .unwrap_or_else(|| "prompt".to_string());
+            .unwrap_or_else(|| "sinclair".to_string());
         window.set_window_title(&title);
     }
 
@@ -754,7 +754,7 @@ impl WorkspaceView {
     fn reload(&mut self, cx: &mut Context<Self>) {
         let (opts, diagnostics) = config::load();
         for d in &diagnostics {
-            eprintln!("prompt: config line {}: {} ({})", d.line, d.message, d.key);
+            eprintln!("sinclair: config line {}: {} ({})", d.line, d.message, d.key);
         }
         crate::redact::install(&opts.redact, cx);
         crate::badge::install(&opts.badge, cx);
@@ -775,7 +775,7 @@ impl WorkspaceView {
         self.macros = loadmacros();
         let (keybinds, diags) = resolvekeys(&self.opts, &self.plugins);
         for d in &diags {
-            eprintln!("prompt: {}: {}", d.key, d.message);
+            eprintln!("sinclair: {}: {}", d.key, d.message);
         }
         self.keybinds = keybinds;
         self.applykeybinds(cx);

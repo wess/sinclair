@@ -40,11 +40,11 @@ fn looks_inherited(path: &str) -> bool {
 fn login_path() -> Option<String> {
     let shell = pty::default_shell();
     let out = Command::new(&shell)
-        .args(["-lic", "printf '__PROMPTPATH__%s__PROMPTPATH__' \"$PATH\""])
+        .args(["-lic", "printf '__SINCLAIRPATH__%s__SINCLAIRPATH__' \"$PATH\""])
         .output()
         .ok()?;
     let text = String::from_utf8_lossy(&out.stdout);
-    let mut parts = text.split("__PROMPTPATH__");
+    let mut parts = text.split("__SINCLAIRPATH__");
     parts.next(); // startup noise before the first marker
     let path = parts.next()?.trim().to_string();
     (!path.is_empty()).then_some(path)

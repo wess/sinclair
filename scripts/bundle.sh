@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Build Prompt (release) and assemble dist/Prompt.app. The binary is the `prompt`
-# bin from crates/app; the icon comes from assets/icon.icns; the version is read
+# Build Sinclair (release) and assemble dist/Sinclair.app. The binary is the
+# `sinclair` bin from crates/app; the icon comes from assets/icon.icns; the version is read
 # from the workspace Cargo.toml. Codesigns with CODESIGN_IDENTITY if set (a real
 # Developer ID for a notarizable build), otherwise ad-hoc ("-") so it still runs
 # locally. Usage: scripts/bundle.sh
@@ -9,11 +9,11 @@ set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
 
-app_name="Prompt"
-# The cargo bin target is `promptdev`; the shipped executable is `prompt`.
-src_bin="promptdev"
-bin_name="prompt"
-bundle_id="io.wess.prompt"
+app_name="Sinclair"
+# The cargo bin target is `sinclairdev`; the shipped executable is `sinclair`.
+src_bin="sinclairdev"
+bin_name="sinclair"
+bundle_id="io.wess.sinclair"
 identity="${CODESIGN_IDENTITY:--}"
 
 version="$(sed -n 's/^version = "\([0-9][^"]*\)".*/\1/p' Cargo.toml | head -1)"
@@ -85,16 +85,16 @@ echo "[bundle] codesign ($identity)"
 runtime_opts=()
 [ "$identity" != "-" ] && runtime_opts=(--options runtime --timestamp)
 codesign --force ${runtime_opts[@]+"${runtime_opts[@]}"} \
-  --entitlements assets/prompt.entitlements \
+  --entitlements assets/sinclair.entitlements \
   -s "$identity" "$contents/MacOS/$bin_name"
 codesign --force ${runtime_opts[@]+"${runtime_opts[@]}"} \
-  --entitlements assets/prompt.entitlements \
+  --entitlements assets/sinclair.entitlements \
   -s "$identity" "$contents/MacOS/relay"
 codesign --force ${runtime_opts[@]+"${runtime_opts[@]}"} \
-  --entitlements assets/prompt.entitlements \
+  --entitlements assets/sinclair.entitlements \
   -s "$identity" "$contents/MacOS/notes"
 codesign --force ${runtime_opts[@]+"${runtime_opts[@]}"} \
-  --entitlements assets/prompt.entitlements \
+  --entitlements assets/sinclair.entitlements \
   -s "$identity" "$app"
 
 codesign --verify --strict --verbose=2 "$app" || true

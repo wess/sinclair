@@ -15,7 +15,7 @@ fn handle(name: &str, args: &Value) -> Result<Value, String> {
 fn initialize_advertises_protocol_and_tools_capability() {
     let msg = json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize" });
     let reply: Value = serde_json::from_str(
-        &dispatch(&msg, &tools(), &json!({ "name": "prompt" }), &handle).unwrap(),
+        &dispatch(&msg, &tools(), &json!({ "name": "sinclair" }), &handle).unwrap(),
     )
     .unwrap();
     assert_eq!(reply["result"]["protocolVersion"], PROTOCOL_VERSION);

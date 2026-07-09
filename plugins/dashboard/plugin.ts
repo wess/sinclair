@@ -1,5 +1,5 @@
 // Dashboard runtime — answers web-view `invoke()` calls that aren't built-in
-// app capabilities. Prompt spawns this once per message.
+// app capabilities. Sinclair spawns this once per message.
 //
 // Protocol: read one JSON request on stdin, write one JSON response on stdout.
 //   request:  { kind: "message", panel, method, params?, cwd? }

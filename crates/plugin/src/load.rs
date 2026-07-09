@@ -7,21 +7,27 @@ use crate::manifest::{self, Diagnostic, Plugin};
 use crate::MANIFEST;
 
 pub fn defaultdir() -> Option<PathBuf> {
+    let current = appdir("sinclair")?;
+    if !current.exists() {
+        if let Some(legacy) = appdir("prompt").filter(|p| p.exists()) {
+            return Some(legacy);
+        }
+    }
+    Some(current)
+}
+
+/// The plugins directory under `app`'s per-user configuration directory.
+fn appdir(app: &str) -> Option<PathBuf> {
     if let Some(xdg) = std::env::var_os("XDG_CONFIG_HOME") {
         if !xdg.is_empty() {
-            return Some(PathBuf::from(xdg).join("prompt").join("plugins"));
+            return Some(PathBuf::from(xdg).join(app).join("plugins"));
         }
     }
     let home = std::env::var_os("HOME")?;
     if home.is_empty() {
         return None;
     }
-    Some(
-        PathBuf::from(home)
-            .join(".config")
-            .join("prompt")
-            .join("plugins"),
-    )
+    Some(PathBuf::from(home).join(".config").join(app).join("plugins"))
 }
 
 /// Load explicitly configured plugin directories, the user's installed plugins,
@@ -62,7 +68,7 @@ fn collectmanifests(dir: &Path, out: &mut Vec<PathBuf>) {
 /// Directories of first-party plugins shipped alongside the binary (e.g. Notes).
 /// Resolved relative to the executable so it works for the macOS `.app`
 /// (`Contents/Resources/plugins`), a Linux prefix install
-/// (`<prefix>/share/prompt/plugins`), and a portable layout (a `plugins` dir
+/// (`<prefix>/share/sinclair/plugins`), and a portable layout (a `plugins` dir
 /// next to the binary). In debug builds the workspace `plugins/` dir is also
 /// included so a plain `cargo run` picks up first-party plugins without a bundle.
 fn bundleddirs() -> Vec<PathBuf> {
@@ -72,7 +78,7 @@ fn bundleddirs() -> Vec<PathBuf> {
             for candidate in [
                 dir.join("plugins"),
                 dir.join("../Resources/plugins"),
-                dir.join("../share/prompt/plugins"),
+                dir.join("../share/sinclair/plugins"),
             ] {
                 if candidate.is_dir() {
                     dirs.push(candidate);

@@ -43,10 +43,10 @@ pub(crate) const ARTICLES: &[Article] = &[
         title: "Getting Started",
         icon: "\u{2691}",
         accent: theme::Rgb::new(10, 132, 255),
-        summary: "Welcome to Prompt — a fast, GPU-rendered terminal.",
+        summary: "Welcome to Sinclair — a fast, GPU-rendered terminal.",
         blocks: &[
             Block::Para(
-                "Prompt is a terminal emulator built around tabs of split panes, each \
+                "Sinclair is a terminal emulator built around tabs of split panes, each \
                  running its own shell. Everything you see is drawn directly on the GPU, \
                  so scrolling and redraw stay smooth even under heavy output.",
             ),
@@ -118,7 +118,7 @@ pub(crate) const ARTICLES: &[Article] = &[
         summary: "Find text in the buffer and move through prompt history.",
         blocks: &[
             Block::Para(
-                "Prompt keeps a scrollback buffer per pane. Search the visible buffer with \
+                "Sinclair keeps a scrollback buffer per pane. Search the visible buffer with \
                  a find overlay, or jump between shell prompts to navigate long sessions \
                  by command rather than by line.",
             ),
@@ -126,7 +126,7 @@ pub(crate) const ARTICLES: &[Article] = &[
             Block::Key("Find in buffer", "\u{2318} F"),
             Block::Heading("Prompt navigation"),
             Block::Para(
-                "Prompt jumps require shell integration so Prompt knows where each command \
+                "Prompt jumps require shell integration so Sinclair knows where each command \
                  began.",
             ),
             Block::Key("Jump to previous prompt", "\u{2318} \u{2191}"),
@@ -141,7 +141,7 @@ pub(crate) const ARTICLES: &[Article] = &[
         summary: "Explain output, compose commands, and search semantically.",
         blocks: &[
             Block::Para(
-                "Prompt's assist features turn the terminal into a conversation. Select \
+                "Sinclair's assist features turn the terminal into a conversation. Select \
                  output to explain it, describe a command in plain language to compose it, \
                  or search by meaning across prompt and output blocks.",
             ),
@@ -153,7 +153,7 @@ pub(crate) const ARTICLES: &[Article] = &[
             Block::Key("Explain output", "\u{2318} \u{21e7} E"),
             Block::Heading("Compose command"),
             Block::Para(
-                "Describe what you want to do; Prompt drafts the shell command and inserts \
+                "Describe what you want to do; Sinclair drafts the shell command and inserts \
                  it at the prompt for you to review before running.",
             ),
             Block::Key("Compose command", "\u{2318} \u{21e7} G"),
@@ -162,7 +162,7 @@ pub(crate) const ARTICLES: &[Article] = &[
             Block::Heading("Agent mesh"),
             Block::Para(
                 "Enable Relay in Settings \u{2192} AI to run a team of coding agents that \
-                 coordinate through Prompt. The AI menu then offers Launch Agent, the live \
+                 coordinate through Sinclair. The AI menu then offers Launch Agent, the live \
                  Feed, Teams, and a Relay submenu to start, stop, restart, and check the \
                  server and view its logs.",
             ),
@@ -175,7 +175,7 @@ pub(crate) const ARTICLES: &[Article] = &[
         summary: "macOS-style word and line motion at the shell prompt.",
         blocks: &[
             Block::Para(
-                "Prompt ships the familiar macOS readline shortcuts so you can move and edit \
+                "Sinclair ships the familiar macOS readline shortcuts so you can move and edit \
                  the current command the way you would in any native text field. These are \
                  macOS defaults; rebind or add your own in the config.",
             ),
@@ -199,10 +199,10 @@ pub(crate) const ARTICLES: &[Article] = &[
         title: "Configuration",
         icon: "\u{2699}",
         accent: theme::Rgb::new(142, 142, 147),
-        summary: "Customize Prompt with a plain-text config file.",
+        summary: "Customize Sinclair with a plain-text config file.",
         blocks: &[
             Block::Para(
-                "Prompt reads a simple config file: one `key = value` per line. \
+                "Sinclair reads a simple config file: one `key = value` per line. \
                  Edits apply live — saving the file reloads appearance without restarting.",
             ),
             Block::Heading("Common keys"),

@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Plugin development tutorial — Prompt docs</title>
-    <meta name="description" content="A hands-on, end-to-end tutorial for building Prompt plugins: command plugins, live IPC panels, webview surfaces, event triggers, agent tools (MCP), the JSON protocol, host capabilities, debugging, and publishing.">
+    <title>Plugin development tutorial — Sinclair docs</title>
+    <meta name="description" content="A hands-on, end-to-end tutorial for building Sinclair plugins: command plugins, live IPC panels, webview surfaces, event triggers, agent tools (MCP), the JSON protocol, host capabilities, debugging, and publishing.">
     <meta name="theme-color" content="#05070c">
     <link rel="icon" href="icon.png">
     <link rel="stylesheet" href="style.css">
@@ -27,15 +27,15 @@
             <tr><td>Panel</td><td><code>[runtime]</code> + <code>[panel]</code></td><td>A live side-drawer UI painted from a JSON block tree, with buttons.</td></tr>
             <tr><td>Webview</td><td><code>[webview]</code></td><td>Your own HTML/JS surface in a panel, window, or tab, wired to the terminal.</td></tr>
             <tr><td>Trigger</td><td><code>[[trigger]]</code></td><td>React to terminal events (command finished, dir changed, bell…) with no UI.</td></tr>
-            <tr><td>Tool</td><td><code>[runtime]</code> + <code>[[tool]]</code></td><td>A capability your AI agents can call — exposed through Prompt's MCP server.</td></tr>
+            <tr><td>Tool</td><td><code>[runtime]</code> + <code>[[tool]]</code></td><td>A capability your AI agents can call — exposed through Sinclair's MCP server.</td></tr>
           </tbody>
         </table></div>
 
         <h2>Set up a development loop</h2>
-        <p>Prompt loads plugins from <code>$XDG_CONFIG_HOME/prompt/plugins</code> (usually <code>~/.config/prompt/plugins/</code>) and from any folder you add to your config with a <code>plugin</code> line. Config is watched live, so while you iterate it is easiest to point Prompt at a working directory:</p>
-        <pre><code><span class="c"># ~/.config/prompt/config</span>
+        <p>Sinclair loads plugins from <code>$XDG_CONFIG_HOME/sinclair/plugins</code> (usually <code>~/.config/sinclair/plugins/</code>) and from any folder you add to your config with a <code>plugin</code> line. Config is watched live, so while you iterate it is easiest to point Sinclair at a working directory:</p>
+        <pre><code><span class="c"># ~/.config/sinclair/config</span>
 plugin = /Users/you/code/my-plugin</code></pre>
-        <p>Each plugin is a folder containing <code>plugin.toml</code>. There is no build step: edit the manifest or the runtime script, and reload. Command and panel contributions pick up on a config reload; if a change doesn't show, relaunch Prompt. A conventional layout:</p>
+        <p>Each plugin is a folder containing <code>plugin.toml</code>. There is no build step: edit the manifest or the runtime script, and reload. Command and panel contributions pick up on a config reload; if a change doesn't show, relaunch Sinclair. A conventional layout:</p>
         <pre><code>my-plugin/
   plugin.toml     <span class="c"># the manifest — always required</span>
   plugin.ts       <span class="c"># optional runtime (any language)</span>
@@ -48,14 +48,14 @@ plugin = /Users/you/code/my-plugin</code></pre>
 name = "Example"         <span class="c"># display name (defaults to id)</span>
 version = "0.1.0"
 description = "One line about what this does"</code></pre>
-        <p>A malformed line never aborts the load — Prompt reports a friendly diagnostic and keeps every valid contribution. That means you can iterate without a half-broken manifest taking the whole plugin down.</p>
+        <p>A malformed line never aborts the load — Sinclair reports a friendly diagnostic and keeps every valid contribution. That means you can iterate without a half-broken manifest taking the whole plugin down.</p>
 
         <h2>Tutorial 1 — a command plugin</h2>
         <p>The simplest plugin runs a shell command. Here's one that opens <a href="https://github.com/jesseduffield/lazygit">lazygit</a> in a new tab and binds it to a key.</p>
         <ol>
           <li>
             <p>Create the folder and manifest:</p>
-            <pre><code><span class="c"># ~/.config/prompt/plugins/lazy/plugin.toml</span>
+            <pre><code><span class="c"># ~/.config/sinclair/plugins/lazy/plugin.toml</span>
 id = "lazy"
 name = "Lazygit"
 description = "Open the lazygit TUI in a tab"
@@ -75,12 +75,12 @@ keybind = "cmd+shift+g"   <span class="c"># optional default binding</span></cod
         <div class="callout tip"><span class="label">Tip</span><p>Command plugins are fully declarative — no runtime, no scripting. If all you need is "launch X here," stop here.</p></div>
 
         <h2>Tutorial 2 — a live panel plugin</h2>
-        <p>A panel plugin paints a side-drawer UI from a <strong>block tree</strong>. Prompt runs your <code>[runtime]</code> program once per event (serverless-style): it sends one JSON request on stdin, you print one JSON response on stdout, and the process exits. No long-running server, no state to manage.</p>
+        <p>A panel plugin paints a side-drawer UI from a <strong>block tree</strong>. Sinclair runs your <code>[runtime]</code> program once per event (serverless-style): it sends one JSON request on stdin, you print one JSON response on stdout, and the process exits. No long-running server, no state to manage.</p>
         <p>We'll build a "notes" panel: it shows the notes saved for the current directory and has a button to open them in an editor.</p>
         <ol>
           <li>
             <p>The manifest declares a <code>[runtime]</code> (the program to spawn) and a <code>[panel]</code> (the activity-bar entry):</p>
-            <pre><code><span class="c"># ~/.config/prompt/plugins/notes/plugin.toml</span>
+            <pre><code><span class="c"># ~/.config/sinclair/plugins/notes/plugin.toml</span>
 id = "notes"
 name = "Notes"
 
@@ -94,7 +94,7 @@ icon = "🗒"                       <span class="c"># single-glyph activity-bar 
           </li>
           <li>
             <p>The runtime reads the request, builds blocks, prints one response. The request tells you <code>kind</code> (<code>"render"</code> or <code>"action"</code>), the <code>panel</code> id, the clicked <code>action</code> (for actions), and the focused pane's <code>cwd</code>:</p>
-            <pre><code><span class="c">// ~/.config/prompt/plugins/notes/plugin.ts</span>
+            <pre><code><span class="c">// ~/.config/sinclair/plugins/notes/plugin.ts</span>
 type Block =
   | { type: "section"; title: string }
   | { type: "text"; text: string; dimmed?: boolean }
@@ -141,15 +141,15 @@ if (req.kind === "action" &amp;&amp; req.action === "edit") {
             <tr><td><code>row</code></td><td><code>children</code></td><td>Lays child blocks out horizontally.</td></tr>
           </tbody>
         </table></div>
-        <p>A response may also carry <code>run</code> directives — commands Prompt runs in the terminal after rendering. Each is <code>{ "text", "target"? }</code>, where <code>target</code> is <code>pane</code> (default), <code>tab</code>, <code>split_right</code>, or <code>split_down</code>. That's how a panel button ends up doing something in the shell.</p>
+        <p>A response may also carry <code>run</code> directives — commands Sinclair runs in the terminal after rendering. Each is <code>{ "text", "target"? }</code>, where <code>target</code> is <code>pane</code> (default), <code>tab</code>, <code>split_right</code>, or <code>split_down</code>. That's how a panel button ends up doing something in the shell.</p>
         <div class="callout note"><span class="label">Note</span><p>The runtime spawns fresh for every render and every click, and is killed if it runs longer than 15&nbsp;seconds. Keep it fast, read what you need from <code>cwd</code>, and don't expect in-memory state to survive between calls — persist to disk if you need it.</p></div>
 
         <h2>Tutorial 3 — a webview plugin</h2>
-        <p>When a block tree isn't enough, host your own HTML/JS in a native web view. The page talks to Prompt through an injected <code>window.Prompt</code> bridge; unknown calls are forwarded to your <code>[runtime]</code>.</p>
+        <p>When a block tree isn't enough, host your own HTML/JS in a native web view. The page talks to Sinclair through an injected <code>window.Sinclair</code> bridge; unknown calls are forwarded to your <code>[runtime]</code>.</p>
         <ol>
           <li>
             <p>Declare a <code>[webview]</code>. Load a local file with <code>entry</code> (served over <code>file://</code> from the plugin folder) or a remote page with <code>url</code> — exactly one. <code>placement</code> is <code>panel</code>, <code>window</code>, or <code>tab</code>.</p>
-            <pre><code><span class="c"># ~/.config/prompt/plugins/board/plugin.toml</span>
+            <pre><code><span class="c"># ~/.config/sinclair/plugins/board/plugin.toml</span>
 id = "board"
 name = "Board"
 
@@ -164,25 +164,25 @@ placement = "window"            <span class="c"># panel | window | tab</span>
 entry = "index.html"</code></pre>
           </li>
           <li>
-            <p>The page uses <code>window.Prompt</code> to drive the terminal and call the runtime:</p>
-            <pre><code><span class="c">&lt;!-- ~/.config/prompt/plugins/board/index.html --&gt;</span>
+            <p>The page uses <code>window.Sinclair</code> to drive the terminal and call the runtime:</p>
+            <pre><code><span class="c">&lt;!-- ~/.config/sinclair/plugins/board/index.html --&gt;</span>
 &lt;button onclick="run()"&gt;Run in terminal&lt;/button&gt;
 &lt;button onclick="ping()"&gt;Ask the runtime&lt;/button&gt;
 &lt;pre id="out"&gt;&lt;/pre&gt;
 &lt;script&gt;
   const out = document.getElementById("out");
   async function run() {
-    const r = await Prompt.runCommand("echo hello from the web view");
+    const r = await Sinclair.runCommand("echo hello from the web view");
     out.textContent = JSON.stringify(r);
   }
   async function ping() {
-    out.textContent = JSON.stringify(await Prompt.invoke("ping", { at: Date.now() }));
+    out.textContent = JSON.stringify(await Sinclair.invoke("ping", { at: Date.now() }));
   }
 &lt;/script&gt;</code></pre>
           </li>
           <li>
             <p>The runtime answers <code>invoke()</code> calls that aren't built-ins. They arrive as a <code>message</code> request; reply with <code>{ "result": … }</code>, which resolves the page's promise:</p>
-            <pre><code><span class="c">// ~/.config/prompt/plugins/board/plugin.ts</span>
+            <pre><code><span class="c">// ~/.config/sinclair/plugins/board/plugin.ts</span>
 const req = JSON.parse((await Bun.stdin.text()) || "{}");
 if (req.kind === "message" &amp;&amp; req.method === "ping") {
   console.log(JSON.stringify({ result: { pong: true, at: req.params?.at } }));
@@ -194,22 +194,22 @@ if (req.kind === "message" &amp;&amp; req.method === "ping") {
             <p>Open it from the command palette (<em>Open Board</em>), or bind <code>open_webview:board</code>. With <code>placement = "panel"</code> it also appears as an activity-bar icon.</p>
           </li>
         </ol>
-        <p>The bridge (<code>window.Prompt</code>):</p>
+        <p>The bridge (<code>window.Sinclair</code>):</p>
         <div class="tablewrap"><table>
           <thead><tr><th>Call</th><th>Does</th></tr></thead>
           <tbody>
-            <tr><td><code>Prompt.runCommand(text, target?)</code></td><td>Run a command in the focused terminal.</td></tr>
-            <tr><td><code>Prompt.readScreen(lines?)</code></td><td>Read the visible screen; resolves <code>{ text }</code>.</td></tr>
-            <tr><td><code>Prompt.invoke(method, params?)</code></td><td>Promise. Built-in methods run in the app; anything else goes to your <code>[runtime]</code>.</td></tr>
-            <tr><td><code>Prompt.postMessage(data)</code></td><td>Fire-and-forget message to the runtime.</td></tr>
-            <tr><td><code>Prompt.onMessage(cb)</code></td><td>Receive pushes from the host.</td></tr>
+            <tr><td><code>Sinclair.runCommand(text, target?)</code></td><td>Run a command in the focused terminal.</td></tr>
+            <tr><td><code>Sinclair.readScreen(lines?)</code></td><td>Read the visible screen; resolves <code>{ text }</code>.</td></tr>
+            <tr><td><code>Sinclair.invoke(method, params?)</code></td><td>Promise. Built-in methods run in the app; anything else goes to your <code>[runtime]</code>.</td></tr>
+            <tr><td><code>Sinclair.postMessage(data)</code></td><td>Fire-and-forget message to the runtime.</td></tr>
+            <tr><td><code>Sinclair.onMessage(cb)</code></td><td>Receive pushes from the host.</td></tr>
           </tbody>
         </table></div>
         <div class="callout tip"><span class="label">Tip</span><p>For a self-contained page, keep CSS and JS inline in <code>index.html</code>. If you need multiple assets or a framework build, run your own local server in the <code>[runtime]</code> and point <code>url</code> at <code>http://localhost:PORT</code> instead of using <code>entry</code>.</p></div>
 
         <h2>Tutorial 4 — event triggers</h2>
         <p>Triggers run an action when a terminal event fires — no UI, no manual command. Add <code>[[trigger]]</code> tables. This plugin notifies you when a command fails and reloads your environment when you change directories:</p>
-        <pre><code><span class="c"># ~/.config/prompt/plugins/watch/plugin.toml</span>
+        <pre><code><span class="c"># ~/.config/sinclair/plugins/watch/plugin.toml</span>
 id = "watch"
 name = "Watch"
 
@@ -242,7 +242,7 @@ target = "background"        <span class="c"># detached; no terminal UI</span></
         <div class="callout note"><span class="label">Note</span><p><code>command_finished</code> fires after every command (including a success at shell start), so filter early — <code>when = "nonzero"</code> or an <code>invoke</code> that returns quickly. <code>dir_changed</code> only fires when the directory actually changes, not on every prompt.</p></div>
 
         <h2>Tutorial 5 — an agent tool</h2>
-        <p>The previous tutorials extend the terminal for <em>you</em>. A <code>[[tool]]</code> extends it for your <strong>AI agents</strong>: it joins Prompt's MCP server, so any MCP client — Claude, or an agent running in a relay session — can call it alongside the built-in terminal tools. This is what makes a plugin a capability, not just a UI.</p>
+        <p>The previous tutorials extend the terminal for <em>you</em>. A <code>[[tool]]</code> extends it for your <strong>AI agents</strong>: it joins Sinclair's MCP server, so any MCP client — Claude, or an agent running in a relay session — can call it alongside the built-in terminal tools. This is what makes a plugin a capability, not just a UI.</p>
         <p>A tool needs a <code>[runtime]</code> to handle it. Declare it with a description (shown to the agent) and parameters as <code>param = "name | type | description | required"</code> — the host turns these into the MCP <code>inputSchema</code>:</p>
         <pre><code>[runtime]
 command = "bun run plugin.ts"
@@ -259,10 +259,10 @@ if (req.kind === "tool" &amp;&amp; req.method === "stats") {
   const disk = /* …run df at `at`… */ {};
   console.log(JSON.stringify({ result: { host: "…", load: "…", disk } }));
 }</code></pre>
-        <p>Now an agent can ask <em>"what's the disk usage here?"</em> and call <code>sysinfo_stats</code> directly — no shell round-trip, no screen-scraping. Tool handlers run wherever <code>prompt mcp</code> runs, so they don't need the GUI. See the bundled <a href="https://github.com/wess/prompt/tree/main/plugins/sysinfo">sysinfo</a> plugin for the complete example, and the <a href="mcp.html">MCP page</a> for connecting a client.</p>
+        <p>Now an agent can ask <em>"what's the disk usage here?"</em> and call <code>sysinfo_stats</code> directly — no shell round-trip, no screen-scraping. Tool handlers run wherever <code>sinclair mcp</code> runs, so they don't need the GUI. See the bundled <a href="https://github.com/wess/sinclair/tree/main/plugins/sysinfo">sysinfo</a> plugin for the complete example, and the <a href="mcp.html">MCP page</a> for connecting a client.</p>
 
         <h2>Host capabilities</h2>
-        <p>Panels (via <code>run</code> directives), webviews (via <code>Prompt.invoke</code>), and triggers (via <code>invoke</code>) can ask the app to do things. These built-in methods are available:</p>
+        <p>Panels (via <code>run</code> directives), webviews (via <code>Sinclair.invoke</code>), and triggers (via <code>invoke</code>) can ask the app to do things. These built-in methods are available:</p>
         <div class="tablewrap"><table>
           <thead><tr><th>Method</th><th>Args</th><th>Result</th></tr></thead>
           <tbody>
@@ -280,7 +280,7 @@ if (req.kind === "tool" &amp;&amp; req.method === "stats") {
         </table></div>
 
         <h2>The protocol, in full</h2>
-        <p>Runtime plugins exchange one JSON object each way over stdio. The request Prompt sends:</p>
+        <p>Runtime plugins exchange one JSON object each way over stdio. The request Sinclair sends:</p>
         <pre><code>{
   "kind":   "render" | "action" | "message",
   "panel":  "notes",          <span class="c">// the panel or webview id</span>
@@ -309,14 +309,14 @@ echo '{"kind":"action","panel":"notes","action":"edit","cwd":"/tmp"}' | bun run 
 <span class="c"># a webview invoke</span>
 echo '{"kind":"message","panel":"board","method":"ping","params":{"at":1}}' | bun run plugin.ts</code></pre>
         <ul>
-          <li>Write debug output to <strong>stderr</strong>, not stdout — stdout must be exactly one JSON line. Prompt discards stderr.</li>
+          <li>Write debug output to <strong>stderr</strong>, not stdout — stdout must be exactly one JSON line. Sinclair discards stderr.</li>
           <li>If a panel shows "Plugin error", your program printed non-JSON, exited non-zero, or timed out (15&nbsp;s). Check it prints one clean JSON line and returns 0.</li>
-          <li>Manifest mistakes surface as diagnostics on stderr at load (run Prompt from a terminal to see them); the rest of the plugin still loads.</li>
+          <li>Manifest mistakes surface as diagnostics on stderr at load (run Sinclair from a terminal to see them); the rest of the plugin still loads.</li>
           <li>After editing, reload config (it's watched) or relaunch. Newly installed plugins re-resolve keybindings automatically.</li>
         </ul>
 
         <h2>Publishing to the catalog</h2>
-        <p>Plugins can be installed from a shared catalog inside Prompt (the Plugins panel → browse &amp; install). To contribute one, open a PR that adds your folder under <code>plugins/</code> in the repo. A good submission:</p>
+        <p>Plugins can be installed from a shared catalog inside Sinclair (the Plugins panel → browse &amp; install). To contribute one, open a PR that adds your folder under <code>plugins/</code> in the repo. A good submission:</p>
         <ul>
           <li>Has a unique <code>id</code> that matches the folder name.</li>
           <li>Documents any dependencies (<code>bun</code>, <code>git</code>, <code>docker</code>, …) in a <code>readme.md</code>.</li>
@@ -324,7 +324,7 @@ echo '{"kind":"message","panel":"board","method":"ping","params":{"at":1}}' | bu
           <li>Ships no destructive or irreversible defaults — nothing that mutates state without asking (no <code>rm -rf</code>, no force-push).</li>
           <li>Keeps requested behavior minimal and predictable; prefer opt-in triggers and cheap event filters.</li>
         </ul>
-        <div class="callout tip"><span class="label">Tip</span><p>The repo's <a href="https://github.com/wess/prompt/tree/main/plugins">plugins/</a> folder is the best reference: <code>git</code> and <code>docker</code> for panels, <code>dashboard</code> for a webview, <code>alert</code> for triggers, and the command plugins for the declarative model.</p></div>
+        <div class="callout tip"><span class="label">Tip</span><p>The repo's <a href="https://github.com/wess/sinclair/tree/main/plugins">plugins/</a> folder is the best reference: <code>git</code> and <code>docker</code> for panels, <code>dashboard</code> for a webview, <code>alert</code> for triggers, and the command plugins for the declarative model.</p></div>
       </article>
     </main>
     <script type="module" src="docs.js"></script>

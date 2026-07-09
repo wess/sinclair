@@ -3,7 +3,7 @@ use gpui::prelude::*;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 /// Monotonic counter for naming persistent container tabs uniquely within a
-/// run (`prompt-<os>-<n>`).
+/// run (`sinclair-<os>-<n>`).
 static CONTAINER_SEQ: AtomicUsize = AtomicUsize::new(0);
 
 /// Lowercase a profile label into a container-name-safe slug: alphanumerics
@@ -63,7 +63,7 @@ impl WorkspaceView {
                 let version = args.get("version").and_then(Value::as_str).unwrap_or("9.9.9");
                 let rel = updater::Release {
                     version: version.to_string(),
-                    url: "https://github.com/wess/prompt/releases".to_string(),
+                    url: "https://github.com/wess/sinclair/releases".to_string(),
                     assets: Vec::new(),
                 };
                 crate::updateui::open(rel, cx);
@@ -297,7 +297,7 @@ impl WorkspaceView {
         cx: &mut Context<Self>,
     ) {
         let Some(engine) = container::Engine::resolve(self.opts.container_engine.as_deref()) else {
-            eprintln!("prompt: no container engine available (install Docker or Podman)");
+            eprintln!("sinclair: no container engine available (install Docker or Podman)");
             return;
         };
         let n = CONTAINER_SEQ.fetch_add(1, Ordering::Relaxed) + 1;

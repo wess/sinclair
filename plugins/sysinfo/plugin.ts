@@ -1,4 +1,4 @@
-// System panel — an IPC plugin for Prompt. Read-only host stats (load, disk
+// System panel — an IPC plugin for Sinclair. Read-only host stats (load, disk
 // for the focused pane's directory) plus a one-click monitor in the terminal.
 
 type Block =

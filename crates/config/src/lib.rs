@@ -1,4 +1,4 @@
-//! `key = value` configuration loading for the Prompt terminal emulator.
+//! `key = value` configuration loading for the Sinclair terminal emulator.
 
 pub mod action;
 mod apply;
@@ -20,12 +20,28 @@ pub use watch::{watch, WatchHandle};
 
 use std::path::PathBuf;
 
-/// Default config file path: `$XDG_CONFIG_HOME/prompt/config`, else on Windows
-/// `%APPDATA%\prompt\config`, else `~/.config/prompt/config`.
+/// Default config file path: `$XDG_CONFIG_HOME/sinclair/config`, else on Windows
+/// `%APPDATA%\sinclair\config`, else `~/.config/sinclair/config`.
+///
+/// When no config exists at that path but one exists under the pre-rename
+/// `prompt` directory, the old path is returned instead, so upgrading keeps
+/// reading the user's existing settings. Writing a config at the `sinclair`
+/// path takes precedence from the next launch.
 pub fn default_path() -> Option<PathBuf> {
+    let current = app_path("sinclair")?;
+    if !current.exists() {
+        if let Some(legacy) = app_path("prompt").filter(|p| p.exists()) {
+            return Some(legacy);
+        }
+    }
+    Some(current)
+}
+
+/// The config file under `app`'s per-user configuration directory.
+fn app_path(app: &str) -> Option<PathBuf> {
     if let Some(xdg) = std::env::var_os("XDG_CONFIG_HOME") {
         if !xdg.is_empty() {
-            return Some(PathBuf::from(xdg).join("prompt").join("config"));
+            return Some(PathBuf::from(xdg).join(app).join("config"));
         }
     }
     #[cfg(windows)]
@@ -34,7 +50,7 @@ pub fn default_path() -> Option<PathBuf> {
         // for per-user config.
         if let Some(appdata) = std::env::var_os("APPDATA") {
             if !appdata.is_empty() {
-                return Some(PathBuf::from(appdata).join("prompt").join("config"));
+                return Some(PathBuf::from(appdata).join(app).join("config"));
             }
         }
     }
@@ -42,12 +58,7 @@ pub fn default_path() -> Option<PathBuf> {
     if home.is_empty() {
         return None;
     }
-    Some(
-        PathBuf::from(home)
-            .join(".config")
-            .join("prompt")
-            .join("config"),
-    )
+    Some(PathBuf::from(home).join(".config").join(app).join("config"))
 }
 
 /// Load configuration from an explicit path. A missing or unreadable file

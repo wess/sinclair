@@ -38,7 +38,7 @@ The concrete debt, and how v2 removes it:
 | Block-tree is **pull-only, button-only**, one bad block nukes the panel, **stderr discarded** | Declarative UI **pushed** by the resident module, with inputs/forms; per-node resilience; a host `log` function |
 | Webview `onMessage` (native→page) **defined but never called**; `boot` hack with a hardcoded port + token race; managed-sidecar path closed to plugins | Typed two-way bridge; a **host-managed sidecar** service open to plugins (port negotiation + token handshake + lifecycle) |
 | Catalog: single repo, no signing, no enable/disable, self-attested capabilities | A registry with **signed manifests, capability consent at install, enable/disable, version pinning** — safe because the runtime is sandboxed |
-| No SDK — every author copy-pastes the protocol | A `prompt-plugin` Rust crate + a JS package (via `componentize-js`) |
+| No SDK — every author copy-pastes the protocol | A `sinclair-plugin` Rust crate + a JS package (via `componentize-js`) |
 
 ## Principles
 
@@ -78,7 +78,7 @@ The concrete debt, and how v2 removes it:
                        │ crates/app                               │
                        │  · impl Host  → mcp_dispatch, panels,    │
                        │    webviews, notifications, triggers     │
-                       │  · command palette + `prompt mcp` expose │
+                       │  · command palette + `sinclair mcp` expose │
                        │    plugin tools                          │
                        └─────────────────────────────────────────┘
 ```
@@ -203,7 +203,7 @@ interface host {
 // ── Guest exports (what a plugin implements) ─────────────────────────────────
 interface guest {
   init: func();                                        // once, on instantiation
-  // Tools — the spine, surfaced to the palette AND to `prompt mcp`.
+  // Tools — the spine, surfaced to the palette AND to `sinclair mcp`.
   call-tool: func(name: string, params-json: string) -> result<string, string>;
   // Panels — render on demand; react to events (then push updates via host).
   render:      func(req: render-request) -> node;
@@ -240,7 +240,7 @@ id + value, so a plugin can build a form and update it in place by calling
 ## 3. Contributions (both tiers surface identically)
 
 - **Tools** — `call-tool`. Registered into the command palette (run with a JSON
-  arg form) *and* merged into `prompt mcp`'s tool list as `<plugin>_<tool>` (as
+  arg form) *and* merged into `sinclair mcp`'s tool list as `<plugin>_<tool>` (as
   today, but now backed by the resident instance). This is the differentiator:
   one implementation, callable by the human and by their agents.
 - **Commands** — unchanged in spirit (shell command + mode + optional keybind),
@@ -254,9 +254,9 @@ id + value, so a plugin can build a form and update it in place by calling
 
 ## 4. Webview overhaul
 
-- **Two-way typed bridge.** Keep `Prompt.invoke(method, params) -> Promise` and
-  `Prompt.runCommand`/`readScreen`, but **implement the missing direction**:
-  `Prompt.onMessage(cb)` is wired to a host `post-to-webview(id, msg)` so a
+- **Two-way typed bridge.** Keep `Sinclair.invoke(method, params) -> Promise` and
+  `Sinclair.runCommand`/`readScreen`, but **implement the missing direction**:
+  `Sinclair.onMessage(cb)` is wired to a host `post-to-webview(id, msg)` so a
   plugin (or the host) can push to the page. `invoke` calls route to built-in
   ops first, then to the guest's `on-message` (typed, not the v1 blind
   `kind:"message"` spawn).
@@ -272,10 +272,10 @@ id + value, so a plugin can build a form and update it in place by calling
 
 ## 5. SDK
 
-- **Rust:** a `prompt-plugin` crate — the generated `wit-bindgen` bindings, a
+- **Rust:** a `sinclair-plugin` crate — the generated `wit-bindgen` bindings, a
   typed host wrapper, and `ui` builders (`ui::section`, `ui::button`, …). A
   plugin is `#[prompt_plugin] impl Plugin { fn call_tool(...) ... }`.
-- **JS/TS:** an `@prompt/plugin` package authored against the same WIT, built to
+- **JS/TS:** an `sinclair-plugin` package authored against the same WIT, built to
   a component with `componentize-js` — so today's `bun`/TS authors keep their
   language but ship a **self-contained `.wasm`** with no runtime dependency.
 - Both replace the copy-pasted block union + stdin/stdout boilerplate every v1
@@ -292,7 +292,7 @@ The sandbox is what makes a real ecosystem safe:
 - **Enable/disable + version pinning.** An `installed.toml` records id → version,
   source, granted capabilities, and enabled state (replacing "a folder exists and
   parses"). Updates are explicit and diffed against the granted capabilities.
-- **Registry.** Move off the single `wess/prompt/plugins` monorepo folder to an
+- **Registry.** Move off the single `wess/sinclair/plugins` monorepo folder to an
   index (name → source + version + signature). Keep a curated first-party set.
 - The duplicated manager (standalone window + inline on `WorkspaceView`) collapses
   to one implementation.
@@ -305,7 +305,7 @@ The sandbox is what makes a real ecosystem safe:
   linker, resident-store manager, the `Host` trait, and the native-tier adapter
   (warm subprocess). Depends on `plugin`.
 - `crates/app` — `impl Host` (bridging host functions to `mcp_dispatch`, panel
-  render, webview, notify, triggers), palette + `prompt mcp` tool exposure,
+  render, webview, notify, triggers), palette + `sinclair mcp` tool exposure,
   Plugin Manager, registry client. `pluginhost.rs` shrinks to the native adapter
   glue; `pluginwebview.rs` gains the two-way bridge + sidecar manager.
 
@@ -331,7 +331,7 @@ The sandbox is what makes a real ecosystem safe:
   token + lifecycle), so the page loads from the same `http://127.0.0.1/?token=…`
   origin as today. This retires `app/src/notes.rs` (the `ensure_server`
   fn-pointer), the `Boot::Server` variant, and the hardcoded port 4319. The
-  `notes` crate stays (still bundled beside `prompt`); only its *wiring* moves
+  `notes` crate stays (still bundled beside `sinclair`); only its *wiring* moves
   from hardcoded app code to a plugin manifest. File → Notes still opens it.
 
 ## 9. Build order (the one push, staged so the build stays green)
@@ -370,13 +370,13 @@ model with capability-consent enforcement and checksum verification are all in.
    `resolve_program` resolves the bundled sidecar as a sibling of the exe.
    **Bundled-plugin discovery** (`plugin::load`) loads first-party plugins shipped
    with the app (`Contents/Resources/plugins` on macOS,
-   `share/prompt/plugins` on Linux, the workspace `plugins/` in dev); a
+   `share/sinclair/plugins` on Linux, the workspace `plugins/` in dev); a
    user-installed plugin of the same id overrides the bundled copy. Notes is now
    the bundled `plugins/notes` plugin — File → Notes resolves and opens it from
    its manifest (`Boot::Server` retired), with a direct-sidecar fallback for a
    bare binary run outside a bundle. The bridge is symmetric: page→host
-   (`__promptResolve`) and host→page (`post_to_page` → `__promptDeliver`).
-6. ✅ **SDK** — `prompt-plugin` crate + `@prompt/plugin` (`componentize-js`) + docs;
+   (`__sinclairResolve`) and host→page (`post_to_page` → `__sinclairDeliver`).
+6. ✅ **SDK** — `sinclair-plugin` crate + `sinclair-plugin` (`componentize-js`) + docs;
    port `promptdesigner`.
 7. ✅ **Registry & trust** — the install-state model: `installed.toml`
    (`plugin::Installed`) records each plugin's version, source, enabled flag, and

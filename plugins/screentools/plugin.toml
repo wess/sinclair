@@ -8,7 +8,7 @@ capabilities = ["screen"]
 type = "wasm"
 wasm = "plugin.wasm"
 
-# An agent-callable tool (appears as `screentools_grep` in `prompt mcp`). Reads
+# An agent-callable tool (appears as `screentools_grep` in `sinclair mcp`). Reads
 # the last N screen lines through the gated host-screen interface and returns the
 # lines matching `query`. No shell round-trip, no process spawn.
 [[tool]]

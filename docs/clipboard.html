@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Clipboard, snippets & pickers — Prompt docs</title>
-    <meta name="description" content="A hands-on walkthrough of Prompt's clipboard: copy and paste, copy-on-select, clipboard history, secret redaction, snippets, launch profiles, the emoji picker, and the two launchers that reach them all.">
+    <title>Clipboard, snippets & pickers — Sinclair docs</title>
+    <meta name="description" content="A hands-on walkthrough of Sinclair's clipboard: copy and paste, copy-on-select, clipboard history, secret redaction, snippets, launch profiles, the emoji picker, and the two launchers that reach them all.">
     <meta name="theme-color" content="#05070c">
     <link rel="icon" href="icon.png">
     <link rel="stylesheet" href="style.css">
@@ -18,7 +18,7 @@
         <h1>Clipboard, snippets &amp; pickers</h1>
         <p class="lede">
           Moving text in and out of a terminal is where a lot of small frictions hide. This
-          walkthrough turns Prompt's clipboard into a real tool: copy without selecting, pull
+          walkthrough turns Sinclair's clipboard into a real tool: copy without selecting, pull
           back something you copied three commands ago, keep API keys off the clipboard for
           good, and fuzzy-find the commands, launch setups, and glyphs you reach for every
           day — then wire it all to two launchers you can drive by name.
@@ -38,7 +38,7 @@
           it — no keystroke — and turn on <code>middle-click-paste</code> to drop the current
           selection with a middle click, the way X11 users already expect:
         </p>
-        <pre><code><span class="c"># ~/.config/prompt/config</span>
+        <pre><code><span class="c"># ~/.config/sinclair/config</span>
 copy-on-select = true          <span class="c"># selecting text copies it immediately</span>
 middle-click-paste = true      <span class="c"># middle-click pastes the selection (X-style)</span></code></pre>
         <p>
@@ -49,12 +49,12 @@ middle-click-paste = true      <span class="c"># middle-click pastes the selecti
           risky — multi-line text or shell control characters, the kind of thing that can run
           before you've read it:
         </p>
-        <pre><code><span class="c"># ~/.config/prompt/config</span>
+        <pre><code><span class="c"># ~/.config/sinclair/config</span>
 clipboard-paste-protection = true   <span class="c"># confirm before pasting risky content</span></code></pre>
 
         <h2>2. Clipboard history</h2>
         <p>
-          The system clipboard only remembers the last thing you copied — Prompt remembers a
+          The system clipboard only remembers the last thing you copied — Sinclair remembers a
           ring of recent ones. Press <kbd>⌘⇧Y</kbd> (<code>clipboard_history</code>) to open a
           fuzzy picker over everything you've copied lately; type to filter, then choose an
           entry to paste it into the focused pane. This is the fix for the copy-something-else
@@ -70,7 +70,7 @@ clipboard-paste-protection = true   <span class="c"># confirm before pasting ris
           anything it matches is masked with bullets (<code>•</code>) <em>before</em> the text
           ever reaches the clipboard:
         </p>
-        <pre><code><span class="c"># ~/.config/prompt/config</span>
+        <pre><code><span class="c"># ~/.config/sinclair/config</span>
 redact = sk-[A-Za-z0-9]{20,}    <span class="c"># mask OpenAI-style keys</span>
 redact = ghp_[A-Za-z0-9]{36}    <span class="c"># mask GitHub tokens</span></code></pre>
         <p>
@@ -86,7 +86,7 @@ redact = ghp_[A-Za-z0-9]{36}    <span class="c"># mask GitHub tokens</span></cod
           snippets and recall them from a fuzzy picker instead. Each <code>snippet</code> entry
           is <code>label | command</code>:
         </p>
-        <pre><code><span class="c"># ~/.config/prompt/config</span>
+        <pre><code><span class="c"># ~/.config/sinclair/config</span>
 snippet = deploy | git push origin main
 snippet = logs | kubectl logs -f deploy/api</code></pre>
         <p>
@@ -102,7 +102,7 @@ snippet = logs | kubectl logs -f deploy/api</code></pre>
           Profiles are named launch setups — an SSH host, a REPL, a project environment. Each
           <code>profile</code> entry is <code>label | command</code>, just like a snippet:
         </p>
-        <pre><code><span class="c"># ~/.config/prompt/config</span>
+        <pre><code><span class="c"># ~/.config/sinclair/config</span>
 profile = prod | ssh prod.example.com
 profile = repl | python3</code></pre>
         <p>
@@ -117,7 +117,7 @@ profile = repl | python3</code></pre>
           You don't need a separate app to type a glyph you can't reach on the keyboard. Press
           <kbd>⌘⌥E</kbd> (<code>unicode_picker</code>) to open a searchable list of common emoji
           and symbols — arrows, math signs, box glyphs, and more — each one named so you can
-          fuzzy-find it. Pick one and Prompt sends the glyph straight to the focused pane. Handy
+          fuzzy-find it. Pick one and Sinclair sends the glyph straight to the focused pane. Handy
           for a commit message, a comment, or a quick <code>→</code> in some notes.
         </p>
 
@@ -131,7 +131,7 @@ profile = repl | python3</code></pre>
             <thead><tr><th>Shortcut</th><th>Opens</th><th>Use it to</th></tr></thead>
             <tbody>
               <tr><td><kbd>⌘P</kbd></td><td>Quick open (<code>quick_open</code>)</td><td>A Spotlight-style launcher; type a few letters and run any action — including a launch profile.</td></tr>
-              <tr><td><kbd>⌘⇧P</kbd></td><td>Command palette (<code>command_palette</code>)</td><td>Fuzzy over Prompt's full action catalog — the pickers, copy mode, splits, settings — with each row showing its current keybinding.</td></tr>
+              <tr><td><kbd>⌘⇧P</kbd></td><td>Command palette (<code>command_palette</code>)</td><td>Fuzzy over Sinclair's full action catalog — the pickers, copy mode, splits, settings — with each row showing its current keybinding.</td></tr>
             </tbody>
           </table>
         </div>

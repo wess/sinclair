@@ -38,7 +38,7 @@ fn resolve_absolute_vs_relative() {
 #[test]
 fn create_list_remove_roundtrip() {
     use std::process::Command;
-    let base = std::env::temp_dir().join(format!("prompt-wt-{}", std::process::id()));
+    let base = std::env::temp_dir().join(format!("sinclair-wt-{}", std::process::id()));
     let repo = base.join("repo");
     std::fs::create_dir_all(&repo).unwrap();
     let run = |args: &[&str]| {

@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Organize your workspace — Prompt docs</title>
-    <meta name="description" content="A hands-on walkthrough of Prompt's workspace: tabs, recursive splits, tile layouts, sidebars, broadcast input, read-only panes, tearing tabs into windows, session restore, the quick terminal, and Notes.">
+    <title>Organize your workspace — Sinclair docs</title>
+    <meta name="description" content="A hands-on walkthrough of Sinclair's workspace: tabs, recursive splits, tile layouts, sidebars, broadcast input, read-only panes, tearing tabs into windows, session restore, the quick terminal, and Notes.">
     <meta name="theme-color" content="#05070c">
     <link rel="icon" href="icon.png">
     <link rel="stylesheet" href="style.css">
@@ -103,7 +103,7 @@
         <h2>3. Snap panes into a tile layout</h2>
         <p>
           Splitting one pane at a time is fine, but when you know the shape you want, a
-          tile layout arranges several panes in a single step. Prompt ships a set of
+          tile layout arranges several panes in a single step. Sinclair ships a set of
           presets:
         </p>
         <ul>
@@ -118,13 +118,13 @@
           <strong>Workspace</strong> menu — both invoke <code>tile:LAYOUT_ID</code>.
           Built an arrangement by hand that you want to keep? Run <code>save_layout</code>:
           it captures the current tab's split tree as a named custom layout, stored under
-          <code>~/.config/prompt/layouts/</code>. Saved layouts then appear alongside the
+          <code>~/.config/sinclair/layouts/</code>. Saved layouts then appear alongside the
           built-in presets, ready to re-apply in any tab.
         </p>
 
         <h2>4. Reach everything from the sidebars</h2>
         <p>
-          Prompt has VS Code-style drawers on the left and right edges, each fronted by an
+          Sinclair has VS Code-style drawers on the left and right edges, each fronted by an
           activity bar of icons. Toggle a side with <code>sidebar:SIDE[:PANEL]</code> — for
           example <code>sidebar:left</code> opens the left drawer, and
           <code>sidebar:right:relay</code> opens the right drawer directly to the Relay
@@ -171,14 +171,14 @@
         <h2>7. Tear a tab into its own window</h2>
         <p>
           When one window gets crowded, drag a tab out of the tab bar and release it
-          outside the window. Prompt re-homes that pane into a fresh window — the live
+          outside the window. Sinclair re-homes that pane into a fresh window — the live
           shell keeps running, so nothing is restarted or lost. It's the quickest way to
           move a session onto a second display, or to split one busy window into two.
         </p>
 
         <h2>8. Pick up where you left off</h2>
         <p>
-          Turn on the <code>session-restore</code> config option and Prompt reopens the
+          Turn on the <code>session-restore</code> config option and Sinclair reopens the
           previous window's tabs, splits, and working directories the next time it
           launches, so you resume exactly where you stopped. A pane that was running a
           coding agent is remembered as one: on restore it relaunches the agent —
@@ -188,7 +188,7 @@
           the focused pane's current directory instead of your home folder, keeping related
           shells rooted in the same project.
         </p>
-        <pre><code><span class="c"># ~/.config/prompt/config</span>
+        <pre><code><span class="c"># ~/.config/sinclair/config</span>
 session-restore = true                     <span class="c"># reopen tabs &amp; splits on next launch</span>
 window-inherit-working-directory = true    <span class="c"># new tabs open in the current dir</span></code></pre>
         <div class="callout note">
@@ -217,7 +217,7 @@ window-inherit-working-directory = true    <span class="c"># new tabs open in th
 
         <h2>Where to next</h2>
         <div class="cards">
-          <a href="quickstart.html"><strong>Your first 10 minutes</strong>The fast tour of Prompt — splits, tabs, themes, and the two shortcuts that unlock the rest.</a>
+          <a href="quickstart.html"><strong>Your first 10 minutes</strong>The fast tour of Sinclair — splits, tabs, themes, and the two shortcuts that unlock the rest.</a>
           <a href="worktreeagents.html"><strong>Parallel agents in worktrees</strong>Put this workspace to work — one isolated coding agent per tab, in its own git checkout.</a>
           <a href="appearance.html"><strong>Themes, fonts &amp; appearance</strong>Make the workspace yours — color schemes, fonts, transparency, and background images.</a>
         </div>

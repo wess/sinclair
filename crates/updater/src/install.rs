@@ -6,7 +6,7 @@ use std::path::Path;
 
 use crate::Release;
 
-/// How this copy of Prompt was installed, which decides the update path. We
+/// How this copy of Sinclair was installed, which decides the update path. We
 /// self-update where we can rewrite the install ourselves; anything else opens
 /// the download page. (Some variants are only constructed on their platform.)
 #[allow(dead_code)]
@@ -45,9 +45,9 @@ pub enum Relaunch {
 }
 
 /// The `.app` bundle three levels above a macOS executable
-/// (`…/Prompt.app/Contents/MacOS/prompt`), if there is one.
+/// (`…/Sinclair.app/Contents/MacOS/sinclair`), if there is one.
 #[cfg(any(target_os = "macos", test))]
-fn bundle_of(exe: &Path) -> Option<PathBuf> {
+pub(crate) fn bundle_of(exe: &Path) -> Option<PathBuf> {
     exe.ancestors()
         .nth(3)
         .filter(|p| p.extension().is_some_and(|e| e == "app"))

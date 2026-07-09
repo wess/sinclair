@@ -1,10 +1,10 @@
-// Git panel — an IPC plugin for Prompt.
+// Git panel — an IPC plugin for Sinclair.
 //
 // Protocol: read one JSON request on stdin, write one JSON response on stdout.
 //   request:  { kind: "render" | "action", panel, action?, cwd? }
 //   response: { title?, blocks: Block[], run?: RunDirective[] }
 //
-// Blocks describe the panel UI; run directives are commands Prompt executes in
+// Blocks describe the panel UI; run directives are commands Sinclair executes in
 // the focused terminal. This plugin reads git state from `cwd` and offers
 // one-click actions (stage, fetch, refresh) plus a "log in terminal" directive.
 

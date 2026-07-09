@@ -1,4 +1,4 @@
-//! Prompt WASM plugin — Rust authoring template. Copy this crate, edit the
+//! Sinclair WASM plugin — Rust authoring template. Copy this crate, edit the
 //! `Plugin` impl, `cargo build --target wasm32-wasip2 --release`, and ship the
 //! resulting `.wasm` next to a `plugin.toml` (`[runtime] type = "wasm"`).
 //!

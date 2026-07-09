@@ -1,6 +1,6 @@
 //! Bridge between the MCP stdio server and the running terminal.
 //!
-//! `prompt mcp` runs [`run_stdio`]: an [`mcp`] server whose every tool call is
+//! `sinclair mcp` runs [`run_stdio`]: an [`mcp`] server whose every tool call is
 //! forwarded over the single-instance unix socket ([`crate::ipc`]) to the
 //! already-running GUI instance. There, [`handle`] turns each op into a call
 //! on the active [`WorkspaceView`]. Splitting it this way keeps the stdio
@@ -16,7 +16,7 @@ use crate::root::WorkspaceView;
 use crate::warmhost::WarmPlugins;
 use crate::wasmhost::WasmRuntime;
 
-/// Entry point for the `prompt mcp` subcommand: serve MCP over stdio. Built-in
+/// Entry point for the `sinclair mcp` subcommand: serve MCP over stdio. Built-in
 /// terminal-control tools bridge to the running GUI over the socket; plugin
 /// `[[tool]]`s are invoked directly here (a plugin runtime is just a spawn), so
 /// agents see the plugins' tools alongside the built-ins. Blocks until stdin
@@ -188,7 +188,7 @@ pub fn tools() -> Vec<mcp::Tool> {
                 "type": "object",
                 "properties": {
                     "body": { "type": "string", "description": "The notification message." },
-                    "title": { "type": "string", "description": "Optional title (default \"Prompt\")." }
+                    "title": { "type": "string", "description": "Optional title (default \"Sinclair\")." }
                 },
                 "required": ["body"]
             }),
@@ -274,11 +274,11 @@ pub fn handle(op: &str, args: &Value, cx: &mut App) -> Result<Value, String> {
     }
     if op == "notify" {
         let body = args.get("body").and_then(Value::as_str).unwrap_or_default();
-        let title = args.get("title").and_then(Value::as_str).unwrap_or("Prompt");
+        let title = args.get("title").and_then(Value::as_str).unwrap_or("Sinclair");
         crate::view::post_os_notification(title, body);
         return Ok(json!({ "ok": true }));
     }
-    // An agent status report is addressed by pane token (`PROMPT_PANE`), which
+    // An agent status report is addressed by pane token (`SINCLAIR_PANE`), which
     // may belong to any window — not necessarily the active one — so search all
     // workspaces for the pane rather than dispatching to the frontmost.
     if op == "report_agent" {

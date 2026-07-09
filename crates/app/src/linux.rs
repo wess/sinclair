@@ -31,7 +31,7 @@ pub fn window_kind() -> WindowKind {
     if is_wayland() {
         use gpui::layer_shell::{Anchor, KeyboardInteractivity, Layer, LayerShellOptions};
         WindowKind::LayerShell(LayerShellOptions {
-            namespace: "prompt-quick".to_string(),
+            namespace: "sinclair-quick".to_string(),
             layer: Layer::Overlay,
             anchor: Anchor::TOP | Anchor::LEFT | Anchor::RIGHT,
             keyboard_interactivity: KeyboardInteractivity::OnDemand,
@@ -50,7 +50,7 @@ pub fn make_overlay(window: &Window) {
         return;
     }
     if let Err(error) = x11_overlay(window) {
-        eprintln!("prompt: quick terminal: X11 overlay hints failed: {error}");
+        eprintln!("sinclair: quick terminal: X11 overlay hints failed: {error}");
     }
 }
 

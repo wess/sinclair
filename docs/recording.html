@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Record &amp; share your terminal — Prompt docs</title>
+    <title>Record &amp; share your terminal — Sinclair docs</title>
     <meta name="description" content="Record a terminal session to an asciinema .cast, play it back, export it to a GIF or video for a README or PR, and save the whole scrollback buffer to a text file.">
     <meta name="theme-color" content="#05070c">
     <link rel="icon" href="icon.png">
@@ -92,10 +92,10 @@
           <code>.mp4</code>, <code>.mov</code>, or <code>.webm</code>:
         </p>
         <pre><code><span class="c"># GIF — no extra tools needed</span>
-prompt export session.cast demo.gif
+sinclair export session.cast demo.gif
 
 <span class="c"># video — needs ffmpeg on PATH</span>
-prompt export session.cast demo.mp4</code></pre>
+sinclair export session.cast demo.mp4</code></pre>
         <p>
           Timing and layout are tunable so the clip lands well wherever you paste it:
         </p>
@@ -121,7 +121,7 @@ prompt export session.cast demo.mp4</code></pre>
           bundled software renderer.
         </p>
         <pre><code><span class="c"># a polished macOS export: fidelity rendering at 30 fps</span>
-prompt export session.cast demo.mp4 --fidelity --fps 30</code></pre>
+sinclair export session.cast demo.mp4 --fidelity --fps 30</code></pre>
         <div class="callout tip">
           <span class="label">Tip</span>
           <p>Trimming <code>--idle-cap</code> down and nudging <code>--speed</code> up turns a
@@ -148,8 +148,8 @@ prompt export session.cast demo.mp4 --fidelity --fps 30</code></pre>
 
         <h2>Where to next</h2>
         <div class="cards">
-          <a href="automation.html"><strong>Automate your terminal with MCP</strong>Drive Prompt from an agent or a script — including kicking off recordings and exports.</a>
-          <a href="cli.html"><strong>CLI reference</strong>Every <code>prompt</code> subcommand, including the full <code>prompt export</code> option list.</a>
+          <a href="automation.html"><strong>Automate your terminal with MCP</strong>Drive Sinclair from an agent or a script — including kicking off recordings and exports.</a>
+          <a href="cli.html"><strong>CLI reference</strong>Every <code>sinclair</code> subcommand, including the full <code>sinclair export</code> option list.</a>
           <a href="awareness.html"><strong>Triggers, notifications &amp; annotations</strong>Surface what matters while a long session records itself in the background.</a>
         </div>
       </article>

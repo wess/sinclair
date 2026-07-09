@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
   <metadata>
-    <id>prompt</id>
+    <id>sinclair</id>
     <version>0.0.0</version>
-    <title>Prompt</title>
+    <title>Sinclair</title>
     <authors>Wess Cope</authors>
     <owners>Wess Cope</owners>
-    <projectUrl>https://github.com/wess/prompt</projectUrl>
-    <projectSourceUrl>https://github.com/wess/prompt</projectSourceUrl>
-    <packageSourceUrl>https://github.com/wess/prompt/tree/main/packaging/chocolatey</packageSourceUrl>
-    <licenseUrl>https://github.com/wess/prompt/blob/main/LICENSE</licenseUrl>
+    <projectUrl>https://github.com/wess/sinclair</projectUrl>
+    <projectSourceUrl>https://github.com/wess/sinclair</projectSourceUrl>
+    <packageSourceUrl>https://github.com/wess/sinclair/tree/main/packaging/chocolatey</packageSourceUrl>
+    <licenseUrl>https://github.com/wess/sinclair/blob/main/LICENSE</licenseUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <description>A GPU-accelerated terminal emulator. Windows builds are beta and currently unsigned.</description>
     <summary>A GPU-accelerated terminal emulator.</summary>

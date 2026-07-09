@@ -1,4 +1,4 @@
-//! The `notes` sidecar: a self-contained vault server for Prompt's Notes
+//! The `notes` sidecar: a self-contained vault server for Sinclair's Notes
 //! surface. Serves an embedded markdown-notes web app plus a vault API over
 //! HTTP, with a WebSocket for external-change push. No runtime dependencies
 //! (replaces the old Bun server).

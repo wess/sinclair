@@ -40,7 +40,7 @@ impl Redactor {
             .filter_map(|p| match Regex::new(p) {
                 Ok(re) => Some(re),
                 Err(e) => {
-                    eprintln!("prompt: invalid redact pattern {p:?}: {e}");
+                    eprintln!("sinclair: invalid redact pattern {p:?}: {e}");
                     None
                 }
             })

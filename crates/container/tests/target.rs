@@ -17,10 +17,10 @@ fn ephemeral_argv() {
         Engine::Docker,
         &profile(None),
         false,
-        Some("prompt-debian-1".to_string()),
+        Some("sinclair-debian-1".to_string()),
     );
     assert!(!t.persist);
-    assert_eq!(t.name.as_deref(), Some("prompt-debian-1"));
+    assert_eq!(t.name.as_deref(), Some("sinclair-debian-1"));
     assert_eq!(
         t.argv(),
         vec![
@@ -29,7 +29,7 @@ fn ephemeral_argv() {
             "--rm",
             "-it",
             "--name",
-            "prompt-debian-1",
+            "sinclair-debian-1",
             "debian:latest",
             "bash"
         ]
@@ -42,7 +42,7 @@ fn persistent_argv_named() {
         Engine::Podman,
         &profile(None),
         true,
-        Some("prompt-debian-1".to_string()),
+        Some("sinclair-debian-1".to_string()),
     );
     assert!(t.persist);
     assert_eq!(
@@ -52,7 +52,7 @@ fn persistent_argv_named() {
             "run",
             "-it",
             "--name",
-            "prompt-debian-1",
+            "sinclair-debian-1",
             "debian:latest",
             "bash"
         ]

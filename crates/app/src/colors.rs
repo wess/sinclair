@@ -24,7 +24,7 @@ pub fn from_config(opts: &config::Options, dark: bool) -> Colors {
         Some(scheme) => scheme,
         None => {
             if !name.is_empty() {
-                eprintln!("prompt: unknown theme {name:?}, using default");
+                eprintln!("sinclair: unknown theme {name:?}, using default");
             }
             theme::default_scheme()
         }

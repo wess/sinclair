@@ -22,8 +22,8 @@ fn selects_email() {
 
 #[test]
 fn selects_path() {
-    let s = "edit /usr/local/bin/prompt please";
-    assert_eq!(tok(s, 10).as_deref(), Some("/usr/local/bin/prompt"));
+    let s = "edit /usr/local/bin/sinclair please";
+    assert_eq!(tok(s, 10).as_deref(), Some("/usr/local/bin/sinclair"));
 }
 
 #[test]

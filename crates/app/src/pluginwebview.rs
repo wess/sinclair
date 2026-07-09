@@ -1,5 +1,5 @@
 //! Host for a web-view surface. Wraps a guise [`WebView`], injects the
-//! `window.Prompt` JavaScript bridge, and routes messages the page posts
+//! `window.Sinclair` JavaScript bridge, and routes messages the page posts
 //! (`window.ipc.postMessage`, via the bridge) to the app.
 //!
 //! The host is driven by a [`WebviewSurface`] descriptor, not a plugin — so both
@@ -7,7 +7,7 @@
 //! Plugins build a surface from their manifest ([`WebviewSurface::from_plugin`]);
 //! built-ins construct one directly.
 //!
-//! Routing: a page calls `Prompt.invoke(method, params)`. Known methods are the
+//! Routing: a page calls `Sinclair.invoke(method, params)`. Known methods are the
 //! app's MCP capabilities (`run_command`, `read_screen`, …) and run through the
 //! main workspace's [`WorkspaceView::mcp_dispatch`]. Anything else is forwarded
 //! to the surface's `runtime` (if any) as a `message` request. The reply
@@ -105,22 +105,23 @@ impl WebviewSurface {
     }
 }
 
-/// Injected at document start. Exposes `window.Prompt` — a small VS Code-style
+/// Injected at document start. Exposes `window.Sinclair` — a small VS Code-style
 /// bridge over wry's `window.ipc.postMessage`. `invoke` returns a Promise the
-/// host resolves by name via `window.__promptResolve`.
+/// host resolves by name via `window.__sinclairResolve`. `window.Prompt` aliases
+/// the same object so plugins written before the rename keep working.
 const BRIDGE_JS: &str = r#"
 (function () {
-  if (window.Prompt) return;
+  if (window.Sinclair) return;
   var pending = {}, seq = 1, listeners = [];
   function send(obj) { window.ipc.postMessage(JSON.stringify(obj)); }
-  window.__promptResolve = function (id, ok, value) {
+  window.__sinclairResolve = function (id, ok, value) {
     var p = pending[id]; if (!p) return; delete pending[id];
     ok ? p.resolve(value) : p.reject(value);
   };
-  window.__promptDeliver = function (msg) {
+  window.__sinclairDeliver = function (msg) {
     listeners.forEach(function (cb) { try { cb(msg); } catch (e) {} });
   };
-  window.Prompt = {
+  window.Sinclair = {
     // Fire-and-forget message to the plugin runtime.
     postMessage: function (data) { send({ kind: "post", method: "postMessage", params: data }); },
     // Request/response; resolves with the host or runtime reply.
@@ -137,6 +138,8 @@ const BRIDGE_JS: &str = r#"
     runCommand: function (text, target) { return this.invoke("run_command", { text: text, target: target || "pane" }); },
     readScreen: function (lines) { return this.invoke("read_screen", lines ? { lines: lines } : {}); },
   };
+  // Pre-rename alias, so a plugin binding `window.Prompt` still resolves.
+  window.Prompt = window.Sinclair;
 })();
 "#;
 
@@ -341,11 +344,11 @@ impl PluginWebView {
         let vjson = serde_json::to_string(value).unwrap_or_else(|_| "null".to_string());
         self.webview
             .read(cx)
-            .evaluate_script(&format!("window.__promptResolve({id}, {ok}, {vjson});"));
+            .evaluate_script(&format!("window.__sinclairResolve({id}, {ok}, {vjson});"));
     }
 
-    /// Push a message to the page's `Prompt.onMessage(cb)` listeners — the
-    /// host→page direction of the bridge. `__promptDeliver` was defined in the
+    /// Push a message to the page's `Sinclair.onMessage(cb)` listeners — the
+    /// host→page direction of the bridge. `__sinclairDeliver` was defined in the
     /// injected JS but had no Rust caller (a v1 dead end); this is it. Available
     /// for a feature that pushes to a plugin webview (e.g. a subscribed event).
     #[allow(dead_code)]
@@ -353,7 +356,7 @@ impl PluginWebView {
         let json = serde_json::to_string(message).unwrap_or_else(|_| "null".to_string());
         self.webview
             .read(cx)
-            .evaluate_script(&format!("window.__promptDeliver({json});"));
+            .evaluate_script(&format!("window.__sinclairDeliver({json});"));
     }
 
     /// The focused pane's working directory on the main workspace, so a plugin
@@ -431,15 +434,11 @@ fn run_service(command: &str, dir: &std::path::Path) -> Result<(u16, String), St
 }
 
 /// Writable working directory for a plugin's host-managed sidecar service:
-/// `<config>/prompt/data/<plugin-id>`. Kept separate from the (possibly
+/// `<config>/sinclair/data/<plugin-id>`. Kept separate from the (possibly
 /// read-only, bundled) plugin dir; this is where the sidecar writes its
 /// `.service.json`. `run_service` creates it on demand.
 fn service_dir(plugin_id: &str) -> PathBuf {
-    let base = std::env::var_os("XDG_CONFIG_HOME")
-        .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config")))
-        .unwrap_or_else(|| PathBuf::from("."));
-    base.join("prompt").join("data").join(plugin_id)
+    crate::paths::data_dir(plugin_id)
 }
 
 /// Whether something is accepting connections on `127.0.0.1:port`.

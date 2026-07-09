@@ -1,4 +1,4 @@
-//! Bridge Prompt's terminal-centric theme onto guise's Mantine-style theme.
+//! Bridge Sinclair's terminal-centric theme onto guise's Mantine-style theme.
 //!
 //! guise components resolve their colors from a single app-global
 //! [`guise::Theme`]. We derive that theme from the active terminal palette so

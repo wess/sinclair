@@ -40,7 +40,7 @@ pub fn options(
 
 /// The user's home directory, the default working directory when no pane cwd
 /// is inherited and the config sets none. Without it the child would inherit
-/// the launcher's cwd, e.g. `/` when Prompt is opened from Finder.
+/// the launcher's cwd, e.g. `/` when Sinclair is opened from Finder.
 fn home() -> Option<PathBuf> {
     std::env::var_os("HOME")
         .filter(|h| !h.is_empty())

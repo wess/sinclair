@@ -1,14 +1,14 @@
-# Prompt
+# Sinclair
 
 A fast, modern terminal that gets out of your way.
 
-Prompt is a GPU-accelerated terminal emulator built for people who live in the
+Sinclair is a GPU-accelerated terminal emulator built for people who live in the
 command line. It pairs a meticulous, standards-complete terminal core with a
 clean tabbed-and-split workspace, live-reloading config, and a library of
 beautiful themes — so your terminal feels instant, looks great, and bends to
 exactly how you work.
 
-## Why Prompt
+## Why Sinclair
 
 - **Quick.** GPU rendering and a tight event loop keep scrolling and heavy
   output buttery, even under a firehose of logs.
@@ -41,16 +41,16 @@ exactly how you work.
 - **Plugins** — `plugin.toml` manifests that add command actions, live
   side-drawer panels, HTML/JS webview surfaces, and event triggers that react to
   terminal events. No build step; install from a shared catalog. See the
-  [plugin tutorial](https://wess.github.io/prompt/plugintutorial.html).
+  [plugin tutorial](https://wess.github.io/sinclair/plugintutorial.html).
 - **Macros** — record the commands you type, name them, and replay them with a
   keybinding; replay paces itself off shell-integration prompt marks.
 - **Recording & export** — capture a pane to an asciinema `.cast` (⌘⇧R), then
-  export it to a GIF or MP4/MOV/WebM from the File menu or with `prompt export`;
+  export it to a GIF or MP4/MOV/WebM from the File menu or with `sinclair export`;
   on macOS it can render through the app's own text system for the same
   ligatures, fonts, and box-drawing you see on screen.
 - **Save buffer** — write the focused terminal's whole buffer (scrollback and
   screen) to a text file from **File → Save Buffer…** (⌘S).
-- **MCP server** — `prompt mcp` exposes the running terminal to Model Context
+- **MCP server** — `sinclair mcp` exposes the running terminal to Model Context
   Protocol clients (Claude Desktop, Claude Code) so an agent can run commands,
   read the screen, replay macros, switch tabs, and manage git worktrees.
 - **Relay** — run a team of coding agents (Claude Code, Codex, …) that share a
@@ -58,7 +58,7 @@ exactly how you work.
   AI. See [`docs/relay.md`](docs/relay.md).
 - **Agent status** — every pane self-reports a semantic state (working, blocked,
   done, idle) shown as a colored dot on its tab and rolled up in the Activity
-  panel; `prompt agent-hooks install` wires Claude Code's lifecycle to it, and
+  panel; `sinclair agent-hooks install` wires Claude Code's lifecycle to it, and
   mesh agents report over `report_status`/`wait_status`.
 - **Git worktrees** — create, open, and remove worktrees as keybind actions or
   MCP verbs that open a tab at the checkout — one isolated branch per agent — with
@@ -67,7 +67,7 @@ exactly how you work.
   (reloading their own session, Claude Code today) instead of dropping to a bare
   shell.
 - **Tutorials** — hands-on walkthroughs from your first splits to parallel agent
-  teams. See the [tutorials](https://wess.github.io/prompt/tutorials.html).
+  teams. See the [tutorials](https://wess.github.io/sinclair/tutorials.html).
 
 ## Install
 
@@ -76,32 +76,32 @@ exactly how you work.
 Install with Homebrew:
 
 ```sh
-brew install --cask wess/packages/prompt
+brew install --cask wess/packages/sinclair
 ```
 
-Or grab the latest `Prompt.dmg` from the
-[releases page](https://github.com/wess/prompt/releases) and drag it to
+Or grab the latest `Sinclair.dmg` from the
+[releases page](https://github.com/wess/sinclair/releases) and drag it to
 Applications.
 
 ### Linux
 
 Builds are published for **x86_64** and **aarch64** on the
-[releases page](https://github.com/wess/prompt/releases) in three formats:
+[releases page](https://github.com/wess/sinclair/releases) in three formats:
 
 ```sh
 # AppImage — self-contained, no install
-chmod +x Prompt-*-x86_64.AppImage
-./Prompt-*-x86_64.AppImage
+chmod +x Sinclair-*-x86_64.AppImage
+./Sinclair-*-x86_64.AppImage
 
 # Debian / Ubuntu
 sudo apt install ./prompt_*_amd64.deb
 
 # Tarball — extract and run, or copy usr/ into /usr/local
-tar xzf prompt-*-linux-x86_64.tar.gz
-./prompt-*-linux-x86_64/usr/bin/prompt
+tar xzf sinclair-*-linux-x86_64.tar.gz
+./sinclair-*-linux-x86_64/usr/bin/sinclair
 ```
 
-Prompt draws its own window controls on Linux, so it needs a compositor with
+Sinclair draws its own window controls on Linux, so it needs a compositor with
 client-side decoration support (Wayland or X11).
 
 ## Get started
@@ -109,19 +109,19 @@ client-side decoration support (Wayland or X11).
 Build and launch from source:
 
 ```sh
-# Launch Prompt
+# Launch Sinclair
 cargo run -p app --release
 ```
 
-That's it — Prompt opens with sensible defaults. On first run it looks for a
+That's it — Sinclair opens with sensible defaults. On first run it looks for a
 config file (see below); if there isn't one, it uses built-in defaults.
 
 To build a distributable package yourself:
 
 ```sh
 # macOS .app + .dmg
-scripts/bundle.sh   # cargo build --release + assemble dist/Prompt.app
-scripts/dmg.sh      # package dist/Prompt.dmg
+scripts/bundle.sh   # cargo build --release + assemble dist/Sinclair.app
+scripts/dmg.sh      # package dist/Sinclair.dmg
 
 # Linux .tar.gz + .deb + .AppImage (into dist/linux)
 scripts/linux.sh
@@ -138,8 +138,8 @@ and type directly into fields for your font family, shell, and foreground /
 background colors. Changes are written straight back to your config file, so
 the file stays the single source of truth.
 
-Under the hood it's a simple `key = value` file at `~/.config/prompt/config`
-(or `$XDG_CONFIG_HOME/prompt/config`) that **reloads the moment you save** —
+Under the hood it's a simple `key = value` file at `~/.config/sinclair/config`
+(or `$XDG_CONFIG_HOME/sinclair/config`) that **reloads the moment you save** —
 fonts, theme, padding, cursor, and keybindings all update live.
 
 ```ini
@@ -188,12 +188,12 @@ stops the rest of your config from loading.
 
 ## Plugins
 
-Prompt loads plugins from `~/.config/prompt/plugins/*/plugin.toml` (or
-`$XDG_CONFIG_HOME/prompt/plugins/*/plugin.toml`). You can also point at a
+Sinclair loads plugins from `~/.config/sinclair/plugins/*/plugin.toml` (or
+`$XDG_CONFIG_HOME/sinclair/plugins/*/plugin.toml`). You can also point at a
 plugin directory or manifest directly:
 
 ```ini
-plugin = ~/dev/prompttools
+plugin = ~/dev/sinclairtools
 keybind = cmd+ctrl+l=plugin_command:tools/logs
 ```
 
@@ -223,7 +223,7 @@ Beyond commands, a plugin can contribute:
   a `[panel]`, rendered as a side-drawer UI from a block tree with clickable
   actions (see `plugins/git`).
 - **Webview surfaces** — a `[webview]` hosting your own HTML/JS in a panel,
-  window, or tab, wired to the terminal through a `window.Prompt` bridge (see
+  window, or tab, wired to the terminal through a `window.Sinclair` bridge (see
   `plugins/dashboard`).
 - **Event triggers** — `[[trigger]]` tables that run an action (notify, run a
   command, or call the runtime) when a terminal event fires: command finished,
@@ -231,7 +231,7 @@ Beyond commands, a plugin can contribute:
 
 A ready-made catalog of plugins lives in [`plugins/`](plugins/), and the full
 build-it-yourself guide is the
-[plugin development tutorial](https://wess.github.io/prompt/plugintutorial.html).
+[plugin development tutorial](https://wess.github.io/sinclair/plugintutorial.html).
 
 ## Macros
 
@@ -246,7 +246,7 @@ keybind = cmd+shift+r=macro_record
 keybind = cmd+shift+1=macro:deploy
 ```
 
-Macros are stored as plain text under `~/.config/prompt/macros/<name>.macro`
+Macros are stored as plain text under `~/.config/sinclair/macros/<name>.macro`
 (one command per line, `#` comments allowed), so you can edit, rename, or
 version-control them by hand. Names use lowercase letters, digits, `.`, or
 `-`. Replay sends one command per line and, when your shell emits OSC 133
@@ -255,14 +255,14 @@ sending the next; without shell integration it uses a short fixed delay.
 
 ## MCP server
 
-`prompt mcp` runs a [Model Context Protocol](https://modelcontextprotocol.io)
-server over stdio that bridges to the already-running Prompt instance. Point an
+`sinclair mcp` runs a [Model Context Protocol](https://modelcontextprotocol.io)
+server over stdio that bridges to the already-running Sinclair instance. Point an
 MCP client at it — for Claude Desktop, in `claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
-    "prompt": { "command": "prompt", "args": ["mcp"] }
+    "sinclair": { "command": "sinclair", "args": ["mcp"] }
   }
 }
 ```
@@ -270,20 +270,20 @@ MCP client at it — for Claude Desktop, in `claude_desktop_config.json`:
 Tools exposed: `run_command` (into the focused pane, a new tab, or a split),
 `send_input` (raw keystrokes), `read_screen`, `new_tab`, `split`, `list_tabs`,
 `list_panes`, `focus_tab`, `list_macros`, `run_macro`, and `notify` (post a
-desktop alert). The `prompt mcp` process is a thin stdio bridge; the live
+desktop alert). The `sinclair mcp` process is a thin stdio bridge; the live
 terminal window does the work, reached over the same per-user socket used for
 `--toggle-quick`.
 
 **Agent attention.** A program (or agent hook) can raise a desktop notification
-with an `OSC 9` / `OSC 777` / `OSC 99` escape, or by running `prompt notify
-"message"`. Prompt posts a native banner and — if the pane is in the
+with an `OSC 9` / `OSC 777` / `OSC 99` escape, or by running `sinclair notify
+"message"`. Sinclair posts a native banner and — if the pane is in the
 background — lights up its tab until you look at it. Each tab also shows the
 focused pane's **git branch and working directory**, so a row of agents is
 legible at a glance.
 
 ## Relay
 
-Relay runs a team of coding agents that coordinate through Prompt — a supervisor
+Relay runs a team of coding agents that coordinate through Sinclair — a supervisor
 delegating to workers — sharing one bus so they message each other and loop on
 work. It's a bundled sidecar (`relay`), managed from **Settings → AI**, not run
 inside the terminal process.
@@ -298,7 +298,7 @@ and optionally start it on launch. An **AI** menu then appears:
 - **Open Feed** — streams every message on the bus in a split.
 - **Relay ▸** — server controls: shows whether the server is running, then
   Start / Stop / Restart it and **View Logs** (tails the server log in a split).
-- **Teams ▸** — open a whole **team** at once: Prompt arranges a tile layout and
+- **Teams ▸** — open a whole **team** at once: Sinclair arranges a tile layout and
   launches the right agent in each pane.
 
 The same `relay` binary works on its own (`relay start`, `relay launch <name>`,
@@ -371,8 +371,8 @@ Override any color in config (`background`, `foreground`,
 
 ## Documentation
 
-- [Full documentation site](https://wess.github.io/prompt/) — install, configuration,
-  keybindings, themes, plugins, and the [plugin development tutorial](https://wess.github.io/prompt/plugintutorial.html).
+- [Full documentation site](https://wess.github.io/sinclair/) — install, configuration,
+  keybindings, themes, plugins, and the [plugin development tutorial](https://wess.github.io/sinclair/plugintutorial.html).
 - [`docs/relay.md`](docs/relay.md) — the Relay agent mesh: setup, CLI, and tools.
 - [`docs/roadmap.md`](docs/roadmap.md) — what's built and what's planned.
 - [`docs/parity.md`](docs/parity.md) — feature coverage and known gaps.

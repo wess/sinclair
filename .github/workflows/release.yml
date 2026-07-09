@@ -110,13 +110,13 @@ jobs:
         if: env.APPLE_SIGNING_IDENTITY != ''
         run: |
           set -euo pipefail
-          ditto -c -k --keepParent dist/Prompt.app "$RUNNER_TEMP/Prompt.zip"
-          xcrun notarytool submit "$RUNNER_TEMP/Prompt.zip" \
+          ditto -c -k --keepParent dist/Sinclair.app "$RUNNER_TEMP/Sinclair.zip"
+          xcrun notarytool submit "$RUNNER_TEMP/Sinclair.zip" \
             --apple-id "$APPLE_ID" \
             --team-id "$APPLE_TEAM_ID" \
             --password "$APPLE_APP_PASSWORD" \
             --wait
-          xcrun stapler staple dist/Prompt.app
+          xcrun stapler staple dist/Sinclair.app
 
       - name: Package (.dmg)
         run: |
@@ -127,24 +127,24 @@ jobs:
         if: env.APPLE_SIGNING_IDENTITY != ''
         run: |
           set -euo pipefail
-          xcrun notarytool submit dist/Prompt.dmg \
+          xcrun notarytool submit dist/Sinclair.dmg \
             --apple-id "$APPLE_ID" \
             --team-id "$APPLE_TEAM_ID" \
             --password "$APPLE_APP_PASSWORD" \
             --wait
-          xcrun stapler staple dist/Prompt.dmg
+          xcrun stapler staple dist/Sinclair.dmg
 
       - name: Verify bundle
         run: |
-          codesign --verify --strict --verbose=2 dist/Prompt.app
-          test -x dist/Prompt.app/Contents/MacOS/prompt
-          test -f dist/Prompt.app/Contents/Resources/icon.icns
+          codesign --verify --strict --verbose=2 dist/Sinclair.app
+          test -x dist/Sinclair.app/Contents/MacOS/sinclair
+          test -f dist/Sinclair.app/Contents/Resources/icon.icns
           if [ -z "${APPLE_SIGNING_IDENTITY}" ]; then
             echo "::warning::Ad-hoc build — unsigned and not notarized; Gatekeeper will warn on install."
           fi
 
       - name: Upload DMG
-        run: gh release upload "v${{ needs.check-version.outputs.version }}" dist/Prompt.dmg --clobber
+        run: gh release upload "v${{ needs.check-version.outputs.version }}" dist/Sinclair.dmg --clobber
         env:
           GH_TOKEN: ${{ github.token }}
 
@@ -209,15 +209,15 @@ jobs:
         id: shas
         run: |
           VERSION="${{ needs.check-version.outputs.version }}"
-          URL="https://github.com/wess/prompt/releases/download/v${VERSION}/Prompt.dmg"
+          URL="https://github.com/wess/sinclair/releases/download/v${VERSION}/Sinclair.dmg"
           for i in $(seq 1 30); do
-            if curl -fsSL -o /tmp/Prompt.dmg "${URL}" 2>/dev/null; then
+            if curl -fsSL -o /tmp/Sinclair.dmg "${URL}" 2>/dev/null; then
               break
             fi
-            echo "Waiting for Prompt.dmg... ($i/30)"
+            echo "Waiting for Sinclair.dmg... ($i/30)"
             sleep 10
           done
-          SHA=$(sha256sum /tmp/Prompt.dmg | cut -d' ' -f1)
+          SHA=$(sha256sum /tmp/Sinclair.dmg | cut -d' ' -f1)
           echo "sha_darwin_arm64=${SHA}" >> "$GITHUB_OUTPUT"
 
       - name: Checkout homebrew tap
@@ -231,41 +231,41 @@ jobs:
         run: |
           VERSION="${{ needs.check-version.outputs.version }}"
           mkdir -p tap/Casks
-          cat > tap/Casks/prompt.rb << 'RUBY'
-          cask "prompt" do
+          cat > tap/Casks/sinclair.rb << 'RUBY'
+          cask "sinclair" do
             version "VERSION_PLACEHOLDER"
             sha256 "SHA_DARWIN_ARM64_PLACEHOLDER"
 
-            url "https://github.com/wess/prompt/releases/download/v#{version}/Prompt.dmg"
-            name "Prompt"
+            url "https://github.com/wess/sinclair/releases/download/v#{version}/Sinclair.dmg"
+            name "Sinclair"
             desc "Fast, GPU-accelerated terminal with tabs, splits, themes, and live-reload config"
-            homepage "https://github.com/wess/prompt"
+            homepage "https://github.com/wess/sinclair"
 
             depends_on arch: :arm64
             depends_on macos: :big_sur
 
-            app "Prompt.app"
+            app "Sinclair.app"
 
             zap trash: [
-              "~/Library/Application Support/Prompt",
-              "~/Library/Preferences/io.wess.prompt.plist",
-              "~/.config/prompt",
+              "~/Library/Application Support/Sinclair",
+              "~/Library/Preferences/io.wess.sinclair.plist",
+              "~/.config/sinclair",
             ]
           end
           RUBY
-          sed -i "s/VERSION_PLACEHOLDER/${VERSION}/g" tap/Casks/prompt.rb
-          sed -i "s/SHA_DARWIN_ARM64_PLACEHOLDER/${{ steps.shas.outputs.sha_darwin_arm64 }}/g" tap/Casks/prompt.rb
+          sed -i "s/VERSION_PLACEHOLDER/${VERSION}/g" tap/Casks/sinclair.rb
+          sed -i "s/SHA_DARWIN_ARM64_PLACEHOLDER/${{ steps.shas.outputs.sha_darwin_arm64 }}/g" tap/Casks/sinclair.rb
 
       - name: Push updated cask
         run: |
           cd tap
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Casks/prompt.rb
+          git add Casks/sinclair.rb
           if git diff --cached --quiet; then
             echo "Cask unchanged — skipping push."
           else
-            git commit -m "Update prompt to v${{ needs.check-version.outputs.version }}"
+            git commit -m "Update sinclair to v${{ needs.check-version.outputs.version }}"
             git push
           fi
 
@@ -295,13 +295,13 @@ jobs:
         shell: pwsh
         run: |
           $version = "${{ needs.check-version.outputs.version }}"
-          $zip = "dist/windows/prompt-$version-windows-x86_64.zip"
+          $zip = "dist/windows/sinclair-$version-windows-x86_64.zip"
           $sha = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
-          (Get-Content packaging/chocolatey/prompt.nuspec) -replace '0\.0\.0', $version |
-            Set-Content packaging/chocolatey/prompt.nuspec
+          (Get-Content packaging/chocolatey/sinclair.nuspec) -replace '0\.0\.0', $version |
+            Set-Content packaging/chocolatey/sinclair.nuspec
           (Get-Content packaging/chocolatey/tools/chocolateyinstall.ps1) -replace '0\.0\.0', $version -replace '0{64}', $sha |
             Set-Content packaging/chocolatey/tools/chocolateyinstall.ps1
-          choco pack packaging/chocolatey/prompt.nuspec --outputdirectory dist/windows
+          choco pack packaging/chocolatey/sinclair.nuspec --outputdirectory dist/windows
 
       - name: Upload to release
         shell: pwsh
@@ -339,7 +339,7 @@ jobs:
       - name: Update Scoop manifest
         run: |
           VERSION="${{ needs.check-version.outputs.version }}"
-          URL="https://github.com/wess/prompt/releases/download/v${VERSION}/prompt-${VERSION}-windows-x86_64.zip"
+          URL="https://github.com/wess/sinclair/releases/download/v${VERSION}/sinclair-${VERSION}-windows-x86_64.zip"
           for i in $(seq 1 30); do
             if curl -fsSL -o /tmp/p.zip "${URL}" 2>/dev/null; then break; fi
             echo "Waiting for windows zip... ($i/30)"; sleep 10
@@ -348,14 +348,14 @@ jobs:
           python3 - "$VERSION" "$SHA" << 'PY'
           import json, sys
           version, sha = sys.argv[1], sys.argv[2]
-          path = "packaging/scoop/prompt.json"
+          path = "packaging/scoop/sinclair.json"
           with open(path) as f:
               m = json.load(f)
           m["version"] = version
           a = m["architecture"]["64bit"]
-          a["url"] = f"https://github.com/wess/prompt/releases/download/v{version}/prompt-{version}-windows-x86_64.zip"
+          a["url"] = f"https://github.com/wess/sinclair/releases/download/v{version}/sinclair-{version}-windows-x86_64.zip"
           a["hash"] = sha
-          a["extract_dir"] = f"prompt-{version}-windows-x86_64"
+          a["extract_dir"] = f"sinclair-{version}-windows-x86_64"
           with open(path, "w") as f:
               json.dump(m, f, indent=4)
               f.write("\n")
@@ -365,7 +365,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add packaging/scoop/prompt.json
+          git add packaging/scoop/sinclair.json
           if git diff --cached --quiet; then
             echo "Scoop manifest unchanged."
           else

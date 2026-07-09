@@ -257,17 +257,17 @@ pub enum Action {
     MinimizeWindow,
     /// Standard macOS window zoom (green button).
     ZoomWindow,
-    /// Hide every Prompt window (macOS "Hide").
+    /// Hide every Sinclair window (macOS "Hide").
     HideAll,
-    /// Bring all Prompt windows to the front.
+    /// Bring all Sinclair windows to the front.
     BringAllToFront,
     /// Resize the window back to the configured default cell grid.
     ReturnToDefaultSize,
     /// Persist the current window's cell grid as the default size.
     UseAsDefault,
-    /// Prompt for and set the active tab's label.
+    /// Sinclair for and set the active tab's label.
     ChangeTabTitle,
-    /// Prompt for and set the focused pane's title.
+    /// Sinclair for and set the focused pane's title.
     ChangeTerminalTitle,
     /// Toggle input gating on the focused pane.
     ToggleReadOnly,

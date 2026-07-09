@@ -74,7 +74,7 @@ fn apply(found: Result<Option<Release>, String>, manual: bool, cx: &mut App) {
         }
         Ok(None) => {
             if manual {
-                crate::view::post_os_notification("Prompt", "You're on the latest version.");
+                crate::view::post_os_notification("Sinclair", "You're on the latest version.");
             }
         }
         Err(e) => {
@@ -159,7 +159,7 @@ impl UpdatePromptView {
 
     /// Download + install in place off the UI thread, then relaunch into it.
     fn stage_and_restart(&mut self, cx: &mut Context<Self>) {
-        crate::view::post_os_notification("Prompt", "Downloading update…");
+        crate::view::post_os_notification("Sinclair", "Downloading update…");
         let release = self.release.clone();
         let install = self.install.clone();
         let executor = cx.background_executor().clone();
@@ -222,7 +222,7 @@ impl Render for UpdatePromptView {
                 div()
                     .text_size(px(16.0))
                     .font_weight(FontWeight::BOLD)
-                    .child(SharedString::from(format!("Prompt {} is available", self.release.version))),
+                    .child(SharedString::from(format!("Sinclair {} is available", self.release.version))),
             )
             .child(
                 div()

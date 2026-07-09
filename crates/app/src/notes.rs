@@ -15,11 +15,7 @@ use crate::root::WorkspaceView;
 
 /// Working dir for the fallback sidecar, matching the plugin path's data dir.
 fn notes_dir() -> std::path::PathBuf {
-    let base = std::env::var_os("XDG_CONFIG_HOME")
-        .map(std::path::PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|h| std::path::PathBuf::from(h).join(".config")))
-        .unwrap_or_else(|| std::path::PathBuf::from("."));
-    base.join("prompt").join("data").join("notes")
+    crate::paths::data_dir("notes")
 }
 
 impl WorkspaceView {

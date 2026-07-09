@@ -110,7 +110,7 @@ impl TerminalView {
     /// Export the most recent `.cast` recording to `format` (a file extension
     /// like `gif` or `mp4`), off the UI thread.
     ///
-    /// Spawns `prompt export --fidelity <cast> <cast>.<format>` as a background
+    /// Spawns `sinclair export --fidelity <cast> <cast>.<format>` as a background
     /// subprocess (so a long render never blocks the UI) and posts a desktop
     /// notification when it finishes. GIF needs no external tools; the video
     /// formats need ffmpeg.
@@ -248,7 +248,7 @@ pub fn post_os_notification(title: &str, body: &str) {
 }
 
 /// Post a native desktop notification synchronously. macOS uses `osascript
-/// display notification`; Linux uses `notify-send`. Used by `prompt notify`,
+/// display notification`; Linux uses `notify-send`. Used by `sinclair notify`,
 /// which must wait for the helper before the process exits.
 pub fn notify_command(title: &str, body: &str) {
     #[cfg(target_os = "macos")]
@@ -273,7 +273,7 @@ pub fn notify_command(title: &str, body: &str) {
     let _ = (title, body);
 }
 
-/// Path for a new recording under `~/.config/prompt/recordings/`, plus the
+/// Path for a new recording under `~/.config/sinclair/recordings/`, plus the
 /// unix timestamp for its header. `None` if the directory can't be made.
 fn recording_target() -> Option<(std::path::PathBuf, u64)> {
     let ts = std::time::SystemTime::now()

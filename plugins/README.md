@@ -1,13 +1,13 @@
-# Prompt plugin catalog
+# Sinclair plugin catalog
 
-A community catalog of plugins for [Prompt](https://github.com/wess/prompt), the
+A community catalog of plugins for [Sinclair](https://github.com/wess/sinclair), the
 GPU-accelerated terminal. Each plugin lives in its own subfolder
 `plugins/<your-plugin-name>/` containing a single `plugin.toml`. Browse the
 folders here, install the ones you like, and send a pull request to add your own.
 
 ## What a plugin is
 
-A Prompt plugin is a directory with one `plugin.toml`. The manifest contributes
+A Sinclair plugin is a directory with one `plugin.toml`. The manifest contributes
 named commands; each command runs a shell command in the terminal and can carry
 a default keybinding. That is the whole surface — no scripting runtime, no
 network access, just declarative commands.
@@ -45,7 +45,7 @@ Modes:
 
 Keybind syntax: `cmd`/`ctrl`/`alt`/`shift`/`super` plus a key, joined with `+`
 (for example `cmd+ctrl+g`). A plugin keybind overrides any built-in binding with
-the same trigger, so avoid Prompt's `cmd+shift+*` defaults (Compose, Broadcast,
+the same trigger, so avoid Sinclair's `cmd+shift+*` defaults (Compose, Broadcast,
 the relay shortcuts, and so on). The examples here use the `cmd+ctrl+*` namespace
 to stay clear of them.
 
@@ -81,14 +81,14 @@ Pick whichever you prefer:
 1. **Copy or symlink the folder** into your plugins directory:
 
    ```sh
-   cp -R plugins/lazygit ~/.config/prompt/plugins/lazygit
+   cp -R plugins/lazygit ~/.config/sinclair/plugins/lazygit
    # or, to track the catalog:
-   ln -s "$PWD/plugins/lazygit" ~/.config/prompt/plugins/lazygit
+   ln -s "$PWD/plugins/lazygit" ~/.config/sinclair/plugins/lazygit
    ```
 
-   (Use `$XDG_CONFIG_HOME/prompt/plugins/` if you have `XDG_CONFIG_HOME` set.)
+   (Use `$XDG_CONFIG_HOME/sinclair/plugins/` if you have `XDG_CONFIG_HOME` set.)
 
-2. **Point your config at it** by adding a line to `~/.config/prompt/config`:
+2. **Point your config at it** by adding a line to `~/.config/sinclair/config`:
 
    ```
    plugin = /path/to/prompt/plugins/lazygit
@@ -121,7 +121,7 @@ You can always run any command from the command palette regardless of keybind.
 
 ## Contributing a plugin via PR
 
-1. Fork <https://github.com/wess/prompt>.
+1. Fork <https://github.com/wess/sinclair>.
 2. Add your plugin under `plugins/<your-plugin-name>/plugin.toml`. The folder
    name is lowercase (kebab-case is fine) and the plugin `id` must match the
    folder name.
@@ -142,7 +142,7 @@ You can always run any command from the command palette regardless of keybind.
 ## IPC plugins (live panels)
 
 Beyond the declarative command model, a plugin can be an **IPC plugin**: it
-contributes a side-drawer panel rendered from a block tree. Prompt invokes the
+contributes a side-drawer panel rendered from a block tree. Sinclair invokes the
 plugin's `[runtime]` once per event (serverless-style), passing a JSON request
 on stdin and reading a JSON response on stdout:
 
@@ -199,24 +199,24 @@ this.
 
 > **`entry` is served, not `file://`.** An `entry` page is served from the plugin
 > directory over an internal `guise://` origin — a real origin, so the
-> `window.Prompt` bridge, ES modules, and `fetch` all work. (Loading a page over
+> `window.Sinclair` bridge, ES modules, and `fetch` all work. (Loading a page over
 > `file://` directly — e.g. a literal `url = "file://…"` — would break the bridge,
 > since messages from a `file://` frame are silently dropped; use `entry` or a
 > served `url` instead.)
 
-**The `window.Prompt` bridge.** The page talks to Prompt through an injected
+**The `window.Sinclair` bridge.** The page talks to Sinclair through an injected
 global:
 
-- `Prompt.runCommand(text, target?)` — run a command in the focused terminal.
-- `Prompt.readScreen(lines?)` — read the visible screen; resolves `{ text }`.
-- `Prompt.invoke(method, params?)` — returns a Promise. Built-in methods (the
+- `Sinclair.runCommand(text, target?)` — run a command in the focused terminal.
+- `Sinclair.readScreen(lines?)` — read the visible screen; resolves `{ text }`.
+- `Sinclair.invoke(method, params?)` — returns a Promise. Built-in methods (the
   same capabilities as `run` directives: `run_command`, `read_screen`,
   `send_input`, `new_tab`, `split`, `list_panes`, `list_tabs`, `focus_tab`,
   `run_macro`, …) are handled by the app; any other method is forwarded to the
   plugin's `[runtime]` as a `message` request, and its `result` resolves the
   promise.
-- `Prompt.postMessage(data)` — fire-and-forget message to the runtime.
-- `Prompt.onMessage(cb)` — receive pushes from the host.
+- `Sinclair.postMessage(data)` — fire-and-forget message to the runtime.
+- `Sinclair.onMessage(cb)` — receive pushes from the host.
 
 A `message` request is `{ "kind": "message", "panel", "method", "params"?,
 "cwd"? }`; reply with `{ "result": … }`. See [`dashboard/`](./dashboard/) for a
@@ -257,8 +257,8 @@ See [`alert/`](./alert/) for a complete example.
 
 - Ideas worth building: [ideas.md](./ideas.md) — today's command model plus what
   the plugin API (event hooks, host capabilities, column UI) unlocks.
-- Tutorial: <https://github.com/wess/prompt/blob/main/docs/plugins.html>
-- Project docs: <https://github.com/wess/prompt>
+- Tutorial: <https://github.com/wess/sinclair/blob/main/docs/plugins.html>
+- Project docs: <https://github.com/wess/sinclair>
 
 ## Example plugins in this catalog
 

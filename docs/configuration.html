@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Configuration — Prompt docs</title>
-    <meta name="description" content="Prompt's config file: location, format, every option, and live reload.">
+    <title>Configuration — Sinclair docs</title>
+    <meta name="description" content="Sinclair's config file: location, format, every option, and live reload.">
     <meta name="theme-color" content="#05070c">
     <link rel="icon" href="icon.png">
     <link rel="stylesheet" href="style.css">
@@ -16,17 +16,17 @@
       <article class="doc-article" data-doc-page="configuration">
         <p class="kicker">Configuration</p>
         <h1>Configuration</h1>
-        <p class="lede">Prompt reads a single plain-text config file of <code>key = value</code> lines. Appearance and keybindings reload the instant you save it — no restart required.</p>
+        <p class="lede">Sinclair reads a single plain-text config file of <code>key = value</code> lines. Appearance and keybindings reload the instant you save it — no restart required.</p>
 
         <h2>Where the config lives</h2>
-        <p>Prompt loads its config from <code>$XDG_CONFIG_HOME/prompt/config</code>, falling back to <code>~/.config/prompt/config</code> when <code>XDG_CONFIG_HOME</code> is unset. The file is created on demand, so you can start from an empty file (or none at all) and add only the keys you care about.</p>
+        <p>Sinclair loads its config from <code>$XDG_CONFIG_HOME/sinclair/config</code>, falling back to <code>~/.config/sinclair/config</code> when <code>XDG_CONFIG_HOME</code> is unset. The file is created on demand, so you can start from an empty file (or none at all) and add only the keys you care about.</p>
         <p>If you would rather not edit text by hand, open the built-in GUI settings with <kbd>⌘,</kbd> and the same options are exposed there.</p>
 
         <h2>Format</h2>
         <p>The file is INI-style: one <code>key = value</code> per line. Lines beginning with <code>#</code> are comments and are ignored, as are blank lines. Whitespace around the key and value is trimmed.</p>
         <p>Most keys take a single value, where the last assignment wins. A handful of keys are <em>repeatable</em>: each occurrence accumulates into a list rather than overwriting the previous one. The repeatable keys are <code>font-family</code>, <code>font-feature</code>, <code>keybind</code>, <code>palette</code>, <code>plugin</code>, <code>agent-custom</code>, <code>redact</code>, <code>trigger</code>, <code>snippet</code>, and <code>profile</code>.</p>
         <p>Bad lines never abort the load. An unknown key, a malformed value, or a typo becomes a friendly diagnostic surfaced on startup, and the rest of the file is applied normally.</p>
-        <pre><code><span class="c"># ~/.config/prompt/config</span>
+        <pre><code><span class="c"># ~/.config/sinclair/config</span>
 font-family = JetBrains Mono
 font-family = Menlo          <span class="c"># fallback chain, in order</span>
 font-size = 14.0
@@ -39,7 +39,7 @@ copy-on-select = true
 scrollback-limit = 50000</code></pre>
 
         <h2>Live reload</h2>
-        <p>Prompt watches the config file. Appearance settings (fonts, theme, colors, padding, cursor) and keybindings take effect the moment you save — there is no need to quit and relaunch.</p>
+        <p>Sinclair watches the config file. Appearance settings (fonts, theme, colors, padding, cursor) and keybindings take effect the moment you save — there is no need to quit and relaunch.</p>
         <div class="callout tip"><span class="label">Tip</span><p>Keep the config open in a split next to a live terminal and tweak fonts or themes interactively — each save redraws immediately.</p></div>
 
         <h2>Options</h2>
@@ -119,8 +119,8 @@ scrollback-limit = 50000</code></pre>
             <tr><td><code>working-directory</code></td><td>string</td><td>none (<code>$HOME</code>)</td><td>Initial working directory for new surfaces.</td></tr>
             <tr><td><code>copy-on-select</code></td><td>bool</td><td><code>false</code></td><td>Copy selected text to the clipboard automatically.</td></tr>
             <tr><td><code>timestamps</code></td><td>bool</td><td><code>false</code></td><td>Show a faint relative time (5s/2m/1h/3d) beside each scrollback row.</td></tr>
-            <tr><td><code>confirm-close-surface</code></td><td>bool</td><td><code>true</code></td><td>Prompt before closing a surface that has a running process.</td></tr>
-            <tr><td><code>confirm-quit</code></td><td>bool</td><td><code>true</code></td><td>Prompt before quitting the application.</td></tr>
+            <tr><td><code>confirm-close-surface</code></td><td>bool</td><td><code>true</code></td><td>Sinclair before closing a surface that has a running process.</td></tr>
+            <tr><td><code>confirm-quit</code></td><td>bool</td><td><code>true</code></td><td>Sinclair before quitting the application.</td></tr>
           </tbody>
         </table></div>
 
@@ -179,7 +179,7 @@ scrollback-limit = 50000</code></pre>
           <tbody>
             <tr><td><code>ai-enabled</code></td><td>bool</td><td><code>false</code></td><td>Master switch for AI features.</td></tr>
             <tr><td><code>ai-optimize-tokens</code></td><td>bool</td><td><code>false</code></td><td>Compact prompts sent to agents (whitespace collapsed, terse relay harness) to spend fewer tokens.</td></tr>
-            <tr><td><code>mcp-server-enabled</code></td><td>bool</td><td><code>false</code></td><td>Expose Prompt's MCP server for tool calls.</td></tr>
+            <tr><td><code>mcp-server-enabled</code></td><td>bool</td><td><code>false</code></td><td>Expose Sinclair's MCP server for tool calls.</td></tr>
             <tr><td><code>relay-enabled</code></td><td>bool</td><td><code>false</code></td><td>Enable the agent mesh relay integration.</td></tr>
             <tr><td><code>relay-start-on-launch</code></td><td>bool</td><td><code>false</code></td><td>Start the relay daemon when the app launches.</td></tr>
             <tr><td><code>relay-address</code></td><td>string</td><td><code>127.0.0.1:7777</code></td><td>Address the relay server listens on.</td></tr>

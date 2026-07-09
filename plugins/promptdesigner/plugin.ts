@@ -1,10 +1,10 @@
-// Prompt Designer — an IPC panel plugin for Prompt.
+// Prompt Designer — an IPC panel plugin for Sinclair.
 //
 // Lets you design a shell prompt by toggling segments / picking a symbol and
 // color, then writes the generated PS1 (bash) or PROMPT (zsh) to
 // ~/.config/prompt-designer/prompt.sh and sources it from your rc file via a
 // single managed block. State persists in design.json so each invocation
-// (Prompt spawns the plugin fresh per event) reads the current design.
+// (Sinclair spawns the plugin fresh per event) reads the current design.
 
 import { homedir } from "node:os";
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";

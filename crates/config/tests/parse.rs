@@ -11,7 +11,7 @@
     #[test]
     fn full_sample_config() {
         let src = r#"
-# Prompt configuration
+# Sinclair configuration
 font-family = JetBrains Mono
 font-size = 14.5
 theme = catppuccin
@@ -31,7 +31,7 @@ confirm-close-surface = false
 mouse-hide-while-typing = true
 palette = 0=#1d1f21
 palette = 1=#cc6666
-plugin = ~/.config/prompt/plugins/tools
+plugin = ~/.config/sinclair/plugins/tools
 keybind = ctrl+shift+c=copy_to_clipboard
 keybind = ctrl+shift+v=paste_from_clipboard
 "#;
@@ -58,7 +58,7 @@ keybind = ctrl+shift+v=paste_from_clipboard
             o.palette,
             vec![(0, "#1d1f21".to_string()), (1, "#cc6666".to_string()),]
         );
-        assert_eq!(o.plugin, vec!["~/.config/prompt/plugins/tools".to_string()]);
+        assert_eq!(o.plugin, vec!["~/.config/sinclair/plugins/tools".to_string()]);
         assert_eq!(
             o.keybind,
             vec![

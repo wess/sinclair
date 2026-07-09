@@ -2,14 +2,14 @@
 //!
 //! Two process-mode entry points, both invoked as the `prompt` binary:
 //!
-//! - `prompt agent-status <state> [--session id] [--name n] [--pane token]` —
+//! - `sinclair agent-status <state> [--session id] [--name n] [--pane token]` —
 //!   an agent (or its lifecycle hook) reports its semantic state back to the
 //!   running GUI over the single-instance socket. The pane is identified by the
-//!   `PROMPT_PANE` token injected into every spawned session's environment, so a
+//!   `SINCLAIR_PANE` token injected into every spawned session's environment, so a
 //!   hook needs no arguments beyond the state. When stdin is piped (as hooks
 //!   receive it) any `session_id` in the JSON is captured for session resume.
 //!
-//! - `prompt agent-hooks install|uninstall [--project]` — write (or remove) a
+//! - `sinclair agent-hooks install|uninstall [--project]` — write (or remove) a
 //!   set of agent lifecycle hooks into a Claude Code `settings.json` so a Claude
 //!   Code session running in a pane reports `working` / `blocked` / `done` /
 //!   `idle` automatically. Only our own entries are touched.
@@ -32,17 +32,17 @@ const HOOK_EVENTS: &[(&str, &str)] = &[
 /// uninstall surgical (it removes only entries whose command contains this).
 const MARKER: &str = "agent-status";
 
-/// `prompt agent-status <state> [flags]`: report an agent's state to the running
+/// `sinclair agent-status <state> [flags]`: report an agent's state to the running
 /// instance. Best-effort — always exits 0 so a hook never fails its agent.
 pub fn report(args: &[String]) -> i32 {
     let Some(state) = args.first().filter(|s| !s.starts_with("--")) else {
-        eprintln!("usage: prompt agent-status <working|blocked|done|idle> [--session id] [--name n] [--pane token]");
+        eprintln!("usage: sinclair agent-status <working|blocked|done|idle> [--session id] [--name n] [--pane token]");
         return 0;
     };
     let mut session = flag(args, "--session");
-    let name = flag(args, "--name").or_else(|| std::env::var("PROMPT_AGENT").ok());
+    let name = flag(args, "--name").or_else(|| envvar("AGENT"));
     let pane = flag(args, "--pane")
-        .or_else(|| std::env::var("PROMPT_PANE").ok())
+        .or_else(|| envvar("PANE"))
         .and_then(|s| s.parse::<u64>().ok());
 
     // Hooks pipe a JSON payload on stdin that carries `session_id`; capture it
@@ -51,10 +51,10 @@ pub fn report(args: &[String]) -> i32 {
     if session.is_none() {
         session = stdin_session();
     }
-    session = session.or_else(|| std::env::var("PROMPT_SESSION").ok());
+    session = session.or_else(|| envvar("SESSION"));
 
     let Some(pane) = pane else {
-        // Not running inside a Prompt-spawned pane (no token) — nothing to route.
+        // Not running inside a Sinclair-spawned pane (no token) — nothing to route.
         return 0;
     };
 
@@ -93,13 +93,22 @@ fn flag(args: &[String], name: &str) -> Option<String> {
         .cloned()
 }
 
-/// `prompt agent-hooks install|uninstall [--project]`: manage the Claude Code
+/// Read `SINCLAIR_<name>`, falling back to the pre-rename `PROMPT_<name>` so a
+/// session spawned by an older instance still reports. Drop after 1.26.
+fn envvar(name: &str) -> Option<String> {
+    std::env::var(format!("SINCLAIR_{name}"))
+        .or_else(|_| std::env::var(format!("PROMPT_{name}")))
+        .ok()
+        .filter(|v| !v.is_empty())
+}
+
+/// `sinclair agent-hooks install|uninstall [--project]`: manage the Claude Code
 /// lifecycle hooks. Returns a process exit code.
 pub fn hooks(args: &[String]) -> i32 {
     let project = args.iter().any(|a| a == "--project");
     let sub = args.first().map(String::as_str).unwrap_or("install");
     let Some(path) = settings_path(project) else {
-        eprintln!("prompt: could not determine a Claude settings path");
+        eprintln!("sinclair: could not determine a Claude settings path");
         return 1;
     };
     let root = read_settings(&path);
@@ -108,17 +117,17 @@ pub fn hooks(args: &[String]) -> i32 {
         "install" | "add" => (install_into(root, &exe), "installed"),
         "uninstall" | "remove" => (uninstall_from(root), "removed"),
         other => {
-            eprintln!("prompt agent-hooks: unknown subcommand `{other}` (install|uninstall)");
+            eprintln!("sinclair agent-hooks: unknown subcommand `{other}` (install|uninstall)");
             return 2;
         }
     };
     match write_settings(&path, &updated) {
         Ok(()) => {
-            println!("prompt: {verb} agent status hooks in {}", path.display());
+            println!("sinclair: {verb} agent status hooks in {}", path.display());
             0
         }
         Err(e) => {
-            eprintln!("prompt: could not write {}: {e}", path.display());
+            eprintln!("sinclair: could not write {}: {e}", path.display());
             1
         }
     }
@@ -130,10 +139,10 @@ fn current_exe() -> String {
     std::env::current_exe()
         .ok()
         .and_then(|p| p.to_str().map(str::to_string))
-        .unwrap_or_else(|| "prompt".to_string())
+        .unwrap_or_else(|| "sinclair".to_string())
 }
 
-/// The hook command for `state`, e.g. `/path/to/prompt agent-status working`.
+/// The hook command for `state`, e.g. `/path/to/sinclair agent-status working`.
 fn command_for(exe: &str, state: &str) -> String {
     format!("{exe} {MARKER} {state}")
 }

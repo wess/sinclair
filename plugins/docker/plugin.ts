@@ -1,4 +1,4 @@
-// Docker panel — an IPC plugin for Prompt. Lists running containers with a
+// Docker panel — an IPC plugin for Sinclair. Lists running containers with a
 // status badge, and offers a stats shortcut in the terminal.
 
 type Block =

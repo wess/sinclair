@@ -4,7 +4,7 @@
 //! clients (Claude Desktop, Claude Code, ...) use over a spawned stdio
 //! subprocess - newline-delimited JSON, `initialize` / `tools/list` /
 //! `tools/call`. It knows nothing about terminals; the caller supplies the
-//! tool list and a handler that runs each call. In Prompt, the handler bridges
+//! tool list and a handler that runs each call. In Sinclair, the handler bridges
 //! to the running GUI instance over the single-instance unix socket.
 //!
 //! Kept dependency-light on purpose: `serde_json` for robust JSON, nothing

@@ -1,4 +1,4 @@
-//! Color schemes and palettes for the Prompt terminal emulator.
+//! Color schemes and palettes for the Sinclair terminal emulator.
 
 pub mod builtin;
 pub mod overrides;

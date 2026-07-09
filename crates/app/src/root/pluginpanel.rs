@@ -299,7 +299,7 @@ impl WorkspaceView {
         self.plugins = loadplugins(&self.opts);
         let (keybinds, diags) = resolvekeys(&self.opts, &self.plugins);
         for d in &diags {
-            eprintln!("prompt: {}: {}", d.key, d.message);
+            eprintln!("sinclair: {}: {}", d.key, d.message);
         }
         self.keybinds = keybinds;
         self.applykeybinds(cx);

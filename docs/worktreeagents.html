@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Parallel agents in git worktrees — Prompt docs</title>
+    <title>Parallel agents in git worktrees — Sinclair docs</title>
     <meta name="description" content="Run several coding agents at once without them clobbering each other: give every agent its own git worktree, launch one per tab, watch their status dots, then merge and clean up.">
     <meta name="theme-color" content="#05070c">
     <link rel="icon" href="icon.png">
@@ -28,7 +28,7 @@
         <div class="callout note">
           <p>This builds on <a href="agentteams.html">Run your first agent team</a> — have
           the relay enabled and an agent CLI installed. Worktrees themselves are plain
-          <code>git</code>, so nothing here is Prompt-specific except how smoothly it wires
+          <code>git</code>, so nothing here is Sinclair-specific except how smoothly it wires
           them into tabs.</p>
         </div>
 
@@ -109,7 +109,7 @@ run = "bun install"       <span class="c"># runs in the new worktree's directory
 
         <h2>5. Watch them all at once</h2>
         <p>
-          Three agents in three tabs is exactly where Prompt's <strong>status dots</strong>
+          Three agents in three tabs is exactly where Sinclair's <strong>status dots</strong>
           earn their keep. Each tab carries a colored dot — 🟡 working, 🔴 blocked, 🔵 done,
           🟢 idle — and the <strong>Activity</strong> sidebar rolls them all up into a single
           "who's blocked, working, or done" glance. You don't have to click through panes to

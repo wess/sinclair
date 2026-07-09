@@ -1,4 +1,4 @@
-// Prompt WASM plugin — JavaScript authoring template. Implemented against the
+// Sinclair WASM plugin — JavaScript authoring template. Implemented against the
 // same WIT world as the Rust template, built to a component with componentize-js
 // (`npm run build`) — so it ships a self-contained .wasm with no runtime
 // dependency. The `guest` export provides the interface the host calls; host

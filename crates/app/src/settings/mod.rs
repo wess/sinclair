@@ -1,4 +1,4 @@
-//! System Settings-style preferences window. Every option Prompt reads from
+//! System Settings-style preferences window. Every option Sinclair reads from
 //! its config file is shown and edited here; the window never asks the user
 //! to go hand-edit the file. Writes go straight back to the config file and
 //! the live-reload watcher applies them.
@@ -144,7 +144,7 @@ impl SettingsView {
     fn reload(&mut self) {
         let (opts, diagnostics) = config::load();
         for d in &diagnostics {
-            eprintln!("prompt: config line {}: {} ({})", d.line, d.message, d.key);
+            eprintln!("sinclair: config line {}: {} ({})", d.line, d.message, d.key);
         }
         self.opts = opts;
         self.macros = macros::defaultdir().map(|d| macros::load(&d)).unwrap_or_default();

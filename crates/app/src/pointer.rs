@@ -16,7 +16,7 @@ use terminal::Session;
 use crate::metrics::{self, CellSize, Padding};
 use crate::mouse::{self, MouseState, WheelRoute};
 
-/// URL schemes Prompt will hand to the OS. OSC 8 lets a program aim a link
+/// URL schemes Sinclair will hand to the OS. OSC 8 lets a program aim a link
 /// anywhere while showing innocuous text, so anything outside this set, most
 /// dangerously `javascript:`, `data:`, and custom app-handler schemes, is
 /// refused instead of being passed to `open_url`.
@@ -239,7 +239,7 @@ pub fn up(p: &Pointer, e: &MouseUpEvent, window: &mut Window, cx: &mut App) {
             if openable(&url) {
                 cx.open_url(&url);
             } else {
-                eprintln!("prompt: refused to open link with disallowed scheme: {url}");
+                eprintln!("sinclair: refused to open link with disallowed scheme: {url}");
             }
             p.session.with_term(|t| t.clear_selection());
             let mut s = p.state.borrow_mut();

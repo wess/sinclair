@@ -127,7 +127,7 @@ impl WorkspaceView {
             Action::MacroRecord => self.togglerecord(window, cx),
             Action::MacroReplay(name) => {
                 if let Err(error) = self.replay_macro(&name, cx) {
-                    eprintln!("prompt: {error}");
+                    eprintln!("sinclair: {error}");
                 }
             }
             Action::CommandPalette => self.open_palette(window, cx),
@@ -183,17 +183,17 @@ impl WorkspaceView {
             }
             Action::WorktreeCreate(spec) => {
                 if let Err(e) = self.worktree_create(&spec, window, cx) {
-                    eprintln!("prompt: worktree create failed: {e}");
+                    eprintln!("sinclair: worktree create failed: {e}");
                 }
             }
             Action::WorktreeOpen(path) => {
                 if let Err(e) = self.worktree_open(&path, window, cx) {
-                    eprintln!("prompt: worktree open failed: {e}");
+                    eprintln!("sinclair: worktree open failed: {e}");
                 }
             }
             Action::WorktreeRemove(path) => {
                 if let Err(e) = self.worktree_remove(&path, window, cx) {
-                    eprintln!("prompt: worktree remove failed: {e}");
+                    eprintln!("sinclair: worktree remove failed: {e}");
                 }
             }
             Action::Tile(id) => self.apply_tile(&id, window, cx),
@@ -226,7 +226,7 @@ impl WorkspaceView {
 
     fn runplugin(&mut self, id: &str, window: &mut Window, cx: &mut Context<Self>) {
         let Some((_plugin, command)) = plugin::command(&self.plugins, id) else {
-            eprintln!("prompt: missing plugin command `{id}`");
+            eprintln!("sinclair: missing plugin command `{id}`");
             return;
         };
         let command = command.clone();
@@ -259,14 +259,14 @@ impl WorkspaceView {
             .is_some_and(|rec| rec.0.is_active());
         if !active {
             cx.update_global::<MacroRecorder, _>(|rec, _| rec.0.start());
-            eprintln!("prompt: macro recording started; run commands, then trigger macro_record again to save");
+            eprintln!("sinclair: macro recording started; run commands, then trigger macro_record again to save");
             cx.notify();
             return;
         }
         let commands = cx.update_global::<MacroRecorder, _>(|rec, _| rec.0.finish());
         cx.notify();
         if commands.is_empty() {
-            eprintln!("prompt: macro recording stopped: nothing captured");
+            eprintln!("sinclair: macro recording stopped: nothing captured");
             return;
         }
         self.open_rename(crate::rename::Target::Macro(commands), String::new(), window, cx);
@@ -276,19 +276,19 @@ impl WorkspaceView {
     /// it immediately available. Invoked by the rename modal on commit.
     pub fn save_macro(&mut self, name: &str, commands: Vec<String>, cx: &mut Context<Self>) {
         let Some(name) = macros::sanitize_name(name) else {
-            eprintln!("prompt: macro name `{name}` has no usable characters");
+            eprintln!("sinclair: macro name `{name}` has no usable characters");
             return;
         };
         let Some(dir) = macros::defaultdir() else {
-            eprintln!("prompt: no config directory for macros");
+            eprintln!("sinclair: no config directory for macros");
             return;
         };
         match macros::save(&dir, &macros::Macro::new(name.clone(), commands)) {
             Ok(()) => {
                 self.macros = loadmacros();
-                eprintln!("prompt: saved macro `{name}` (bind it with `keybind = ...=macro:{name}`)");
+                eprintln!("sinclair: saved macro `{name}` (bind it with `keybind = ...=macro:{name}`)");
             }
-            Err(error) => eprintln!("prompt: failed to save macro: {error}"),
+            Err(error) => eprintln!("sinclair: failed to save macro: {error}"),
         }
         cx.notify();
     }

@@ -43,7 +43,7 @@ const MANIFEST = [
     ],
   },
   {
-    title: "Using Prompt",
+    title: "Using Sinclair",
     pages: [
       { slug: "workspace", title: "Tabs, splits & layouts", href: "workspace.html" },
       { slug: "palette", title: "Command palette & quick open", href: "palette.html" },
@@ -72,7 +72,7 @@ const MANIFEST = [
   },
 ];
 
-const REPO = "https://github.com/wess/prompt";
+const REPO = "https://github.com/wess/sinclair";
 
 const el = (tag, props = {}, ...kids) => {
   const node = Object.assign(document.createElement(tag), props);
@@ -96,7 +96,7 @@ function buildHeader() {
   const brand = el("a", { className: "dc-brand", href: "index.html" });
   brand.append(
     Object.assign(el("img"), { src: "icon.png", alt: "", width: 28, height: 28 }),
-    el("span", { textContent: "Prompt" }),
+    el("span", { textContent: "Sinclair" }),
   );
 
   const gh = el("a", { className: "dc-ghbtn", href: REPO, textContent: "GitHub" });

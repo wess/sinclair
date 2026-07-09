@@ -8,7 +8,7 @@ fn read(path: &Path) -> String {
 }
 
 fn tmp(name: &str) -> PathBuf {
-    std::env::temp_dir().join(format!("prompt-cast-{name}.cast"))
+    std::env::temp_dir().join(format!("sinclair-cast-{name}.cast"))
 }
 
 #[test]

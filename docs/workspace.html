@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Tabs, splits & layouts — Prompt docs</title>
-    <meta name="description" content="Tabs, recursive splits, directional focus, tile layouts, sidebars, and broadcast input in Prompt.">
+    <title>Tabs, splits & layouts — Sinclair docs</title>
+    <meta name="description" content="Tabs, recursive splits, directional focus, tile layouts, sidebars, and broadcast input in Sinclair.">
     <meta name="theme-color" content="#05070c">
     <link rel="icon" href="icon.png">
     <link rel="stylesheet" href="style.css">
@@ -14,10 +14,10 @@
     <a class="skip" href="#doc-main">Skip to content</a>
     <main id="doc-main" class="doc-main">
       <article class="doc-article" data-doc-page="workspace">
-        <p class="kicker">Using Prompt</p>
+        <p class="kicker">Using Sinclair</p>
         <h1>Tabs, splits &amp; layouts</h1>
         <p class="lede">
-          Every pane in Prompt is its own shell — a full terminal with its own
+          Every pane in Sinclair is its own shell — a full terminal with its own
           process, scrollback, and working directory. You organize that work
           with <strong>tabs</strong> and <strong>recursive splits</strong>:
           stack related sessions side by side, nest them as deep as you like,
@@ -73,7 +73,7 @@
         </div>
         <p>
           <strong>Tear a tab off into its own window.</strong> Drag a tab out of
-          the tab bar and release it outside the window, and Prompt re-homes that
+          the tab bar and release it outside the window, and Sinclair re-homes that
           pane into a fresh window — the live shell keeps running, so nothing is
           restarted or lost. It's the quickest way to move a session onto a
           second display, or split one crowded window into two.
@@ -124,7 +124,7 @@
         <h2 id="layouts">Tile layouts</h2>
         <p>
           Rather than splitting one pane at a time, a tile layout arranges
-          several panes in a single step. Prompt ships a set of presets:
+          several panes in a single step. Sinclair ships a set of presets:
         </p>
         <ul>
           <li><strong>Two Columns</strong> and <strong>Three Columns</strong> — side-by-side panes</li>
@@ -139,13 +139,13 @@
           <code>tile:LAYOUT_ID</code>. To keep an arrangement you built by hand,
           run <code>save_layout</code>: it captures the current tab's split tree
           as a named custom layout, stored under
-          <code>~/.config/prompt/layouts/</code>. Saved layouts then appear
+          <code>~/.config/sinclair/layouts/</code>. Saved layouts then appear
           alongside the built-in presets, ready to re-apply in any tab.
         </p>
 
         <h2 id="sidebars">Sidebars</h2>
         <p>
-          Prompt has VS Code-style drawers on the left and right edges, each
+          Sinclair has VS Code-style drawers on the left and right edges, each
           fronted by an activity bar of icons. Toggle a side with
           <code>sidebar:SIDE[:PANEL]</code> — for example
           <code>sidebar:left</code> opens the left drawer, and
@@ -193,7 +193,7 @@
         <p>
           A git worktree is a second checkout of the same repository on its own
           branch, in its own directory — so you can work on two branches at once
-          without stashing or re-cloning. Prompt turns that into a one-keystroke
+          without stashing or re-cloning. Sinclair turns that into a one-keystroke
           workflow: <code>worktree_create:PATH</code> runs
           <code>git worktree add</code> from the focused pane's repository,
           branching from <code>HEAD</code>, and opens the new checkout in a fresh
@@ -231,7 +231,7 @@ worktree_remove:../pr-1234             <span class="c"># git worktree remove, wh
           unlocks it.
         </p>
         <p>
-          Turn on the <code>session-restore</code> config option and Prompt
+          Turn on the <code>session-restore</code> config option and Sinclair
           reopens the previous window's tabs, splits, and working directories
           the next time it launches, so you pick up exactly where you left off.
           A pane that was running a coding agent is remembered as one: on restore

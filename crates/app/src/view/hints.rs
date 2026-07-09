@@ -113,7 +113,7 @@ impl TerminalView {
             if crate::pointer::openable(&url) {
                 cx.open_url(&url);
             } else {
-                eprintln!("prompt: refused to open link with disallowed scheme: {url}");
+                eprintln!("sinclair: refused to open link with disallowed scheme: {url}");
             }
         } else if cancel {
             self.hints = None;

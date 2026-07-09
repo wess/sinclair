@@ -244,7 +244,7 @@ pub struct Options {
     pub mcp_server_enabled: bool,
     /// File key: `relay-enabled` - run the Relay agent mesh.
     pub relay_enabled: bool,
-    /// File key: `relay-start-on-launch` - start Relay when Prompt launches.
+    /// File key: `relay-start-on-launch` - start Relay when Sinclair launches.
     pub relay_start_on_launch: bool,
     /// File key: `relay-address` - bind address for the Relay server.
     pub relay_address: String,

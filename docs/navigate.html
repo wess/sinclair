@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Navigate &amp; select — Prompt docs</title>
-    <meta name="description" content="A hands-on walkthrough for moving through scrollback and selecting text in Prompt without the mouse: search, semantic search, jump-to-prompt, command output, hint mode, copy mode, smart selection, and search across every tab.">
+    <title>Navigate &amp; select — Sinclair docs</title>
+    <meta name="description" content="A hands-on walkthrough for moving through scrollback and selecting text in Sinclair without the mouse: search, semantic search, jump-to-prompt, command output, hint mode, copy mode, smart selection, and search across every tab.">
     <meta name="theme-color" content="#05070c">
     <link rel="icon" href="icon.png">
     <link rel="stylesheet" href="style.css">
@@ -18,7 +18,7 @@
         <h1>Navigate &amp; select without the mouse</h1>
         <p class="lede">
           Once your hands are on the home row, reaching for the trackpad to scroll back,
-          grab a URL, or copy the output of the last command is the slow path. Prompt lets
+          grab a URL, or copy the output of the last command is the slow path. Sinclair lets
           you do all of it from the keyboard: search the scrollback, jump between prompts,
           follow links by keystroke, and drive a vi-style cursor to select exactly what you
           want. This walkthrough runs through each one in the order you'll reach for them.
@@ -34,10 +34,10 @@
         <p>
           Almost everything below leans on one prerequisite, and the good news is you
           already have it: <strong>shell integration is on by default</strong> (the
-          <code>shell-integration</code> config key). Prompt injects OSC 133 prompt marks
+          <code>shell-integration</code> config key). Sinclair injects OSC 133 prompt marks
           and OSC 7 working-directory reporting into zsh, bash, and fish purely through
           environment variables — it never touches your <code>.zshrc</code>,
-          <code>.bashrc</code>, or fish config. Those marks are how Prompt knows where each
+          <code>.bashrc</code>, or fish config. Those marks are how Sinclair knows where each
           command begins and ends, which is what powers jump-to-prompt, command-output
           grabbing, and semantic search in the steps that follow.
         </p>
@@ -86,7 +86,7 @@
 
         <h2>5. Grab a command's output in one keystroke</h2>
         <p>
-          Because shell integration marks where each command's output begins and ends, Prompt
+          Because shell integration marks where each command's output begins and ends, Sinclair
           treats the space between two prompts as a <strong>block</strong>. Press
           <kbd>⌘⇧O</kbd> (<code>copy_command_output</code>) and it copies the output of the
           most recent finished command straight to the clipboard — the rows between the two
@@ -104,7 +104,7 @@
         <h2>6. Follow links by keystroke</h2>
         <p>
           When output is full of URLs, hint mode saves you the round trip to the mouse. Press
-          <kbd>⌘⇧U</kbd> (<code>hints</code>) and Prompt labels every visible URL with a short
+          <kbd>⌘⇧U</kbd> (<code>hints</code>) and Sinclair labels every visible URL with a short
           home-row keystroke, Vimium-style. Type a label to open that link in your browser —
           bare <code>www.…</code> domains get an <code>https://</code> scheme automatically.
           <kbd>Backspace</kbd> corrects a mistyped label; <kbd>⎋</kbd> or any impossible prefix
@@ -127,7 +127,7 @@
 
         <h2>8. Let smart selection grab whole tokens</h2>
         <p>
-          When you do click, Prompt makes each click count. Double-clicking selects the whole
+          When you do click, Sinclair makes each click count. Double-clicking selects the whole
           meaningful token under the pointer — a URL, an email address, a filesystem path, or a
           git-style hex hash — instead of a single whitespace-delimited word, falling back to
           word selection when there's no token there. Triple-click still selects the whole

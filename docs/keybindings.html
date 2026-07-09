@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Keybindings &amp; actions — Prompt docs</title>
-    <meta name="description" content="Prompt's keybinding syntax, the full default keymap, and the complete action catalog.">
+    <title>Keybindings &amp; actions — Sinclair docs</title>
+    <meta name="description" content="Sinclair's keybinding syntax, the full default keymap, and the complete action catalog.">
     <meta name="theme-color" content="#05070c">
     <link rel="icon" href="icon.png">
     <link rel="stylesheet" href="style.css">
@@ -16,10 +16,10 @@
       <article class="doc-article" data-doc-page="keybindings">
         <p class="kicker">Configuration</p>
         <h1>Keybindings &amp; actions</h1>
-        <p class="lede">Every command in Prompt is an <em>action</em>, and any action can be bound to any key combination from your config file. Prompt ships with a sensible default keymap so it works the moment you launch it, but nothing is fixed: override a default, remove one you never use, or invent entirely new shortcuts — including chords and bindings that drive plugin commands. Changes take effect the instant you save the file.</p>
+        <p class="lede">Every command in Sinclair is an <em>action</em>, and any action can be bound to any key combination from your config file. Sinclair ships with a sensible default keymap so it works the moment you launch it, but nothing is fixed: override a default, remove one you never use, or invent entirely new shortcuts — including chords and bindings that drive plugin commands. Changes take effect the instant you save the file.</p>
 
         <h2>Syntax</h2>
-        <p>Keybindings live in your config file (<code>$XDG_CONFIG_HOME/prompt/config</code> or <code>~/.config/prompt/config</code>). Each binding is a single line:</p>
+        <p>Keybindings live in your config file (<code>$XDG_CONFIG_HOME/sinclair/config</code> or <code>~/.config/sinclair/config</code>). Each binding is a single line:</p>
         <pre><code>keybind = trigger=action<span class="c"># optionally with a :param</span></code></pre>
         <p>The <code>keybind</code> key is <strong>repeatable</strong> — list as many lines as you like. A <code>trigger</code> is one or more modifiers and a key, joined with <code>+</code>:</p>
         <ul>
@@ -55,7 +55,7 @@ keybind = ctrl+b&gt;1=goto_tab:1
 keybind = cmd+shift+j=plugin_command:git/status</code></pre>
         <div class="callout tip">
           <span class="label">Tip</span>
-          <p>Prompt watches your config file. Edits to your keybindings apply <strong>live the moment you save</strong> — no restart needed.</p>
+          <p>Sinclair watches your config file. Edits to your keybindings apply <strong>live the moment you save</strong> — no restart needed.</p>
         </div>
 
         <h2>Default keybindings</h2>
@@ -118,13 +118,13 @@ keybind = cmd+shift+j=plugin_command:git/status</code></pre>
               <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>A</kbd></td><td><code>relay_launch</code></td><td>Launch a relay agent</td></tr>
               <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>I</kbd></td><td><code>relay_feed</code></td><td>Open the relay feed</td></tr>
               <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>L</kbd></td><td><code>relay_log</code></td><td>Open the relay log</td></tr>
-              <tr><td><kbd>⌘</kbd><kbd>Q</kbd></td><td><code>quit</code></td><td>Quit Prompt</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>Q</kbd></td><td><code>quit</code></td><td>Quit Sinclair</td></tr>
             </tbody>
           </table>
         </div>
 
         <h3>macOS-only readline keys</h3>
-        <p>On macOS, Prompt maps the familiar Cocoa text-navigation shortcuts to the control sequences a readline shell expects, so line editing feels native.</p>
+        <p>On macOS, Sinclair maps the familiar Cocoa text-navigation shortcuts to the control sequences a readline shell expects, so line editing feels native.</p>
         <div class="tablewrap">
           <table>
             <thead>
@@ -230,7 +230,7 @@ keybind = cmd+shift+j=plugin_command:git/status</code></pre>
               <tr><td><code>sidebar</code></td><td><code>SIDE</code>: <code>left</code> | <code>right</code>; optional <code>:PANEL</code> id</td><td>Toggle a sidebar (optionally a specific panel)</td></tr>
               <tr><td><code>open_team</code></td><td><code>NAME</code></td><td>Open the named team</td></tr>
               <tr><td><code>agent_def</code></td><td><code>NAME</code></td><td>Open the named agent definition</td></tr>
-              <tr><td><code>quit</code></td><td>—</td><td>Quit Prompt</td></tr>
+              <tr><td><code>quit</code></td><td>—</td><td>Quit Sinclair</td></tr>
               <tr><td><code>unbind</code></td><td>—</td><td>Remove a default binding for this trigger</td></tr>
             </tbody>
           </table>

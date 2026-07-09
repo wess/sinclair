@@ -78,7 +78,7 @@ impl SettingsView {
                 div()
                     .flex()
                     .flex_col()
-                    .child(SharedString::from("Prompt"))
+                    .child(SharedString::from("Sinclair"))
                     .child(
                         div()
                             .text_color(hsla(MUTED))

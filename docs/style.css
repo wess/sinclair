@@ -374,7 +374,7 @@ h3 {
     0 0 0 1px rgb(255 255 255 / 0.04) inset;
 }
 
-/* Titlebar strip: Prompt folds the tab row directly into the window chrome,
+/* Titlebar strip: Sinclair folds the tab row directly into the window chrome,
    a touch lighter than the terminal body, with the native traffic lights
    inset to macOS spacing on the left. */
 .windowbar {
@@ -485,7 +485,7 @@ h3 {
 }
 
 /* The body: a terminal split, two panes divided by a single hairline like a
-   real Prompt split — no floating cards or per-pane chrome. */
+   real Sinclair split — no floating cards or per-pane chrome. */
 .workspacegrid {
   position: relative;
   z-index: 2;

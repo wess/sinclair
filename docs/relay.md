@@ -1,11 +1,11 @@
 # Relay — the agent mesh
 
 Relay lets independent coding-agent sessions (Claude Code, Codex, …) talk to each
-other through Prompt: a supervisor coordinating a team. Agents share one bus,
+other through Sinclair: a supervisor coordinating a team. Agents share one bus,
 message each other directly or over channels, and **park for free** between tasks
 — so an idle agent costs nothing while it waits for work.
 
-It ships as a small sidecar binary (`relay`) bundled inside Prompt and managed
+It ships as a small sidecar binary (`relay`) bundled inside Sinclair and managed
 from **Settings → AI**. Relay is its own process, not part of the terminal: a
 crash or hang in the mesh can never take down your terminal, and the same binary
 works standalone (over SSH, in CI, with any terminal).
@@ -22,9 +22,9 @@ works standalone (over SSH, in CI, with any terminal).
 - **Enable AI features** — master switch. Off means no MCP server, no mesh, no
   network activity.
 - **MCP server** — expose this terminal to agents (see [the MCP server](../README.md#mcp-server)).
-- **Relay agent mesh** — run the mesh. When on, Prompt starts the bundled `relay`
+- **Relay agent mesh** — run the mesh. When on, Sinclair starts the bundled `relay`
   daemon and a **Relay** menu appears.
-- **Start Relay on launch** — bring the mesh up automatically when Prompt opens.
+- **Start Relay on launch** — bring the mesh up automatically when Sinclair opens.
 - **Relay address** — bind address for the server (default `127.0.0.1:7777`).
 - **Default agent** — the agent CLI used by *Launch Agent…* (default `claude`).
 
@@ -45,7 +45,7 @@ relay-default-agent = claude
 Toggling **Relay agent mesh** starts or stops the daemon immediately;
 **Start Relay on launch** only affects what happens at startup.
 
-## Use it from Prompt
+## Use it from Sinclair
 
 With AI enabled, an **AI** menu appears; with Relay on it offers:
 
@@ -67,8 +67,8 @@ while you watch the feed.
 
 ## The `relay` CLI
 
-The same binary backs the menu and works on its own. Prompt points every call at
-one shared state directory via `--home` (under `~/.config/prompt/relay`); used
+The same binary backs the menu and works on its own. Sinclair points every call at
+one shared state directory via `--home` (under `~/.config/sinclair/relay`); used
 standalone it defaults to `./.relay` in the current directory.
 
 ```
@@ -146,12 +146,12 @@ opens with that brief.
 
 ## Teams & tiles
 
-A **team** is a layout plus a roster: open one and Prompt arranges a set of panes
+A **team** is a layout plus a roster: open one and Sinclair arranges a set of panes
 and launches the right agent in each. Teams are Relay files (`relay team …`,
 layered project → user → built-in, like roles); **tiles** (the layouts) are a
-Prompt feature, so they're useful on their own too.
+Sinclair feature, so they're useful on their own too.
 
-From Prompt, with AI + Relay on, the **AI menu** lists teams under **Teams ▸** —
+From Sinclair, with AI + Relay on, the **AI menu** lists teams under **Teams ▸** —
 click one to open it in a fresh tab — the agent panes live under that one tab,
 which is titled after the team (`web`). Standalone, manage teams with the CLI:
 
@@ -181,11 +181,11 @@ role = "frontend"
 Built-ins: `web` (lead + frontend + backend + reviewer, main-bottom) and `pair`
 (driver + reviewer, columns).
 
-**Tiles** live in Prompt under the **Workspace** menu: built-in presets (Two/Three
+**Tiles** live in Sinclair under the **Workspace** menu: built-in presets (Two/Three
 Columns, Two Rows, Grid, Main + Bottom Row, Main + Right Stack) open that
 arrangement of shells in a new tab. **Save Current Layout…** captures the focused
 tab's split structure, asks for a name, and adds it to the menu (stored as JSON
-under `~/.config/prompt/layouts/`). Layout shapes scale to any pane count, which
+under `~/.config/sinclair/layouts/`). Layout shapes scale to any pane count, which
 is how a team of N members maps onto one shape.
 
 ## How agents connect
@@ -285,9 +285,9 @@ button that checks it's reachable (CLI `--version`, or the Ollama API port).
 
 ## Internals
 
-State lives under `~/.config/prompt/relay/` (or `$XDG_CONFIG_HOME`): the SQLite
+State lives under `~/.config/sinclair/relay/` (or `$XDG_CONFIG_HOME`): the SQLite
 bus (`relay.db`), the server record (`server.json`), logs, and per-agent MCP
 configs. The CLI talks to the server over a small plain-HTTP control plane
 (`/control/state`, `/control/feed`, `/control/spawn`, `/control/stop`), separate
 from the MCP bus on `/mcp`. The crate is `crates/relay`; it's bundled into the
-`.app` beside the `prompt` executable by [`scripts/bundle.sh`](../scripts/bundle.sh).
+`.app` beside the `sinclair` executable by [`scripts/bundle.sh`](../scripts/bundle.sh).

@@ -1,6 +1,6 @@
-# Releasing Prompt
+# Releasing Sinclair
 
-Prompt ships as a signed macOS `.dmg` (plus a Homebrew cask) and Linux
+Sinclair ships as a signed macOS `.dmg` (plus a Homebrew cask) and Linux
 `.tar.gz`, `.deb`, and `.AppImage` packages for x86_64 and aarch64. Releases are
 cut by GitHub Actions (`.github/workflows/release.yml`); the local scripts under
 `scripts/` are the same steps you can run by hand.
@@ -11,8 +11,8 @@ cut by GitHub Actions (`.github/workflows/release.yml`); the local scripts under
 2. Merge to `main`.
 
 The workflow notices the new version (no matching `vX.Y.Z` tag yet), tags it,
-creates a GitHub Release, then in parallel: builds and notarizes `Prompt.dmg`
-and updates the `prompt` cask in
+creates a GitHub Release, then in parallel: builds and notarizes `Sinclair.dmg`
+and updates the `sinclair` cask in
 [`wess/homebrew-packages`](https://github.com/wess/homebrew-packages); and
 builds the Linux packages (matrix over x86_64 and aarch64 on native runners)
 and uploads them to the release. The version check is idempotent, so re-running
@@ -28,8 +28,8 @@ to the run for inspection.
 
 ```sh
 scripts/icon.sh      # regenerate assets/icon.{png,icns} (only if the icon changed)
-scripts/bundle.sh    # cargo build --release + assemble dist/Prompt.app
-scripts/dmg.sh       # package dist/Prompt.dmg
+scripts/bundle.sh    # cargo build --release + assemble dist/Sinclair.app
+scripts/dmg.sh       # package dist/Sinclair.dmg
 ```
 
 Without `CODESIGN_IDENTITY` set, `bundle.sh` ad-hoc-signs the app: it launches on
@@ -53,7 +53,7 @@ Requirements: a Rust toolchain, `cargo-deb` (installed on demand), `curl`,
 `file`, and the gpui system libraries — `clang`, `libasound2-dev`,
 `libfontconfig-dev`, `libssl-dev`, `libvulkan1`, `libwayland-dev`,
 `libx11-xcb-dev`, `libxkbcommon-x11-dev`. The `.desktop` entry is
-`assets/prompt.desktop`; the AppImage icon must be a standard size, so packaging
+`assets/sinclair.desktop`; the AppImage icon must be a standard size, so packaging
 uses `assets/icon512.png` (the 1024px master is rejected by `linuxdeploy`).
 
 ## Signing & notarization (CI)
@@ -72,7 +72,7 @@ warns. To sign + notarize, set these repository secrets:
 | `APPLE_APP_PASSWORD` | app-specific password for that Apple ID |
 | `HOMEBREW_TAP_TOKEN` | token with write access to `wess/homebrew-packages` |
 
-The app is signed with a hardened runtime and `assets/prompt.entitlements`
+The app is signed with a hardened runtime and `assets/sinclair.entitlements`
 (GPUI/Metal needs the JIT / unsigned-executable-memory entitlements), then the
 `.app` and `.dmg` are notarized and stapled.
 

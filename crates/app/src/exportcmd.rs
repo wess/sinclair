@@ -1,4 +1,4 @@
-//! The `prompt export` process mode: render a `.cast` recording to a GIF or
+//! The `sinclair export` process mode: render a `.cast` recording to a GIF or
 //! video file. Output format is chosen by the destination extension.
 
 use std::path::PathBuf;
@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use export::{export, Options};
 
 const USAGE: &str = "\
-usage: prompt export <input.cast> <output.(gif|mp4|mov|webm)> [options]
+usage: sinclair export <input.cast> <output.(gif|mp4|mov|webm)> [options]
 
 Render a recorded terminal session to a shareable file. GIF needs no external
 tools; mp4/mov/webm are encoded with ffmpeg (must be on PATH).
@@ -136,11 +136,11 @@ fn render_fidelity(
     opts: &Options,
     _scale: f32,
 ) -> Result<(), export::Error> {
-    eprintln!("prompt export: --fidelity is macOS-only; using the software renderer");
+    eprintln!("sinclair export: --fidelity is macOS-only; using the software renderer");
     export(input, output, opts)
 }
 
 fn fail(message: &str) -> i32 {
-    eprintln!("prompt export: {message}");
+    eprintln!("sinclair export: {message}");
     1
 }

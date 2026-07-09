@@ -1,6 +1,6 @@
 # guise migration
 
-Prompt's chrome (everything that isn't the terminal grid) is migrating onto
+Sinclair's chrome (everything that isn't the terminal grid) is migrating onto
 [guise](https://github.com/wess/guise), our Mantine-inspired gpui component
 library, vendored as a submodule at `vendor/guise` so we can co-evolve it.
 
@@ -9,7 +9,7 @@ library, vendored as a submodule at `vendor/guise` so we can co-evolve it.
 - `vendor/guise` is a git submodule (its own cargo workspace, `exclude`d from
   ours). `crates/app` depends on `guise-ui` by path with `default-features =
   false` (no `wry`/webview backend).
-- guise tracks crates.io `gpui 0.2.2`; Prompt builds gpui from a pinned zed git
+- guise tracks crates.io `gpui 0.2.2`; Sinclair builds gpui from a pinned zed git
   rev. The root `[patch.crates-io] gpui = { git = …, rev = … }` redirects
   guise's gpui onto our exact rev, so the whole tree shares **one** gpui
   (verify with `cargo tree -d`). When the zed rev is bumped, guise is rebuilt
@@ -21,7 +21,7 @@ library, vendored as a submodule at `vendor/guise` so we can co-evolve it.
 
 ## Component mapping
 
-| Prompt surface            | guise component                         |
+| Sinclair surface            | guise component                         |
 | ------------------------- | --------------------------------------- |
 | About panel               | `Title` / `Text` / `Anchor`             |
 | Plugin side panels        | `Title` / `Text` / `Badge` / `Button` / `Divider` |

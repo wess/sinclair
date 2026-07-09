@@ -39,7 +39,7 @@ pub struct Installed {
 }
 
 impl Installed {
-    /// `$XDG_CONFIG_HOME/prompt/installed.toml` (beside the plugins dir).
+    /// `$XDG_CONFIG_HOME/sinclair/installed.toml` (beside the plugins dir).
     pub fn path() -> Option<PathBuf> {
         Some(crate::defaultdir()?.parent()?.join("installed.toml"))
     }

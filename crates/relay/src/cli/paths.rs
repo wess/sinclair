@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
 
 /// State directory for this instance. Defaults to `./.relay` (per-project,
-/// standalone use); Prompt sets an absolute path via `--home` so every relay
+/// standalone use); Sinclair sets an absolute path via `--home` so every relay
 /// call shares one mesh regardless of the calling pane's working directory.
 static HOME: OnceLock<PathBuf> = OnceLock::new();
 

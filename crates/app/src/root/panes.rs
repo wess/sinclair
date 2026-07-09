@@ -4,7 +4,7 @@ use super::*;
 use gpui::prelude::*;
 
 /// Process-global allocator for pane tokens: a stable id, unique across every
-/// window, injected into each spawned session as `PROMPT_PANE` so an agent's
+/// window, injected into each spawned session as `SINCLAIR_PANE` so an agent's
 /// hooks can report state for exactly this pane (see `agenthooks.rs`).
 static PANE_SEQ: AtomicU64 = AtomicU64::new(0);
 
@@ -18,17 +18,23 @@ impl WorkspaceView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Option<ItemId> {
-        // Tag the session so an agent's hooks can address this exact pane.
+        // Tag the session so an agent's hooks can address this exact pane. The
+        // `PROMPT_*` twins are the pre-rename names, kept so existing user
+        // scripts and hooks keep resolving; drop them a release after 1.26.
         let token = PANE_SEQ.fetch_add(1, Ordering::Relaxed) + 1;
-        options.spawn.env.push(("PROMPT_PANE".to_string(), token.to_string()));
-        options
-            .spawn
-            .env
-            .push(("PROMPT_SOCKET".to_string(), crate::ipc::socket_env()));
+        let socket = crate::ipc::socket_env();
+        for (key, value) in [
+            ("SINCLAIR_PANE", token.to_string()),
+            ("PROMPT_PANE", token.to_string()),
+            ("SINCLAIR_SOCKET", socket.clone()),
+            ("PROMPT_SOCKET", socket),
+        ] {
+            options.spawn.env.push((key.to_string(), value));
+        }
         let (session, events) = match Session::spawn(options) {
             Ok(pair) => pair,
             Err(error) => {
-                eprintln!("prompt: failed to spawn shell: {error}");
+                eprintln!("sinclair: failed to spawn shell: {error}");
                 return None;
             }
         };

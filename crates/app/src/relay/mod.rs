@@ -1,4 +1,4 @@
-//! Manages the bundled `relay` sidecar, the agent mesh. Prompt never runs the
+//! Manages the bundled `relay` sidecar, the agent mesh. Sinclair never runs the
 //! mesh in-process; it starts/stops the bundled binary as a detached daemon and
 //! launches agents into splits. Every parameter comes from settings, passed
 //! explicitly on the command line (no environment variables).

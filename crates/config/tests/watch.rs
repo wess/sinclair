@@ -3,7 +3,7 @@ use std::sync::atomic::AtomicUsize;
 use std::time::Instant;
 
 fn tempfile(tag: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("promptwatchtest{}{tag}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("sinclairwatchtest{}{tag}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     dir.join("config")
 }

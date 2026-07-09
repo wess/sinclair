@@ -13,7 +13,7 @@ title = "System"
 icon = "❖"
 
 # A tool the plugin exposes to AI agents over MCP (appears as `sysinfo_stats`
-# in `prompt mcp`). Agents can read host stats without a shell round-trip.
+# in `sinclair mcp`). Agents can read host stats without a shell round-trip.
 [[tool]]
 id = "stats"
 description = "Read host system stats: hostname, load averages, and disk usage for the given directory. Returns structured JSON."

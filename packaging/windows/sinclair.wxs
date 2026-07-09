@@ -1,38 +1,38 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Prompt MSI (WiX v4). Installs prompt.exe, the notes.exe sidecar, the bundled
+  Sinclair MSI (WiX v4). Installs sinclair.exe, the notes.exe sidecar, the bundled
   notes plugin, and the license/readme into Program Files, with a Start-menu
   shortcut. Files come from the staging tree the build script assembles
   (StageDir); the version is injected from the workspace Cargo.toml. Both are
   passed with `wix build -define`. Unsigned for now — installers show a
-  SmartScreen "unknown publisher" prompt until an Authenticode certificate is
+  SmartScreen "unknown publisher" sinclair until an Authenticode certificate is
   wired in.
 -->
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Package
-      Name="Prompt"
+      Name="Sinclair"
       Manufacturer="Wess Cope"
       Version="$(Version)"
       UpgradeCode="A39BFEE4-EF10-4433-BDEB-73371AC90172"
       Scope="perMachine">
 
-    <MajorUpgrade DowngradeErrorMessage="A newer version of Prompt is already installed." />
+    <MajorUpgrade DowngradeErrorMessage="A newer version of Sinclair is already installed." />
     <MediaTemplate EmbedCab="yes" />
 
     <StandardDirectory Id="ProgramFiles64Folder">
-      <Directory Id="INSTALLFOLDER" Name="Prompt">
+      <Directory Id="INSTALLFOLDER" Name="Sinclair">
         <Directory Id="PluginsDir" Name="plugins">
           <Directory Id="NotesPluginDir" Name="notes" />
         </Directory>
       </Directory>
     </StandardDirectory>
     <StandardDirectory Id="ProgramMenuFolder">
-      <Directory Id="AppShortcutDir" Name="Prompt" />
+      <Directory Id="AppShortcutDir" Name="Sinclair" />
     </StandardDirectory>
 
     <ComponentGroup Id="AppFiles">
       <Component Directory="INSTALLFOLDER">
-        <File Id="PromptExe" Source="$(StageDir)\prompt.exe" KeyPath="yes" />
+        <File Id="SinclairExe" Source="$(StageDir)\sinclair.exe" KeyPath="yes" />
       </Component>
       <Component Directory="INSTALLFOLDER">
         <File Source="$(StageDir)\notes.exe" />
@@ -50,16 +50,16 @@
 
     <!-- Start-menu shortcut to the terminal. -->
     <Component Id="AppShortcut" Directory="AppShortcutDir">
-      <Shortcut Id="PromptStartMenu"
-                Name="Prompt"
-                Target="[INSTALLFOLDER]prompt.exe"
+      <Shortcut Id="SinclairStartMenu"
+                Name="Sinclair"
+                Target="[INSTALLFOLDER]sinclair.exe"
                 WorkingDirectory="INSTALLFOLDER" />
       <RemoveFolder Id="RemoveAppShortcutDir" On="uninstall" />
-      <RegistryValue Root="HKCU" Key="Software\Prompt" Name="installed"
+      <RegistryValue Root="HKCU" Key="Software\Sinclair" Name="installed"
                      Type="integer" Value="1" KeyPath="yes" />
     </Component>
 
-    <Feature Id="Main" Title="Prompt" Level="1">
+    <Feature Id="Main" Title="Sinclair" Level="1">
       <ComponentGroupRef Id="AppFiles" />
       <ComponentRef Id="AppShortcut" />
     </Feature>

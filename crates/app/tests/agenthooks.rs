@@ -3,20 +3,20 @@ use serde_json::json;
 
 #[test]
 fn install_adds_all_events() {
-    let out = install_into(json!({}), "/bin/prompt");
+    let out = install_into(json!({}), "/bin/sinclair");
     let hooks = out.get("hooks").unwrap().as_object().unwrap();
     assert_eq!(hooks.len(), HOOK_EVENTS.len());
     for (event, state) in HOOK_EVENTS {
         let arr = hooks.get(*event).unwrap().as_array().unwrap();
         let cmd = arr[0]["hooks"][0]["command"].as_str().unwrap();
-        assert_eq!(cmd, format!("/bin/prompt agent-status {state}"));
+        assert_eq!(cmd, format!("/bin/sinclair agent-status {state}"));
     }
 }
 
 #[test]
 fn install_is_idempotent() {
-    let once = install_into(json!({}), "/bin/prompt");
-    let twice = install_into(once.clone(), "/bin/prompt");
+    let once = install_into(json!({}), "/bin/sinclair");
+    let twice = install_into(once.clone(), "/bin/sinclair");
     assert_eq!(once, twice, "installing twice must not duplicate entries");
     // Each event still has exactly one entry.
     for (event, _) in HOOK_EVENTS {
@@ -33,7 +33,7 @@ fn install_preserves_foreign_settings_and_hooks() {
             "Stop": [ { "hooks": [ { "type": "command", "command": "echo bye" } ] } ]
         }
     });
-    let out = install_into(existing, "/bin/prompt");
+    let out = install_into(existing, "/bin/sinclair");
     assert_eq!(out["model"], json!("opus"));
     // The foreign Stop hook survives; ours is appended alongside it.
     let stop = out["hooks"]["Stop"].as_array().unwrap();
@@ -50,7 +50,7 @@ fn uninstall_removes_only_ours() {
                 "Stop": [ { "hooks": [ { "type": "command", "command": "echo bye" } ] } ]
             }
         }),
-        "/bin/prompt",
+        "/bin/sinclair",
     );
     let cleaned = uninstall_from(installed);
     // The foreign Stop hook remains; our events are gone.
@@ -63,7 +63,7 @@ fn uninstall_removes_only_ours() {
 
 #[test]
 fn uninstall_drops_empty_hooks_object() {
-    let installed = install_into(json!({ "model": "opus" }), "/bin/prompt");
+    let installed = install_into(json!({ "model": "opus" }), "/bin/sinclair");
     let cleaned = uninstall_from(installed);
     assert!(cleaned.get("hooks").is_none(), "empty hooks object removed");
     assert_eq!(cleaned["model"], json!("opus"), "other settings preserved");

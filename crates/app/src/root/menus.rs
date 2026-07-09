@@ -252,15 +252,15 @@ impl WorkspaceView {
 
     fn prompt_menu(&self, a: &mut Vec<Action>) -> Menu {
         Self::menu(
-            "Prompt",
+            "Sinclair",
             vec![
-                Some(MenuItem::action("About Prompt", ShowAbout)),
+                Some(MenuItem::action("About Sinclair", ShowAbout)),
                 self.pick(a, "Check for Updates\u{2026}", Action::CheckUpdates),
                 Some(MenuItem::separator()),
                 self.pick(a, "Command Palette\u{2026}", Action::CommandPalette),
                 self.pick(a, "Settings\u{2026}", Action::ToggleSettings),
                 Some(MenuItem::separator()),
-                self.pick(a, "Quit Prompt", Action::Quit),
+                self.pick(a, "Quit Sinclair", Action::Quit),
             ],
         )
     }
@@ -412,7 +412,7 @@ impl WorkspaceView {
         Self::menu("Workspace", items)
     }
 
-    /// Window menu. Tab navigation is listed explicitly since Prompt does not
+    /// Window menu. Tab navigation is listed explicitly since Sinclair does not
     /// use the native macOS tabs that macOS would populate automatically.
     fn window_menu(&self, a: &mut Vec<Action>) -> Menu {
         Self::menu(

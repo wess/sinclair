@@ -1,4 +1,4 @@
-//! Prompt: a terminal emulator. Tabs of split panes, one shell per pane.
+//! Sinclair: a terminal emulator. Tabs of split panes, one shell per pane.
 
 mod about;
 mod agenthooks;
@@ -28,6 +28,7 @@ mod mcpbridge;
 mod metrics;
 mod mouse;
 mod ospicker;
+mod paths;
 mod pluginhost;
 mod pluginmanager;
 mod pluginwebview;
@@ -68,9 +69,9 @@ const DEFAULT_COLS: usize = 80;
 const DEFAULT_ROWS: usize = 24;
 
 /// Parse `notify` argv into `(title, body)`. `--title`/`-t` sets the title
-/// (default "Prompt"); the remaining words join into the body.
+/// (default "Sinclair"); the remaining words join into the body.
 fn notify_args(args: &[String]) -> (String, String) {
-    let mut title = "Prompt".to_string();
+    let mut title = "Sinclair".to_string();
     let mut body: Vec<&str> = Vec::new();
     let mut it = args.iter();
     while let Some(a) = it.next() {
@@ -121,7 +122,7 @@ fn main() {
         std::process::exit(exportcmd::run(&args[1..]));
     }
 
-    // Dev-only drive surface: `prompt ipc <op> [json-args]` sends one op over
+    // Dev-only drive surface: `sinclair ipc <op> [json-args]` sends one op over
     // the single-instance socket and prints the JSON reply, for scripted UI
     // testing. Compiled out of release builds so it never widens the shipped
     // automation surface.
@@ -130,13 +131,23 @@ fn main() {
         std::process::exit(ipc::run_cli(&args[1..]));
     }
 
+    // A pre-rename `Prompt.app` whose contents already self-updated to Sinclair
+    // renames itself once and relaunches at the new path; this process then
+    // exits, before it can bind the single-instance socket. Only the GUI launch
+    // migrates — a subcommand above must never move the bundle out from under a
+    // running instance.
+    #[cfg(target_os = "macos")]
+    if updater::migrate_bundle() {
+        return;
+    }
+
     // GUI launch (Finder/Dock) inherits a bare PATH; adopt the login shell's so
     // spawned tools (bun/node, agent CLIs, git/docker plugins) are found.
     envpath::fix();
 
     let (opts, diagnostics) = config::load();
     for d in &diagnostics {
-        eprintln!("prompt: config line {}: {} ({})", d.line, d.message, d.key);
+        eprintln!("sinclair: config line {}: {} ({})", d.line, d.message, d.key);
     }
 
     let app = gpui_platform::application();
@@ -162,7 +173,7 @@ fn main() {
 fn spawn_window(cx: &mut App) {
     let (opts, diagnostics) = config::load();
     for d in &diagnostics {
-        eprintln!("prompt: config line {}: {} ({})", d.line, d.message, d.key);
+        eprintln!("sinclair: config line {}: {} ({})", d.line, d.message, d.key);
     }
     open_default_window(opts, cx);
 }

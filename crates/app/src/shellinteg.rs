@@ -13,78 +13,78 @@
 use std::path::{Path, PathBuf};
 
 const ZSHENV: &str = "\
-# Prompt shell integration. Re-source the user's zshenv (env/PATH), keeping
-# ZDOTDIR pointed at Prompt's dir so Prompt's .zshrc loads next.
-PROMPT_INTEG_DIR=\"$ZDOTDIR\"
-[[ -f \"${PROMPT_ZDOTDIR:-$HOME}/.zshenv\" ]] && source \"${PROMPT_ZDOTDIR:-$HOME}/.zshenv\"
-ZDOTDIR=\"$PROMPT_INTEG_DIR\"
+# Sinclair shell integration. Re-source the user's zshenv (env/PATH), keeping
+# ZDOTDIR pointed at Sinclair's dir so Sinclair's .zshrc loads next.
+SINCLAIR_INTEG_DIR=\"$ZDOTDIR\"
+[[ -f \"${SINCLAIR_ZDOTDIR:-$HOME}/.zshenv\" ]] && source \"${SINCLAIR_ZDOTDIR:-$HOME}/.zshenv\"
+ZDOTDIR=\"$SINCLAIR_INTEG_DIR\"
 ";
 
 const ZPROFILE: &str = "\
-PROMPT_INTEG_DIR=\"$ZDOTDIR\"
-[[ -f \"${PROMPT_ZDOTDIR:-$HOME}/.zprofile\" ]] && source \"${PROMPT_ZDOTDIR:-$HOME}/.zprofile\"
-ZDOTDIR=\"$PROMPT_INTEG_DIR\"
+SINCLAIR_INTEG_DIR=\"$ZDOTDIR\"
+[[ -f \"${SINCLAIR_ZDOTDIR:-$HOME}/.zprofile\" ]] && source \"${SINCLAIR_ZDOTDIR:-$HOME}/.zprofile\"
+ZDOTDIR=\"$SINCLAIR_INTEG_DIR\"
 ";
 
 const ZSHRC: &str = "\
 # Restore the user's ZDOTDIR for the rest of the session, source their zshrc,
 # then install OSC 133 prompt marks + OSC 7 cwd reporting.
-_prompt_zdotdir=\"$ZDOTDIR\"
-ZDOTDIR=\"${PROMPT_ZDOTDIR:-$HOME}\"
+_sinclair_zdotdir=\"$ZDOTDIR\"
+ZDOTDIR=\"${SINCLAIR_ZDOTDIR:-$HOME}\"
 # macOS's global /etc/zshrc runs before this file and sets
 # HISTFILE=${ZDOTDIR:-$HOME}/.zsh_history while ZDOTDIR still points at our
 # integration dir, so history would read/write there instead of the user's real
 # file. If HISTFILE landed inside our dir, repoint it at the user's real dir
 # before their rc runs (which may still override it). zsh reads the history file
 # after rc processing, so this loads the correct history.
-[[ \"$HISTFILE\" == \"$_prompt_zdotdir\"/* ]] && HISTFILE=\"$ZDOTDIR/.zsh_history\"
-unset _prompt_zdotdir
+[[ \"$HISTFILE\" == \"$_sinclair_zdotdir\"/* ]] && HISTFILE=\"$ZDOTDIR/.zsh_history\"
+unset _sinclair_zdotdir
 [[ -f \"$ZDOTDIR/.zshrc\" ]] && source \"$ZDOTDIR/.zshrc\"
-_prompt_precmd() {
+_sinclair_precmd() {
   local ret=$?
   printf '\\e]133;D;%d\\e\\\\' \"$ret\"
   printf '\\e]133;A\\e\\\\'
   printf '\\e]7;file://%s%s\\e\\\\' \"${HOST}\" \"${PWD}\"
-  # Mark where shell input begins (OSC 133;B) so Prompt can read the line being
+  # Mark where shell input begins (OSC 133;B) so Sinclair can read the line being
   # typed for autosuggestions. Appended to PS1 (zero-width) idempotently, so it
   # survives prompts that rebuild PS1 each precmd.
-  local _prompt_b=$'%{\\e]133;B\\e\\\\%}'
-  [[ \"$PS1\" != *\"$_prompt_b\" ]] && PS1=\"${PS1}${_prompt_b}\"
+  local _sinclair_b=$'%{\\e]133;B\\e\\\\%}'
+  [[ \"$PS1\" != *\"$_sinclair_b\" ]] && PS1=\"${PS1}${_sinclair_b}\"
 }
-_prompt_preexec() { printf '\\e]133;C\\e\\\\'; }
+_sinclair_preexec() { printf '\\e]133;C\\e\\\\'; }
 autoload -Uz add-zsh-hook 2>/dev/null
 if (( $+functions[add-zsh-hook] )); then
-  add-zsh-hook precmd _prompt_precmd
-  add-zsh-hook preexec _prompt_preexec
+  add-zsh-hook precmd _sinclair_precmd
+  add-zsh-hook preexec _sinclair_preexec
 fi
 ";
 
 const ZLOGIN: &str = "\
-[[ -f \"${PROMPT_ZDOTDIR:-$HOME}/.zlogin\" ]] && source \"${PROMPT_ZDOTDIR:-$HOME}/.zlogin\"
+[[ -f \"${SINCLAIR_ZDOTDIR:-$HOME}/.zlogin\" ]] && source \"${SINCLAIR_ZDOTDIR:-$HOME}/.zlogin\"
 ";
 
 const FISH: &str = "\
-# Prompt shell integration (fish): OSC 133 prompt marks + OSC 7 cwd.
-function _prompt_mark_prompt --on-event fish_prompt
+# Sinclair shell integration (fish): OSC 133 prompt marks + OSC 7 cwd.
+function _sinclair_mark_prompt --on-event fish_prompt
     printf '\\e]133;A\\e\\\\'
     printf '\\e]7;file://%s%s\\e\\\\' (hostname) \"$PWD\"
 end
-function _prompt_mark_preexec --on-event fish_preexec
+function _sinclair_mark_preexec --on-event fish_preexec
     printf '\\e]133;C\\e\\\\'
 end
-function _prompt_mark_postexec --on-event fish_postexec
+function _sinclair_mark_postexec --on-event fish_postexec
     printf '\\e]133;D;%d\\e\\\\' $status
 end
 ";
 
 const BASH: &str = "\
-# Prompt shell integration (bash): emit prompt marks + cwd each prompt.
-_prompt_ret=$?
-printf '\\e]133;D;%d\\e\\\\' \"$_prompt_ret\"
+# Sinclair shell integration (bash): emit prompt marks + cwd each prompt.
+_sinclair_ret=$?
+printf '\\e]133;D;%d\\e\\\\' \"$_sinclair_ret\"
 printf '\\e]133;A\\e\\\\'
 printf '\\e]7;file://%s%s\\e\\\\' \"${HOSTNAME}\" \"${PWD}\"
 # Mark where shell input begins (OSC 133;B) via a zero-width PS1 suffix, added
-# once, so Prompt can read the line being typed for autosuggestions.
+# once, so Sinclair can read the line being typed for autosuggestions.
 [[ \"$PS1\" != *'133;B'* ]] && PS1=\"${PS1}\"'\\[\\e]133;B\\e\\\\\\]'
 ";
 
@@ -122,7 +122,7 @@ pub fn install() -> Option<PathBuf> {
     write(&dir.join(".zprofile"), ZPROFILE);
     write(&dir.join(".zshrc"), ZSHRC);
     write(&dir.join(".zlogin"), ZLOGIN);
-    write(&fishconf.join("prompt.fish"), FISH);
+    write(&fishconf.join("sinclair.fish"), FISH);
     write(&dir.join("integration.bash"), BASH);
     Some(dir)
 }
@@ -147,7 +147,7 @@ fn env_overrides(
         Shell::Zsh => {
             let mut v = vec![("ZDOTDIR".to_string(), d)];
             if let Some(orig) = env("ZDOTDIR").filter(|s| !s.is_empty()) {
-                v.push(("PROMPT_ZDOTDIR".to_string(), orig));
+                v.push(("SINCLAIR_ZDOTDIR".to_string(), orig));
             }
             v
         }

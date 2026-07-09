@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>MCP & automation — Prompt docs</title>
-    <meta name="description" content="Drive Prompt from Claude and other MCP clients: the prompt mcp server, its tools, and how to connect.">
+    <title>MCP & automation — Sinclair docs</title>
+    <meta name="description" content="Drive Sinclair from Claude and other MCP clients: the sinclair mcp server, its tools, and how to connect.">
     <meta name="theme-color" content="#05070c">
     <link rel="icon" href="icon.png">
     <link rel="stylesheet" href="style.css">
@@ -17,16 +17,16 @@
         <p class="kicker">Extending</p>
         <h1>MCP &amp; automation</h1>
         <p class="lede">
-          Prompt can expose your live terminal to AI tools over the Model Context
-          Protocol. Run <code>prompt mcp</code> and an MCP client — Claude Desktop,
+          Sinclair can expose your live terminal to AI tools over the Model Context
+          Protocol. Run <code>sinclair mcp</code> and an MCP client — Claude Desktop,
           Claude Code, or anything that speaks MCP — can open tabs, run commands, read
           the screen, and more, all in your real window.
         </p>
 
         <h2>How it works</h2>
         <p>
-          <code>prompt mcp</code> is a thin stdio server. It speaks the JSON-RPC dialect
-          MCP clients use and forwards every tool call to your already-running Prompt
+          <code>sinclair mcp</code> is a thin stdio server. It speaks the JSON-RPC dialect
+          MCP clients use and forwards every tool call to your already-running Sinclair
           window over a per-user socket. The stdio process stays trivial (no GUI); the
           live window does the work. That means the agent acts in the same terminal you
           are looking at.
@@ -37,27 +37,27 @@
           The MCP server is gated behind the AI settings (off by default). Turn it on in
           <strong>Settings → AI</strong> (<kbd>⌘,</kbd>) or in your config:
         </p>
-        <pre><code><span class="c"># ~/.config/prompt/config</span>
+        <pre><code><span class="c"># ~/.config/sinclair/config</span>
 ai-enabled = true
 mcp-server-enabled = true</code></pre>
 
         <h2>Connect a client</h2>
         <p>
-          Point your MCP client at the <code>prompt mcp</code> command. Most clients take
+          Point your MCP client at the <code>sinclair mcp</code> command. Most clients take
           a small JSON entry naming the command to spawn:
         </p>
         <pre><code>{
   "mcpServers": {
-    "prompt": { "command": "prompt", "args": ["mcp"] }
+    "sinclair": { "command": "sinclair", "args": ["mcp"] }
   }
 }</code></pre>
         <p>
           With Claude Code you can add it from the CLI:
         </p>
-        <pre><code>claude mcp add prompt -- prompt mcp</code></pre>
+        <pre><code>claude mcp add sinclair -- sinclair mcp</code></pre>
         <div class="callout note">
           <span class="label">Note</span>
-          <p>Keep a Prompt window open — <code>prompt mcp</code> bridges to the running
+          <p>Keep a Sinclair window open — <code>sinclair mcp</code> bridges to the running
           instance, so tools act on your live terminal. See
           <a href="cli.html">CLI reference</a> for the command itself.</p>
         </div>
@@ -94,7 +94,7 @@ mcp-server-enabled = true</code></pre>
         <h2>Beyond a single terminal</h2>
         <p>
           MCP lets one client drive one terminal. To coordinate <em>teams</em> of agents
-          that message each other and run in their own panes, Prompt ships a local relay
+          that message each other and run in their own panes, Sinclair ships a local relay
           — see the <a href="agents.html">Agent mesh</a>. The same AI settings turn both
           on.
         </p>

@@ -4,8 +4,8 @@ Status: **complete — steps 1–3 shipped (1.21.3), step 4 shipped (1.23.0).** 
 issue #4 (*feat: Pause and resume support with work persistence*). The literal
 ask — pause the manager and its agents mid-task, serialize the in-flight work,
 and on resume have each agent pick up from its last checkpoint — cannot be met by
-Prompt *alone*: the in-flight reasoning lives inside the agent CLI's own context,
-which Prompt doesn't own. What Prompt *can* do — and now does — is pause/resume
+Sinclair *alone*: the in-flight reasoning lives inside the agent CLI's own context,
+which Sinclair doesn't own. What Sinclair *can* do — and now does — is pause/resume
 the mesh, persist the worker roster, and ask the agent CLI to reload its own
 session. This doc records what survives a restart, names the one hard blocker,
 and tracks the build order (steps 1–3 done, step 4 next).
@@ -62,13 +62,13 @@ no window into that transcript and no way to serialize it. The launch builders
 `--resume`/`--continue`, so a relaunched agent begins from an empty context even
 when its `agents` row and bus cursor survive.
 
-So "pause mid-turn and resume with work intact" cannot be done by Prompt on its
+So "pause mid-turn and resume with work intact" cannot be done by Sinclair on its
 own: that state is opaque and owned by the agent CLI. `docs/relay.md` already
 states the shape of this — "a long-running agent holds one growing context for
 its whole shift; restart it for a fresh one" — and `docs/parity.md` tracks the
 general version as **Persistent, detachable sessions** ("a multi-week
 subsystem"). Checkpointing agent in-context work is the agent CLI's job; the
-most Prompt can do is ask the CLI to reload its own checkpoint (step 3).
+most Sinclair can do is ask the CLI to reload its own checkpoint (step 3).
 
 ## Scoped plan
 
@@ -108,7 +108,7 @@ mod.rs` picks the flag per attempt; the id is minted in `tools/mod.rs` /
 (reclaiming its bus cursor via `upsert_agent`) **and** reloads its own claude
 transcript.
 
-*Honest caveat:* correctness is bounded entirely by the agent CLI — Prompt only
+*Honest caveat:* correctness is bounded entirely by the agent CLI — Sinclair only
 threads the id through. It applies to `claude` (session-id/resume); other
 providers keep fresh context until they expose an equivalent. Foreground
 (human-driven) agents aren't resumed this way — they `exec` over the shell and
@@ -125,7 +125,7 @@ provider supports it (claude today, per step 3) — rather than spawning a bare
 shell at its cwd. Plain shells restore exactly as before.
 
 *Honest caveat:* the "with work intact" half is still bounded by the agent CLI —
-Prompt reloads the session id, the provider reloads the transcript. Providers
+Sinclair reloads the session id, the provider reloads the transcript. Providers
 without a resume flag relaunch fresh at the right cwd. Foreground human-driven
 agents own their own `/resume`.
 
@@ -143,6 +143,6 @@ running an agent is remembered as one (launch command + native session id in
 between the app's window restore and the mesh's durable workers.
 
 What remains is the one genuine blocker, unchanged: "pause mid-turn and resume
-with the exact in-flight reasoning intact" is owned by the agent CLI, not Prompt.
-Prompt threads the session id; the provider reloads the transcript. Real,
+with the exact in-flight reasoning intact" is owned by the agent CLI, not Sinclair.
+Sinclair threads the session id; the provider reloads the transcript. Real,
 detachable mux-style sessions (`docs/parity.md`) remain the larger follow-up.

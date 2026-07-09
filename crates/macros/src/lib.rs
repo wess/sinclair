@@ -1,4 +1,4 @@
-//! Recorded command macros for Prompt.
+//! Recorded command macros for Sinclair.
 //!
 //! A macro is a named, ordered list of shell command lines. The user records
 //! one by toggling capture on, typing commands at a prompt, and toggling it

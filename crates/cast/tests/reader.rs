@@ -3,7 +3,7 @@ use std::io::Cursor;
 
 fn roundtrip(cols: usize, rows: usize, chunks: &[&[u8]]) -> Cast {
     let dir = std::env::temp_dir();
-    let path = dir.join("prompt-cast-reader.cast");
+    let path = dir.join("sinclair-cast-reader.cast");
     let mut rec = crate::Recorder::create(path.clone(), cols, rows, Some("t"), Some(42)).unwrap();
     for c in chunks {
         rec.output(c).unwrap();

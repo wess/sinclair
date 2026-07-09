@@ -30,7 +30,7 @@ pub struct Plugin {
     pub triggers: Vec<Trigger>,
     /// `[[tool]]`: tools this plugin exposes to MCP clients (AI agents). Each is
     /// handled by the `[runtime]` via a `tool` request. This is what makes a
-    /// plugin agent-callable: the tools appear in `prompt mcp`'s tool list.
+    /// plugin agent-callable: the tools appear in `sinclair mcp`'s tool list.
     pub tools: Vec<Tool>,
     /// `capability = "…"`: what the plugin declares it accesses (from
     /// [`CAPABILITIES`]). Advisory today — surfaced at install so users see a

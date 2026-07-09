@@ -1,6 +1,6 @@
 //! Quick Terminal: a Quake-style dropdown terminal.
 //!
-//! - Summoned by a global hotkey (default cmd+alt+t) even when Prompt is not
+//! - Summoned by a global hotkey (default cmd+alt+t) even when Sinclair is not
 //!   the focused application, registered via Carbon `RegisterEventHotKey`,
 //!   which needs no Accessibility permission.
 //! - Floats above every other app and Space (see [`crate::appkit`]).
@@ -80,13 +80,13 @@ pub fn install_global_hotkey(cx: &mut App) {
     let manager = match GlobalHotKeyManager::new() {
         Ok(manager) => manager,
         Err(error) => {
-            eprintln!("prompt: quick terminal: hotkey manager unavailable: {error}");
+            eprintln!("sinclair: quick terminal: hotkey manager unavailable: {error}");
             return;
         }
     };
     let hotkey = HotKey::new(Some(Modifiers::SUPER | Modifiers::ALT), Code::KeyT);
     if let Err(error) = manager.register(hotkey) {
-        eprintln!("prompt: quick terminal: could not register cmd+alt+t: {error}");
+        eprintln!("sinclair: quick terminal: could not register cmd+alt+t: {error}");
     }
     cx.set_global(Hotkeys(manager));
 
@@ -224,7 +224,7 @@ fn open(cx: &mut App) {
     let (sh, events) = match Session::spawn(options) {
         Ok(pair) => pair,
         Err(error) => {
-            eprintln!("prompt: quick terminal: failed to spawn shell: {error}");
+            eprintln!("sinclair: quick terminal: failed to spawn shell: {error}");
             return;
         }
     };

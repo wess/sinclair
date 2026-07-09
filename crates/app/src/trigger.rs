@@ -42,7 +42,7 @@ impl Triggers {
                 match Regex::new(pat) {
                     Ok(re) => Some(Trigger { re, title }),
                     Err(e) => {
-                        eprintln!("prompt: invalid trigger {pat:?}: {e}");
+                        eprintln!("sinclair: invalid trigger {pat:?}: {e}");
                         None
                     }
                 }

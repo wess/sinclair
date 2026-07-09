@@ -3,12 +3,12 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Prompt - GPU terminal for builders and agent teams</title>
+    <title>Sinclair - GPU terminal for builders and agent teams</title>
     <meta
       name="description"
-      content="Prompt is a fast GPU-accelerated terminal for macOS and Linux with splits, themes, MCP, and a local agent mesh."
+      content="Sinclair is a fast GPU-accelerated terminal for macOS and Linux with splits, themes, MCP, and a local agent mesh."
     >
-    <meta property="og:title" content="Prompt - a terminal for builders and agent teams">
+    <meta property="og:title" content="Sinclair - a terminal for builders and agent teams">
     <meta
       property="og:description"
       content="GPU rendering, meticulous VT support, live config, MCP, and a local relay for agent teams."
@@ -22,9 +22,9 @@
   <body>
     <a class="skip" href="#main">Skip to content</a>
     <header class="nav" aria-label="Primary navigation">
-      <a class="brand" href="#top" aria-label="Prompt home">
+      <a class="brand" href="#top" aria-label="Sinclair home">
         <img class="brandmark" src="icon.png" alt="" width="36" height="36">
-        <span>Prompt</span>
+        <span>Sinclair</span>
       </a>
       <nav class="navlinks" aria-label="Site">
         <a href="#terminal">Terminal</a>
@@ -34,7 +34,7 @@
         <a href="docs.html">Docs</a>
         <a href="#install">Install</a>
       </nav>
-      <a class="navstar" href="https://github.com/wess/prompt" data-star-link>
+      <a class="navstar" href="https://github.com/wess/sinclair" data-star-link>
         <span aria-hidden="true">star</span>
         <strong data-star-count>GitHub</strong>
       </a>
@@ -51,27 +51,27 @@
           <p class="kicker">GPU terminal for command-line work that moves.</p>
           <h1>The terminal that can keep up with your build.</h1>
           <p class="lede">
-            Prompt is a fast, standards-focused terminal for macOS and Linux.
+            Sinclair is a fast, standards-focused terminal for macOS and Linux.
             It pairs a meticulous VT core with tabs, splits, live config, MCP,
             and a local relay for coordinating agent teams.
           </p>
           <div class="actions" aria-label="Primary actions">
-            <a class="button primary" href="#install">Install Prompt</a>
-            <a class="button secondary" href="https://github.com/wess/prompt" data-star-link>Star on GitHub</a>
+            <a class="button primary" href="#install">Install Sinclair</a>
+            <a class="button secondary" href="https://github.com/wess/sinclair" data-star-link>Star on GitHub</a>
           </div>
           <div class="terminalbar" aria-label="Install command">
-            <code>brew install --cask wess/packages/prompt</code>
-            <button type="button" data-copy="brew install --cask wess/packages/prompt">Copy</button>
+            <code>brew install --cask wess/packages/sinclair</code>
+            <button type="button" data-copy="brew install --cask wess/packages/sinclair">Copy</button>
           </div>
         </div>
-        <div class="productstage" aria-label="Prompt terminal workspace preview">
+        <div class="productstage" aria-label="Sinclair terminal workspace preview">
           <div class="stageglow" aria-hidden="true"></div>
           <div class="workspacewindow">
             <div class="windowbar">
               <div class="traffic" aria-hidden="true"><span></span><span></span><span></span></div>
               <div class="tabstrip" role="tablist" aria-label="Open tabs">
                 <div class="tab active" role="tab" aria-selected="true">
-                  <span>~/dev/prompt</span>
+                  <span>~/dev/sinclair</span>
                   <i class="tabclose" aria-hidden="true">×</i>
                 </div>
                 <div class="tab attention" role="tab" aria-selected="false">
@@ -87,14 +87,14 @@
             </div>
             <div class="workspacegrid">
               <section class="terminalpane" aria-label="Terminal session preview">
-                <pre><code><span class="prompt">~/dev/prompt</span> <span class="cmd">prompt open team web</span>
+                <pre><code><span class="prompt">~/dev/sinclair</span> <span class="cmd">prompt open team web</span>
 <span class="ok">created tab “web” with 4 panes</span>
 
-<span class="prompt">~/dev/prompt</span> <span class="cmd">cargo test -p vt screen</span>
+<span class="prompt">~/dev/sinclair</span> <span class="cmd">cargo test -p vt screen</span>
 running 583 tests
 <span class="ok">test result: ok. 583 passed</span>
 
-<span class="prompt">~/dev/prompt</span> <span class="cmd">prompt notify "review ready"</span>
+<span class="prompt">~/dev/sinclair</span> <span class="cmd">sinclair notify "review ready"</span>
 <span class="cursor">█</span></code></pre>
               </section>
               <aside class="agentpane" aria-label="Agent relay activity">
@@ -159,7 +159,7 @@ running 583 tests
           <p class="kicker">For people running more than one brain at once.</p>
           <h2>Launch agent teams into real terminal panes.</h2>
           <p>
-            Prompt includes a bundled relay sidecar. Agents register, join
+            Sinclair includes a bundled relay sidecar. Agents register, join
             channels, send messages, wait without burning cycles, and show up
             where command-line work already happens: in tabs and splits you can
             see. Quick-launch Claude Code or Codex from the menu, or design a
@@ -170,7 +170,7 @@ running 583 tests
             Every pane reports what it's doing as a <strong>colored status
             dot</strong> — working, blocked, done, idle — so you can read a whole
             team at a glance. Give each agent its own <strong>git worktree</strong>
-            so they never clobber each other's files, and when you reopen Prompt,
+            so they never clobber each other's files, and when you reopen Sinclair,
             agent panes <strong>resume their sessions</strong> instead of starting
             cold.
           </p>
@@ -198,12 +198,12 @@ running 583 tests
       <section class="pluginsection" id="plugins">
         <div class="plugincopy">
           <p class="kicker">Make the terminal yours — and your agents'.</p>
-          <h2>Extend Prompt with plugins.</h2>
+          <h2>Extend Sinclair with plugins.</h2>
           <p class="lede">
             A plugin is a small folder with a <code>plugin.toml</code>. Contribute
             shell commands, live panels, webview surfaces, or event hooks — and
             <strong>tools your AI agents can call</strong>. A plugin's
-            <code>[[tool]]</code> joins Prompt's MCP server, so the same agent that
+            <code>[[tool]]</code> joins Sinclair's MCP server, so the same agent that
             drives your terminal can query your database or read host stats through
             whatever you've installed. The terminal's extensions and its AI are one
             surface.
@@ -212,11 +212,11 @@ running 583 tests
             Share yours by opening a PR that adds
             <code>plugins/&lt;your-plugin-name&gt;/plugin.toml</code> to the
             community catalog at
-            <a href="https://github.com/wess/prompt">github.com/wess/prompt</a>.
+            <a href="https://github.com/wess/sinclair">github.com/wess/sinclair</a>.
           </p>
           <div class="actions" aria-label="Plugin actions">
             <a class="button primary" href="plugins.html">Read the plugin guide</a>
-            <a class="button secondary" href="https://github.com/wess/prompt/tree/main/plugins">Browse the catalog</a>
+            <a class="button secondary" href="https://github.com/wess/sinclair/tree/main/plugins">Browse the catalog</a>
           </div>
         </div>
         <div class="plugincard" aria-label="Example plugin.toml">
@@ -233,7 +233,7 @@ keybind = "cmd+ctrl+l"</code></pre>
         </div>
       </section>
 
-      <section class="details" aria-label="Prompt features">
+      <section class="details" aria-label="Sinclair features">
         <div class="rail">
           <span>ship faster</span>
           <span>stay local</span>
@@ -254,7 +254,7 @@ keybind = "cmd+ctrl+l"</code></pre>
           </article>
           <article>
             <h3>Terminal-aware notifications</h3>
-            <p>OSC notifications and <code>prompt notify</code> raise native banners and light up background tabs until you look.</p>
+            <p>OSC notifications and <code>sinclair notify</code> raise native banners and light up background tabs until you look.</p>
           </article>
           <article>
             <h3>Theme without ceremony</h3>
@@ -274,15 +274,15 @@ keybind = "cmd+ctrl+l"</code></pre>
           </article>
           <article>
             <h3>Resume where you left off</h3>
-            <p>Turn on session restore and Prompt reopens your tabs, splits, and directories — and relaunches agent panes <em>resumed</em>, reloading their own session instead of starting cold.</p>
+            <p>Turn on session restore and Sinclair reopens your tabs, splits, and directories — and relaunches agent panes <em>resumed</em>, reloading their own session instead of starting cold.</p>
           </article>
           <article>
             <h3>Scriptable by design</h3>
-            <p><code>prompt mcp</code> exposes tabs, panes, screen reads, input, macros, splits, git worktrees, agent status, and notifications to local tools — plus every tool your plugins add.</p>
+            <p><code>sinclair mcp</code> exposes tabs, panes, screen reads, input, macros, splits, git worktrees, agent status, and notifications to local tools — plus every tool your plugins add.</p>
           </article>
           <article>
             <h3>Keeps itself current</h3>
-            <p>Prompt checks GitHub for new releases and offers to update — running <code>brew</code>/<code>apt</code> for package installs, or swapping a manual <code>.dmg</code>/AppImage in place and relaunching.</p>
+            <p>Sinclair checks GitHub for new releases and offers to update — running <code>brew</code>/<code>apt</code> for package installs, or swapping a manual <code>.dmg</code>/AppImage in place and relaunching.</p>
           </article>
         </div>
       </section>
@@ -292,7 +292,7 @@ keybind = "cmd+ctrl+l"</code></pre>
           <p class="kicker">Open source. macOS and Linux.</p>
           <h2>Install it, star it, and help shape the terminal.</h2>
           <p>
-            Prompt ships from GitHub releases, with a Homebrew cask for macOS
+            Sinclair ships from GitHub releases, with a Homebrew cask for macOS
             and AppImage, deb, and tarball packages for Linux on x86_64 and
             aarch64.
           </p>
@@ -303,19 +303,19 @@ keybind = "cmd+ctrl+l"</code></pre>
             <button type="button" data-install-tab="linux">Linux</button>
             <button type="button" data-install-tab="source">Source</button>
           </div>
-          <pre aria-live="polite"><code data-install-code>brew install --cask wess/packages/prompt</code></pre>
-          <button class="copywide" type="button" data-copy="brew install --cask wess/packages/prompt">Copy command</button>
+          <pre aria-live="polite"><code data-install-code>brew install --cask wess/packages/sinclair</code></pre>
+          <button class="copywide" type="button" data-copy="brew install --cask wess/packages/sinclair">Copy command</button>
         </div>
       </section>
     </main>
 
     <footer class="footer">
-      <span>Prompt 1.23.0</span>
-      <a href="https://github.com/wess/prompt">GitHub</a>
+      <span>Sinclair 1.23.0</span>
+      <a href="https://github.com/wess/sinclair">GitHub</a>
       <a href="docs.html">Documentation</a>
       <a href="tutorials.html">Tutorials</a>
       <a href="plugins.html">Plugin guide</a>
-      <a href="https://github.com/wess/prompt/releases">Releases</a>
+      <a href="https://github.com/wess/sinclair/releases">Releases</a>
       <a href="coverage.html">Feature coverage</a>
     </footer>
 

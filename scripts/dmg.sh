@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Package dist/Prompt.app into dist/Prompt.dmg — a compressed disk image with the
+# Package dist/Sinclair.app into dist/Sinclair.dmg — a compressed disk image with the
 # app and a /Applications symlink for drag-to-install. Run scripts/bundle.sh
 # first. Usage: scripts/dmg.sh
 set -euo pipefail
@@ -7,7 +7,7 @@ set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
 
-app_name="Prompt"
+app_name="Sinclair"
 app="dist/$app_name.app"
 dmg="dist/$app_name.dmg"
 [ -d "$app" ] || { echo "error: $app not found — run scripts/bundle.sh first" >&2; exit 1; }

@@ -26,7 +26,7 @@ pub(crate) fn bytes(url: &str) -> Result<Vec<u8>, String> {
             "-H",
             "Accept: application/vnd.github+json",
             "-H",
-            "User-Agent: prompt-terminal",
+            "User-Agent: sinclair-terminal",
             "--",
             url,
         ])
@@ -47,7 +47,7 @@ pub(crate) fn file(url: &str, dest: &Path) -> Result<(), String> {
     let out = Command::new("curl")
         .args(["-sL", "--fail", "--proto", "=https", "--proto-redir", "=https", "-o"])
         .arg(dest)
-        .args(["-H", "User-Agent: prompt-terminal", "--", url])
+        .args(["-H", "User-Agent: sinclair-terminal", "--", url])
         .output()
         .map_err(|e| format!("curl: {e}"))?;
     if out.status.success() {

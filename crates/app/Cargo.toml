@@ -6,34 +6,34 @@ edition.workspace = true
 license.workspace = true
 description = "A fast, modern terminal that gets out of your way"
 
-# The bin target is `promptdev`: a dev build (`cargo run`/`cargo build`) is
-# named that so it never collides with an installed `prompt`. The release
+# The bin target is `sinclairdev`: a dev build (`cargo run`/`cargo build`) is
+# named that so it never collides with an installed `sinclair`. The release
 # scripts (bundle.sh / linux.sh) and the .deb assets below install this same
-# binary as `prompt`.
+# binary as `sinclair`.
 [[bin]]
-name = "promptdev"
+name = "sinclairdev"
 path = "src/main.rs"
 
-# Linux .deb packaging (see scripts/linux.sh). The `prompt` binary is added
+# Linux .deb packaging (see scripts/linux.sh). The `sinclair` binary is added
 # automatically; here we add the desktop entry and icon. Paths are relative to
 # this crate directory.
 [package.metadata.deb]
-name = "prompt"
+name = "sinclair"
 maintainer = "Wess Cope <me@wess.io>"
 license-file = ["../../LICENSE", "0"]
 section = "utils"
 priority = "optional"
-extended-description = "Prompt is a GPU-accelerated terminal emulator with tabs, recursive splits, live-reload config, and built-in themes."
+extended-description = "Sinclair is a GPU-accelerated terminal emulator with tabs, recursive splits, live-reload config, and built-in themes."
 # An explicit assets list disables cargo-deb's automatic binary inclusion, so
 # the binary is listed here too. cargo-deb remaps the `target/release/` prefix
 # to the actual --target/profile path.
 assets = [
-    ["target/release/promptdev", "usr/bin/prompt", "755"],
+    ["target/release/sinclairdev", "usr/bin/sinclair", "755"],
     ["target/release/notes", "usr/bin/notes", "755"],
-    ["../../assets/prompt.desktop", "usr/share/applications/prompt.desktop", "644"],
-    ["../../assets/icon512.png", "usr/share/pixmaps/prompt.png", "644"],
-    # First-party bundled Notes plugin, discovered at share/prompt/plugins.
-    ["../../plugins/notes/plugin.toml", "usr/share/prompt/plugins/notes/plugin.toml", "644"],
+    ["../../assets/sinclair.desktop", "usr/share/applications/sinclair.desktop", "644"],
+    ["../../assets/icon512.png", "usr/share/pixmaps/sinclair.png", "644"],
+    # First-party bundled Notes plugin, discovered at share/sinclair/plugins.
+    ["../../plugins/notes/plugin.toml", "usr/share/sinclair/plugins/notes/plugin.toml", "644"],
 ]
 
 [dependencies]

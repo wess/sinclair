@@ -41,12 +41,12 @@ impl Section {
 
     pub fn subtitle(self) -> &'static str {
         match self {
-            Section::General => "Manage Prompt's overall setup and terminal behavior.",
+            Section::General => "Manage Sinclair's overall setup and terminal behavior.",
             Section::Appearance => "Tune themes, colors, fonts, cursor, and the color palette.",
             Section::Terminal => "Control grid density, padding, scrollback, and scrolling.",
             Section::Keyboard => "Edit the keymap: change a trigger, remove it, or add one.",
             Section::Macros => "Replay recorded command macros and assign each a shortcut.",
-            Section::Plugins => "Manage the directories Prompt loads extensions from.",
+            Section::Plugins => "Manage the directories Sinclair loads extensions from.",
             Section::Ai => "Expose this terminal over MCP and run the Relay agent mesh.",
         }
     }
@@ -667,7 +667,7 @@ impl ListKind {
             ListKind::FontFamily => "Font name",
             ListKind::FontFeature => "-liga or +ss01",
             ListKind::Palette => "0=#1d1f21",
-            ListKind::Plugin => "~/.config/prompt/plugins/name",
+            ListKind::Plugin => "~/.config/sinclair/plugins/name",
             ListKind::Keybind => "cmd+shift+t=new_tab",
             ListKind::AgentTool => "mytool|/path/to/bin {prompt} --mcp {mcp}",
             ListKind::Redact => "regex, e.g. sk-[A-Za-z0-9]{20,}",

@@ -1,5 +1,5 @@
 //! Teams: a named layout plus a roster of members (name + role). Relay owns the
-//! definition; Prompt reads it (via `--json`) to open a tiled set of agents.
+//! definition; Sinclair reads it (via `--json`) to open a tiled set of agents.
 //! Resolved project → user → built-in, like roles.
 
 use super::TeamCmd;
@@ -13,7 +13,7 @@ const BUILTINS: &[(&str, &str)] = &[
     ("pair", include_str!("../../teams/pair.toml")),
 ];
 
-/// Layout shapes Prompt's tile engine understands.
+/// Layout shapes Sinclair's tile engine understands.
 const SHAPES: &[&str] = &["columns", "rows", "grid", "main-bottom", "main-right"];
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -139,7 +139,7 @@ pub fn run(action: TeamCmd) -> Result<()> {
     }
 }
 
-/// The JSON a host (Prompt's team builder) pipes in on stdin to persist a team
+/// The JSON a host (Sinclair's team builder) pipes in on stdin to persist a team
 /// without an editor.
 #[derive(Deserialize)]
 struct SaveSpec {

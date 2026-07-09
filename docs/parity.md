@@ -1,6 +1,6 @@
 # Terminal feature coverage
 
-A feature-by-feature map of Prompt's terminal support, as of phases 1–12.
+A feature-by-feature map of Sinclair's terminal support, as of phases 1–12.
 Status key: **✓** implemented, **◑** partial (works for the common case, with
 documented limits), **✗** not yet.
 
@@ -118,10 +118,10 @@ documented limits), **✗** not yet.
 | Session restore | ✓ | `session-restore` saves tabs/splits/cwds on quit, rebuilds on launch |
 | Session recording | ✓ | record a pane to an asciinema v2 `.cast` (cmd+shift+r); plays with `asciinema play`, embeddable |
 | Per-tab context | ✓ | each tab shows the focused pane's git branch + working directory |
-| Agent attention | ✓ | OSC 9/777/99 (or `prompt notify`) post a native banner and light up the tab |
-| Scripting API (MCP + socket) | ✓ | `prompt mcp` exposes run_command, send_input, read_screen, new_tab, split, list_tabs/panes, focus_tab, notify |
+| Agent attention | ✓ | OSC 9/777/99 (or `sinclair notify`) post a native banner and light up the tab |
+| Scripting API (MCP + socket) | ✓ | `sinclair mcp` exposes run_command, send_input, read_screen, new_tab, split, list_tabs/panes, focus_tab, notify |
 | Themes | ✓ | 22 builtin schemes + overrides |
-| Native macOS menu bar | ✓ | Prompt/File/Edit/View/Workspace/Window menus (plus AI when enabled), items reuse config actions (shortcuts shown); includes an About panel (icon, version, release date) |
+| Native macOS menu bar | ✓ | Sinclair/File/Edit/View/Workspace/Window menus (plus AI when enabled), items reuse config actions (shortcuts shown); includes an About panel (icon, version, release date) |
 | Custom window titlebar | ✓ | transparent native bar; app-drawn strip with tabs folded in and drag-to-move. macOS keeps the traffic lights; Linux draws its own minimize/maximize/close + resize edges (client-side decorations) |
 | macOS status-bar (tray) item | ✗ | NSStatusBar is not exposed by the UI layer; needs custom native code |
 

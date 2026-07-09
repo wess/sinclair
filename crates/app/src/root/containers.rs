@@ -61,7 +61,7 @@ impl WorkspaceView {
             self.container_tabs.remove(&running.id);
         }
         let Some(engine) = self.container_engine() else {
-            eprintln!("prompt: no container engine available (install Docker or Podman)");
+            eprintln!("sinclair: no container engine available (install Docker or Podman)");
             return;
         };
         let argv = container::attach_argv(engine, &running.id);

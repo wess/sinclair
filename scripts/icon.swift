@@ -1,4 +1,4 @@
-// Renders the Prompt app icon — a terminal `>_` prompt glyph on a dark indigo
+// Renders the Sinclair app icon — a terminal `>_` sinclair glyph on a dark indigo
 // squircle — to a 1024x1024 PNG. Pure CoreGraphics, no third-party deps, so it
 // runs anywhere Swift does (local + CI macOS runners). scripts/icon.sh turns
 // the PNG into the .iconset/.icns. Usage: swift scripts/icon.swift out.png
@@ -30,7 +30,7 @@ let radius = body.width * 0.2237
 let squircle = CGPath(roundedRect: body, cornerWidth: radius, cornerHeight: radius, transform: nil)
 
 // Body fill: vertical indigo gradient (top lighter), matching the dark terminal
-// palettes Prompt ships with.
+// palettes Sinclair ships with.
 ctx.saveGState()
 ctx.addPath(squircle)
 ctx.clip()

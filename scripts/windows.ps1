@@ -1,8 +1,8 @@
-# Build Prompt (release) for Windows and produce a portable .zip and an MSI
+# Build Sinclair (release) for Windows and produce a portable .zip and an MSI
 # installer under dist/windows. Mirrors scripts/linux.sh. Intended for the
 # windows-latest runner; run locally with PowerShell 7+ (pwsh).
 #
-# The binary is the `promptdev` bin from crates/app, installed as `prompt.exe`;
+# The binary is the `sinclairdev` bin from crates/app, installed as `sinclair.exe`;
 # the Notes sidecar (`notes.exe`) and first-party plugins ship beside it. The
 # version is read from the workspace Cargo.toml. Builds natively for the host
 # architecture — pass x86_64 or aarch64 only to label artifacts and pick the
@@ -31,7 +31,7 @@ $wixArch = if ($Arch -eq "aarch64") { "arm64" } else { "x64" }
 $version = (Select-String -Path Cargo.toml -Pattern '^version = "([0-9][^"]*)"' |
     Select-Object -First 1).Matches.Groups[1].Value
 if (-not $version) { throw "could not read version from Cargo.toml" }
-Write-Host "[windows] Prompt $version for $triple"
+Write-Host "[windows] Sinclair $version for $triple"
 
 $out = Join-Path $root "dist\windows"
 Remove-Item -Recurse -Force $out -ErrorAction SilentlyContinue
@@ -40,14 +40,14 @@ New-Item -ItemType Directory -Force -Path $out | Out-Null
 # --- build ----------------------------------------------------------------
 rustup target add $triple 2>&1 | Out-Null
 cargo build --release -p app -p notes --target $triple
-$bin = "target\$triple\release\promptdev.exe"
+$bin = "target\$triple\release\sinclairdev.exe"
 $notesBin = "target\$triple\release\notes.exe"
 
 # --- staging tree (shared by the zip and the MSI harvest) ------------------
-$stem = "prompt-$version-windows-$Arch"
+$stem = "sinclair-$version-windows-$Arch"
 $stage = Join-Path $out $stem
 New-Item -ItemType Directory -Force -Path $stage | Out-Null
-Copy-Item $bin (Join-Path $stage "prompt.exe")
+Copy-Item $bin (Join-Path $stage "sinclair.exe")
 Copy-Item $notesBin (Join-Path $stage "notes.exe")
 # First-party bundled plugins, discovered beside the executable.
 $pluginDst = Join-Path $stage "plugins\notes"
@@ -64,7 +64,7 @@ Write-Host "[windows] -> $stem.zip"
 try {
     dotnet tool install --global wix --version 4.* 2>&1 | Out-Null
     $env:PATH = "$env:PATH;$env:USERPROFILE\.dotnet\tools"
-    wix build "packaging\windows\prompt.wxs" `
+    wix build "packaging\windows\sinclair.wxs" `
         -define "Version=$version" `
         -define "StageDir=$stage" `
         -arch $wixArch `

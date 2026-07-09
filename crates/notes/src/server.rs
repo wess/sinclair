@@ -224,7 +224,7 @@ fn spawn_reaper(state: Arc<AppState>) {
 
 async fn health(State(s): State<Arc<AppState>>) -> Response {
     touch(&s);
-    ok(json!({ "server": "prompt-notes", "port": s.port }))
+    ok(json!({ "server": "sinclair-notes", "port": s.port }))
 }
 
 async fn get_vault(State(s): State<Arc<AppState>>) -> Response {

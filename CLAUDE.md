@@ -9,14 +9,14 @@ same guidance.
 
 ## What this is
 
-Prompt is a GPU-accelerated terminal emulator for macOS and Linux, written in
+Sinclair is a GPU-accelerated terminal emulator for macOS and Linux, written in
 Rust as a Cargo workspace. The GUI is built on [gpui](https://github.com/zed-industries/zed)
 (pulled as a git dependency from the zed repo). The GUI is the `app` crate,
-whose bin target is `promptdev`: a dev build (`cargo run -p app`, debug or
-`--release`) is named `promptdev` so it never collides with an installed
-`prompt` — it gets its own window title, app id, and single-instance socket and
+whose bin target is `sinclairdev`: a dev build (`cargo run -p app`, debug or
+`--release`) is named `sinclairdev` so it never collides with an installed
+`sinclair` — it gets its own window title, app id, and single-instance socket and
 runs side by side. The release scripts install the same binary as the shipped
-`prompt` command. The app derives this name from its own executable at runtime
+`sinclair` command. The app derives this name from its own executable at runtime
 (see `crates/app/src/appid.rs`).
 
 ## Commands
@@ -29,8 +29,8 @@ cargo test -p vt                  # test one crate
 cargo test -p vt screen           # run tests matching "screen" in one crate
 cargo clippy --all-targets        # lint
 
-scripts/bundle.sh                 # cargo build --release + assemble dist/Prompt.app
-scripts/dmg.sh                    # package dist/Prompt.dmg (needs bundle first)
+scripts/bundle.sh                 # cargo build --release + assemble dist/Sinclair.app
+scripts/dmg.sh                    # package dist/Sinclair.dmg (needs bundle first)
 scripts/linux.sh [x86_64|aarch64] # build + package .tar.gz/.deb/.AppImage (Linux)
 ```
 
@@ -84,13 +84,13 @@ The workspace is layered bottom-up; each crate depends only on those below it.
 - **`config`** — `key = value` config: parse → diagnostics →
   `Options` + keybindings, with live file watching. Bad lines become friendly
   diagnostics and never abort the load. Default path
-  `$XDG_CONFIG_HOME/prompt/config` or `~/.config/prompt/config`.
+  `$XDG_CONFIG_HOME/sinclair/config` or `~/.config/sinclair/config`.
 - **`theme`** — 22 built-in color schemes (`builtin/`) plus per-color overrides.
 - **`plugin`** — parses `plugin.toml` manifests contributing: `[[command]]`
   actions (+ default keybindings), `[runtime]`/`[panel]` IPC block-tree panels,
   `[webview]` HTML/JS surfaces (panel/window/tab), `[[trigger]]` event hooks,
   and `[[tool]]` MCP tools exposed to agents (`mcpbridge` merges them into
-  `prompt mcp`'s tool list, routing calls to the runtime). Plugins declare
+  `sinclair mcp`'s tool list, routing calls to the runtime). Plugins declare
   `capability = "…"` (advisory under the process runtime; the vocabulary the
   WASM runtime enforces) and a `[runtime] type` of `process` (default) or `wasm`
   (declaration + design only so far — see `docs/plugins-wasm.md`). Pure
@@ -137,20 +137,20 @@ The workspace is layered bottom-up; each crate depends only on those below it.
 
 ### Process modes (`app/src/main.rs`)
 
-The `prompt` binary dispatches on argv before starting the GUI:
+The `sinclair` binary dispatches on argv before starting the GUI:
 
-- `prompt --toggle-quick` — signals a running instance to summon the quick
+- `sinclair --toggle-quick` — signals a running instance to summon the quick
   terminal (used by Wayland compositor keybinds), then exits.
-- `prompt mcp` — runs the MCP stdio server (`mcpbridge`), bridging tool calls
+- `sinclair mcp` — runs the MCP stdio server (`mcpbridge`), bridging tool calls
   into a running GUI instance.
-- `prompt notify [--title T] <message>` — posts a desktop notification, for
+- `sinclair notify [--title T] <message>` — posts a desktop notification, for
   agent hooks that can't emit an OSC 9/777/99 escape themselves.
 - otherwise — loads config and launches the gpui app.
 
 ### Single-instance IPC (`app/src/ipc.rs`)
 
 A per-user unix socket carries one newline-terminated JSON request →
-response per connection. Both `--toggle-quick` and `prompt mcp` are clients;
+response per connection. Both `--toggle-quick` and `sinclair mcp` are clients;
 the live GUI window is the server and does the real work. This is how the MCP
 bridge and quick-terminal summon reach the running terminal.
 

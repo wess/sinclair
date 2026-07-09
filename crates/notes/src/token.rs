@@ -14,7 +14,7 @@ fn home() -> PathBuf {
 }
 
 fn config_dir() -> PathBuf {
-    home().join(".config").join("prompt").join("notes")
+    home().join(".config").join("sinclair").join("notes")
 }
 
 /// Where `{ port, pid, token }` is recorded for the app to read back.

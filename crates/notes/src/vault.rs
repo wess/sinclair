@@ -46,7 +46,7 @@ fn home() -> PathBuf {
 }
 
 fn config_dir() -> PathBuf {
-    home().join(".config").join("prompt").join("notes")
+    home().join(".config").join("sinclair").join("notes")
 }
 
 fn recents_file() -> PathBuf {

@@ -1,3 +1,8 @@
+// Keeps the pre-rename `prompt:` namespace on purpose. The name is baked into
+// every compiled component (plugins/screentools/plugin.wasm and the test
+// fixture), so changing it invalidates artifacts we cannot rebuild here, and
+// would break every third-party component already built against this world. It
+// is an internal component-model namespace — no user ever types it.
 package prompt:plugin@0.1.0;
 
 // Shared value types.

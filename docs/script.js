@@ -1,8 +1,8 @@
 const commands = {
-  mac: "brew install --cask wess/packages/prompt",
+  mac: "brew install --cask wess/packages/sinclair",
   linux: [
     "# AppImage, deb, and tarball builds are on GitHub releases",
-    "curl -L https://github.com/wess/prompt/releases/latest",
+    "curl -L https://github.com/wess/sinclair/releases/latest",
   ].join("\n"),
   source: "cargo run -p app --release",
 };
@@ -44,7 +44,7 @@ const formatStars = (stars) => {
   return `${stars} stars`;
 };
 
-fetch("https://api.github.com/repos/wess/prompt")
+fetch("https://api.github.com/repos/wess/sinclair")
   .then((response) => (response.ok ? response.json() : null))
   .then((repo) => {
     if (!repo) return;

@@ -1,11 +1,11 @@
 [Desktop Entry]
 Type=Application
-Name=Prompt
+Name=Sinclair
 GenericName=Terminal Emulator
 Comment=A fast, modern terminal that gets out of your way
-Exec=prompt
-Icon=prompt
+Exec=sinclair
+Icon=sinclair
 Terminal=false
 Categories=System;TerminalEmulator;Utility;
 Keywords=terminal;shell;command;console;
-StartupWMClass=prompt
+StartupWMClass=sinclair

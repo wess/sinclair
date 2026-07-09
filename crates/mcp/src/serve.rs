@@ -13,11 +13,11 @@ use crate::{Tool, PROTOCOL_VERSION};
 pub type Handler<'a> = dyn Fn(&str, &Value) -> Result<Value, String> + 'a;
 
 /// Serve MCP over stdin/stdout until stdin closes. Blocks the calling thread;
-/// intended to be the whole body of a `prompt mcp` subcommand.
+/// intended to be the whole body of a `sinclair mcp` subcommand.
 pub fn serve(tools: Vec<Tool>, handler: &Handler<'_>) {
     let stdin = std::io::stdin();
     let mut stdout = std::io::stdout();
-    let server_info = json!({ "name": "prompt", "version": env!("CARGO_PKG_VERSION") });
+    let server_info = json!({ "name": "sinclair", "version": env!("CARGO_PKG_VERSION") });
 
     for line in stdin.lock().lines() {
         let Ok(line) = line else { break };

@@ -8,12 +8,12 @@ use crate::{valid_name, Macro};
 /// File extension for a stored macro.
 const EXT: &str = "macro";
 
-/// Default macro directory: `$XDG_CONFIG_HOME/prompt/macros`, falling back to
-/// `$HOME/.config/prompt/macros`. Mirrors the plugin directory layout.
+/// Default macro directory: `$XDG_CONFIG_HOME/sinclair/macros`, falling back to
+/// `$HOME/.config/sinclair/macros`. Mirrors the plugin directory layout.
 pub fn defaultdir() -> Option<PathBuf> {
     if let Some(xdg) = std::env::var_os("XDG_CONFIG_HOME") {
         if !xdg.is_empty() {
-            return Some(PathBuf::from(xdg).join("prompt").join("macros"));
+            return Some(PathBuf::from(xdg).join("sinclair").join("macros"));
         }
     }
     let home = std::env::var_os("HOME")?;
@@ -23,7 +23,7 @@ pub fn defaultdir() -> Option<PathBuf> {
     Some(
         PathBuf::from(home)
             .join(".config")
-            .join("prompt")
+            .join("sinclair")
             .join("macros"),
     )
 }

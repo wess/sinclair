@@ -4,7 +4,7 @@ Design your shell prompt visually, then apply it to your shell — no hand-editi
 `PS1`/`PROMPT` escape codes.
 
 - Requires: `bun`. Works with `zsh` and `bash`.
-- Install: copy this folder into `~/.config/prompt/plugins/promptdesigner` and
+- Install: copy this folder into `~/.config/sinclair/plugins/promptdesigner` and
   open the panel from the activity bar (the ✎ icon).
 - Pick a preset, toggle segments (user@host, cwd, git branch, time), choose a
   symbol and color, watch the live preview, then **Apply**.

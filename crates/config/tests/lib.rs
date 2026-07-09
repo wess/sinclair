@@ -9,7 +9,7 @@ fn missing_file_yields_defaults() {
 
 #[test]
 fn load_path_reads_file() {
-    let dir = std::env::temp_dir().join(format!("promptconfigtest{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("sinclairconfigtest{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let file = dir.join("config");
     std::fs::write(&file, "font-size = 17\nbogus = 1\n").unwrap();

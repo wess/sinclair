@@ -1,29 +1,29 @@
 {
     "version": "1.25.0",
     "description": "A GPU-accelerated terminal emulator.",
-    "homepage": "https://github.com/wess/prompt",
+    "homepage": "https://github.com/wess/sinclair",
     "license": "Apache-2.0",
     "notes": "Windows builds are beta and currently unsigned.",
     "architecture": {
         "64bit": {
-            "url": "https://github.com/wess/prompt/releases/download/v1.25.0/prompt-1.25.0-windows-x86_64.zip",
+            "url": "https://github.com/wess/sinclair/releases/download/v1.25.0/sinclair-1.25.0-windows-x86_64.zip",
             "hash": "248a5de707c5b4258f3ec0bcd02ed20c4b1cf7bb7e92d88f9692c9e19fd78e32",
-            "extract_dir": "prompt-1.25.0-windows-x86_64"
+            "extract_dir": "sinclair-1.25.0-windows-x86_64"
         }
     },
-    "bin": "prompt.exe",
+    "bin": "sinclair.exe",
     "shortcuts": [
         [
-            "prompt.exe",
-            "Prompt"
+            "sinclair.exe",
+            "Sinclair"
         ]
     ],
     "checkver": "github",
     "autoupdate": {
         "architecture": {
             "64bit": {
-                "url": "https://github.com/wess/prompt/releases/download/v$version/prompt-$version-windows-x86_64.zip",
-                "extract_dir": "prompt-$version-windows-x86_64"
+                "url": "https://github.com/wess/sinclair/releases/download/v$version/sinclair-$version-windows-x86_64.zip",
+                "extract_dir": "sinclair-$version-windows-x86_64"
             }
         }
     }

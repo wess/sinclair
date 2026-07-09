@@ -25,9 +25,9 @@ pub(crate) fn install(
     }
 
     let url = release.asset(".dmg").ok_or("release has no .dmg asset")?;
-    let dir = std::env::temp_dir().join(format!("prompt-update-{}", release.version));
+    let dir = std::env::temp_dir().join(format!("sinclair-update-{}", release.version));
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    let dmg = dir.join("Prompt.dmg");
+    let dmg = dir.join("Sinclair.dmg");
     crate::fetch::file(url, &dmg)?;
 
     let mount = dir.join("mnt");

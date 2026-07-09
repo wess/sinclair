@@ -11,9 +11,9 @@ fn scratch(name: &str) -> std::path::PathBuf {
 #[test]
 fn finds_the_app_in_a_mounted_image() {
     let dir = scratch("appin");
-    std::fs::create_dir_all(dir.join("Prompt.app/Contents")).unwrap();
+    std::fs::create_dir_all(dir.join("Sinclair.app/Contents")).unwrap();
     std::fs::write(dir.join(".background"), b"").unwrap();
-    assert_eq!(app_in(&dir).unwrap(), dir.join("Prompt.app"));
+    assert_eq!(app_in(&dir).unwrap(), dir.join("Sinclair.app"));
     let _ = std::fs::remove_dir_all(&dir);
 }
 
