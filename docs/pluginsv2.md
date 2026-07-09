@@ -336,7 +336,9 @@ The sandbox is what makes a real ecosystem safe:
 
 ## 9. Build order (the one push, staged so the build stays green)
 
-Progress: **all 8 stages complete** on `feat/pluginsv2`, build green and tested.
+Progress: all 8 stages landed on `feat/pluginsv2` — but a post-merge audit
+(§11) found several stage claims ahead of the code. Treat §11 as the accurate
+status; the per-stage notes below describe the intent.
 ✅ = done. The runtime foundation (0–4) is complete and unit-tested end-to-end;
 the surface/distribution stages (5–7) are complete — the webview sidecar path
 (Notes migrated, `.service.json` discovery, both bridge directions), both SDKs
@@ -390,7 +392,81 @@ model with capability-consent enforcement and checksum verification are all in.
 
 Each stage is independently shippable and leaves the tree green.
 
-## 10. Open questions
+## 10. Post-v2 audit — spec vs. shipped (2026-07-09)
+
+A full code survey against this spec. What §9 marks done but the tree doesn't
+deliver, plus debt v2 didn't cover. This section is the v2.1 worklist.
+
+**Gaps against explicit v2 promises:**
+
+- **Sidecar lifecycle (§4 "reaps it on close").** `run_service` spawns
+  detached and never tracks or kills anything — the comment says so
+  (`pluginwebview.rs:388` "Lifecycle/reaping is a follow-up"). The `notes`
+  sidecar compensates with a self-reaping 60s idle timer
+  (`crates/notes/src/server.rs`), which let the server die under an open
+  folder dialog (the 2026-07-09 Notes bug). Sidecars outlive the app.
+- **Port allocation (§4 "the host allocates a free port").** The host passes
+  no port; `notes` defaults to fixed 4319 (`crates/notes/src/main.rs:14`) and
+  the host discovers it by polling `.service.json` 60×50ms plus a TCP probe
+  (`pluginwebview.rs:425,445`). Bind races are "resolved" by the loser exiting
+  silently (`server.rs:103`). Two descriptor files are maintained for one
+  server (`server.json` + `.service.json`).
+- **Consent (§9 stage 7 "Consent is enforced, not just recorded").** The
+  enforcement code exists but is unreachable: `Installed::record`,
+  `set_enabled`, and `save` have no non-test callers — catalog install
+  (`catalog.rs:33`) never records, the manager never toggles, so every plugin
+  is "untracked" and `effective_capabilities` (`install.rs:88`) returns the
+  full declared set with no consent step. `registry.rs` checksum verification
+  is likewise unwired.
+- **Two-way bridge (§9 stage 5 "the bridge is symmetric").** `post_to_page` /
+  `__sinclairDeliver` exist but nothing calls them (`pluginwebview.rs:355`).
+- **Triggers `invoke` on wasm.** Routed through `pluginhost::invoke`, which
+  hard-rejects wasm (`pluginhost.rs:138`, with a comment claiming the engine
+  "is not built yet" — stale since stage 1 shipped). A wasm plugin cannot
+  receive events.
+- **Gated stubs.** `fetch` and `clipboard` return "not yet available" in both
+  wasm hosts (`wasmhost.rs:161,175`; `guiwasm.rs:121,130`); panel
+  `read_screen` returns empty (`guiwasm.rs:114`). The `network`/`clipboard`
+  capabilities currently gate nothing real.
+- **`docs/plugins-wasm.md`** still describes the pre-v2 single-interface WIT
+  and says the engine is "in progress"; it was supposed to be superseded.
+
+**Debt v2 didn't cover (found the hard way):**
+
+- **Native dialogs from sidecars.** `notes` shells `osascript`/`zenity` for
+  the vault folder picker (`server.rs:513`). macOS attributes the folder-
+  permission (TCC) consent to the wrong process; the picker hung on the
+  blocked stat until 2026-07-09's symptomatic fix. Dialogs must be a
+  capability-gated **host service** (`pick-folder` in the WIT host interface
+  and the native-tier stdio protocol), not a sidecar shell-out.
+- **Namespace drift.** WIT package still `prompt:plugin`
+  (`wit/plugin.wit:6`), `window.Prompt` bridge alias
+  (`pluginwebview.rs:142`), legacy `prompt` config-dir fallbacks
+  (`load.rs:12`, `paths.rs:14`), `<config>/prompt/data/<id>` naming in §9.
+- **Dead code to collect:** `WarmPlugins::evict` (`warmhost.rs:97`),
+  `Runtime::evict` (`pluginrt/lib.rs:314`), `Placement::Tab` falling back to
+  a window (`pluginpanel.rs:127`), the duplicated Notes fallback boot
+  (`app/src/notes.rs:29` rebuilds `from_plugin`'s template verbatim).
+
+**v2.1 order (each independently shippable):**
+
+1. **Host-owned lifecycle + handoff** — track sidecar children; host binds
+   `127.0.0.1:0` and hands the listener/port + token to the child at spawn;
+   kill on last-surface-close and app exit; delete the self-reaper, the
+   descriptor polling, `.service.json`, and the fixed port.
+2. **Host services** — `pick-folder`/`notify`/`clipboard` as gated host calls
+   on both tiers; move the Notes picker to it; fill or fence the
+   `fetch`/`clipboard` stubs.
+3. **Wire consent** — `Installed::record` at catalog install + manager
+   consent sheet; `set_enabled` from the manager; broker-check capabilities
+   on native-tier dispatches (today they are display-only outside wasm).
+4. **Bridge + triggers** — call `post_to_page` or delete it; route wasm
+   `invoke` triggers to `on-event`; retire `docs/plugins-wasm.md`.
+5. **Rename hygiene** — `sinclair:plugin@2` WIT package with a load-time
+   alias for committed `prompt:plugin` components; drop `window.Prompt`;
+   collapse legacy `prompt` path fallbacks.
+
+## 11. Open questions
 
 - **Signing scheme** — first-party key + a simple detached signature, or lean on
   an existing format (sigstore/minisign)?
