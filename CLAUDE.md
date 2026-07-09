@@ -105,6 +105,15 @@ The workspace is layered bottom-up; each crate depends only on those below it.
   suggestions, paste-risk safety checks). Optional `candle` feature (on by
   default) for the candle-core backend; code is gated with
   `#[cfg(feature = "candle")]` and has a non-candle fallback.
+- **`updater`** — self-update mechanics, gpui-free (Zed's `auto_update`
+  design): GitHub release check, install detection, and **in-place** installs —
+  macOS mounts the `.dmg` and rsyncs the new bundle's contents onto the
+  installed `.app` (never swap the bundle directory: LaunchServices' stale
+  registration relaunches the bare Mach-O inside Terminal.app), Linux renames
+  the new AppImage over the running one, staged on the same filesystem. Returns
+  a `Relaunch` decision that `app`'s `updateui.rs` hands to gpui's restart —
+  `Relaunch::Current` restarts with *no* explicit path so gpui reopens the
+  running bundle via `NSBundle`.
 - **`relay`** — the agent mesh, shipped as a standalone sidecar binary
   (`relay`), **not** part of the terminal. Lets independent coding-agent
   sessions (Claude Code, Codex, …) coordinate over a shared SQLite bus: agents

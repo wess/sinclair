@@ -17,6 +17,7 @@ members = [
     "crates/relay",
     "crates/terminal",
     "crates/theme",
+    "crates/updater",
     "crates/vt",
     "crates/workspace",
 ]

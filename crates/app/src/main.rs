@@ -50,7 +50,6 @@ mod worktree;
 mod settings;
 mod suggest;
 mod teambuilder;
-mod update;
 mod updateui;
 mod shellinteg;
 mod tabbar;

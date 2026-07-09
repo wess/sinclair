@@ -1,0 +1,10 @@
+[package]
+autotests = false
+name = "updater"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Self-update: release check, in-place install, relaunch decision"
+
+[dependencies]
+serde_json = "1"

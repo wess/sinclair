@@ -1,6 +1,6 @@
 //! Update UI: the "update available" prompt window, the launch/hourly notifier,
-//! and the manual "Check for Updates…" entry point. The mechanics live in
-//! [`crate::update`]; this decides when to ask and drives the chosen action.
+//! and the manual "Check for Updates…" entry point. The mechanics live in the
+//! `updater` crate; this decides when to ask and drives the chosen action.
 
 use gpui::prelude::*;
 use gpui::{
@@ -9,7 +9,12 @@ use gpui::{
 };
 use guise::{Button, Variant};
 
-use crate::update::{self, Install, Release};
+use updater::{Install, Release, Relaunch};
+
+/// This build's version.
+pub(crate) fn current() -> &'static str {
+    env!("CARGO_PKG_VERSION")
+}
 
 const WIDTH: f32 = 460.0;
 const HEIGHT: f32 = 260.0;
@@ -38,9 +43,9 @@ pub fn start_from_config(cx: &mut App) {
 fn poll(cx: &mut App) {
     let executor = cx.background_executor().clone();
     cx.spawn(async move |cx| loop {
-        let found = executor.spawn(async { update::check() }).await;
+        let found = executor.spawn(async { updater::check(current()) }).await;
         cx.update(|cx| apply(found, false, cx));
-        executor.timer(update::POLL).await;
+        executor.timer(updater::POLL).await;
     })
     .detach();
 }
@@ -50,7 +55,7 @@ fn poll(cx: &mut App) {
 pub fn check_now(cx: &mut App) {
     let executor = cx.background_executor().clone();
     cx.spawn(async move |cx| {
-        let found = executor.spawn(async { update::check() }).await;
+        let found = executor.spawn(async { updater::check(current()) }).await;
         cx.update(|cx| apply(found, true, cx));
     })
     .detach();
@@ -77,6 +82,23 @@ fn apply(found: Result<Option<Release>, String>, manual: bool, cx: &mut App) {
                 crate::view::post_os_notification("Update check failed", &e);
             }
         }
+    }
+}
+
+/// Persist a workspace window's session before an update restart, so a
+/// session-restore user comes back to their tabs. The restart never goes
+/// through `request_quit`, which is where an ordinary quit saves. The active
+/// window here is usually the update prompt itself, so fall back to the first
+/// window whose root actually downcasts to a workspace.
+fn save_sessions(cx: &mut App) {
+    let workspace = cx
+        .active_window()
+        .and_then(|w| w.downcast::<crate::root::WorkspaceView>())
+        .or_else(|| {
+            cx.windows().into_iter().find_map(|w| w.downcast::<crate::root::WorkspaceView>())
+        });
+    if let Some(handle) = workspace {
+        let _ = handle.update(cx, |view, _window, cx| view.save_state(cx));
     }
 }
 
@@ -112,7 +134,7 @@ struct UpdatePromptView {
 
 impl UpdatePromptView {
     fn new(release: Release, _window: &mut Window, cx: &mut Context<Self>) -> Self {
-        Self { release, install: update::detect_install(), focus: cx.focus_handle() }
+        Self { release, install: updater::detect(), focus: cx.focus_handle() }
     }
 
     /// The Update button's label, tailored to how the app was installed.
@@ -135,17 +157,25 @@ impl UpdatePromptView {
         }
     }
 
-    /// Download + swap in place off the UI thread, then relaunch into it.
+    /// Download + install in place off the UI thread, then relaunch into it.
     fn stage_and_restart(&mut self, cx: &mut Context<Self>) {
         crate::view::post_os_notification("Prompt", "Downloading update…");
         let release = self.release.clone();
         let install = self.install.clone();
         let executor = cx.background_executor().clone();
         cx.spawn(async move |_this, cx| {
-            let staged = executor.spawn(async move { update::stage(&release, &install) }).await;
+            let staged =
+                executor.spawn(async move { updater::install(&release, &install) }).await;
             cx.update(|cx| match staged {
-                Ok(bin) => {
-                    cx.set_restart_path(bin);
+                Ok(relaunch) => {
+                    save_sessions(cx);
+                    // Relaunch::Current restarts with no explicit path on
+                    // purpose: gpui reopens the running bundle via NSBundle.
+                    // Handing `open` an explicit path right after the install
+                    // is what used to relaunch the bare Mach-O in Terminal.app.
+                    if let Relaunch::Binary(path) = relaunch {
+                        cx.set_restart_path(path);
+                    }
                     cx.restart();
                 }
                 Err(e) => crate::view::post_os_notification("Update failed", &e),
@@ -198,7 +228,7 @@ impl Render for UpdatePromptView {
                 div()
                     .text_size(px(12.0))
                     .text_color(dim)
-                    .child(SharedString::from(format!("You have {}.", update::current()))),
+                    .child(SharedString::from(format!("You have {}.", current()))),
             )
             .child(div().text_size(px(13.0)).child(SharedString::from(body)))
             .child(div().flex_1())

@@ -65,6 +65,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 terminal = { path = "../terminal" }
 theme = { path = "../theme" }
+updater = { path = "../updater" }
 vt = { path = "../vt" }
 workspace = { path = "../workspace" }
 

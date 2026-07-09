@@ -287,6 +287,7 @@ dependencies = [
  "smallvec",
  "terminal",
  "theme",
+ "updater",
  "vt",
  "workspace",
  "x11rb",
@@ -8746,6 +8747,13 @@ name = "unicode_categories"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39ec24b3121d976906ece63c9daad25b85969647682eee313cb5779fdd69e14e"
+
+[[package]]
+name = "updater"
+version = "1.25.0"
+dependencies = [
+ "serde_json",
+]
 
 [[package]]
 name = "url"
