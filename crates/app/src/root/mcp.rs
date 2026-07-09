@@ -146,21 +146,33 @@ impl WorkspaceView {
                 Ok(json!({ "ok": true }))
             }
             "list_panes" => {
-                let focused = self.group.read(cx).active_item();
-                let panes = self
-                    .group
-                    .read(cx)
-                    .items()
+                // Real pane structure (list_tabs already flattens items):
+                // one entry per pane in traversal order, items nested.
+                let group = self.group.read(cx);
+                let focused_pane = group.focused_pane();
+                let panes = group
+                    .panes_with_items()
                     .into_iter()
-                    .map(|id| {
+                    .enumerate()
+                    .map(|(index, (pane, item_ids, active))| {
                         let items = self.items.borrow();
-                        let it = items.get(&id);
+                        let entries = item_ids
+                            .iter()
+                            .map(|id| {
+                                let it = items.get(id);
+                                json!({
+                                    "title": it.map(|p| p.content.title(cx)).unwrap_or_default(),
+                                    "cwd": it
+                                        .and_then(|p| p.content.cwd_path(cx))
+                                        .map(|p| p.to_string_lossy().into_owned()),
+                                    "active": *id == active,
+                                })
+                            })
+                            .collect::<Vec<_>>();
                         json!({
-                            "title": it.map(|p| p.content.title(cx)).unwrap_or_default(),
-                            "cwd": it
-                                .and_then(|p| p.content.cwd_path(cx))
-                                .map(|p| p.to_string_lossy().into_owned()),
-                            "focused": id == focused,
+                            "index": index,
+                            "focused": pane == focused_pane,
+                            "items": entries,
                         })
                     })
                     .collect::<Vec<_>>();
