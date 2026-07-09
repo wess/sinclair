@@ -166,6 +166,22 @@ pub fn tools() -> Vec<mcp::Tool> {
             json!({ "type": "object", "properties": {} }),
         ),
         mcp::Tool::new(
+            "action",
+            "Dispatch a config action on the active window, exactly as a keybinding \
+             would. Takes the keybind action vocabulary: `notes`, `new_tab`, \
+             `close_tab`, `goto_tab:2`, `quit`, ...",
+            json!({
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "description": "The action, as `name` or `name:param`."
+                    }
+                },
+                "required": ["action"]
+            }),
+        ),
+        mcp::Tool::new(
             "split",
             "Split the focused pane into two. `direction` is right or down.",
             json!({

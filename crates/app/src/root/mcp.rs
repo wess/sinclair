@@ -132,6 +132,19 @@ impl WorkspaceView {
                 self.newtab(window, cx);
                 Ok(json!({ "ok": true }))
             }
+            // Dispatch a config action exactly as a keybinding would, making
+            // every bound surface (Notes, settings, splits, quit, ...)
+            // reachable headless through the bridge.
+            "action" => {
+                let spec = args
+                    .get("action")
+                    .and_then(Value::as_str)
+                    .ok_or("action requires an `action` string")?;
+                let action =
+                    Action::parse(spec).map_err(|e| format!("bad action `{spec}`: {e}"))?;
+                self.dispatch(action, window, cx);
+                Ok(json!({ "ok": true, "action": spec }))
+            }
             "split" => {
                 let dir = args
                     .get("direction")
