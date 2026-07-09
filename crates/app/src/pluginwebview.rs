@@ -41,10 +41,12 @@ pub enum Boot {
     /// Invoke the surface's plugin `runtime` `boot` method; it returns `{ url }`
     /// or `{ port }` (a plugin starting its own server).
     Runtime,
-    /// A data-driven host-managed sidecar (`[[webview]] service = "…"`, and how
-    /// the built-in Notes now works): the host spawns the command in `dir` and
-    /// reads `dir/.service.json` (`{port, token}`) for its address. Any plugin
-    /// can ship a backend this way.
+    /// A host-managed sidecar (`[[webview]] service = "…"`, and how the Notes
+    /// plugin works): the host reserves a loopback port, mints a token, and
+    /// spawns the command in `dir` with both in its environment
+    /// (`SINCLAIR_SERVICE_PORT` / `SINCLAIR_SERVICE_TOKEN`). The child stays a
+    /// tracked child process, shared by every surface with the same id and
+    /// reaped when the last one closes — see [`crate::sidecar`].
     Command { command: String, dir: PathBuf },
 }
 
@@ -88,9 +90,9 @@ impl WebviewSurface {
                 url_template: "http://127.0.0.1:{port}/?token={token}".to_string(),
                 boot: Boot::Command {
                     command: cmd.clone(),
-                    // A sidecar needs a writable working dir for its
-                    // `.service.json` and state; the plugin's own dir may be
-                    // read-only (a bundled plugin lives inside the app).
+                    // A sidecar needs a writable working dir for its state; the
+                    // plugin's own dir may be read-only (a bundled plugin lives
+                    // inside the app).
                     dir: service_dir(&plugin.id),
                 },
             },
@@ -164,6 +166,10 @@ pub struct PluginWebView {
     surface: WebviewSurface,
     webview: Entity<WebView>,
     focus: FocusHandle,
+    /// The sidecar service this surface holds a reference on (a booted
+    /// `Boot::Command`); given back on drop so the host reaps the child when
+    /// the last surface using it closes.
+    service: Option<String>,
     _sub: Subscription,
 }
 
@@ -191,6 +197,7 @@ impl PluginWebView {
             surface,
             webview,
             focus: cx.focus_handle(),
+            service: None,
             _sub: sub,
         };
         if matches!(this.surface.content, SurfaceContent::Boot { .. }) {
@@ -217,20 +224,34 @@ impl PluginWebView {
         let executor = cx.background_executor().clone();
         match boot {
             Boot::Command { command, dir } => {
+                let id = self.surface.id.clone();
                 let command = command.clone();
                 let dir = dir.clone();
-                cx.spawn(async move |_this, cx| {
+                cx.spawn(async move |this, cx| {
+                    let key = id.clone();
                     let target = executor
                         .spawn(async move {
-                            run_service(&command, &dir).map(|(port, token)| {
+                            crate::sidecar::acquire(&key, &command, &dir).map(|(port, token)| {
                                 url.replace("{port}", &port.to_string()).replace("{token}", &token)
                             })
                         })
                         .await;
-                    webview.update(cx, |wv, cx| match target {
-                        Ok(u) => wv.load_url(u, cx),
-                        Err(e) => wv.load_html(failure_html(&e), cx),
-                    });
+                    match target {
+                        Ok(u) => {
+                            let live = this.update(cx, |view, cx| {
+                                view.service = Some(id.clone());
+                                view.webview.update(cx, |wv, cx| wv.load_url(u, cx));
+                            });
+                            // The surface closed while the service was starting:
+                            // give the reference straight back so it is reaped.
+                            if live.is_err() {
+                                crate::sidecar::release(&id);
+                            }
+                        }
+                        Err(e) => {
+                            webview.update(cx, |wv, cx| wv.load_html(failure_html(&e), cx));
+                        }
+                    }
                 })
                 .detach();
             }
@@ -379,99 +400,15 @@ impl PluginWebView {
     }
 }
 
-/// Interpret a plugin runtime's `boot` reply: `{ error }` fails; `{ url }` wins;
-/// `{ port }` fills `{port}` in the template; anything else uses the template.
-/// Run a plugin's sidecar `service` command and read its `(port, token)`. The
-/// command is spawned detached in `dir`; it reports its address by writing
-/// `dir/.service.json` (`{ "port": N, "token": "…" }`), which the host polls for.
-/// A live descriptor is reused (a second window shares the one server).
-/// Lifecycle/reaping is a follow-up.
-fn run_service(command: &str, dir: &std::path::Path) -> Result<(u16, String), String> {
-    let descriptor = dir.join(".service.json");
-    // Reuse a running instance (a second window shares one server); ignore a
-    // stale descriptor whose port no longer answers.
-    if let Some((port, token)) = read_service(&descriptor) {
-        if port_alive(port) {
-            return Ok((port, token));
-        }
-    }
-    std::fs::create_dir_all(dir).ok();
-    let mut parts = command.split_whitespace();
-    let program = resolve_program(parts.next().ok_or("empty service command")?);
-    let args: Vec<&str> = parts.collect();
-    let mut cmd = std::process::Command::new(&program);
-    cmd.args(&args)
-        .current_dir(dir)
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null());
-    // Detach so the service outlives the app that spawned it.
-    #[cfg(unix)]
-    {
-        use std::os::unix::process::CommandExt;
-        cmd.process_group(0);
-    }
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        // CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS: a new group with no
-        // inherited console, so it survives the parent exiting.
-        const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
-        const DETACHED_PROCESS: u32 = 0x0000_0008;
-        cmd.creation_flags(CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS);
-    }
-    cmd.spawn()
-        .map_err(|e| format!("spawn `{program}`: {e}"))?;
-    for _ in 0..60 {
-        std::thread::sleep(std::time::Duration::from_millis(50));
-        if let Some((port, token)) = read_service(&descriptor) {
-            if port_alive(port) {
-                return Ok((port, token));
-            }
-        }
-    }
-    Err("the plugin service did not report its address".into())
-}
-
 /// Writable working directory for a plugin's host-managed sidecar service:
 /// `<config>/sinclair/data/<plugin-id>`. Kept separate from the (possibly
-/// read-only, bundled) plugin dir; this is where the sidecar writes its
-/// `.service.json`. `run_service` creates it on demand.
+/// read-only, bundled) plugin dir; created on demand at spawn.
 fn service_dir(plugin_id: &str) -> PathBuf {
     crate::paths::data_dir(plugin_id)
 }
 
-/// Whether something is accepting connections on `127.0.0.1:port`.
-fn port_alive(port: u16) -> bool {
-    let addr = std::net::SocketAddr::from(([127, 0, 0, 1], port));
-    std::net::TcpStream::connect_timeout(&addr, std::time::Duration::from_millis(200)).is_ok()
-}
-
-/// Resolve a bare program name to a sibling of the current executable if one
-/// exists (bundled binaries like `notes` aren't on the user's `$PATH`); else
-/// leave it for a normal `$PATH` lookup.
-fn resolve_program(program: &str) -> String {
-    if program.contains('/') {
-        return program.to_string();
-    }
-    if let Ok(exe) = std::env::current_exe() {
-        if let Some(sibling) = exe.parent().map(|d| d.join(program)) {
-            if sibling.is_file() {
-                return sibling.to_string_lossy().into_owned();
-            }
-        }
-    }
-    program.to_string()
-}
-
-/// Read a `.service.json` descriptor's `(port, token)`.
-fn read_service(path: &std::path::Path) -> Option<(u16, String)> {
-    let value: Value = serde_json::from_slice(&std::fs::read(path).ok()?).ok()?;
-    let port = value.get("port")?.as_u64()? as u16;
-    let token = value.get("token")?.as_str()?.to_string();
-    Some((port, token))
-}
-
+/// Interpret a plugin runtime's `boot` reply: `{ error }` fails; `{ url }` wins;
+/// `{ port }` fills `{port}` in the template; anything else uses the template.
 fn boot_target(resp: Result<pluginhost::Response, String>, url: &str) -> Result<String, String> {
     match resp {
         Ok(r) => match r.result {
@@ -489,6 +426,17 @@ fn boot_target(resp: Result<pluginhost::Response, String>, url: &str) -> Result<
             None => Ok(url.to_string()),
         },
         Err(e) => Err(e),
+    }
+}
+
+impl Drop for PluginWebView {
+    /// Closing the last surface that uses a sidecar service reaps its child.
+    /// Every path that discards the host lands here: closing the tab/window,
+    /// a plugin reload rebuilding the panel hosts, and app teardown.
+    fn drop(&mut self) {
+        if let Some(id) = self.service.take() {
+            crate::sidecar::release(&id);
+        }
     }
 }
 

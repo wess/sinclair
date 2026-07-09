@@ -1,6 +1,10 @@
 //! The persistent Notes server: serves the embedded web app and the vault API
-//! over HTTP, pushes external-change events over a WebSocket, and shuts itself
-//! down when idle (no connected client). Ported from the original Bun server.
+//! over HTTP and pushes external-change events over a WebSocket. Ported from
+//! the original Bun server.
+//!
+//! Lifecycle depends on the mode (see `main.rs`): host-managed leaves teardown
+//! to the host (plus a parent watch for a host that died uncleanly); standalone
+//! publishes `server.json` and reaps itself when idle.
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -57,7 +61,7 @@ impl Drop for PickGuard {
     }
 }
 
-pub async fn run(port: u16, token: String) {
+pub async fn run(port: u16, token: String, hosted: bool) {
     let (tx, _) = tokio::sync::broadcast::channel(64);
     let state = Arc::new(AppState {
         vault: Mutex::new(Vault::new()),
@@ -100,25 +104,28 @@ pub async fn run(port: u16, token: String) {
         .with_state(state.clone());
 
     let addr = std::net::SocketAddr::from(([127, 0, 0, 1], port));
-    let Ok(listener) = tokio::net::TcpListener::bind(addr).await else {
-        // Port busy — another server is already up; leave its token file intact.
-        return;
-    };
-    // Port 0 means the OS assigned a free port — publish the actual one.
-    let port = listener.local_addr().map(|a| a.port()).unwrap_or(port);
-    // We own the port: publish the token (0600) so the in-app client can read it.
-    crate::token::write_info(port, &state.token);
-    // Also drop a `.service.json` in the working directory so the host-managed
-    // sidecar path (Notes as a plugin) discovers our address generically.
-    let descriptor = serde_json::json!({ "port": port, "token": state.token });
-    if std::fs::write(".service.json", descriptor.to_string()).is_ok() {
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let _ = std::fs::set_permissions(".service.json", std::fs::Permissions::from_mode(0o600));
+    let listener = match tokio::net::TcpListener::bind(addr).await {
+        Ok(listener) => listener,
+        Err(e) if hosted => {
+            // The host reserved this exact port for us; not getting it is
+            // fatal and must be visible as an exit, not a silent return.
+            eprintln!("notes: bind 127.0.0.1:{port}: {e}");
+            std::process::exit(1);
         }
+        // Port busy — another server is already up; leave its token file intact.
+        Err(_) => return,
+    };
+    if hosted {
+        // The host owns the address (it passed it to us) and the teardown (it
+        // SIGTERMs us on close/quit): no descriptor files, no idle reaper.
+        spawn_parent_watch();
+    } else {
+        // Port 0 means the OS assigned a free port — publish the actual one.
+        let port = listener.local_addr().map(|a| a.port()).unwrap_or(port);
+        // We own the port: publish the token (0600) so a client can read it.
+        crate::token::write_info(port, &state.token);
+        spawn_reaper(state.clone());
     }
-    spawn_reaper(state.clone());
     let _ = axum::serve(listener, app).await;
 }
 
@@ -226,6 +233,25 @@ fn arm_watch(state: &Arc<AppState>) {
     }
 }
 
+/// Host-managed backstop: the host normally SIGTERMs us, but if it dies
+/// without cleanup (crash, SIGKILL) we get reparented — notice that the parent
+/// changed and exit rather than linger as an orphan.
+fn spawn_parent_watch() {
+    #[cfg(unix)]
+    {
+        let parent = std::os::unix::process::parent_id();
+        tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(Duration::from_secs(2)).await;
+                if std::os::unix::process::parent_id() != parent {
+                    std::process::exit(0);
+                }
+            }
+        });
+    }
+}
+
+/// Standalone self-reaping: exit after a minute with no client and no dialog.
 fn spawn_reaper(state: Arc<AppState>) {
     tokio::spawn(async move {
         loop {

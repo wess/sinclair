@@ -47,6 +47,7 @@ mod resume;
 mod root;
 mod session;
 mod sessionstate;
+mod sidecar;
 mod worktree;
 mod settings;
 mod suggest;
@@ -162,6 +163,8 @@ fn main() {
         cx.activate(true);
         quick::install_global_hotkey(cx);
         ipc::listen(cx);
+        // Plugin sidecars are host-owned children; never leave one behind.
+        cx.on_app_quit(|_cx| async { sidecar::shutdown() }).detach();
         if auto_update {
             updateui::start_from_config(cx);
         }
