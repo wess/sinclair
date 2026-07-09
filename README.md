@@ -41,7 +41,7 @@ exactly how you work.
 - **Plugins** — `plugin.toml` manifests that add command actions, live
   side-drawer panels, HTML/JS webview surfaces, and event triggers that react to
   terminal events. No build step; install from a shared catalog. See the
-  [plugin tutorial](https://wess.github.io/sinclair/plugintutorial.html).
+  [plugin tutorial](https://wess.io/sinclair/plugintutorial.html).
 - **Macros** — record the commands you type, name them, and replay them with a
   keybinding; replay paces itself off shell-integration prompt marks.
 - **Recording & export** — capture a pane to an asciinema `.cast` (⌘⇧R), then
@@ -67,7 +67,7 @@ exactly how you work.
   (reloading their own session, Claude Code today) instead of dropping to a bare
   shell.
 - **Tutorials** — hands-on walkthroughs from your first splits to parallel agent
-  teams. See the [tutorials](https://wess.github.io/sinclair/tutorials.html).
+  teams. See the [tutorials](https://wess.io/sinclair/tutorials.html).
 
 ## Install
 
@@ -94,7 +94,7 @@ chmod +x Sinclair-*-x86_64.AppImage
 ./Sinclair-*-x86_64.AppImage
 
 # Debian / Ubuntu
-sudo apt install ./prompt_*_amd64.deb
+sudo apt install ./sinclair_*_amd64.deb
 
 # Tarball — extract and run, or copy usr/ into /usr/local
 tar xzf sinclair-*-linux-x86_64.tar.gz
@@ -231,7 +231,7 @@ Beyond commands, a plugin can contribute:
 
 A ready-made catalog of plugins lives in [`plugins/`](plugins/), and the full
 build-it-yourself guide is the
-[plugin development tutorial](https://wess.github.io/sinclair/plugintutorial.html).
+[plugin development tutorial](https://wess.io/sinclair/plugintutorial.html).
 
 ## Macros
 
@@ -371,11 +371,13 @@ Override any color in config (`background`, `foreground`,
 
 ## Documentation
 
-- [Full documentation site](https://wess.github.io/sinclair/) — install, configuration,
-  keybindings, themes, plugins, and the [plugin development tutorial](https://wess.github.io/sinclair/plugintutorial.html).
+- [Full documentation site](https://wess.io/sinclair/) — install, configuration,
+  keybindings, themes, plugins, and the [plugin development tutorial](https://wess.io/sinclair/plugintutorial.html).
 - [`docs/relay.md`](docs/relay.md) — the Relay agent mesh: setup, CLI, and tools.
 - [`docs/roadmap.md`](docs/roadmap.md) — what's built and what's planned.
 - [`docs/parity.md`](docs/parity.md) — feature coverage and known gaps.
+- [`docs/compare.md`](docs/compare.md) — how Sinclair compares to kitty,
+  Alacritty, Ghostty, and WezTerm.
 - [`docs/release.md`](docs/release.md) — how releases are built and shipped.
 
 ## License
