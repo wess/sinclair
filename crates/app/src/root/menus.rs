@@ -73,7 +73,7 @@ impl WorkspaceView {
         ];
         menus.push(self.plugins_menu(&mut actions));
         if self.opts.ai_enabled {
-            menus.push(self.ai_menu(&mut actions));
+            menus.push(self.ai_menu(&mut actions, cx));
         }
         menus.push(Menu {
             name: "Help".into(),
@@ -84,32 +84,48 @@ impl WorkspaceView {
         cx.set_menus(menus);
     }
 
-    /// Rebuild the menus after a short delay, so the Relay status line catches
-    /// up with a server start/stop that runs in the background.
-    pub(crate) fn refresh_menus_soon(&self, window: &mut Window, cx: &mut Context<Self>) {
-        let weak = cx.weak_entity();
-        window
-            .spawn(cx, async move |cx| {
-                cx.background_executor()
-                    .timer(Duration::from_millis(1500))
-                    .await;
-                let _ = weak.update(cx, |this, cx| this.setmenus(cx));
-            })
-            .detach();
+    /// Refresh the cached menu/panel data that needs blocking reads — the relay
+    /// `team list` subprocess, saved agent defs, and the custom-layouts dir —
+    /// off the UI thread, then rebuild the menus when anything changed.
+    /// `setmenus` itself only reads these caches, so it stays synchronous and
+    /// cheap on every toggle/reload.
+    pub(crate) fn refresh_menu_data(&self, cx: &mut Context<Self>) {
+        let executor = cx.background_executor().clone();
+        let ai = crate::relay::available(&self.opts);
+        cx.spawn(async move |this, cx| {
+            let (teams, defs, tiles) = executor
+                .spawn(async move {
+                    let teams = if ai { crate::relay::team_list() } else { Vec::new() };
+                    (teams, crate::relay::list_agent_defs(), crate::tiles::list_custom())
+                })
+                .await;
+            let _ = this.update(cx, |view, cx| {
+                let changed = view.menu_teams != teams
+                    || view.menu_agent_defs != defs
+                    || view.menu_custom_tiles != tiles;
+                if changed {
+                    view.menu_teams = teams;
+                    view.menu_agent_defs = defs;
+                    view.menu_custom_tiles = tiles;
+                    view.setmenus(cx);
+                    cx.notify();
+                }
+            });
+        })
+        .detach();
     }
 
     // Only built when AI is enabled (see `setmenus`), so the server is available
     // on demand — no need to gate the contents on the persistent-mesh setting.
-    fn ai_menu(&self, a: &mut Vec<Action>) -> Menu {
+    fn ai_menu(&self, a: &mut Vec<Action>, cx: &App) -> Menu {
         let mut items: Vec<Option<MenuItem>> = Vec::new();
         items.push(Some(MenuItem::submenu(self.agents_submenu(a))));
-        items.push(Some(MenuItem::submenu(self.relay_submenu(a))));
+        items.push(Some(MenuItem::submenu(self.relay_submenu(a, cx))));
         items.push(self.pick(a, "Open Feed", Action::RelayFeed));
-        let teams = crate::relay::team_list();
         let mut t: Vec<Option<MenuItem>> = vec![self.pick(a, "Build Team\u{2026}", Action::BuildTeam)];
-        if !teams.is_empty() {
+        if !self.menu_teams.is_empty() {
             t.push(Some(MenuItem::separator()));
-            for name in teams {
+            for name in self.menu_teams.clone() {
                 t.push(self.pick(a, &name, Action::OpenTeam(name.clone())));
             }
         }
@@ -151,10 +167,15 @@ impl WorkspaceView {
         // Quick-launch: one item per configured provider that verified, launched
         // straight into a split (default role, no task) via the shared path.
         let providers = crate::relay::enabled_agents(&self.opts);
-        let providers = match &self.verified_agents {
+        let mut providers = match &self.verified_agents {
             Some(ok) => providers.into_iter().filter(|p| ok.contains(p)).collect::<Vec<_>>(),
             None => providers,
         };
+        // The configured default provider (`relay-default-agent`) leads the list.
+        if let Some(i) = providers.iter().position(|p| *p == self.opts.relay_default_agent) {
+            let default = providers.remove(i);
+            providers.insert(0, default);
+        }
         if !providers.is_empty() {
             items.push(Some(MenuItem::separator()));
             for provider in providers {
@@ -162,10 +183,9 @@ impl WorkspaceView {
                 items.push(self.pick(a, &label, Action::LaunchAgent(provider)));
             }
         }
-        let defs = crate::relay::list_agent_defs();
-        if !defs.is_empty() {
+        if !self.menu_agent_defs.is_empty() {
             items.push(Some(MenuItem::separator()));
-            for d in defs {
+            for d in self.menu_agent_defs.clone() {
                 let label = format!("{} \u{00b7} {}", d.name, d.provider);
                 items.push(self.pick(a, &label, Action::AgentDef(d.name)));
             }
@@ -174,9 +194,14 @@ impl WorkspaceView {
     }
 
     /// Relay server controls and logs (AI → Relay). Shows the live server
-    /// state, then start/stop/restart and a jump to the server log.
-    fn relay_submenu(&self, a: &mut Vec<Action>) -> Menu {
-        let status = if crate::relay::running() {
+    /// state — read from the `RelayStatus` global the `relay watch` stream
+    /// feeds, never probed synchronously — then start/stop/restart and a jump
+    /// to the server log.
+    fn relay_submenu(&self, a: &mut Vec<Action>, cx: &App) -> Menu {
+        let connected = cx
+            .try_global::<RelayStatus>()
+            .is_some_and(|s| s.connected);
+        let status = if connected {
             "\u{25cf} Server running"
         } else {
             "\u{25cb} Server stopped"
@@ -396,10 +421,9 @@ impl WorkspaceView {
         for (id, label, _, _) in crate::tiles::presets() {
             items.push(self.pick(a, label, Action::Tile((*id).to_string())));
         }
-        let custom = crate::tiles::list_custom();
-        if !custom.is_empty() {
+        if !self.menu_custom_tiles.is_empty() {
             items.push(Some(MenuItem::separator()));
-            for name in custom {
+            for name in self.menu_custom_tiles.clone() {
                 items.push(self.pick(a, &name, Action::Tile(name.clone())));
             }
         }

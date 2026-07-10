@@ -8,6 +8,15 @@ use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
 use std::path::Path;
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use std::time::Duration;
+
+/// Kill a warm plugin whose reply takes longer than this — the same deadline
+/// the one-shot path enforces, so a persistent plugin that never answers can't
+/// hang the MCP bridge forever. The killed process respawns on the next call.
+const TIMEOUT: Duration = Duration::from_secs(15);
+const POLL: Duration = Duration::from_millis(100);
 
 /// One resident plugin process with its stdio kept open.
 struct WarmProcess {
@@ -18,25 +27,53 @@ struct WarmProcess {
 
 impl WarmProcess {
     fn spawn(program: &str, args: &[String], cwd: &Path) -> Result<Self, String> {
-        let mut child = Command::new(program)
-            .args(args)
+        let mut cmd = Command::new(program);
+        cmd.args(args)
             .current_dir(cwd)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::null())
-            .spawn()
-            .map_err(|e| format!("spawn `{program}`: {e}"))?;
+            .stderr(Stdio::null());
+        // Own process group, so the timeout kill also reaps grandchildren.
+        crate::pluginhost::spawn_in_own_group(&mut cmd);
+        let mut child = cmd.spawn().map_err(|e| format!("spawn `{program}`: {e}"))?;
         let stdin = child.stdin.take().ok_or("no stdin")?;
         let stdout = BufReader::new(child.stdout.take().ok_or("no stdout")?);
         Ok(Self { child, stdin, stdout })
     }
 
-    /// Send one JSON request line, read one JSON response line.
+    /// Send one JSON request line, read one JSON response line. The read is
+    /// guarded by a watchdog: past [`TIMEOUT`] the process (group) is killed,
+    /// which unblocks the read with EOF and surfaces an error — the caller
+    /// then drops this process and the next request respawns it.
     fn request(&mut self, json: &str) -> Result<String, String> {
         writeln!(self.stdin, "{json}").map_err(|e| e.to_string())?;
         self.stdin.flush().map_err(|e| e.to_string())?;
+        let pid = self.child.id();
+        let done = Arc::new(AtomicBool::new(false));
+        let flag = done.clone();
+        let watchdog = std::thread::spawn(move || {
+            let mut waited = Duration::ZERO;
+            while waited < TIMEOUT {
+                if flag.load(Ordering::Relaxed) {
+                    return false;
+                }
+                std::thread::sleep(POLL);
+                waited += POLL;
+            }
+            if flag.load(Ordering::Relaxed) {
+                return false;
+            }
+            crate::pluginhost::force_kill(pid);
+            true
+        });
         let mut line = String::new();
-        let n = self.stdout.read_line(&mut line).map_err(|e| e.to_string())?;
+        let read = self.stdout.read_line(&mut line);
+        done.store(true, Ordering::Relaxed);
+        let timed_out = watchdog.join().unwrap_or(false);
+        if timed_out {
+            return Err(format!("plugin did not answer within {}s", TIMEOUT.as_secs()));
+        }
+        let n = read.map_err(|e| e.to_string())?;
         if n == 0 {
             return Err("plugin process closed its output".into());
         }
@@ -50,7 +87,7 @@ impl WarmProcess {
 
 impl Drop for WarmProcess {
     fn drop(&mut self) {
-        let _ = self.child.kill();
+        crate::pluginhost::force_kill(self.child.id());
         let _ = self.child.wait();
     }
 }
@@ -84,19 +121,12 @@ impl WarmPlugins {
         match proc.request(json) {
             Ok(response) => Ok(response),
             Err(e) => {
-                // A broken pipe means the process died mid-request; drop it so the
-                // next call respawns.
+                // A broken pipe, EOF, or timeout kill means the process is done
+                // for; drop it so the next call respawns.
                 self.procs.remove(id);
                 Err(e)
             }
         }
-    }
-
-    /// Drop a resident process (e.g. on plugin disable/reload). Exercised by
-    /// tests; wired to plugin lifecycle in the registry stage's UI work.
-    #[allow(dead_code)]
-    pub fn evict(&mut self, id: &str) {
-        self.procs.remove(id);
     }
 }
 

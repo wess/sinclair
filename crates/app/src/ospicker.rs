@@ -15,8 +15,6 @@ use gpui::{
 
 use guise::{TextInput, TextInputEvent};
 
-use crate::root::WorkspaceView;
-
 const WIDTH: f32 = 380.0;
 const HEIGHT: f32 = 440.0;
 
@@ -54,13 +52,11 @@ pub fn open(parent: &Window, cx: &mut App) {
     }
 }
 
-/// Run `profile` in a new tab on the main workspace window, then close `picker`.
+/// Run `profile` in a new tab on the active workspace window (not an arbitrary
+/// first one — with several windows the container must land where the user
+/// is), then close `picker`.
 fn launch(app: &mut App, profile: container::Profile, picker: &mut Window) {
-    if let Some(handle) = app
-        .windows()
-        .into_iter()
-        .find_map(|w| w.downcast::<WorkspaceView>())
-    {
+    if let Some(handle) = crate::mcpbridge::active_workspace(app) {
         handle
             .update(app, |ws, window, cx| {
                 ws.launch_container(&profile, window, cx)

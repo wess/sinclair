@@ -16,7 +16,7 @@ pub(crate) use agent::*;
 pub(crate) use team::*;
 
 /// A saved agent definition, shown under AI → Agents for relaunch.
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AgentDef {
     pub name: String,
     pub provider: String,

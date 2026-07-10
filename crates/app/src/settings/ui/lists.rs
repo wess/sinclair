@@ -171,9 +171,20 @@ impl SettingsView {
         .into_any_element()
     }
 
-    /// One macro: its name, its assigned shortcut (or capture prompt), a button
-    /// to (re)capture the shortcut, a clear button, and a delete button.
+    /// One macro: its name (or an inline rename editor), its assigned shortcut
+    /// (or capture prompt), buttons to rename, (re)capture the shortcut, clear
+    /// it, and delete the macro.
     fn macro_row(&self, name: &str, cx: &mut Context<Self>) -> AnyElement {
+        let rename_target = EditTarget::MacroName(name.to_string());
+        if self.editing.as_ref().map(|(t, _)| t) == Some(&rename_target) {
+            return self
+                .row(
+                    self.icon("\u{25b6}", Section::Macros.accent(), px(22.0)),
+                    "",
+                    self.text_input(rename_target, name.to_string(), "new name", 220.0, cx),
+                )
+                .into_any_element();
+        }
         let capturing = self.capture_macro.as_deref() == Some(name);
         let shortcut = self.macro_shortcut(name);
         let (text, color) = if capturing {
@@ -199,7 +210,22 @@ impl SettingsView {
             }),
         );
 
-        let mut control = div().flex().items_center().gap_2().child(label).child(record);
+        let for_rename = name.to_string();
+        let rename = button_box("\u{270e}").text_color(hsla(MUTED)).on_mouse_down(
+            MouseButton::Left,
+            cx.listener(move |this, _ev, window, cx| {
+                this.start_macro_rename(for_rename.clone(), window, cx);
+                cx.stop_propagation();
+            }),
+        );
+
+        let mut control = div()
+            .flex()
+            .items_center()
+            .gap_2()
+            .child(label)
+            .child(rename)
+            .child(record);
         if shortcut.is_some() {
             let for_clear = name.to_string();
             control = control.child(

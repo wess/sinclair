@@ -29,10 +29,13 @@ impl WorkspaceView {
         self.container_tabs.retain(|_, p| *p != item);
     }
 
-    /// Re-run `docker ps` and cache the result. Blocking I/O, so only call this
-    /// on explicit user action (panel open / refresh), never during render.
+    /// Re-run `docker ps` and cache the result (plus the resolved engine, which
+    /// the panel renders from). Blocking I/O, so only call this on explicit
+    /// user action (panel open / refresh), never during render.
     pub(crate) fn refresh_containers(&mut self) {
-        let Some(engine) = self.container_engine() else {
+        let engine = self.container_engine();
+        self.engine = Some(engine);
+        let Some(engine) = engine else {
             self.containers.clear();
             return;
         };

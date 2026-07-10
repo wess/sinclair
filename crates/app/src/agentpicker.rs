@@ -17,8 +17,6 @@ use guise::{
     Button, SegmentedControl, SegmentedControlEvent, Select, TextInput, TextInputEvent, Variant,
 };
 
-use crate::root::WorkspaceView;
-
 const WIDTH: f32 = 460.0;
 const HEIGHT: f32 = 430.0;
 
@@ -56,13 +54,11 @@ pub fn open(parent: &Window, cx: &mut App) {
     }
 }
 
-/// Run `cmd` in a new split on the main workspace window, then close `picker`.
+/// Run `cmd` in a new split on the active workspace window (not an arbitrary
+/// first one — with several windows the agent must land where the user is),
+/// then close `picker`.
 fn create(app: &mut App, cmd: String, picker: &mut Window) {
-    if let Some(handle) = app
-        .windows()
-        .into_iter()
-        .find_map(|w| w.downcast::<WorkspaceView>())
-    {
+    if let Some(handle) = crate::mcpbridge::active_workspace(app) {
         handle
             .update(app, |ws, window, cx| ws.create_agent(&cmd, window, cx))
             .ok();
@@ -89,25 +85,48 @@ impl AgentPickerView {
     fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         let (opts, _) = config::load();
         let providers = crate::relay::enabled_agents(&opts);
-        let roles = crate::relay::role_list();
-        let custom = roles.is_empty();
+        // The role list is a `relay role list` subprocess; loading it here
+        // blocked the window open. Start with a placeholder and fill it in
+        // off-thread (see below).
+        let roles: Vec<String> = Vec::new();
+        let custom = false;
 
+        // Preselect the configured default provider (`relay-default-agent`).
+        let default_provider = providers
+            .iter()
+            .position(|p| *p == opts.relay_default_agent)
+            .unwrap_or(0);
         let provider = cx.new(|cx| {
             Select::new(cx)
                 .label("Provider")
                 .placeholder("none enabled")
                 .data(providers.clone())
+                .selected(default_provider)
         });
         let name = cx.new(|cx| TextInput::new(cx).label("Name").placeholder("agent name"));
         let kind = cx.new(|cx| {
             SegmentedControl::new(cx)
                 .data(["Preset", "Custom"])
-                .selected(if custom { 1 } else { 0 })
+                .selected(0)
         });
-        let role = cx.new(|cx| Select::new(cx).label("Role").data(roles.clone()));
+        let role = cx.new(|cx| {
+            Select::new(cx)
+                .label("Role")
+                .placeholder("loading roles\u{2026}")
+                .data(roles.clone())
+        });
         let desc =
             cx.new(|cx| TextInput::new(cx).label("Describe").placeholder("what this agent does"));
         let focus = cx.focus_handle();
+
+        // Load roles off the UI thread; an empty result flips to Custom, the
+        // same default the old synchronous path picked.
+        let executor = cx.background_executor().clone();
+        cx.spawn(async move |this, cx| {
+            let roles = executor.spawn(async { crate::relay::role_list() }).await;
+            let _ = this.update(cx, |view, cx| view.set_roles(roles, cx));
+        })
+        .detach();
 
         // Focus the name field after the first paint. Focusing during
         // construction is dropped - the input element does not exist yet.
@@ -142,6 +161,31 @@ impl AgentPickerView {
             focus,
             _subs: subs,
         }
+    }
+
+    /// Swap in the loaded role list. Empty means no roles are available, so
+    /// the picker falls back to the Custom (free-form) tab.
+    fn set_roles(&mut self, roles: Vec<String>, cx: &mut Context<Self>) {
+        if roles.is_empty() {
+            self.custom = true;
+            self.kind = cx.new(|cx| {
+                SegmentedControl::new(cx).data(["Preset", "Custom"]).selected(1)
+            });
+            self._subs.push(cx.subscribe(
+                &self.kind,
+                |this, _src, event: &SegmentedControlEvent, cx| {
+                    this.custom = event.0 == 1;
+                    cx.notify();
+                },
+            ));
+        } else {
+            self.role = cx.new({
+                let data = roles.clone();
+                move |cx| Select::new(cx).label("Role").data(data).selected(0)
+            });
+            self.roles = roles;
+        }
+        cx.notify();
     }
 
     fn commit(&mut self, window: &mut Window, cx: &mut Context<Self>) {

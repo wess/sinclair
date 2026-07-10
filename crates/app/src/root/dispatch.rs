@@ -15,6 +15,32 @@ impl WorkspaceView {
         }
     }
 
+    /// Make sure the relay daemon is up — a blocking start + health poll — on
+    /// the background executor, then run `then` back on this workspace's
+    /// window. The launch commands themselves keep their own in-pane fallback
+    /// when the server still is not up, matching the old synchronous path.
+    pub(crate) fn with_relay_running(
+        &self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+        then: impl FnOnce(&mut Self, &mut Window, &mut Context<Self>) + 'static,
+    ) {
+        let Some(handle) = window.window_handle().downcast::<Self>() else {
+            return;
+        };
+        let opts = self.opts.clone();
+        let executor = cx.background_executor().clone();
+        cx.spawn(async move |_this, cx| {
+            executor
+                .spawn(async move {
+                    crate::relay::ensure_running(&opts);
+                })
+                .await;
+            let _ = handle.update(cx, |view, window, cx| then(view, window, cx));
+        })
+        .detach();
+    }
+
     /// Dispatch handler shared by every keybinding.
     pub(crate) fn runbind(&mut self, action: &RunBind, window: &mut Window, cx: &mut Context<Self>) {
         let Some(kb) = self.keybinds.get(action.0) else {
@@ -57,6 +83,9 @@ impl WorkspaceView {
             }
             Action::CloseWindow => self.close_window(window, cx),
             Action::CloseAllWindows => {
+                // Persist this window's session before everything goes away —
+                // the per-window close path no longer saves (see close_window).
+                self.save_state(cx);
                 for handle in cx.windows() {
                     handle
                         .update(cx, |_, window, _| window.remove_window())
@@ -170,52 +199,42 @@ impl WorkspaceView {
             Action::RelayStart => {
                 crate::relay::start(&self.opts);
                 crate::relaywatch::start(&self.opts, cx);
-                self.refresh_menus_soon(window, cx);
             }
-            Action::RelayStop => {
-                crate::relay::stop();
-                self.refresh_menus_soon(window, cx);
-            }
+            Action::RelayStop => crate::relay::stop(),
             Action::RelayRestart => {
                 crate::relay::restart(&self.opts);
                 crate::relaywatch::start(&self.opts, cx);
-                self.refresh_menus_soon(window, cx);
             }
-            Action::WorktreeCreate(spec) => {
-                if let Err(e) = self.worktree_create(&spec, window, cx) {
-                    eprintln!("sinclair: worktree create failed: {e}");
-                }
-            }
+            Action::WorktreeCreate(spec) => self.worktree_create_bg(&spec, window, cx),
             Action::WorktreeOpen(path) => {
                 if let Err(e) = self.worktree_open(&path, window, cx) {
                     eprintln!("sinclair: worktree open failed: {e}");
                 }
             }
-            Action::WorktreeRemove(path) => {
-                if let Err(e) = self.worktree_remove(&path, window, cx) {
-                    eprintln!("sinclair: worktree remove failed: {e}");
-                }
-            }
+            Action::WorktreeRemove(path) => self.worktree_remove_bg(&path, window, cx),
             Action::Tile(id) => self.apply_tile(&id, window, cx),
             Action::SaveLayout => self.open_save_layout(window, cx),
             Action::Sidebar(payload) => self.toggle_sidebar(&payload, cx),
             Action::OpenTeam(name) => self.open_team(&name, window, cx),
             Action::BuildTeam => {
-                crate::relay::ensure_running(&self.opts);
                 let cwd = self.focused_cwd_path(cx);
-                crate::teambuilder::open(window, cwd, cx);
+                self.with_relay_running(window, cx, move |_this, window, cx| {
+                    crate::teambuilder::open(window, cwd, cx);
+                });
             }
             Action::CheckUpdates => crate::updateui::check_now(cx),
             Action::AgentDef(name) => {
-                crate::relay::ensure_running(&self.opts);
-                if let Some(cmd) = crate::relay::launch_saved_command(&self.opts, &name) {
-                    self.splitcommand(&cmd, SplitAxis::Horizontal, false, window, cx);
-                }
+                self.with_relay_running(window, cx, move |this, window, cx| {
+                    if let Some(cmd) = crate::relay::launch_saved_command(&this.opts, &name) {
+                        this.splitcommand(&cmd, SplitAxis::Horizontal, false, window, cx);
+                    }
+                });
             }
             Action::LaunchAgent(provider) => {
-                crate::relay::ensure_running(&self.opts);
-                let cmd = crate::relay::quick_launch_command(&self.opts, &provider);
-                self.splitcommand(&cmd, SplitAxis::Horizontal, false, window, cx);
+                self.with_relay_running(window, cx, move |this, window, cx| {
+                    let cmd = crate::relay::quick_launch_command(&this.opts, &provider);
+                    this.splitcommand(&cmd, SplitAxis::Horizontal, false, window, cx);
+                });
             }
             Action::OpenWebview(id) => self.open_webview(&id, window, cx),
             Action::ManagePlugins => crate::pluginmanager::open(window, cx),

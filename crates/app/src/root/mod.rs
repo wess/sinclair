@@ -29,7 +29,6 @@ use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use std::sync::Arc;
-use std::time::Duration;
 
 use config::{Action, Keybind, ResizeDir, SplitDirection, SplitFocus};
 use futures::StreamExt;
@@ -410,6 +409,20 @@ pub struct WorkspaceView {
     /// panel opens or on its refresh action (running `docker ps` is I/O, so it
     /// is never done during render).
     containers: Vec<container::Running>,
+    /// The container engine resolved alongside [`Self::refresh_containers`]
+    /// (resolving stats `$PATH`, so never during render). `None` until the
+    /// Containers panel first opens.
+    engine: Option<Option<container::Engine>>,
+    /// Cached menu/panel data that needs blocking reads (the relay `team list`
+    /// subprocess, agents.json, the layouts dir). Refreshed off-thread by
+    /// [`Self::refresh_menu_data`]; `setmenus` and the sidebar render from here.
+    menu_teams: Vec<String>,
+    menu_agent_defs: Vec<crate::relay::AgentDef>,
+    menu_custom_tiles: Vec<String>,
+    /// Why the most recent shell spawn failed. Shown as an in-window error when
+    /// the window has no live items (e.g. a bad `shell =` at startup), instead
+    /// of exiting the app.
+    spawn_error: Option<String>,
     /// Map of container id → the item attached to it, so re-selecting a
     /// running container focuses its existing tab instead of opening a second.
     container_tabs: HashMap<String, ItemId>,
@@ -506,6 +519,11 @@ impl WorkspaceView {
             spotlight: None,
             modal: None,
             containers: Vec::new(),
+            engine: None,
+            menu_teams: Vec::new(),
+            menu_agent_defs: Vec::new(),
+            menu_custom_tiles: Vec::new(),
+            spawn_error: None,
             container_tabs: HashMap::new(),
             kill_on_close: HashMap::new(),
             _watch: None,
@@ -535,7 +553,11 @@ impl WorkspaceView {
                 let options = session::options(&this.opts, cols, rows, cwd);
                 match this.spawn(options, window, cx) {
                     Some(id) => id,
-                    None => std::process::exit(1),
+                    // A bad `shell =` must not kill the app (every window shares
+                    // this path via NewWindow). Keep the placeholder id — it has
+                    // no backing item, so the window renders the spawn-error view
+                    // (see `render`) until a spawn succeeds again.
+                    None => placeholder,
                 }
             }
         };
@@ -549,7 +571,11 @@ impl WorkspaceView {
         crate::relay::on_launch(&this.opts);
         crate::relaywatch::start(&this.opts, cx);
         this.refresh_agent_verification(cx);
-        if this.opts.session_restore {
+        this.refresh_menu_data(cx);
+        // Restoring re-spawns shells; with the first spawn already failed there
+        // is nothing to restore into (and closing the placeholder would close
+        // the window before the error is ever seen).
+        if this.opts.session_restore && this.spawn_error.is_none() {
             this.try_restore(window, cx);
         }
         this
@@ -751,27 +777,54 @@ impl WorkspaceView {
     /// runtime: theme/colors, font family/size, padding, cursor style,
     /// copy-on-select. Shell, scrollback and window size only affect new
     /// sessions or need a restart.
+    ///
+    /// This is the single reload path (the settings window only writes the
+    /// file), so it fires on every settings toggle and slider step. Each
+    /// heavier subsystem is diffed against the current options and skipped
+    /// when its keys did not change: plugin rescans, font re-measures, and
+    /// agent re-verification never run for an unrelated key.
     fn reload(&mut self, cx: &mut Context<Self>) {
         let (opts, diagnostics) = config::load();
         for d in &diagnostics {
             eprintln!("sinclair: config line {}: {} ({})", d.line, d.message, d.key);
         }
+        let font_changed = opts.font_family != self.opts.font_family
+            || opts.font_feature != self.opts.font_feature
+            || opts.font_style != self.opts.font_style
+            || (opts.font_size - self.opts.font_size).abs() > f32::EPSILON
+            || opts.adjust_cell_width != self.opts.adjust_cell_width
+            || opts.adjust_cell_height != self.opts.adjust_cell_height;
+        let plugins_changed = opts.plugin != self.opts.plugin;
+        let agents_changed = opts.ai_enabled != self.opts.ai_enabled
+            || opts.agent_claude != self.opts.agent_claude
+            || opts.agent_codex != self.opts.agent_codex
+            || opts.agent_ollama != self.opts.agent_ollama
+            || opts.agent_gemini != self.opts.agent_gemini
+            || opts.agent_claude_path != self.opts.agent_claude_path
+            || opts.agent_codex_path != self.opts.agent_codex_path
+            || opts.agent_gemini_path != self.opts.agent_gemini_path
+            || opts.agent_custom != self.opts.agent_custom;
         crate::redact::install(&opts.redact, cx);
         crate::badge::install(&opts.badge, cx);
         crate::view::install_timestamps(opts.timestamps, cx);
         crate::trigger::install(&opts.trigger, cx);
         self.colors = Rc::new(colors::from_config(&opts, self.dark));
         crate::guisetheme::install(&self.colors, cx);
-        self.font = crate::font::build(&opts);
-        self.font_size = px(opts.font_size.max(1.0));
-        self.cell = crate::metrics::measure(cx.text_system(), &self.font, self.font_size);
+        if font_changed {
+            self.font = crate::font::build(&opts);
+            self.font_size = px(opts.font_size.max(1.0));
+            self.cell = crate::metrics::measure(cx.text_system(), &self.font, self.font_size);
+        }
         self.pad = Padding {
             x: opts.window_padding_x as f32,
             y: opts.window_padding_y as f32,
         };
-        self.base_font_size = self.font_size;
+        self.base_font_size = px(opts.font_size.max(1.0));
         self.opts = opts;
-        self.plugins = loadplugins(&self.opts);
+        if plugins_changed {
+            self.plugins = loadplugins(&self.opts);
+            self.rebuild_webview_hosts(cx);
+        }
         self.macros = loadmacros();
         let (keybinds, diags) = resolvekeys(&self.opts, &self.plugins);
         for d in &diags {
@@ -779,13 +832,19 @@ impl WorkspaceView {
         }
         self.keybinds = keybinds;
         self.applykeybinds(cx);
-        // Re-probe providers: paths or toggles may have changed. Clear the cache
-        // first so a newly enabled tool shows immediately, then prune once done.
-        self.verified_agents = None;
+        if agents_changed {
+            // Re-probe providers: paths or toggles changed. Clear the cache
+            // first so a newly enabled tool shows immediately, then prune.
+            self.verified_agents = None;
+            self.refresh_agent_verification(cx);
+        }
         self.setmenus(cx);
         self.pushappearance(cx);
-        crate::relay::on_reload(&self.opts);
-        self.refresh_agent_verification(cx);
+        // Reconciling the relay daemon probes it (file read + TCP connect);
+        // keep that off the UI thread.
+        let relay_opts = self.opts.clone();
+        std::thread::spawn(move || crate::relay::on_reload(&relay_opts));
+        self.refresh_menu_data(cx);
         cx.notify();
     }
 
@@ -825,6 +884,12 @@ impl WorkspaceView {
         for v in terminals {
             v.update(cx, |view, cx| view.set_appearance(&appearance, cx));
         }
+    }
+
+    /// Whether the live config exposes this terminal's MCP tool surface.
+    /// Read by the IPC bridge on every dispatched op.
+    pub fn mcp_enabled(&self) -> bool {
+        self.opts.mcp_server_enabled
     }
 
     /// Re-measure the cell box for the current font size and republish.

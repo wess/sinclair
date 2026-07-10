@@ -127,7 +127,12 @@ pub fn install() -> Option<PathBuf> {
     Some(dir)
 }
 
+/// Write `contents` unless the file already holds exactly that (the scripts
+/// are static per build; skipping the rewrite keeps pane spawns off the disk).
 fn write(path: &Path, contents: &str) {
+    if std::fs::read_to_string(path).is_ok_and(|cur| cur == contents) {
+        return;
+    }
     let _ = std::fs::write(path, contents);
 }
 
@@ -167,12 +172,14 @@ fn env_overrides(
 }
 
 /// Ensure scripts exist and return the env overrides for `program`. A no-op
-/// (empty) when the shell is unsupported or the dir can't be created.
+/// (empty) when the shell is unsupported or the dir can't be created. The
+/// scripts are installed once per process (they're static), not per pane spawn.
 pub fn overrides_for(program: &str) -> Vec<(String, String)> {
-    let Some(dir) = install() else {
+    static DIR: std::sync::OnceLock<Option<PathBuf>> = std::sync::OnceLock::new();
+    let Some(dir) = DIR.get_or_init(install) else {
         return Vec::new();
     };
-    env_overrides(program, &dir, |k| std::env::var(k).ok())
+    env_overrides(program, dir, |k| std::env::var(k).ok())
 }
 
 #[cfg(test)]

@@ -10,7 +10,14 @@
 //! This queries the login shell once at startup and adopts its `PATH`, unless
 //! the current PATH already looks like the user's (launched from a terminal).
 
-use std::process::Command;
+use std::process::{Command, Stdio};
+use std::time::{Duration, Instant};
+
+/// How long the login shell gets to print its PATH. A profile that blocks
+/// (waiting on a prompt, a hung mount, …) must not hold the whole launch
+/// hostage: past this we kill the probe and keep the inherited PATH.
+const TIMEOUT: Duration = Duration::from_secs(3);
+const POLL: Duration = Duration::from_millis(25);
 
 /// Adopt the login shell's `PATH` when the inherited one looks like a bare
 /// GUI-launch PATH. Call once, early in `main`, before spawning anything.
@@ -37,13 +44,46 @@ fn looks_inherited(path: &str) -> bool {
 
 /// Query the login shell (`-lic`, so both profile and rc files apply) for its
 /// `$PATH`, extracted between markers so shell-startup noise can't corrupt it.
+/// Bounded by [`TIMEOUT`]: a blocking shell profile would otherwise hang the
+/// launch with no window ever appearing.
 fn login_path() -> Option<String> {
     let shell = pty::default_shell();
-    let out = Command::new(&shell)
+    let mut child = Command::new(&shell)
         .args(["-lic", "printf '__SINCLAIRPATH__%s__SINCLAIRPATH__' \"$PATH\""])
-        .output()
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
         .ok()?;
-    let text = String::from_utf8_lossy(&out.stdout);
+    // Drain stdout on a helper thread so a chatty profile can't fill the pipe
+    // and deadlock against our exit poll.
+    let mut stdout = child.stdout.take()?;
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        use std::io::Read;
+        let mut buf = String::new();
+        let _ = stdout.read_to_string(&mut buf);
+        let _ = tx.send(buf);
+    });
+    let deadline = Instant::now() + TIMEOUT;
+    loop {
+        match child.try_wait() {
+            Ok(Some(_)) => break,
+            Ok(None) if Instant::now() >= deadline => {
+                let _ = child.kill();
+                let _ = child.wait();
+                eprintln!(
+                    "sinclair: login shell did not report a PATH within {}s \
+                     (a blocking shell profile?); keeping the inherited PATH",
+                    TIMEOUT.as_secs()
+                );
+                return None;
+            }
+            Ok(None) => std::thread::sleep(POLL),
+            Err(_) => break,
+        }
+    }
+    let text = rx.recv_timeout(Duration::from_secs(1)).ok()?;
     let mut parts = text.split("__SINCLAIRPATH__");
     parts.next(); // startup noise before the first marker
     let path = parts.next()?.trim().to_string();

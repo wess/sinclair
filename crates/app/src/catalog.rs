@@ -83,11 +83,50 @@ pub fn install(name: &str) -> Result<PathBuf, String> {
                 let _ = std::fs::remove_dir_all(&tmp);
                 format!("install {name}: {e}")
             })?;
+            record_install(name, &dest);
             Ok(dest)
         }
         Err(e) => {
             let _ = std::fs::remove_dir_all(&tmp);
             Err(e)
+        }
+    }
+}
+
+/// Record a catalog install in `installed.toml`: the manifest's version and
+/// its declared capabilities as the granted set (the install confirmation is
+/// consent for what the manifest declares — capability narrowing then caps a
+/// later update that declares more). Best-effort: a manifest that fails to
+/// parse still gets a record under the folder name so it can be disabled.
+fn record_install(name: &str, dest: &std::path::Path) {
+    let manifest_path = dest.join(plugin::MANIFEST);
+    let parsed = std::fs::read_to_string(&manifest_path)
+        .ok()
+        .and_then(|text| plugin::parse(manifest_path, &text).0);
+    let (id, version, granted) = match &parsed {
+        Some(p) => (p.id.clone(), p.version.clone(), p.capabilities.clone()),
+        None => (name.to_string(), String::new(), Vec::new()),
+    };
+    let mut installed = plugin::Installed::load();
+    installed.record(&id, &version, &format!("catalog:{name}"), granted);
+    if let Err(e) = installed.save() {
+        eprintln!("sinclair: could not record install of {name}: {e}");
+    }
+}
+
+/// Drop a plugin's `installed.toml` record (after its folder is removed), so a
+/// stale disabled/granted state can't silently apply to a future reinstall of
+/// the same id.
+fn forget_install(name: &str) {
+    let mut installed = plugin::Installed::load();
+    let source = format!("catalog:{name}");
+    let before = installed.plugins.len();
+    installed
+        .plugins
+        .retain(|id, entry| !(entry.source == source || (entry.source.is_empty() && id == name)));
+    if installed.plugins.len() != before {
+        if let Err(e) = installed.save() {
+            eprintln!("sinclair: could not update installed.toml: {e}");
         }
     }
 }
@@ -105,10 +144,12 @@ pub fn uninstall(name: &str) -> Result<(), String> {
     let meta =
         std::fs::symlink_metadata(&dest).map_err(|e| format!("{}: {e}", dest.display()))?;
     if meta.file_type().is_symlink() {
-        std::fs::remove_file(&dest).map_err(|e| format!("uninstall {name}: {e}"))
+        std::fs::remove_file(&dest).map_err(|e| format!("uninstall {name}: {e}"))?;
     } else {
-        std::fs::remove_dir_all(&dest).map_err(|e| format!("uninstall {name}: {e}"))
+        std::fs::remove_dir_all(&dest).map_err(|e| format!("uninstall {name}: {e}"))?;
     }
+    forget_install(name);
+    Ok(())
 }
 
 /// Max bytes we'll accept for any single fetch (catalog listing or plugin

@@ -326,7 +326,7 @@ impl WorkspaceView {
             return;
         };
         let n = CONTAINER_SEQ.fetch_add(1, Ordering::Relaxed) + 1;
-        let name = Some(format!("prompt-{}-{n}", slug(&profile.label)));
+        let name = Some(format!("sinclair-{}-{n}", slug(&profile.label)));
         let target =
             container::Target::from_profile(engine, profile, self.opts.container_persist, name);
         if let Some(id) = self.spawn_container(&target, window, cx) {

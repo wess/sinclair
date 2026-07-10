@@ -35,9 +35,13 @@ impl WorkspaceView {
             Ok(pair) => pair,
             Err(error) => {
                 eprintln!("sinclair: failed to spawn shell: {error}");
+                // Remembered for the in-window error view (shown when the
+                // window ends up with no live items at all).
+                self.spawn_error = Some(error.to_string());
                 return None;
             }
         };
+        self.spawn_error = None;
         let session = Arc::new(session);
         let fallback = session::shellname(self.opts.shell.as_deref());
         let view = cx.new(|cx| {
@@ -227,9 +231,14 @@ impl WorkspaceView {
     /// Close just this window. The app keeps running while other windows are
     /// open; only when this is the last window do we honor
     /// `quit-after-last-window-closed` (macOS keeps the app alive otherwise).
+    /// Only the *last* window persists its session: a per-window save would
+    /// make whichever window closed last overwrite the surviving windows'
+    /// state (the quit path saves separately, see `request_quit`).
     pub(crate) fn close_window(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.save_state(cx);
         let last_window = cx.windows().len() <= 1;
+        if last_window {
+            self.save_state(cx);
+        }
         if last_window && self.opts.quit_after_last_window_closed {
             cx.quit();
         } else {

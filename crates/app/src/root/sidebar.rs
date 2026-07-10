@@ -277,7 +277,7 @@ impl WorkspaceView {
                     })),
             );
         }
-        for (i, name) in crate::tiles::list_custom().into_iter().enumerate() {
+        for (i, name) in self.menu_custom_tiles.clone().into_iter().enumerate() {
             let id = name.clone();
             body = body.child(
                 self.sidebar_row(("sb-custom", i), name, false, false, false)
@@ -300,7 +300,9 @@ impl WorkspaceView {
     /// spins up a fresh OS tab via the picker, and a refresh row re-lists.
     fn panel_containers(&self, cx: &mut Context<Self>) -> AnyElement {
         let mut body = self.sidebar_body("sb-containers");
-        let engine = self.container_engine();
+        // Resolved when the panel opened / was refreshed; resolving stats
+        // `$PATH`, so it never happens here in render.
+        let engine = self.engine.flatten();
 
         let Some(engine) = engine else {
             return body
@@ -473,10 +475,11 @@ impl WorkspaceView {
         body.into_any_element()
     }
 
-    /// Agents panel: saved agent definitions; click to launch in a split.
+    /// Agents panel: saved agent definitions (from the off-thread menu-data
+    /// cache — never a disk read per repaint); click to launch in a split.
     fn panel_agents(&self, cx: &mut Context<Self>) -> AnyElement {
         let mut body = self.sidebar_body("sb-agents");
-        let defs = crate::relay::list_agent_defs();
+        let defs = self.menu_agent_defs.clone();
         if defs.is_empty() {
             return body
                 .child(self.sidebar_note("No saved agents. Define one from the AI menu."))
@@ -488,10 +491,13 @@ impl WorkspaceView {
             body = body.child(
                 self.sidebar_row(("sb-agentdef", i), label, false, false, false)
                     .on_click(cx.listener(move |this, _: &gpui::ClickEvent, window, cx| {
-                        crate::relay::ensure_running(&this.opts);
-                        if let Some(cmd) = crate::relay::launch_saved_command(&this.opts, &name) {
-                            this.splitcommand(&cmd, SplitAxis::Horizontal, false, window, cx);
-                        }
+                        let name = name.clone();
+                        this.with_relay_running(window, cx, move |this, window, cx| {
+                            if let Some(cmd) = crate::relay::launch_saved_command(&this.opts, &name)
+                            {
+                                this.splitcommand(&cmd, SplitAxis::Horizontal, false, window, cx);
+                            }
+                        });
                     })),
             );
         }

@@ -172,38 +172,32 @@ impl WorkspaceView {
 
     /// Persist this window's split arrangement and per-pane cwds for the next
     /// launch. The whole window is stored as one arrangement; only each pane's
-    /// first item's cwd is captured. Windows containing a webview item are not
-    /// saved (they can't round-trip through the terminal-only restore path).
+    /// first *terminal* item is captured — webview items are skipped
+    /// individually (they can't round-trip through the terminal-only restore
+    /// path), so a Notes tab no longer discards the rest of the session.
     pub(crate) fn save_state(&self, cx: &App) {
         if !self.opts.session_restore {
             return;
         }
         let tree = self.group.read(cx).tree().clone();
         let panes = tree.panes();
-        // Skip saving if any item is a non-terminal (webview) surface.
-        let has_webview = self
-            .items
-            .borrow()
-            .values()
-            .any(|it| it.content.as_terminal().is_none());
-        if has_webview {
-            crate::sessionstate::save(&crate::sessionstate::SessionState {
-                tabs: Vec::new(),
-                active: 0,
-            });
-            return;
-        }
         let mut cwds = Vec::with_capacity(panes.len());
         let mut commands = Vec::with_capacity(panes.len());
         let mut sessions = Vec::with_capacity(panes.len());
         for &p in &panes {
-            let first = self
+            let ids = self
                 .group
                 .read(cx)
                 .pane_items(p)
-                .and_then(|items| items.first().copied());
+                .map(<[_]>::to_vec)
+                .unwrap_or_default();
             let items = self.items.borrow();
-            let it = first.and_then(|id| items.get(&id));
+            // The pane's first terminal item; a pane holding only webviews
+            // restores as a fresh shell (cwd/command/session all None).
+            let it = ids
+                .iter()
+                .filter_map(|id| items.get(id))
+                .find(|it| it.content.as_terminal().is_some());
             cwds.push(
                 it.and_then(|it| it.content.cwd(cx))
                     .and_then(|osc| session::cwdpath(&osc))
@@ -290,43 +284,66 @@ impl WorkspaceView {
     }
 
     /// Open a Relay team: a tile of agents, each pane launched into the mesh.
+    /// The daemon start and the `team info` subprocess both block, so they run
+    /// on the background executor; the splits open in the completion callback.
     pub(crate) fn open_team(&mut self, name: &str, window: &mut Window, cx: &mut Context<Self>) {
-        crate::relay::ensure_running(&self.opts);
-        let Some((shape, members)) = crate::relay::team_info(name) else {
-            eprintln!("sinclair: team `{name}` not found");
+        let Some(handle) = window.window_handle().downcast::<Self>() else {
             return;
         };
-        if members.is_empty() {
-            return;
-        }
-        let layout = crate::tiles::generate(&shape, members.len());
-        let commands: Vec<Option<String>> = members
-            .iter()
-            .enumerate()
-            .map(|(i, (m, role, agent))| {
-                Some(crate::relay::launch_member(
-                    m,
-                    role,
-                    agent,
-                    i == 0,
-                    self.opts.ai_optimize_tokens,
-                ))
-            })
-            .collect();
-        self.apply_layout(&layout, &commands, Some(name), window, cx);
+        let opts = self.opts.clone();
+        let name = name.to_string();
+        let executor = cx.background_executor().clone();
+        cx.spawn(async move |_this, cx| {
+            let team = name.clone();
+            let info = executor
+                .spawn(async move {
+                    crate::relay::ensure_running(&opts);
+                    crate::relay::team_info(&team)
+                })
+                .await;
+            let _ = handle.update(cx, |view, window, cx| {
+                let Some((shape, members)) = info else {
+                    eprintln!("sinclair: team `{name}` not found");
+                    return;
+                };
+                if members.is_empty() {
+                    return;
+                }
+                let layout = crate::tiles::generate(&shape, members.len());
+                let commands: Vec<Option<String>> = members
+                    .iter()
+                    .enumerate()
+                    .map(|(i, (m, role, agent))| {
+                        Some(crate::relay::launch_member(
+                            m,
+                            role,
+                            agent,
+                            i == 0,
+                            view.opts.ai_optimize_tokens,
+                        ))
+                    })
+                    .collect();
+                view.apply_layout(&layout, &commands, Some(&name), window, cx);
+            });
+        })
+        .detach();
     }
 
     /// Rebuild menus after the Team Builder saves, so the new team shows under
     /// AI → Teams without a restart.
     pub(crate) fn after_team_saved(&mut self, cx: &mut Context<Self>) {
-        self.setmenus(cx);
+        self.refresh_menu_data(cx);
     }
 
     /// Add an agent (a `relay launch` command from the New Agent modal) to the
     /// current workspace as a split.
     pub fn create_agent(&mut self, cmd: &str, window: &mut Window, cx: &mut Context<Self>) {
-        crate::relay::ensure_running(&self.opts);
-        self.splitcommand(cmd, SplitAxis::Horizontal, false, window, cx);
+        let cmd = cmd.to_string();
+        self.with_relay_running(window, cx, move |this, window, cx| {
+            this.splitcommand(&cmd, SplitAxis::Horizontal, false, window, cx);
+            // A new agent definition may have been saved alongside the launch.
+            this.refresh_menu_data(cx);
+        });
     }
 
     /// Sinclair for a name and save the current arrangement as a custom tile.
@@ -344,6 +361,6 @@ impl WorkspaceView {
             Ok(path) => eprintln!("sinclair: saved layout {}", path.display()),
             Err(e) => eprintln!("sinclair: save layout failed: {e}"),
         }
-        self.setmenus(cx);
+        self.refresh_menu_data(cx);
     }
 }

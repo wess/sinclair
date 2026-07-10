@@ -53,6 +53,9 @@ pub fn open(parent: &Window, cx: &mut App) {
 pub struct PluginManager {
     opts: config::Options,
     installed: Vec<plugin::Plugin>,
+    /// Plugins present on disk but disabled in `installed.toml` — they don't
+    /// load, so they come from a separate managed-dir scan.
+    disabled: Vec<plugin::Plugin>,
     catalog: Option<Vec<String>>,
     status: Option<String>,
     loading: bool,
@@ -85,6 +88,7 @@ impl PluginManager {
         let mut this = Self {
             opts,
             installed,
+            disabled: load_disabled(),
             catalog: None,
             status: None,
             loading: false,
@@ -98,21 +102,39 @@ impl PluginManager {
         this
     }
 
-    /// Reload the installed set from disk (after an install/uninstall).
+    /// Reload the installed set from disk (after an install/uninstall/toggle).
     fn refresh_installed(&mut self) {
         self.installed = plugin::load(&self.opts.plugin).0;
+        self.disabled = load_disabled();
     }
 
-    /// Tell the main workspace to reload plugins so its menus, sidebar, and
-    /// keybinds reflect the change.
-    fn reload_workspace(&self, cx: &mut Context<Self>) {
-        if let Some(handle) = cx
-            .windows()
-            .into_iter()
-            .find_map(|w| w.downcast::<WorkspaceView>())
-        {
-            let _ = handle.update(cx, |ws, _window, cx| ws.reload_plugins(cx));
+    /// Tell every workspace window to reload plugins so their menus, sidebars,
+    /// and keybinds reflect the change — not just an arbitrary first window.
+    fn reload_workspaces(&self, cx: &mut Context<Self>) {
+        for handle in cx.windows() {
+            if let Some(ws) = handle.downcast::<WorkspaceView>() {
+                let _ = ws.update(cx, |ws, _window, cx| ws.reload_plugins(cx));
+            }
         }
+    }
+
+    /// Enable or disable a plugin by id: persist the record, then reload the
+    /// plugin set everywhere. A disabled plugin stays installed but inert.
+    fn set_enabled(&mut self, id: String, enabled: bool, cx: &mut Context<Self>) {
+        let mut installed = plugin::Installed::load();
+        installed.set_enabled(&id, enabled);
+        if let Err(e) = installed.save() {
+            self.status = Some(format!("Could not save installed.toml: {e}"));
+            cx.notify();
+            return;
+        }
+        self.status = Some(format!(
+            "{} {id}",
+            if enabled { "Enabled" } else { "Disabled" }
+        ));
+        self.refresh_installed();
+        self.reload_workspaces(cx);
+        cx.notify();
     }
 
     /// Fetch the installable catalog off-thread (the GitHub call would block).
@@ -157,7 +179,7 @@ impl PluginManager {
                     Ok(_) => {
                         this.status = Some(format!("Installed {name}"));
                         this.refresh_installed();
-                        this.reload_workspace(cx);
+                        this.reload_workspaces(cx);
                     }
                     Err(e) => this.status = Some(format!("Install {name} failed: {e}")),
                 }
@@ -183,7 +205,7 @@ impl PluginManager {
                     Ok(()) => {
                         this.status = Some(format!("Removed {name}"));
                         this.refresh_installed();
-                        this.reload_workspace(cx);
+                        this.reload_workspaces(cx);
                     }
                     Err(e) => this.status = Some(format!("Remove {name} failed: {e}")),
                 }
@@ -245,6 +267,7 @@ impl Render for PluginManager {
                     border,
                     text,
                     dim,
+                    Some((p.id.clone(), true)),
                     match uninstall {
                         Some(name) => RowAction::Uninstall { name, busy },
                         None => RowAction::External,
@@ -254,9 +277,46 @@ impl Render for PluginManager {
             })
             .collect();
 
-        // Available (catalog) rows: names not already installed.
-        let installed_ids: std::collections::HashSet<&str> =
-            self.installed.iter().map(|p| p.id.as_str()).collect();
+        // Disabled rows: on disk but inert; offer Enable (and Uninstall).
+        let disabled: Vec<gpui::AnyElement> = self
+            .disabled
+            .iter()
+            .filter(|p| {
+                matches(&p.name)
+                    || matches(&p.id)
+                    || p.description.as_deref().is_some_and(matches)
+            })
+            .enumerate()
+            .map(|(i, p)| {
+                let uninstall = self.managed_name(p);
+                let busy = uninstall.as_ref().is_some_and(|n| self.busy.as_deref() == Some(n));
+                self.plugin_row(
+                    20_000 + i,
+                    &p.name,
+                    Some(&p.version),
+                    p.description.as_deref(),
+                    &p.capabilities,
+                    surface,
+                    border,
+                    dim,
+                    dim,
+                    Some((p.id.clone(), false)),
+                    match uninstall {
+                        Some(name) => RowAction::Uninstall { name, busy },
+                        None => RowAction::External,
+                    },
+                    cx,
+                )
+            })
+            .collect();
+
+        // Available (catalog) rows: names not already installed (or disabled).
+        let installed_ids: std::collections::HashSet<&str> = self
+            .installed
+            .iter()
+            .chain(self.disabled.iter())
+            .map(|p| p.id.as_str())
+            .collect();
         let available: Vec<gpui::AnyElement> = self
             .catalog
             .as_deref()
@@ -276,6 +336,7 @@ impl Render for PluginManager {
                     border,
                     text,
                     dim,
+                    None,
                     RowAction::Install {
                         name: name.clone(),
                         busy,
@@ -314,6 +375,12 @@ impl Render for PluginManager {
         }
         for row in installed {
             list = list.child(row);
+        }
+        if !disabled.is_empty() {
+            list = list.child(section("Disabled", disabled.len()));
+            for row in disabled {
+                list = list.child(row);
+            }
         }
         list = list.child(section("Marketplace", available.len()));
         if self.loading && self.catalog.is_none() {
@@ -378,6 +445,8 @@ impl PluginManager {
         border: gpui::Hsla,
         text: gpui::Hsla,
         dim: gpui::Hsla,
+        // `(plugin id, currently enabled)` renders an Enable/Disable toggle.
+        toggle: Option<(String, bool)>,
         action: RowAction,
         cx: &mut Context<Self>,
     ) -> gpui::AnyElement {
@@ -385,6 +454,16 @@ impl PluginManager {
             Some(v) => format!("{name}  ·  {v}"),
             None => name.to_string(),
         };
+        let toggle = toggle.map(|(id, enabled)| {
+            let label = if enabled { "Disable" } else { "Enable" };
+            Button::new(("pm-toggle", idx), label)
+                .size(Size::Sm)
+                .variant(Variant::Subtle)
+                .on_click(cx.listener(move |this, _ev, _w, cx| {
+                    this.set_enabled(id.clone(), !enabled, cx);
+                }))
+                .into_any_element()
+        });
         let button = match action {
             RowAction::Install { name, busy } => {
                 let label = if busy { "Installing…" } else { "Install" };
@@ -454,9 +533,37 @@ impl PluginManager {
             .border_color(border)
             .text_color(text)
             .child(info)
+            .children(toggle)
             .child(button)
             .into_any_element()
     }
+}
+
+/// Manifest-parse the managed plugin dir for plugins disabled in
+/// `installed.toml` — they never come back from `plugin::load` (disabled means
+/// not loaded), but the manager must still list them with an Enable button.
+fn load_disabled() -> Vec<plugin::Plugin> {
+    let installed = plugin::Installed::load();
+    let Some(dir) = plugin::defaultdir() else {
+        return Vec::new();
+    };
+    let Ok(entries) = std::fs::read_dir(&dir) else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    for entry in entries.flatten() {
+        let manifest = entry.path().join(plugin::MANIFEST);
+        let Ok(text) = std::fs::read_to_string(&manifest) else {
+            continue;
+        };
+        if let Some(p) = plugin::parse(manifest, &text).0 {
+            if !installed.is_enabled(&p.id) {
+                out.push(p);
+            }
+        }
+    }
+    out.sort_by(|a, b| a.name.cmp(&b.name));
+    out
 }
 
 fn note(msg: &str, dim: gpui::Hsla) -> gpui::AnyElement {

@@ -67,7 +67,6 @@ terminal = { path = "../terminal" }
 theme = { path = "../theme" }
 updater = { path = "../updater" }
 vt = { path = "../vt" }
-workspace = { path = "../workspace" }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"

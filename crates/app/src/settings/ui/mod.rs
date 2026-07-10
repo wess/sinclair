@@ -72,7 +72,7 @@ impl SettingsView {
                     .flex()
                     .items_center()
                     .justify_center()
-                    .child(SharedString::from("P")),
+                    .child(SharedString::from("S")),
             )
             .child(
                 div()

@@ -111,21 +111,44 @@ pub enum Block {
     Unknown,
 }
 
-/// Force-terminate the process `pid` (a plugin runtime that blew its timeout).
+/// Force-terminate `pid` and everything it spawned. The child was started in
+/// its own session (see [`spawn_in_own_group`]), so killing the process group
+/// also reaps grandchildren — a `bun` runtime that forked `node` no longer
+/// leaves orphans. The direct-pid kill is the fallback for a child that died
+/// before `setsid` took effect.
 #[cfg(unix)]
-fn force_kill(pid: u32) {
-    unsafe { libc::kill(pid as libc::pid_t, libc::SIGKILL) };
+pub(crate) fn force_kill(pid: u32) {
+    unsafe {
+        libc::kill(-(pid as libc::pid_t), libc::SIGKILL);
+        libc::kill(pid as libc::pid_t, libc::SIGKILL);
+    }
 }
 
 /// Force-terminate the process `pid` via `taskkill /F /T` (also reaps its
 /// child tree). Dependency-free; `taskkill` ships with Windows.
 #[cfg(windows)]
-fn force_kill(pid: u32) {
+pub(crate) fn force_kill(pid: u32) {
     let _ = Command::new("taskkill")
         .args(["/PID", &pid.to_string(), "/F", "/T"])
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .status();
+}
+
+/// Put a plugin child in its own session/process group before exec, so a
+/// timeout kill can take out the whole tree (mirrors the terminal crate's pty
+/// spawn). No-op elsewhere; Windows uses `taskkill /T` instead.
+pub(crate) fn spawn_in_own_group(cmd: &mut Command) {
+    #[cfg(unix)]
+    unsafe {
+        use std::os::unix::process::CommandExt;
+        cmd.pre_exec(|| {
+            libc::setsid();
+            Ok(())
+        });
+    }
+    #[cfg(not(unix))]
+    let _ = cmd;
 }
 
 /// Invoke `plugin`'s runtime with `req`, returning the parsed response. The
@@ -148,12 +171,14 @@ pub fn invoke(plugin: &plugin::Plugin, req: &Request) -> Result<Response, String
     // Serialize before spawning so a serialize error can't leak a live child.
     let body = serde_json::to_vec(req).map_err(|e| e.to_string())?;
 
-    let mut child = Command::new(&program)
-        .args(&args)
+    let mut cmd = Command::new(&program);
+    cmd.args(&args)
         .current_dir(&plugin.path)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
+        .stderr(Stdio::piped());
+    spawn_in_own_group(&mut cmd);
+    let mut child = cmd
         .spawn()
         .map_err(|e| format!("spawn `{program}`: {e}. Is `{program}` installed and on your PATH?"))?;
 

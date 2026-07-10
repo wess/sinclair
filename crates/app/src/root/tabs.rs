@@ -49,6 +49,11 @@ impl WorkspaceView {
         if next == Some(SidebarPanel::Containers) {
             self.refresh_containers();
         }
+        // The Agents/Layouts panels render from the off-thread menu-data cache;
+        // re-snapshot it when one opens so the panel reflects current disk state.
+        if matches!(next, Some(SidebarPanel::Agents | SidebarPanel::Layouts)) {
+            self.refresh_menu_data(cx);
+        }
         // A panel `[webview]` hosts a native surface that only tracks its bounds
         // while painted; hide any whose drawer just closed (or switched away).
         self.reconcile_webview_visibility(cx);

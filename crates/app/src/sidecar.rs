@@ -32,6 +32,13 @@ static SERVICES: LazyLock<Mutex<HashMap<String, Service>>> =
 
 /// How long a freshly spawned service gets to start accepting connections.
 const READY: Duration = Duration::from_secs(5);
+/// After the port first answers, how long the child must stay alive before the
+/// port is trusted. The sidecar contract is that a hosted child binds exactly
+/// the assigned port or exits (the bundled `notes` exits 1 on a lost bind), so
+/// a foreign process squatting the reserved port shows up as "port answers but
+/// our child died" within this window and the boot fails instead of handing
+/// the session URL — and the bridge-injected webview — to an unknown server.
+const SETTLE: Duration = Duration::from_millis(600);
 /// SIGTERM-to-SIGKILL grace when reaping a closed service.
 const GRACE: Duration = Duration::from_secs(2);
 /// SIGTERM-to-SIGKILL grace at app quit (gpui gives quit observers ~200ms).
@@ -113,7 +120,11 @@ fn start(command: &str, dir: &Path) -> Result<(Child, u16, String), String> {
     let mut parts = command.split_whitespace();
     let program = resolve_program(parts.next().ok_or("empty service command")?);
     let args: Vec<&str> = parts.collect();
-    let port = reserve_port()?;
+    let reservation = reserve_port()?;
+    let port = reservation
+        .local_addr()
+        .map_err(|e| format!("read the reserved port: {e}"))?
+        .port();
     let token = mint_token();
     let mut cmd = Command::new(&program);
     cmd.args(&args)
@@ -140,6 +151,9 @@ fn start(command: &str, dir: &Path) -> Result<(Child, u16, String), String> {
             Ok(())
         });
     }
+    // Hold the reservation until the last moment before the spawn, keeping the
+    // window in which another local process could grab the port minimal.
+    drop(reservation);
     let mut child = cmd
         .spawn()
         .map_err(|e| format!("spawn `{program}`: {e}"))?;
@@ -147,21 +161,21 @@ fn start(command: &str, dir: &Path) -> Result<(Child, u16, String), String> {
     Ok((child, port, token))
 }
 
-/// Bind `127.0.0.1:0` and return the port the OS assigned. The listener is
-/// dropped here, just before the spawn, so the child can take the port; the
-/// tiny window in between is the accepted cost of not passing an fd.
-fn reserve_port() -> Result<u16, String> {
-    let listener = std::net::TcpListener::bind(("127.0.0.1", 0))
-        .map_err(|e| format!("reserve a service port: {e}"))?;
-    let port = listener
-        .local_addr()
-        .map_err(|e| format!("read the reserved port: {e}"))?
-        .port();
-    Ok(port)
+/// Bind `127.0.0.1:0` to reserve an OS-assigned port. The caller drops the
+/// listener immediately before the spawn so the child can take the port.
+fn reserve_port() -> Result<std::net::TcpListener, String> {
+    std::net::TcpListener::bind(("127.0.0.1", 0))
+        .map_err(|e| format!("reserve a service port: {e}"))
 }
 
-/// Wait (bounded) for the child to accept connections on its assigned port.
-/// An early exit is reported as such; a timeout reaps the half-started child.
+/// Wait (bounded) for the child to accept connections on its assigned port,
+/// then verify the listener really is our child: the sidecar contract says a
+/// hosted child binds exactly the assigned port or exits, so if the port
+/// answers while the child dies within the settle window, something else owns
+/// the port and the boot must fail rather than trust it (the page URL carries
+/// the session token, and the webview injects the native bridge into whatever
+/// it loads). An early exit is reported as such; a timeout reaps the
+/// half-started child.
 fn wait_ready(child: &mut Child, port: u16) -> Result<(), String> {
     let deadline = Instant::now() + READY;
     loop {
@@ -169,7 +183,7 @@ fn wait_ready(child: &mut Child, port: u16) -> Result<(), String> {
             return Err(format!("the service exited during startup ({status})"));
         }
         if port_alive(port) {
-            return Ok(());
+            break;
         }
         if Instant::now() >= deadline {
             terminate(child);
@@ -177,6 +191,20 @@ fn wait_ready(child: &mut Child, port: u16) -> Result<(), String> {
         }
         std::thread::sleep(POLL);
     }
+    // The port answers; require the child to outlive the settle window. A
+    // child that lost the bind race to a squatter exits here and fails the
+    // boot instead of the squatter being handed the session.
+    let settle = Instant::now() + SETTLE;
+    while Instant::now() < settle {
+        if let Ok(Some(status)) = child.try_wait() {
+            return Err(format!(
+                "the service exited right after its port came up ({status}) — \
+                 something else may be listening on port {port}"
+            ));
+        }
+        std::thread::sleep(POLL);
+    }
+    Ok(())
 }
 
 /// SIGTERM, wait out [`GRACE`], then SIGKILL.

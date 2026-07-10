@@ -27,6 +27,8 @@ pub(crate) enum EditTarget {
     Item(ListKind, usize),
     /// A new, not-yet-saved entry being typed for a repeated option.
     NewItem(ListKind),
+    /// Renaming a saved macro; carries the old name.
+    MacroName(String),
 }
 
 /// Result of probing a tool's reachability.
@@ -91,7 +93,9 @@ impl SettingsView {
             macros: Vec::new(),
             capture_macro: None,
             focus: cx.focus_handle(),
-            relay_running: crate::relay::running(),
+            // Probing the relay blocks (file read + TCP connect); start
+            // pessimistic and let the first off-thread poll fill it in.
+            relay_running: false,
             tool_tests: std::collections::HashMap::new(),
             slider_bounds: std::collections::HashMap::new(),
         };
@@ -142,12 +146,20 @@ impl SettingsView {
     }
 
     fn reload(&mut self) {
+        self.reload_opts();
+        self.macros = macros::defaultdir().map(|d| macros::load(&d)).unwrap_or_default();
+    }
+
+    /// Refresh only the parsed options after a write — the hot path for every
+    /// toggle and slider step. The workspace's config watcher is the single
+    /// *apply* path; this just keeps the settings display in sync. Macros are
+    /// not config-file state, so their directory scan stays out of here.
+    fn reload_opts(&mut self) {
         let (opts, diagnostics) = config::load();
         for d in &diagnostics {
             eprintln!("sinclair: config line {}: {} ({})", d.line, d.message, d.key);
         }
         self.opts = opts;
-        self.macros = macros::defaultdir().map(|d| macros::load(&d)).unwrap_or_default();
     }
 
     fn set_section(&mut self, section: Section, cx: &mut Context<Self>) {
@@ -227,7 +239,7 @@ impl SettingsView {
 
     fn toggle(&mut self, b: Bool, cx: &mut Context<Self>) {
         write_config(b.key(), &(!b.get(&self.opts)).to_string());
-        self.reload();
+        self.reload_opts();
         cx.notify();
     }
 
@@ -238,14 +250,14 @@ impl SettingsView {
         let value = n.value_at_fraction(frac);
         if (value - n.current(&self.opts)).abs() >= f32::EPSILON {
             write_config(n.key(), &n.fmt(value));
-            self.reload();
+            self.reload_opts();
             cx.notify();
         }
     }
 
     fn cycle(&mut self, c: Choice, dir: i32, cx: &mut Context<Self>) {
         write_config(c.key(), &c.write_value(&self.opts, dir));
-        self.reload();
+        self.reload_opts();
         cx.notify();
     }
 
@@ -260,7 +272,51 @@ impl SettingsView {
             EditTarget::Field(f) => self.start_field(f, window, cx),
             EditTarget::Item(k, i) => self.start_item(k, i, window, cx),
             EditTarget::NewItem(k) => self.start_new_item(k, window, cx),
+            EditTarget::MacroName(old) => self.start_macro_rename(old, window, cx),
         }
+    }
+
+    /// Begin renaming a saved macro inline (the Macros section's ✎ button).
+    pub(crate) fn start_macro_rename(&mut self, old: String, window: &mut Window, cx: &mut Context<Self>) {
+        self.editing = Some((EditTarget::MacroName(old.clone()), TextEdit::new(&old)));
+        self.capturing = false;
+        self.capture_macro = None;
+        window.focus(&self.focus, cx);
+        cx.notify();
+    }
+
+    /// Rename a saved macro: move its file, retarget any replay shortcut bound
+    /// to the old name, and drop the old name entirely.
+    fn rename_macro(&mut self, old: &str, new_raw: &str, cx: &mut Context<Self>) {
+        let Some(new) = macros::sanitize_name(new_raw) else {
+            eprintln!("sinclair: macro name `{new_raw}` has no usable characters");
+            return;
+        };
+        if new == old {
+            return;
+        }
+        let Some(dir) = macros::defaultdir() else {
+            return;
+        };
+        if let Err(error) = macros::rename(&dir, old, &new) {
+            eprintln!("sinclair: {error}");
+            return;
+        }
+        // Keep any shortcut pointing at the macro working under its new name.
+        let old_action = config::Action::MacroReplay(old.to_string());
+        let (mut binds, _) = config::resolve(&self.opts.keybind);
+        let mut changed = false;
+        for kb in &mut binds {
+            if kb.action == old_action {
+                kb.action = config::Action::MacroReplay(new.clone());
+                changed = true;
+            }
+        }
+        if changed {
+            write_list("keybind", &config::diff_from_defaults(&binds));
+        }
+        self.reload();
+        cx.notify();
     }
 
     fn start_field(&mut self, field: Field, window: &mut Window, cx: &mut Context<Self>) {
@@ -328,6 +384,11 @@ impl SettingsView {
                         let mut entries = kind.values(&self.opts);
                         entries.push(text.trim().to_string());
                         self.write_list(kind, &entries);
+                    }
+                }
+                EditTarget::MacroName(old) => {
+                    if !text.trim().is_empty() {
+                        self.rename_macro(&old, text.trim(), cx);
                     }
                 }
             }
@@ -486,29 +547,13 @@ fn tool_path(opts: &config::Options, tool: &str) -> Option<String> {
     p.clone().filter(|s| !s.trim().is_empty())
 }
 
-/// Write a single `key = value` line to the config file in place.
+/// Write a single `key = value` line to the config file. See `crate::confwrite`
+/// for the read-check + atomic-replace rules.
 fn write_config(key: &str, value: &str) {
-    let Some(path) = config::default_path() else {
-        return;
-    };
-    let text = std::fs::read_to_string(&path).unwrap_or_default();
-    let updated = config::upsert(&text, key, value);
-    persist(&path, &updated);
+    crate::confwrite::upsert(key, value);
 }
 
 /// Replace every line for a repeated `key` with the given values.
 fn write_list(key: &str, values: &[String]) {
-    let Some(path) = config::default_path() else {
-        return;
-    };
-    let text = std::fs::read_to_string(&path).unwrap_or_default();
-    let updated = config::set_list(&text, key, values);
-    persist(&path, &updated);
-}
-
-fn persist(path: &std::path::Path, contents: &str) {
-    if let Some(dir) = path.parent() {
-        let _ = std::fs::create_dir_all(dir);
-    }
-    let _ = std::fs::write(path, contents);
+    crate::confwrite::set_list(key, values);
 }

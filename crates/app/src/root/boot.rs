@@ -1,17 +1,10 @@
 use super::*;
 
 /// Upsert one `key = value` line into the user's config file, creating it if
-/// needed. Shared shape with the settings panel's writer.
+/// needed. Shared with the settings panel's writer (see `crate::confwrite`
+/// for the read-check + atomic-replace rules).
 pub(crate) fn write_config(key: &str, value: &str) {
-    let Some(path) = config::default_path() else {
-        return;
-    };
-    let text = std::fs::read_to_string(&path).unwrap_or_default();
-    let updated = config::upsert(&text, key, value);
-    if let Some(dir) = path.parent() {
-        let _ = std::fs::create_dir_all(dir);
-    }
-    let _ = std::fs::write(&path, updated);
+    crate::confwrite::upsert(key, value);
 }
 
 pub(crate) fn loadplugins(opts: &config::Options) -> Vec<plugin::Plugin> {

@@ -84,13 +84,15 @@ impl WorkspaceView {
         } else {
             panes[(i + panes.len() - 1) % panes.len()]
         };
-        // Activate the target pane through its active tab. With single-tab panes
-        // (the common case) this preserves the visible item.
+        // Activate the target pane through its *current* active tab, so cycling
+        // focus never resets a multi-tab pane back to its first item.
         let item = self
             .group
             .read(cx)
-            .pane_items(next)
-            .and_then(|items| items.first().copied());
+            .panes_with_items()
+            .into_iter()
+            .find(|(p, _, _)| *p == next)
+            .map(|(_, _, active)| active);
         if let Some(item) = item {
             self.group.update(cx, |g, cx| g.activate(next, item, cx));
             self.focusactive(window, cx);

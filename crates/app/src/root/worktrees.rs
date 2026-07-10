@@ -17,6 +17,74 @@ impl WorkspaceView {
             .ok_or_else(|| "no working directory for the focused pane".to_string())
     }
 
+    /// Create a worktree from a `path[@branch]` spec on the background executor
+    /// (a `worktree add` materializes a full checkout), opening the tab in the
+    /// completion callback. The keybind-action path; the MCP verb stays the
+    /// synchronous [`Self::worktree_create`] so it can answer its caller.
+    pub(crate) fn worktree_create_bg(&mut self, spec: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let repo = match self.repo_dir(cx) {
+            Ok(repo) => repo,
+            Err(e) => {
+                eprintln!("sinclair: worktree create failed: {e}");
+                return;
+            }
+        };
+        let Some(handle) = window.window_handle().downcast::<Self>() else {
+            return;
+        };
+        let spec = spec.to_string();
+        let executor = cx.background_executor().clone();
+        cx.spawn(async move |_this, cx| {
+            let dir = repo.clone();
+            let result = executor
+                .spawn(async move {
+                    let (path, branch) = split_spec(&spec);
+                    crate::worktree::create(&dir, path, branch)
+                })
+                .await;
+            let _ = handle.update(cx, |view, window, cx| match result {
+                Ok(abs) => {
+                    view.open_worktree_tab(&abs, window, cx);
+                    let ev = TriggerEvent::WorktreeCreated(abs.to_string_lossy().into_owned());
+                    view.fire_workspace_trigger(&ev, Some(&abs), window, cx);
+                }
+                Err(e) => eprintln!("sinclair: worktree create failed: {e}"),
+            });
+        })
+        .detach();
+    }
+
+    /// Remove a worktree on the background executor; fires `worktree_removed`
+    /// on completion. The keybind-action counterpart of [`Self::worktree_remove`].
+    pub(crate) fn worktree_remove_bg(&mut self, path: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let repo = match self.repo_dir(cx) {
+            Ok(repo) => repo,
+            Err(e) => {
+                eprintln!("sinclair: worktree remove failed: {e}");
+                return;
+            }
+        };
+        let Some(handle) = window.window_handle().downcast::<Self>() else {
+            return;
+        };
+        let path = path.to_string();
+        let executor = cx.background_executor().clone();
+        cx.spawn(async move |_this, cx| {
+            let dir = repo.clone();
+            let result = executor
+                .spawn(async move { crate::worktree::remove(&dir, &path) })
+                .await;
+            let _ = handle.update(cx, |view, window, cx| match result {
+                Ok(abs) => {
+                    let ev = TriggerEvent::WorktreeRemoved(abs.to_string_lossy().into_owned());
+                    view.fire_workspace_trigger(&ev, Some(&repo), window, cx);
+                }
+                Err(e) => eprintln!("sinclair: worktree remove failed: {e}"),
+            });
+        })
+        .detach();
+    }
+
     /// Create a worktree from a `path[@branch]` spec and open it in a new tab.
     pub(crate) fn worktree_create(
         &mut self,

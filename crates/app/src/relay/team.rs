@@ -202,11 +202,13 @@ pub fn launch_member(member: &str, role: &str, agent: &str, lead: bool, optimize
     let agent_flag = if agent.is_empty() {
         String::new()
     } else {
-        format!(" --agent {agent}")
+        format!(" --agent {}", sh_quote(agent))
     };
     keep_open(format!(
-        "\"{}\" --home \"{}\" launch {member} --role {role}{agent_flag}{flag}{opt}",
-        binary(),
-        home_str()
+        "{} --home {} launch {} --role {}{agent_flag}{flag}{opt}",
+        sh_quote(&binary()),
+        sh_quote(&home_str()),
+        sh_quote(member),
+        sh_quote(role)
     ))
 }

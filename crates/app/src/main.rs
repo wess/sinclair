@@ -10,6 +10,7 @@ mod boxdraw;
 mod bridge;
 mod catalog;
 mod colors;
+mod confwrite;
 mod element;
 mod envpath;
 mod notes;
@@ -254,18 +255,19 @@ pub(crate) fn open_window(
     {
         options.window_decorations = Some(gpui::WindowDecorations::Server);
     }
-    let handle = cx
-        .open_window(
-            options,
-            move |window, cx| {
-                cx.new(move |cx| {
-                    root::WorkspaceView::new(
-                        opts, colors, font, font_size, cell, pad, cols, rows, cwd, adopt, window, cx,
-                    )
-                })
-            },
-        )
-        .expect("open window");
+    let handle = match cx.open_window(options, move |window, cx| {
+        cx.new(move |cx| {
+            root::WorkspaceView::new(
+                opts, colors, font, font_size, cell, pad, cols, rows, cwd, adopt, window, cx,
+            )
+        })
+    }) {
+        Ok(handle) => handle,
+        Err(error) => {
+            eprintln!("sinclair: could not open a window: {error}");
+            return;
+        }
+    };
     // Bring the new window to the front (a torn-off tab must not open behind).
     handle
         .update(cx, |_view, window, _cx| window.activate_window())

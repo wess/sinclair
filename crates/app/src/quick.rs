@@ -1,8 +1,8 @@
 //! Quick Terminal: a Quake-style dropdown terminal.
 //!
-//! - Summoned by a global hotkey (default cmd+alt+t) even when Sinclair is not
-//!   the focused application, registered via Carbon `RegisterEventHotKey`,
-//!   which needs no Accessibility permission.
+//! - Summoned by a global hotkey (the `toggle_quick_terminal` binding, default
+//!   cmd+alt+t) even when Sinclair is not the focused application, registered
+//!   via Carbon `RegisterEventHotKey`, which needs no Accessibility permission.
 //! - Floats above every other app and Space (see [`crate::appkit`]).
 //! - A single instance whose shell persists across toggles: toggling hides
 //!   and re-shows the same window rather than respawning it.
@@ -37,8 +37,6 @@ const ROWS: usize = 20;
 /// Fraction of the display height the dropdown occupies.
 const HEIGHT_FRACTION: f32 = 0.42;
 const MIN_HEIGHT: f32 = 260.0;
-/// How often the global-hotkey event queue is drained (cheap, idle-friendly).
-const POLL: Duration = Duration::from_millis(60);
 /// Two Escapes within this window dismiss the quick terminal.
 const DOUBLE_ESC: Duration = Duration::from_millis(500);
 
@@ -46,26 +44,16 @@ const DOUBLE_ESC: Duration = Duration::from_millis(500);
 #[derive(Default)]
 struct QuickWindow {
     handle: Option<WindowHandle<QuickTerminalView>>,
-    /// Whether the window has been observed active since it was last shown.
-    /// Gates autohide so a freshly summoned window isn't hidden before macOS
-    /// finishes activating it.
-    seen_active: bool,
 }
 impl Global for QuickWindow {}
 
 impl QuickWindow {
-    fn set(cx: &mut App, handle: Option<WindowHandle<QuickTerminalView>>, seen_active: bool) {
-        cx.set_global(QuickWindow {
-            handle,
-            seen_active,
-        });
+    fn set(cx: &mut App, handle: Option<WindowHandle<QuickTerminalView>>) {
+        cx.set_global(QuickWindow { handle });
     }
 
-    fn current(cx: &App) -> (Option<WindowHandle<QuickTerminalView>>, bool) {
-        match cx.try_global::<QuickWindow>() {
-            Some(g) => (g.handle, g.seen_active),
-            None => (None, false),
-        }
+    fn current(cx: &App) -> Option<WindowHandle<QuickTerminalView>> {
+        cx.try_global::<QuickWindow>().and_then(|g| g.handle)
     }
 }
 
@@ -73,9 +61,67 @@ impl QuickWindow {
 struct Hotkeys(#[allow(dead_code)] GlobalHotKeyManager);
 impl Global for Hotkeys {}
 
-/// Register the global summon hotkey (cmd+alt+t) and start draining its
-/// events. Call once at startup. A failure (e.g. the combo is already owned
-/// by another app) is logged and leaves the in-app menu/keybind working.
+/// The user's `toggle_quick_terminal` binding, if one is resolvable from the
+/// config (defaults included). Drives both the global summon hotkey and the
+/// in-window dismiss chord, so a rebind applies to both.
+fn toggle_binding(opts: &config::Options) -> Option<(config::Mods, String)> {
+    let (binds, _) = config::resolve(&opts.keybind);
+    binds
+        .into_iter()
+        .find(|kb| kb.action == config::Action::ToggleQuickTerminal && kb.tail.is_empty())
+        .map(|kb| (kb.mods, kb.key))
+}
+
+/// Map a config binding onto a `global_hotkey` registration. `None` when the
+/// key has no OS-level code mapping (the in-app binding still works).
+fn hotkey_for(mods: &config::Mods, key: &str) -> Option<HotKey> {
+    let mut m = Modifiers::empty();
+    if mods.cmd {
+        m |= Modifiers::SUPER;
+    }
+    if mods.ctrl {
+        m |= Modifiers::CONTROL;
+    }
+    if mods.alt {
+        m |= Modifiers::ALT;
+    }
+    if mods.shift {
+        m |= Modifiers::SHIFT;
+    }
+    let code = key_code(key)?;
+    Some(HotKey::new((!m.is_empty()).then_some(m), code))
+}
+
+/// OS key code for a config key name (letters, digits, F-keys, and the few
+/// symbols that make sense as a global summon key).
+fn key_code(key: &str) -> Option<Code> {
+    let k = key.to_ascii_lowercase();
+    let code = match k.as_str() {
+        "a" => Code::KeyA, "b" => Code::KeyB, "c" => Code::KeyC, "d" => Code::KeyD,
+        "e" => Code::KeyE, "f" => Code::KeyF, "g" => Code::KeyG, "h" => Code::KeyH,
+        "i" => Code::KeyI, "j" => Code::KeyJ, "k" => Code::KeyK, "l" => Code::KeyL,
+        "m" => Code::KeyM, "n" => Code::KeyN, "o" => Code::KeyO, "p" => Code::KeyP,
+        "q" => Code::KeyQ, "r" => Code::KeyR, "s" => Code::KeyS, "t" => Code::KeyT,
+        "u" => Code::KeyU, "v" => Code::KeyV, "w" => Code::KeyW, "x" => Code::KeyX,
+        "y" => Code::KeyY, "z" => Code::KeyZ,
+        "0" => Code::Digit0, "1" => Code::Digit1, "2" => Code::Digit2, "3" => Code::Digit3,
+        "4" => Code::Digit4, "5" => Code::Digit5, "6" => Code::Digit6, "7" => Code::Digit7,
+        "8" => Code::Digit8, "9" => Code::Digit9,
+        "f1" => Code::F1, "f2" => Code::F2, "f3" => Code::F3, "f4" => Code::F4,
+        "f5" => Code::F5, "f6" => Code::F6, "f7" => Code::F7, "f8" => Code::F8,
+        "f9" => Code::F9, "f10" => Code::F10, "f11" => Code::F11, "f12" => Code::F12,
+        "space" => Code::Space,
+        "`" | "backquote" | "grave" => Code::Backquote,
+        _ => return None,
+    };
+    Some(code)
+}
+
+/// Register the global summon hotkey (the user's `toggle_quick_terminal`
+/// binding, default cmd+alt+t) and drain its events on a blocking background
+/// thread — no foreground polling. Call once at startup. A failure (e.g. the
+/// combo is already owned by another app) is logged and leaves the in-app
+/// menu/keybind working.
 pub fn install_global_hotkey(cx: &mut App) {
     let manager = match GlobalHotKeyManager::new() {
         Ok(manager) => manager,
@@ -84,70 +130,50 @@ pub fn install_global_hotkey(cx: &mut App) {
             return;
         }
     };
-    let hotkey = HotKey::new(Some(Modifiers::SUPER | Modifiers::ALT), Code::KeyT);
+    let (opts, _) = config::load();
+    let hotkey = toggle_binding(&opts)
+        .and_then(|(mods, key)| hotkey_for(&mods, &key))
+        .unwrap_or_else(|| HotKey::new(Some(Modifiers::SUPER | Modifiers::ALT), Code::KeyT));
     if let Err(error) = manager.register(hotkey) {
-        eprintln!("sinclair: quick terminal: could not register cmd+alt+t: {error}");
+        eprintln!("sinclair: quick terminal: could not register the summon hotkey: {error}");
     }
     cx.set_global(Hotkeys(manager));
 
     let id = hotkey.id();
     let receiver = GlobalHotKeyEvent::receiver().clone();
-    let executor = cx.background_executor().clone();
-    cx.spawn(async move |cx| loop {
-        executor.timer(POLL).await;
-        let mut fire = false;
-        while let Ok(event) = receiver.try_recv() {
-            if event.id == id && event.state == HotKeyState::Pressed {
-                fire = true;
+    let (tx, mut rx) = futures::channel::mpsc::unbounded::<()>();
+    std::thread::Builder::new()
+        .name("quickhotkey".to_string())
+        .spawn(move || {
+            // Blocking drain: the thread parks between presses.
+            while let Ok(event) = receiver.recv() {
+                if event.id == id
+                    && event.state == HotKeyState::Pressed
+                    && tx.unbounded_send(()).is_err()
+                {
+                    return;
+                }
             }
-        }
-        if fire {
+        })
+        .ok();
+    cx.spawn(async move |cx| {
+        while rx.next().await.is_some() {
             cx.update(toggle);
-        } else {
-            cx.update(autohide);
         }
     })
     .detach();
-}
-
-/// Quake-style autohide: once the window has been seen active, hide it the
-/// moment it loses focus (the user clicked another app or window). macOS only;
-/// it relies on the overlay hide/show that other platforms stub out.
-#[cfg(not(target_os = "macos"))]
-fn autohide(_cx: &mut App) {}
-
-#[cfg(target_os = "macos")]
-fn autohide(cx: &mut App) {
-    let (Some(handle), seen_active) = QuickWindow::current(cx) else {
-        return;
-    };
-    let Ok(true) = handle.update(cx, |_, window, _| appkit::is_visible(window)) else {
-        if seen_active {
-            QuickWindow::set(cx, Some(handle), false);
-        }
-        return;
-    };
-    let active = handle.is_active(cx).unwrap_or(false);
-    if active {
-        if !seen_active {
-            QuickWindow::set(cx, Some(handle), true);
-        }
-    } else if seen_active {
-        handle.update(cx, |_, window, _| appkit::hide(window)).ok();
-        QuickWindow::set(cx, Some(handle), false);
-    }
 }
 
 /// Toggle the quick terminal: hide it if shown, reveal it if hidden, or open
 /// it the first time. Self-contained so the global hotkey can drive it with
 /// no focused workspace.
 pub fn toggle(cx: &mut App) {
-    if let (Some(handle), _) = QuickWindow::current(cx) {
+    if let Some(handle) = QuickWindow::current(cx) {
         if handle.is_active(cx).is_some() {
             toggle_alive(handle, cx);
             return;
         }
-        QuickWindow::set(cx, None, false);
+        QuickWindow::set(cx, None);
     }
     open(cx);
 }
@@ -171,7 +197,7 @@ fn toggle_alive(handle: WindowHandle<QuickTerminalView>, cx: &mut App) {
             })
             .ok();
     }
-    QuickWindow::set(cx, Some(handle), false);
+    QuickWindow::set(cx, Some(handle));
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -179,7 +205,7 @@ fn toggle_alive(handle: WindowHandle<QuickTerminalView>, cx: &mut App) {
     handle
         .update(cx, |_, window, _| window.remove_window())
         .ok();
-    QuickWindow::set(cx, None, false);
+    QuickWindow::set(cx, None);
 }
 
 /// Window kind for the quick terminal: a Wayland layer-shell overlay where
@@ -208,6 +234,7 @@ fn apply_overlay(window: &gpui::Window) {
 /// Open a fresh quick-terminal window dropped over the active display.
 fn open(cx: &mut App) {
     let (opts, _diagnostics) = config::load();
+    let toggle_chord = toggle_binding(&opts);
     let palette = Rc::new(colors::from_config(
         &opts,
         crate::root::is_dark(cx.window_appearance()),
@@ -275,6 +302,7 @@ fn open(cx: &mut App) {
                     unfocused_split_opacity,
                     suggest_cfg,
                     fallback,
+                    toggle_chord,
                     window,
                     cx,
                 )
@@ -284,14 +312,19 @@ fn open(cx: &mut App) {
 
     if let Ok(handle) = handle {
         handle.update(cx, |_, window, _| apply_overlay(window)).ok();
-        QuickWindow::set(cx, Some(handle), false);
+        QuickWindow::set(cx, Some(handle));
         cx.activate(true);
     }
 }
 
-/// A full-width band across the top of the active display.
-fn dropdown_bounds(cx: &App) -> Bounds<gpui::Pixels> {
-    match cx.primary_display() {
+/// A full-width band across the top of the display hosting the active (key)
+/// window, falling back to the primary display when no window is active.
+fn dropdown_bounds(cx: &mut App) -> Bounds<gpui::Pixels> {
+    let active = cx
+        .active_window()
+        .and_then(|handle| handle.update(cx, |_, window, cx| window.display(cx)).ok())
+        .flatten();
+    match active.or_else(|| cx.primary_display()) {
         Some(display) => {
             let screen = display.bounds();
             let height = (f32::from(screen.size.height) * HEIGHT_FRACTION).max(MIN_HEIGHT);
@@ -312,7 +345,15 @@ pub struct QuickTerminalView {
     focus: FocusHandle,
     /// Timestamp of the last lone Escape, for double-Escape dismissal.
     last_esc: Option<Instant>,
+    /// The user's `toggle_quick_terminal` chord; pressing it inside the window
+    /// dismisses (hides) it, mirroring the summon key.
+    toggle_chord: Option<(config::Mods, String)>,
     _subscription: Subscription,
+    /// Quake-style autohide: hide the moment the window resigns key (macOS
+    /// only — it relies on the overlay hide/show other platforms stub out).
+    /// Event-driven via the window-activation observer; no polling.
+    #[cfg(target_os = "macos")]
+    _activation: Subscription,
 }
 
 impl QuickTerminalView {
@@ -335,6 +376,7 @@ impl QuickTerminalView {
         unfocused_split_opacity: f32,
         suggest_cfg: crate::suggest::SuggestConfig,
         fallback: String,
+        toggle_chord: Option<(config::Mods, String)>,
         window: &mut gpui::Window,
         cx: &mut Context<Self>,
     ) -> Self {
@@ -383,12 +425,25 @@ impl QuickTerminalView {
             },
         );
 
+        // Hide the moment the window resigns key (the user clicked another app
+        // or window). The observer only fires on changes, so a freshly summoned
+        // window that hasn't become key yet is never hidden prematurely.
+        #[cfg(target_os = "macos")]
+        let activation = cx.observe_window_activation(window, |_this, window, _cx| {
+            if !window.is_window_active() {
+                appkit::hide(window);
+            }
+        });
+
         window.focus(&view.focus_handle(cx), cx);
         Self {
             view,
             focus: cx.focus_handle(),
             last_esc: None,
+            toggle_chord,
             _subscription: subscription,
+            #[cfg(target_os = "macos")]
+            _activation: activation,
         }
     }
 
@@ -421,13 +476,22 @@ impl QuickTerminalView {
         }
     }
 
-    /// The toggle hotkey (cmd+alt+t) also dismisses the window from inside,
-    /// hiding it so the session is kept. Cmd chords are never encoded by the
-    /// terminal, so the keystroke bubbles up here instead of hitting the shell.
+    /// The toggle hotkey (the user's `toggle_quick_terminal` binding) also
+    /// dismisses the window from inside, hiding it so the session is kept.
+    /// Modifier chords are never encoded by the terminal, so the keystroke
+    /// bubbles up here instead of hitting the shell.
     fn key_down(&mut self, event: &KeyDownEvent, window: &mut gpui::Window, cx: &mut Context<Self>) {
+        let Some((mods, key)) = &self.toggle_chord else {
+            return;
+        };
         let ks = &event.keystroke;
         let m = &ks.modifiers;
-        if m.platform && m.alt && !m.control && !m.shift && ks.key == "t" {
+        if m.platform == mods.cmd
+            && m.alt == mods.alt
+            && m.control == mods.ctrl
+            && m.shift == mods.shift
+            && ks.key.eq_ignore_ascii_case(key)
+        {
             self.dismiss(window);
             cx.stop_propagation();
         }

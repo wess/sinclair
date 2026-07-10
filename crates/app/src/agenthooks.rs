@@ -142,9 +142,12 @@ fn current_exe() -> String {
         .unwrap_or_else(|| "sinclair".to_string())
 }
 
-/// The hook command for `state`, e.g. `/path/to/sinclair agent-status working`.
+/// The hook command for `state`, e.g. `'/path/to/sinclair' agent-status working`.
+/// The executable path is shell-quoted: hooks run through a shell, and an
+/// install path containing a space (or quote) would otherwise produce a
+/// permanently broken hook in the settings file.
 fn command_for(exe: &str, state: &str) -> String {
-    format!("{exe} {MARKER} {state}")
+    format!("{} {MARKER} {state}", crate::relay::sh_quote(exe))
 }
 
 fn settings_path(project: bool) -> Option<PathBuf> {

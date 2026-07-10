@@ -9,7 +9,7 @@
 //!
 //! Routing: a page calls `Sinclair.invoke(method, params)`. Known methods are the
 //! app's MCP capabilities (`run_command`, `read_screen`, …) and run through the
-//! main workspace's [`WorkspaceView::mcp_dispatch`]. Anything else is forwarded
+//! active workspace's [`crate::root::WorkspaceView::mcp_dispatch`]. Anything else is forwarded
 //! to the surface's `runtime` (if any) as a `message` request. The reply
 //! resolves the page's promise via `evaluate_script`.
 
@@ -22,7 +22,6 @@ use guise::{WebView, WebViewEvent};
 use serde_json::Value;
 
 use crate::pluginhost;
-use crate::root::WorkspaceView;
 
 /// Where a surface gets its content and how it comes up.
 pub enum SurfaceContent {
@@ -298,11 +297,10 @@ impl PluginWebView {
             .to_string();
         let params = msg.get("params").cloned().unwrap_or(Value::Null);
 
-        // Try the app's built-in capabilities on the main workspace window.
-        let handle = cx
-            .windows()
-            .into_iter()
-            .find_map(|w| w.downcast::<WorkspaceView>());
+        // Try the app's built-in capabilities on the active workspace window —
+        // with several windows open, bridge commands must land where the user
+        // is, not in an arbitrary first window.
+        let handle = crate::mcpbridge::active_workspace(cx);
         let dispatched = handle.map(|h| {
             h.update(cx, |ws, window, cx| {
                 ws.mcp_dispatch(&method, &params, window, cx)
@@ -380,13 +378,10 @@ impl PluginWebView {
             .evaluate_script(&format!("window.__sinclairDeliver({json});"));
     }
 
-    /// The focused pane's working directory on the main workspace, so a plugin
-    /// runtime acts on the right place.
+    /// The focused pane's working directory on the active workspace, so a
+    /// plugin runtime acts on the right place.
     fn focused_cwd(&self, cx: &mut Context<Self>) -> Option<String> {
-        let handle = cx
-            .windows()
-            .into_iter()
-            .find_map(|w| w.downcast::<WorkspaceView>())?;
+        let handle = crate::mcpbridge::active_workspace(cx)?;
         handle
             .update(cx, |ws, _window, cx| ws.focused_cwd(cx))
             .ok()

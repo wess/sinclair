@@ -68,8 +68,17 @@ impl Render for WorkspaceView {
         }
 
         // The group renders the whole tree of tabbed splits (per-pane tab bars,
-        // dividers, drag/drop) itself.
-        let content: AnyElement = self.group.clone().into_any_element();
+        // dividers, drag/drop) itself. A window with no live items at all (the
+        // startup shell failed to spawn, e.g. a bad `shell =`) shows the error
+        // instead — exiting here would kill every window on NewWindow.
+        let content: AnyElement = if self.items.borrow().is_empty() {
+            match self.spawn_error.as_deref() {
+                Some(error) => spawn_error_view(error, &self.colors),
+                None => self.group.clone().into_any_element(),
+            }
+        } else {
+            self.group.clone().into_any_element()
+        };
         // Content row: [left drawer?] [splits] [right drawer?]. Drawers are
         // fixed-width and hidden unless a panel is active on that side.
         let left = self
@@ -128,6 +137,41 @@ impl Render for WorkspaceView {
 
         base
     }
+}
+
+/// Full-window notice shown when the startup shell could not be spawned:
+/// the error itself plus a hint at the config key that usually causes it.
+fn spawn_error_view(error: &str, palette: &Colors) -> AnyElement {
+    let fg = colors::hsla(palette.fg);
+    let mut dim = fg;
+    dim.a = 0.65;
+    let accent = colors::hsla(theme::Rgb::new(230, 80, 80));
+    div()
+        .flex_1()
+        .min_h(px(0.0))
+        .flex()
+        .flex_col()
+        .items_center()
+        .justify_center()
+        .gap_2()
+        .px_8()
+        .text_color(fg)
+        .child(
+            div()
+                .text_size(px(15.0))
+                .text_color(accent)
+                .child(SharedString::from("The shell could not be started")),
+        )
+        .child(div().text_size(px(13.0)).child(SharedString::from(error.to_string())))
+        .child(
+            div()
+                .text_size(px(12.0))
+                .text_color(dim)
+                .child(SharedString::from(
+                    "Check the `shell =` line in ~/.config/sinclair/config, then open a new tab or window.",
+                )),
+        )
+        .into_any_element()
 }
 
 /// A floating pill shown while a cast recording is capturing, stacked below

@@ -288,6 +288,15 @@ pub fn handle(op: &str, args: &Value, cx: &mut App) -> Result<Value, String> {
         crate::quick::toggle(cx);
         return Ok(json!({ "ok": true }));
     }
+    // Agent status reports are local UX (the status dots for panes this
+    // instance spawned), not exposure — like toggle_quick they stay available.
+    // Every other op is the MCP tool-dispatch surface, gated on the live
+    // "MCP server" setting (config reload applies it without a restart).
+    // Debug builds skip the gate: `sinclair ipc` is the documented dev drive
+    // surface and is compiled out of release builds.
+    if op != "report_agent" && !cfg!(debug_assertions) && !mcp_enabled(cx) {
+        return Err("the MCP server is disabled (Settings \u{2192} AI \u{2192} MCP server)".to_string());
+    }
     if op == "notify" {
         let body = args.get("body").and_then(Value::as_str).unwrap_or_default();
         let title = args.get("title").and_then(Value::as_str).unwrap_or("Sinclair");
@@ -326,9 +335,18 @@ pub fn handle(op: &str, args: &Value, cx: &mut App) -> Result<Value, String> {
         .map_err(|_| "terminal window is gone".to_string())?
 }
 
+/// Whether the live config exposes this terminal over MCP. Read from a
+/// workspace's options (kept fresh by the config watcher) so a reload applies
+/// without restarting. With no workspace window there is nothing to expose.
+fn mcp_enabled(cx: &mut App) -> bool {
+    active_workspace(cx)
+        .and_then(|w| w.update(cx, |view, _window, _cx| view.mcp_enabled()).ok())
+        .unwrap_or(false)
+}
+
 /// The frontmost workspace window, falling back to any workspace window when
 /// none is currently active (e.g. another app has focus).
-fn active_workspace(cx: &mut App) -> Option<WindowHandle<WorkspaceView>> {
+pub(crate) fn active_workspace(cx: &mut App) -> Option<WindowHandle<WorkspaceView>> {
     let mut fallback = None;
     for handle in cx.windows() {
         if let Some(workspace) = handle.downcast::<WorkspaceView>() {

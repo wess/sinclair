@@ -19,12 +19,20 @@ use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use futures::StreamExt;
 use gpui::App;
 use serde_json::{json, Value};
 
-const POLL: Duration = Duration::from_millis(60);
 /// How long the server waits for a client to send its request line.
-const READ_TIMEOUT: Duration = Duration::from_millis(500);
+const READ_TIMEOUT: Duration = Duration::from_secs(2);
+/// How long the server spends writing a reply to a client that isn't reading.
+const WRITE_TIMEOUT: Duration = Duration::from_secs(2);
+/// How long the socket thread waits for the foreground to answer a dispatch.
+const DISPATCH_TIMEOUT: Duration = Duration::from_secs(30);
+/// Client-side transport timeouts, so `sinclair mcp` calls and agent lifecycle
+/// hooks never block forever on a wedged GUI.
+const CLIENT_READ_TIMEOUT: Duration = Duration::from_secs(15);
+const CLIENT_WRITE_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Directory that holds the socket: `$XDG_RUNTIME_DIR` (already a private
 /// per-user dir on Linux) when set, otherwise a per-user subdirectory of the
@@ -34,11 +42,11 @@ fn socket_dir() -> PathBuf {
         return PathBuf::from(dir);
     }
     let uid = unsafe { libc::getuid() };
-    std::env::temp_dir().join(format!("prompt-{uid}"))
+    std::env::temp_dir().join(format!("sinclair-{uid}"))
 }
 
 /// Per-user socket path under [`socket_dir`], keyed by app identity so a dev
-/// build (`sinclairdev`) and an installed `prompt` own separate sockets and run as
+/// build (`sinclairdev`) and an installed `sinclair` own separate sockets and run as
 /// fully independent instances. This is intentionally derived, not read from
 /// `SINCLAIR_SOCKET`: the running app injects that var into child shells (so
 /// external tooling can reach it), and honoring it here would make a dev build
@@ -158,6 +166,10 @@ pub fn run_cli(args: &[String]) -> i32 {
 pub fn request(op: &str, args: &Value) -> Result<Value, String> {
     let mut stream = UnixStream::connect(socket_path())
         .map_err(|_| "no running sinclair instance".to_string())?;
+    // Bounded transport: a wedged GUI must not hang MCP calls or agent
+    // lifecycle hooks forever.
+    let _ = stream.set_read_timeout(Some(CLIENT_READ_TIMEOUT));
+    let _ = stream.set_write_timeout(Some(CLIENT_WRITE_TIMEOUT));
     let line = json!({ "op": op, "args": args }).to_string();
     stream
         .write_all(line.as_bytes())
@@ -181,33 +193,75 @@ pub fn request(op: &str, args: &Value) -> Result<Value, String> {
     }
 }
 
+/// A parsed request the socket thread hands to the gpui foreground: the op,
+/// its args, and the channel its JSON response comes back on.
+struct Job {
+    op: String,
+    args: Value,
+    reply: std::sync::mpsc::Sender<Value>,
+}
+
 /// Server: own the socket (unless another instance already does) and service
-/// one request per connection.
+/// one request per connection. All socket I/O — accept, the request read, and
+/// the response write — happens on a dedicated blocking thread so a silent or
+/// non-reading client can never stall rendering; only the actual op dispatch
+/// is marshalled to the gpui foreground.
 pub fn listen(cx: &mut App) {
-    let Some(listener) = bind(&socket_path()) else {
-        return;
+    let path = socket_path();
+    let listener = match bind(&path) {
+        Ok(listener) => listener,
+        Err(reason) => {
+            eprintln!("sinclair: ipc: not listening on {}: {reason}", path.display());
+            return;
+        }
     };
-    if listener.set_nonblocking(true).is_err() {
+    let (jobs, mut queue) = futures::channel::mpsc::unbounded::<Job>();
+    if std::thread::Builder::new()
+        .name("ipc".to_string())
+        .spawn(move || accept_loop(listener, jobs))
+        .is_err()
+    {
+        eprintln!("sinclair: ipc: could not start the socket thread");
         return;
     }
-    let executor = cx.background_executor().clone();
-    cx.spawn(async move |cx| loop {
-        executor.timer(POLL).await;
-        while let Ok((stream, _)) = listener.accept() {
-            serve(stream, cx).await;
+    cx.spawn(async move |cx| {
+        while let Some(job) = queue.next().await {
+            let response = match cx.update(|cx| crate::mcpbridge::handle(&job.op, &job.args, cx)) {
+                Ok(result) => json!({ "ok": true, "result": result }),
+                Err(error) => json!({ "ok": false, "error": error }),
+            };
+            let _ = job.reply.send(response);
         }
     })
     .detach();
 }
 
-/// Read one request from `stream`, dispatch it against app state, and write
-/// the response back.
-async fn serve(stream: UnixStream, cx: &gpui::AsyncApp) {
+/// Blocking accept loop on the socket thread. Connections are served one at a
+/// time — the protocol is one short request/response per connection, and every
+/// stall is bounded by the stream timeouts.
+fn accept_loop(listener: UnixListener, jobs: futures::channel::mpsc::UnboundedSender<Job>) {
+    loop {
+        match listener.accept() {
+            Ok((stream, _)) => serve(stream, &jobs),
+            // Transient accept failure (EINTR, resource pressure): back off
+            // briefly instead of spinning.
+            Err(_) => std::thread::sleep(Duration::from_millis(50)),
+        }
+        if jobs.is_closed() {
+            return;
+        }
+    }
+}
+
+/// Read one request from `stream`, dispatch it via the foreground queue, and
+/// write the response back. Runs on the socket thread; every read/write is
+/// bounded by a timeout.
+fn serve(stream: UnixStream, jobs: &futures::channel::mpsc::UnboundedSender<Job>) {
     if peer_uid(&stream) != Some(unsafe { libc::getuid() }) {
         return;
     }
-    let _ = stream.set_nonblocking(false);
     let _ = stream.set_read_timeout(Some(READ_TIMEOUT));
+    let _ = stream.set_write_timeout(Some(WRITE_TIMEOUT));
     let mut line = String::new();
     if BufReader::new(&stream).read_line(&mut line).is_err() {
         return;
@@ -216,9 +270,14 @@ async fn serve(stream: UnixStream, cx: &gpui::AsyncApp) {
         Ok(req) => {
             let op = req.get("op").and_then(Value::as_str).unwrap_or_default().to_string();
             let args = req.get("args").cloned().unwrap_or(Value::Null);
-            match cx.update(|cx| crate::mcpbridge::handle(&op, &args, cx)) {
-                Ok(result) => json!({ "ok": true, "result": result }),
-                Err(error) => json!({ "ok": false, "error": error }),
+            let (tx, rx) = std::sync::mpsc::channel();
+            if jobs.unbounded_send(Job { op, args, reply: tx }).is_err() {
+                json!({ "ok": false, "error": "sinclair is shutting down" })
+            } else {
+                match rx.recv_timeout(DISPATCH_TIMEOUT) {
+                    Ok(response) => response,
+                    Err(_) => json!({ "ok": false, "error": "the terminal did not answer in time" }),
+                }
             }
         }
         Err(e) => json!({ "ok": false, "error": format!("bad request: {e}") }),
@@ -232,21 +291,21 @@ async fn serve(stream: UnixStream, cx: &gpui::AsyncApp) {
 
 /// Bind the socket inside a private directory, clearing a stale file left by a
 /// crashed instance, and lock the socket to owner-only access.
-fn bind(path: &Path) -> Option<UnixListener> {
+fn bind(path: &Path) -> Result<UnixListener, String> {
     if let Some(dir) = path.parent() {
         if !ensure_private_dir(dir) {
-            return None;
+            return Err(format!("{} is not a private per-user directory", dir.display()));
         }
     }
     let listener = match UnixListener::bind(path) {
         Ok(listener) => listener,
         Err(_) if UnixStream::connect(path).is_err() => {
             let _ = std::fs::remove_file(path);
-            UnixListener::bind(path).ok()?
+            UnixListener::bind(path).map_err(|e| format!("bind after clearing a stale socket: {e}"))?
         }
-        Err(_) => return None,
+        Err(_) => return Err("another instance already owns the socket".to_string()),
     };
     use std::os::unix::fs::PermissionsExt;
     let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600));
-    Some(listener)
+    Ok(listener)
 }
