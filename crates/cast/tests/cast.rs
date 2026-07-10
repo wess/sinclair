@@ -1,5 +1,6 @@
 use super::*;
 use std::io::Read;
+use std::path::Path;
 
 fn read(path: &Path) -> String {
     let mut s = String::new();
@@ -62,5 +63,27 @@ fn invalid_bytes_flush_lossily() {
         serde_json::from_str(text.lines().nth(1).unwrap()).unwrap();
     // The invalid byte becomes U+FFFD; the valid byte survives.
     assert!(event[2].as_str().unwrap().ends_with('x'));
+    let _ = std::fs::remove_file(&saved);
+}
+
+#[test]
+fn invalid_byte_does_not_flush_a_split_char_behind_it() {
+    let path = tmp("invalidsplit");
+    let mut rec = Recorder::create(path.clone(), 10, 2, None, None).unwrap();
+    // Chunk ends with [invalid byte, first half of "é"]; the second half
+    // arrives in the next chunk and the char must survive intact.
+    let bytes = "é".as_bytes();
+    rec.output(&[0xff, bytes[0]]).unwrap();
+    rec.output(&bytes[1..]).unwrap();
+    let saved = rec.finish().unwrap();
+    let text = read(&saved);
+    let events: Vec<serde_json::Value> = text
+        .lines()
+        .skip(1)
+        .map(|l| serde_json::from_str(l).unwrap())
+        .collect();
+    assert_eq!(events.len(), 2);
+    assert_eq!(events[0][2], "\u{FFFD}");
+    assert_eq!(events[1][2], "é");
     let _ = std::fs::remove_file(&saved);
 }

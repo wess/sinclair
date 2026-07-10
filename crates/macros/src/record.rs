@@ -35,13 +35,6 @@ impl Recorder {
         self.lines.clear();
     }
 
-    /// Abort capture and drop everything buffered.
-    pub fn cancel(&mut self) {
-        self.active = false;
-        self.line.clear();
-        self.lines.clear();
-    }
-
     /// Stop capture and return the captured command lines. A non-empty
     /// in-progress line (no trailing Enter) is included as a final command.
     pub fn finish(&mut self) -> Vec<String> {
@@ -70,16 +63,6 @@ impl Recorder {
                 }
             }
         }
-    }
-
-    /// Number of commands captured so far (excluding the in-progress line).
-    pub fn len(&self) -> usize {
-        self.lines.len()
-    }
-
-    /// Whether no commands have been captured yet.
-    pub fn is_empty(&self) -> bool {
-        self.lines.is_empty()
     }
 
     fn flush_line(&mut self) {

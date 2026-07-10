@@ -72,11 +72,6 @@ impl Cast {
     pub fn output(&self) -> impl Iterator<Item = &Event> {
         self.events.iter().filter(|e| e.kind == EventKind::Output)
     }
-
-    /// Time of the last event, or `0.0` when there are none.
-    pub fn duration(&self) -> f64 {
-        self.events.last().map(|e| e.time).unwrap_or(0.0)
-    }
 }
 
 /// Parse a recording from any reader. The first non-blank line must be the

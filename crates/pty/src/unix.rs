@@ -18,15 +18,21 @@ pub struct PtyPair {
     pub slave: OwnedFd,
 }
 
-/// Open a master/slave pty pair. The master is close-on-exec; the slave is
-/// not (it must survive into `pre_exec`, which closes it after dup2).
+/// Open a master/slave pty pair. Both fds are close-on-exec so a concurrent
+/// spawn on another thread cannot inherit them and hold the pty open; the
+/// child's `pre_exec` runs after fork (before exec), so it still sees the
+/// slave, and its dup2 onto stdin/stdout/stderr produces plain copies.
 pub fn open_pair() -> io::Result<PtyPair> {
     let master = openpt(OpenptFlags::RDWR | OpenptFlags::NOCTTY)?;
     grantpt(&master)?;
     unlockpt(&master)?;
     rustix::io::fcntl_setfd(&master, FdFlags::CLOEXEC)?;
     let path = ptsname(&master, Vec::new())?;
-    let slave = rustix::fs::open(&path, OFlags::RDWR | OFlags::NOCTTY, Mode::empty())?;
+    let slave = rustix::fs::open(
+        &path,
+        OFlags::RDWR | OFlags::NOCTTY | OFlags::CLOEXEC,
+        Mode::empty(),
+    )?;
     Ok(PtyPair { master, slave })
 }
 

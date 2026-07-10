@@ -36,6 +36,68 @@ fn write_reaches_child() {
 }
 
 #[test]
+fn writes_arrive_in_order() {
+    let (session, rx) = Session::spawn(command(&[
+        "/bin/sh",
+        "-c",
+        "read a; read b; [ \"$a$b\" = onetwo ] && exit 3; exit 1",
+    ]))
+    .expect("spawn");
+    session.write(b"one\n").expect("write one");
+    session.write(b"two\n").expect("write two");
+    let (_, code) = drain_until_exit(&rx);
+    assert_eq!(code, Some(3));
+}
+
+#[test]
+fn large_input_is_delivered_completely() {
+    // head exits only once it has read exactly this many bytes from the tty.
+    const TOTAL: usize = 256 * 1024;
+    let (session, rx) = Session::spawn(command(&[
+        "/bin/sh",
+        "-c",
+        &format!("head -c {TOTAL} >/dev/null; exit 9"),
+    ]))
+    .expect("spawn");
+    // Newlines keep each line under the canonical-mode line limit.
+    let line = [b"x".repeat(511).as_slice(), b"\n"].concat();
+    let big: Vec<u8> = line
+        .iter()
+        .copied()
+        .cycle()
+        .take(TOTAL)
+        .collect();
+    let start = Instant::now();
+    session.write(&big).expect("write");
+    // The write only queues; it must return long before the child drains it.
+    assert!(start.elapsed() < Duration::from_secs(2));
+    let (_, code) = drain_until_exit(&rx);
+    assert_eq!(code, Some(9));
+}
+
+#[test]
+fn write_does_not_block_on_a_stalled_child() {
+    let (session, _rx) =
+        Session::spawn(command(&["/bin/sh", "-c", "sleep 30"])).expect("spawn");
+    let big = vec![b'x'; 1 << 20];
+    let start = Instant::now();
+    session.write(&big).expect("write");
+    assert!(
+        start.elapsed() < Duration::from_secs(2),
+        "write blocked on a child that never reads"
+    );
+    // Dropping with the queue still full must not hang either.
+    let (done_tx, done_rx) = mpsc::channel();
+    thread::spawn(move || {
+        drop(session);
+        let _ = done_tx.send(());
+    });
+    done_rx
+        .recv_timeout(Duration::from_secs(5))
+        .expect("drop hung with a full input queue");
+}
+
+#[test]
 fn wakeup_is_coalesced_until_term_access() {
     // Two output bursts, but the embedder never observes the terminal,
     // so exactly one Wakeup may be queued.
@@ -110,9 +172,66 @@ fn resize_updates_grid_immediately() {
 }
 
 #[test]
+fn resize_px_updates_grid_and_kernel_winsize() {
+    let (session, rx) = Session::spawn(command(&[
+        "/bin/sh",
+        "-c",
+        "sleep 1; stty size",
+    ]))
+    .expect("spawn");
+    session.resize_px(100, 30, 8, 16).expect("resize_px");
+    let size = session.with_term(|t| (t.cols(), t.rows()));
+    assert_eq!(size, (100, 30));
+    let (_, code) = drain_until_exit(&rx);
+    assert_eq!(code, Some(0));
+    let text = session.with_term(|t| {
+        t.visible_rows()
+            .map(|row| row.text())
+            .collect::<Vec<_>>()
+            .join("\n")
+    });
+    assert!(text.contains("30 100"), "grid was:\n{text}");
+}
+
+#[test]
 fn shutdown_kills_and_reports_exit() {
     let (session, rx) = Session::spawn(command(&["/bin/sh", "-c", "sleep 30"])).expect("spawn");
     session.shutdown();
     let (_, code) = drain_until_exit(&rx);
     assert_eq!(code, None); // killed by signal, no exit code
+}
+
+#[test]
+fn drop_does_not_hang_when_a_background_child_holds_the_pty() {
+    // The shell exits immediately, but its background child inherits the pty
+    // slave, so the reader never sees EOF. Teardown must still finish.
+    let (session, rx) =
+        Session::spawn(command(&["/bin/sh", "-c", "sleep 30 & exit 0"])).expect("spawn");
+    std::thread::sleep(Duration::from_millis(100)); // let the shell exit
+    let (done_tx, done_rx) = mpsc::channel();
+    thread::spawn(move || {
+        drop(session);
+        let _ = done_tx.send(());
+    });
+    done_rx
+        .recv_timeout(Duration::from_secs(5))
+        .expect("drop hung on a lingering pty slave");
+    drain_until_exit(&rx);
+}
+
+#[test]
+fn drop_escalates_when_the_child_ignores_hangup() {
+    let (session, rx) =
+        Session::spawn(command(&["/bin/sh", "-c", "trap '' HUP; sleep 30"])).expect("spawn");
+    std::thread::sleep(Duration::from_millis(100)); // let the trap install
+    let (done_tx, done_rx) = mpsc::channel();
+    thread::spawn(move || {
+        drop(session);
+        let _ = done_tx.send(());
+    });
+    done_rx
+        .recv_timeout(Duration::from_secs(5))
+        .expect("drop hung on a SIGHUP-ignoring child");
+    let (_, code) = drain_until_exit(&rx);
+    assert_eq!(code, None); // group SIGKILL
 }

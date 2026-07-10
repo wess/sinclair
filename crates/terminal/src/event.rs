@@ -7,8 +7,7 @@ pub enum Event {
     ///
     /// Coalesced: at most one unconsumed `Wakeup` sits in the channel. The
     /// next one is sent only after the embedder re-arms the flag by locking
-    /// the terminal ([`crate::Session::with_term`]) or calling
-    /// [`crate::Session::clear_wakeup`].
+    /// the terminal ([`crate::Session::with_term`]).
     Wakeup,
     /// The child set a new window title (OSC 0/2 or title-stack pop).
     TitleChanged(String),

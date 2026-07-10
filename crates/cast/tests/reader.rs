@@ -43,7 +43,6 @@ fn classifies_event_codes() {
             EventKind::Marker
         ]
     );
-    assert_eq!(cast.duration(), 0.4);
     // output() filters to just the "o" event.
     assert_eq!(cast.output().count(), 1);
 }
@@ -71,5 +70,4 @@ fn missing_geometry_defaults_are_sane() {
     assert_eq!(cast.header.width, 80);
     assert_eq!(cast.header.height, 24);
     assert!(cast.events.is_empty());
-    assert_eq!(cast.duration(), 0.0);
 }

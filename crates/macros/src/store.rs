@@ -58,8 +58,10 @@ pub fn load(dir: &Path) -> Vec<Macro> {
     out
 }
 
-/// Write `mac` to `dir/<name>.macro`, creating the directory if needed. Errors
-/// surface as a message for the caller to log.
+/// Write `mac` to `dir/<name>.macro`, creating the directory if needed. The
+/// content lands in a temp file first and is renamed over the target, so a
+/// crash mid-write never truncates an existing macro. Errors surface as a
+/// message for the caller to log.
 pub fn save(dir: &Path, mac: &Macro) -> Result<(), String> {
     if !valid_name(&mac.name) {
         return Err(format!("invalid macro name `{}`", mac.name));
@@ -72,7 +74,9 @@ pub fn save(dir: &Path, mac: &Macro) -> Result<(), String> {
         .collect::<Vec<_>>()
         .join("\n");
     let path = file(dir, &mac.name);
-    std::fs::write(&path, format!("{body}\n")).map_err(|e| format!("write {}: {e}", path.display()))
+    let tmp = path.with_extension(format!("{EXT}.tmp"));
+    std::fs::write(&tmp, format!("{body}\n")).map_err(|e| format!("write {}: {e}", tmp.display()))?;
+    std::fs::rename(&tmp, &path).map_err(|e| format!("write {}: {e}", path.display()))
 }
 
 /// Rename `old` to `new`, overwriting any existing `new`.

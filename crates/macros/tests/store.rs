@@ -49,3 +49,18 @@ fn save_rejects_bad_name() {
     assert!(save(&dir, &Macro::new("Bad Name", vec!["x".into()])).is_err());
     let _ = std::fs::remove_dir_all(dir);
 }
+
+#[test]
+fn save_replaces_existing_and_leaves_no_temp_files() {
+    let dir = tempdir("replace");
+    save(&dir, &Macro::new("m", vec!["old".into()])).unwrap();
+    save(&dir, &Macro::new("m", vec!["new".into()])).unwrap();
+    assert_eq!(load(&dir), vec![Macro::new("m", vec!["new".into()])]);
+    let files: Vec<String> = std::fs::read_dir(&dir)
+        .unwrap()
+        .flatten()
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .collect();
+    assert_eq!(files, vec!["m.macro".to_string()]);
+    let _ = std::fs::remove_dir_all(dir);
+}

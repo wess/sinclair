@@ -15,7 +15,6 @@ fn captures_lines_on_enter() {
     rec.key("enter", None);
     type_str(&mut rec, "ls -la");
     rec.key("enter", None);
-    assert_eq!(rec.len(), 2);
     assert_eq!(rec.finish(), vec!["echo hi".to_string(), "ls -la".to_string()]);
     assert!(!rec.is_active());
 }
@@ -59,12 +58,13 @@ fn inactive_recorder_ignores_input() {
 }
 
 #[test]
-fn cancel_drops_everything() {
+fn start_discards_a_previous_capture() {
     let mut rec = Recorder::new();
     rec.start();
-    type_str(&mut rec, "echo hi");
+    type_str(&mut rec, "stale");
     rec.key("enter", None);
-    rec.cancel();
-    assert!(!rec.is_active());
-    assert!(rec.finish().is_empty());
+    rec.start();
+    type_str(&mut rec, "fresh");
+    rec.key("enter", None);
+    assert_eq!(rec.finish(), vec!["fresh".to_string()]);
 }

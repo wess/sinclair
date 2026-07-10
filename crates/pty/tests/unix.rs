@@ -8,6 +8,17 @@ fn open_pair_yields_a_tty_slave() {
 }
 
 #[test]
+fn both_fds_are_close_on_exec() {
+    // Neither fd may leak into concurrently spawned processes, which would
+    // hold the slave open and block EOF on the master forever.
+    let pair = open_pair().expect("open pty pair");
+    for fd in [&pair.master, &pair.slave] {
+        let flags = rustix::io::fcntl_getfd(fd).expect("getfd");
+        assert!(flags.contains(FdFlags::CLOEXEC));
+    }
+}
+
+#[test]
 fn winsize_round_trips_through_slave() {
     let pair = open_pair().expect("open pty pair");
     let ws = crate::winsize::Winsize::new(101, 31);

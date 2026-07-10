@@ -11,7 +11,7 @@ pub use reader::{parse, Cast, Event, EventKind, Header};
 
 use std::fs::File;
 use std::io::{self, BufWriter, Write};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::time::Instant;
 
 /// Writes an asciinema v2 cast file as output arrives.
@@ -62,11 +62,7 @@ impl Recorder {
     pub fn output(&mut self, bytes: &[u8]) -> io::Result<()> {
         let t = self.start.elapsed().as_secs_f64();
         self.pending.extend_from_slice(bytes);
-        let emit = match std::str::from_utf8(&self.pending) {
-            Ok(_) => self.pending.len(),
-            Err(e) if e.error_len().is_none() => e.valid_up_to(),
-            Err(_) => self.pending.len(),
-        };
+        let emit = emit_boundary(&self.pending);
         if emit == 0 {
             return Ok(());
         }
@@ -87,9 +83,24 @@ impl Recorder {
         self.writer.flush()?;
         Ok(self.path)
     }
+}
 
-    pub fn path(&self) -> &Path {
-        &self.path
+/// How much of `bytes` is safe to emit now: everything except a trailing
+/// UTF-8 sequence that is incomplete but still valid — the next chunk may
+/// finish it. Invalid regions anywhere earlier are stepped over so an
+/// invalid byte never flushes a completable tail with it.
+fn emit_boundary(mut bytes: &[u8]) -> usize {
+    let mut emitted = 0;
+    loop {
+        match std::str::from_utf8(bytes) {
+            Ok(_) => return emitted + bytes.len(),
+            Err(e) if e.error_len().is_none() => return emitted + e.valid_up_to(),
+            Err(e) => {
+                let skip = e.valid_up_to() + e.error_len().unwrap_or(1);
+                emitted += skip;
+                bytes = &bytes[skip..];
+            }
+        }
     }
 }
 
