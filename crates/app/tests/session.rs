@@ -5,7 +5,7 @@ fn options_default_is_login_shell() {
     let opts = config::Options::default();
     let session = options(&opts, 100, 30, None);
     assert_eq!((session.cols, session.rows), (100, 30));
-    assert_eq!(session.scrollback_limit, 10_000);
+    assert_eq!(session.scrollback_limit, 100_000);
     assert!(session.spawn.login);
     // With no inherit and no configured directory, defaults to home.
     assert_eq!(session.spawn.cwd, home());

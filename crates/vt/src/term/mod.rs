@@ -195,6 +195,25 @@ impl Terminal {
         &self.inner.screen().grid
     }
 
+    /// The active screen's grid, mutably. Scrollback row reads need it:
+    /// compressed history decodes through a cache on the ring.
+    pub fn grid_mut(&mut self) -> &mut Grid {
+        &mut self.inner.screen_mut().grid
+    }
+
+    /// Compress one block of idle scrollback history (primary screen; the
+    /// alternate screen keeps none). Returns whether more work remains, so
+    /// the host can budget one block per tick.
+    pub fn compact_scrollback(&mut self) -> bool {
+        self.inner.primary.grid.scrollback_mut().compact_step()
+    }
+
+    /// Primary-screen scrollback footprint:
+    /// `(resident_bytes_estimate, compressed_bytes)`.
+    pub fn scrollback_memory(&self) -> (usize, usize) {
+        self.inner.primary.grid.scrollback().memory()
+    }
+
     /// Sixel images anchored to the active screen's buffer, oldest first.
     /// Lines follow the [`crate::selection`] scheme: 0 is the top live row,
     /// negative scrollback.
@@ -213,28 +232,24 @@ impl Terminal {
     }
 
     /// Text of a visible row (offset-aware), trimmed; for tests/debugging.
-    pub fn row_text(&self, row: usize) -> String {
+    pub fn row_text(&mut self, row: usize) -> String {
         self.visible_row(row).text()
     }
 
     /// Viewport row `i` (0 = top) honoring the display offset into
     /// scrollback. The alternate screen has no scrollback, so the offset
-    /// only matters on primary.
-    pub fn visible_row(&self, i: usize) -> &Row {
-        let grid = &self.inner.screen().grid;
-        let sb = grid.scrollback();
-        let offset = self.inner.display_offset.min(sb.len());
-        let global = sb.len() - offset + i;
-        if global < sb.len() {
-            sb.get(global).expect("in range")
+    /// only matters on primary. `&mut` because a scrolled-back row may
+    /// decode out of a compressed history block.
+    pub fn visible_row(&mut self, i: usize) -> &Row {
+        let offset = self.inner.display_offset;
+        let grid = &mut self.inner.screen_mut().grid;
+        let sb_len = grid.scrollback().len();
+        let global = sb_len - offset.min(sb_len) + i;
+        if global < sb_len {
+            grid.scrollback_mut().row(global).expect("in range")
         } else {
-            grid.row(global - sb.len())
+            grid.row(global - sb_len)
         }
-    }
-
-    /// All viewport rows, top to bottom, honoring the display offset.
-    pub fn visible_rows(&self) -> impl Iterator<Item = &Row> + '_ {
-        (0..self.rows()).map(move |i| self.visible_row(i))
     }
 
     /// The whole buffer as plain text: every scrollback row followed by the
@@ -242,12 +257,12 @@ impl Terminal {
     /// dropped and a single trailing newline when non-empty. Independent of the
     /// current selection and scroll position. Dumps whichever screen is active,
     /// so on the alternate screen only its rows appear (it has no scrollback).
-    pub fn buffer_text(&self) -> String {
-        let grid = &self.inner.screen().grid;
-        let sb = grid.scrollback();
-        let mut lines: Vec<String> = Vec::with_capacity(sb.len() + grid.rows());
-        for i in 0..sb.len() {
-            if let Some(row) = sb.get(i) {
+    pub fn buffer_text(&mut self) -> String {
+        let grid = &mut self.inner.screen_mut().grid;
+        let sb_len = grid.scrollback().len();
+        let mut lines: Vec<String> = Vec::with_capacity(sb_len + grid.rows());
+        for i in 0..sb_len {
+            if let Some(row) = grid.scrollback_mut().row(i) {
                 lines.push(row.text());
             }
         }
@@ -498,13 +513,13 @@ impl Terminal {
     /// Search the whole buffer (scrollback + grid) for `needle`, returning
     /// matches in global-row order. `case_sensitive` false folds ASCII case.
     /// Matches do not span row breaks.
-    pub fn search(&self, needle: &str, case_sensitive: bool) -> Vec<crate::search::Match> {
+    pub fn search(&mut self, needle: &str, case_sensitive: bool) -> Vec<crate::search::Match> {
         let needle: Vec<char> = needle.chars().collect();
         if needle.is_empty() {
             return Vec::new();
         }
-        let grid = &self.inner.screen().grid;
-        let sb = grid.scrollback();
+        let grid = &mut self.inner.screen_mut().grid;
+        let sb_len = grid.scrollback().len();
         let mut out = Vec::new();
         let mut chars = Vec::new();
         let mut col_of = Vec::new();
@@ -519,13 +534,13 @@ impl Terminal {
                 |c| row.cells.get(c).is_some_and(|cell| cell.is_wide()),
             ));
         };
-        for i in 0..sb.len() {
-            if let Some(row) = sb.get(i) {
+        for i in 0..sb_len {
+            if let Some(row) = grid.scrollback_mut().row(i) {
                 row_matches(row, i, &mut out);
             }
         }
         for r in 0..grid.rows() {
-            row_matches(grid.row(r), sb.len() + r, &mut out);
+            row_matches(grid.row(r), sb_len + r, &mut out);
         }
         out
     }
@@ -533,18 +548,18 @@ impl Terminal {
     /// Text rows across scrollback + live grid in global-row order. Each
     /// tuple is `(line, text, prompt_marked)`, using the same line index
     /// space as [`Terminal::prompt_lines`].
-    pub fn text_lines(&self) -> Vec<(usize, String, bool)> {
-        let grid = &self.inner.screen().grid;
-        let sb = grid.scrollback();
-        let mut out = Vec::with_capacity(sb.len() + grid.rows());
-        for i in 0..sb.len() {
-            if let Some(row) = sb.get(i) {
+    pub fn text_lines(&mut self) -> Vec<(usize, String, bool)> {
+        let grid = &mut self.inner.screen_mut().grid;
+        let sb_len = grid.scrollback().len();
+        let mut out = Vec::with_capacity(sb_len + grid.rows());
+        for i in 0..sb_len {
+            if let Some(row) = grid.scrollback_mut().row(i) {
                 out.push((i, row.text(), row.prompt));
             }
         }
         for r in 0..grid.rows() {
             let row = grid.row(r);
-            out.push((sb.len() + r, row.text(), row.prompt));
+            out.push((sb_len + r, row.text(), row.prompt));
         }
         out
     }
@@ -553,11 +568,14 @@ impl Terminal {
     /// carries one (expanded to the contiguous same-id run), else a detectable
     /// URL in the row's text. Returns the target plus the inclusive cell-column
     /// span, so callers can open it, underline it, or select it uniformly.
-    pub fn link_at(&self, row: usize, col: usize) -> Option<LinkHit> {
+    pub fn link_at(&mut self, row: usize, col: usize) -> Option<LinkHit> {
         if row >= self.rows() {
             return None;
         }
-        let cells = &self.visible_row(row).cells;
+        // Own the cells: the row reference pins the terminal (it may live in
+        // the scrollback decode cache) but the hyperlink registry is needed
+        // below. Cells are `Copy`, so this is one flat buffer.
+        let cells = self.visible_row(row).cells.clone();
         // OSC 8 hyperlink: expand over the run of cells sharing the same id.
         if let Some(cell) = cells.get(col) {
             if let Some(hid) = cell.hyperlink {
@@ -576,7 +594,7 @@ impl Terminal {
         // Auto-detected URL in the row text (skip wide-cell spacers).
         let mut chars = Vec::new();
         let mut col_of = Vec::new();
-        row_chars(cells, &mut chars, &mut col_of);
+        row_chars(&cells, &mut chars, &mut col_of);
         for (start, end) in crate::url::find(&chars) {
             let start_col = col_of[start];
             let last = col_of[end - 1];
@@ -595,7 +613,7 @@ impl Terminal {
     /// Every detectable URL in the visible viewport, as `(row, start_col,
     /// end_col_inclusive, text)`, for hint-mode labelling. Wide cells extend
     /// the end column by their spacer.
-    pub fn visible_links(&self) -> Vec<(usize, usize, usize, String)> {
+    pub fn visible_links(&mut self) -> Vec<(usize, usize, usize, String)> {
         let mut out = Vec::new();
         let mut chars = Vec::new();
         let mut col_of = Vec::new();
@@ -617,18 +635,18 @@ impl Terminal {
     /// are history rows, `scrollback.len()..` are live-grid rows - so the
     /// top viewport row is `scrollback.len() - display_offset`. Used for
     /// jump-to-prompt.
-    pub fn prompt_lines(&self) -> Vec<usize> {
-        let grid = &self.inner.screen().grid;
-        let sb = grid.scrollback();
+    pub fn prompt_lines(&mut self) -> Vec<usize> {
+        let grid = &mut self.inner.screen_mut().grid;
+        let sb_len = grid.scrollback().len();
         let mut lines = Vec::new();
-        for i in 0..sb.len() {
-            if sb.get(i).is_some_and(|r| r.prompt) {
+        for i in 0..sb_len {
+            if grid.scrollback_mut().row(i).is_some_and(|r| r.prompt) {
                 lines.push(i);
             }
         }
         for r in 0..grid.rows() {
             if grid.row(r).prompt {
-                lines.push(sb.len() + r);
+                lines.push(sb_len + r);
             }
         }
         lines

@@ -26,12 +26,8 @@ impl Terminal {
     /// Begin a selection at `point` (clamped to content), expanding it per
     /// `mode`. Replaces any existing selection.
     pub fn start_selection(&mut self, mode: SelectionMode, point: Point) {
-        let span = expand(
-            &self.inner.screen().grid,
-            mode,
-            point,
-            &self.inner.word_chars,
-        );
+        let chars = self.inner.word_chars.clone();
+        let span = expand(&mut self.inner.screen_mut().grid, mode, point, &chars);
         self.inner.selection = Some(Selection::new(mode, span));
         self.inner.full_damage = true;
     }
@@ -41,12 +37,8 @@ impl Terminal {
         let Some(mode) = self.inner.selection.as_ref().map(|s| s.mode()) else {
             return;
         };
-        let span = expand(
-            &self.inner.screen().grid,
-            mode,
-            point,
-            &self.inner.word_chars,
-        );
+        let chars = self.inner.word_chars.clone();
+        let span = expand(&mut self.inner.screen_mut().grid, mode, point, &chars);
         if let Some(sel) = &mut self.inner.selection {
             sel.update(span);
             self.inner.full_damage = true;
@@ -75,13 +67,14 @@ impl Terminal {
         };
         let (anchor, caret) = sel.caret_ends_for(dir);
         let page = self.rows();
+        let chars = self.inner.word_chars.clone();
         let point = selection::adjust_caret(
-            &self.inner.screen().grid,
+            &mut self.inner.screen_mut().grid,
             anchor,
             caret,
             dir,
             page,
-            &self.inner.word_chars,
+            &chars,
         );
         self.inner.selection = Some(Selection::cell_pair(anchor, point));
         self.inner.full_damage = true;
@@ -120,9 +113,9 @@ impl Terminal {
 
     /// Selected text: soft wraps join without a newline, hard lines are
     /// right-trimmed, wide-char spacers are skipped.
-    pub fn selection_text(&self) -> Option<String> {
-        let sel = self.inner.selection.as_ref()?;
-        Some(selection::text(&self.inner.screen().grid, sel))
+    pub fn selection_text(&mut self) -> Option<String> {
+        let sel = self.inner.selection?;
+        Some(selection::text(&mut self.inner.screen_mut().grid, &sel))
     }
 
     /// Extra characters word selection treats as word constituents on top
@@ -132,7 +125,7 @@ impl Terminal {
     }
 }
 
-fn expand(grid: &Grid, mode: SelectionMode, point: Point, extra: &[char]) -> (Point, Point) {
+fn expand(grid: &mut Grid, mode: SelectionMode, point: Point, extra: &[char]) -> (Point, Point) {
     match mode {
         SelectionMode::Cell => {
             let p = selection::clamp_point(grid, point);

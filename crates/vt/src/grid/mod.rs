@@ -5,6 +5,7 @@
 //! full damage - rows shift wholesale and renderers repaint everything on
 //! those events anyway.
 
+mod codec;
 pub mod damage;
 pub mod row;
 pub mod scrollback;
@@ -68,17 +69,24 @@ impl Grid {
         &self.scrollback
     }
 
+    /// Mutable scrollback access; row reads need it because compressed
+    /// blocks decode through a cache on the ring.
+    pub fn scrollback_mut(&mut self) -> &mut Scrollback {
+        &mut self.scrollback
+    }
+
     /// Row by absolute line: 0 is the top of the live grid, positive lines
     /// go down it, negative lines reach into scrollback (-1 is the newest
     /// history row, `-scrollback.len()` the oldest). `None` outside both.
-    pub fn absolute_row(&self, line: isize) -> Option<&Row> {
+    /// `&mut` because scrollback rows may decode out of a compressed block.
+    pub fn absolute_row(&mut self, line: isize) -> Option<&Row> {
         if line >= 0 {
             self.lines.get(line as usize)
         } else {
             let idx = self.scrollback.len() as isize + line;
             usize::try_from(idx)
                 .ok()
-                .and_then(|i| self.scrollback.get(i))
+                .and_then(|i| self.scrollback.row(i))
         }
     }
 

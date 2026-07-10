@@ -360,7 +360,7 @@ fn buffer_text_drops_trailing_blank_rows() {
 
 #[test]
 fn buffer_text_empty_when_blank() {
-    let t = Terminal::new(4, 3, 10);
+    let mut t = Terminal::new(4, 3, 10);
     assert_eq!(t.buffer_text(), "");
 }
 
@@ -418,4 +418,91 @@ fn cwd_change_is_reported_once() {
     assert_eq!(t.take_cwd_changed(), None);
     t.feed(b"\x1b]7;file:///b\x07"); // changed
     assert_eq!(t.take_cwd_changed().as_deref(), Some("file:///b"));
+}
+
+/// Feed the same synthetic history into two terminals, fully compacting one,
+/// so reads over compressed and uncompressed scrollback can be compared.
+fn compacted_pair() -> (Terminal, Terminal) {
+    let mut plain = Terminal::new(40, 4, 100_000);
+    let mut packed = Terminal::new(40, 4, 100_000);
+    for n in 0..4000usize {
+        let line = match n % 3 {
+            0 => format!("foo item {n}\r\n"),
+            1 => format!("\x1b[31mred bar {n}\x1b[0m\r\n"),
+            _ => format!("path /tmp/thing-{n} 漢字\r\n"),
+        };
+        plain.feed(line.as_bytes());
+        packed.feed(line.as_bytes());
+    }
+    while packed.compact_scrollback() {}
+    (plain, packed)
+}
+
+#[test]
+fn compact_scrollback_reports_done_and_compresses() {
+    let (_, mut packed) = compacted_pair();
+    assert!(!packed.compact_scrollback()); // no work left
+    let (resident, compressed) = packed.scrollback_memory();
+    assert!(compressed > 0);
+    // Everything beyond the hot floor left residency.
+    assert!(resident < 2000 * 40 * std::mem::size_of::<Cell>());
+    let mut small = Terminal::new(40, 4, 100);
+    small.feed(b"just a line\r\n");
+    assert!(!small.compact_scrollback());
+}
+
+#[test]
+fn search_matches_are_identical_over_compacted_history() {
+    let (mut plain, mut packed) = compacted_pair();
+    for (needle, case) in [("foo item", true), ("RED BAR", false), ("漢字", true)] {
+        let a = plain.search(needle, case);
+        let b = packed.search(needle, case);
+        assert!(!a.is_empty(), "{needle}");
+        assert_eq!(a, b, "{needle}");
+    }
+    assert_eq!(plain.buffer_text(), packed.buffer_text());
+    assert_eq!(plain.text_lines(), packed.text_lines());
+}
+
+#[test]
+fn selection_text_is_identical_over_compacted_history() {
+    let (mut plain, mut packed) = compacted_pair();
+    let sb = plain.grid().scrollback().len() as isize;
+    for t in [&mut plain, &mut packed] {
+        t.start_selection(
+            crate::selection::SelectionMode::Cell,
+            crate::selection::Point::new(-sb + 5, 2),
+        );
+        t.update_selection(crate::selection::Point::new(-sb + 900, 10));
+    }
+    let a = plain.selection_text();
+    let b = packed.selection_text();
+    assert!(a.as_deref().is_some_and(|s| s.lines().count() > 800));
+    assert_eq!(a, b);
+}
+
+#[test]
+fn visible_rows_read_back_through_compacted_history() {
+    let (mut plain, mut packed) = compacted_pair();
+    let sb = plain.grid().scrollback().len();
+    for offset in [0, 100, sb / 2, sb] {
+        plain.set_display_offset(offset);
+        packed.set_display_offset(offset);
+        for r in 0..plain.rows() {
+            assert_eq!(plain.row_text(r), packed.row_text(r), "offset {offset} row {r}");
+        }
+    }
+}
+
+#[test]
+fn resize_after_compaction_reflows_like_uncompacted() {
+    let (mut plain, mut packed) = compacted_pair();
+    plain.resize(33, 5);
+    packed.resize(33, 5);
+    assert_eq!(plain.buffer_text(), packed.buffer_text());
+    assert_eq!(plain.committed_lines(), packed.committed_lines());
+    plain.resize(52, 3);
+    packed.resize(52, 3);
+    assert_eq!(plain.buffer_text(), packed.buffer_text());
+    assert_eq!(plain.committed_lines(), packed.committed_lines());
 }

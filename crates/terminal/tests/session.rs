@@ -185,8 +185,8 @@ fn resize_px_updates_grid_and_kernel_winsize() {
     let (_, code) = drain_until_exit(&rx);
     assert_eq!(code, Some(0));
     let text = session.with_term(|t| {
-        t.visible_rows()
-            .map(|row| row.text())
+        (0..t.rows())
+            .map(|r| t.row_text(r))
             .collect::<Vec<_>>()
             .join("\n")
     });

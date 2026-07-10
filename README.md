@@ -159,7 +159,7 @@ window-padding-y = 8
 
 # Behavior
 shell = /bin/zsh
-scrollback-limit = 10000
+scrollback-limit = 100000
 copy-on-select = true
 # Confirm before sending a risky paste (off by default)
 clipboard-paste-protection = false

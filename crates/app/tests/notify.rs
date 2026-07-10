@@ -36,10 +36,10 @@ fn seqrow_resolves_scrollback_and_live_rows() {
     let sb_len = term.grid().scrollback().len();
     assert_eq!(committed, 8);
     // Scrollback sequence 2 is "line2"; live row 0 (sequence 8) is "line8".
-    assert_eq!(seqrow(&term, 2, committed, sb_len).as_deref(), Some("line2"));
-    assert_eq!(seqrow(&term, 8, committed, sb_len).as_deref(), Some("line8"));
+    assert_eq!(seqrow(&mut term, 2, committed, sb_len).as_deref(), Some("line2"));
+    assert_eq!(seqrow(&mut term, 8, committed, sb_len).as_deref(), Some("line8"));
     // Past the live grid: nothing.
-    assert_eq!(seqrow(&term, committed + 3, committed, sb_len), None);
+    assert_eq!(seqrow(&mut term, committed + 3, committed, sb_len), None);
 }
 
 #[test]
@@ -53,9 +53,9 @@ fn seqrow_returns_none_for_evicted_rows() {
     assert_eq!(committed, 8);
     assert_eq!(sb_len, 4);
     // Sequences 0..4 fell off the ring.
-    assert_eq!(seqrow(&term, 0, committed, sb_len), None);
-    assert_eq!(seqrow(&term, 3, committed, sb_len), None);
-    assert_eq!(seqrow(&term, 4, committed, sb_len).as_deref(), Some("line4"));
+    assert_eq!(seqrow(&mut term, 0, committed, sb_len), None);
+    assert_eq!(seqrow(&mut term, 3, committed, sb_len), None);
+    assert_eq!(seqrow(&mut term, 4, committed, sb_len).as_deref(), Some("line4"));
 }
 
 #[test]

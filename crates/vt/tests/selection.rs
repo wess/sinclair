@@ -63,17 +63,17 @@ fn shift_lines_moves_all_points() {
 
 #[test]
 fn word_expansion_within_row() {
-    let g = grid_3x10(&["foo bar.gz"]);
-    let (s, e) = expand_word(&g, Point::new(0, 5), EXTRA);
+    let mut g = grid_3x10(&["foo bar.gz"]);
+    let (s, e) = expand_word(&mut g, Point::new(0, 5), EXTRA);
     assert_eq!((s, e), span((0, 4), (0, 9))); // "bar.gz": '.' is a word char
-    let (s, e) = expand_word(&g, Point::new(0, 1), EXTRA);
+    let (s, e) = expand_word(&mut g, Point::new(0, 1), EXTRA);
     assert_eq!((s, e), span((0, 0), (0, 2)));
 }
 
 #[test]
 fn word_expansion_on_non_word_is_single_cell() {
-    let g = grid_3x10(&["foo bar"]);
-    let (s, e) = expand_word(&g, Point::new(0, 3), EXTRA);
+    let mut g = grid_3x10(&["foo bar"]);
+    let (s, e) = expand_word(&mut g, Point::new(0, 3), EXTRA);
     assert_eq!((s, e), span((0, 3), (0, 3)));
 }
 
@@ -83,11 +83,11 @@ fn word_expansion_crosses_soft_wrap() {
     put(&mut g, 0, " abc");
     put(&mut g, 1, "de f");
     g.row_mut(0).wrapped = true;
-    let (s, e) = expand_word(&g, Point::new(0, 2), EXTRA);
+    let (s, e) = expand_word(&mut g, Point::new(0, 2), EXTRA);
     assert_eq!((s, e), span((0, 1), (1, 1)));
     // Without the wrap flag the word stops at the row edge.
     g.row_mut(0).wrapped = false;
-    let (s, e) = expand_word(&g, Point::new(0, 2), EXTRA);
+    let (s, e) = expand_word(&mut g, Point::new(0, 2), EXTRA);
     assert_eq!((s, e), span((0, 1), (0, 3)));
 }
 
@@ -105,11 +105,11 @@ fn wide_grid() -> Grid {
 
 #[test]
 fn word_expansion_treats_wide_spacer_as_its_head() {
-    let g = wide_grid();
-    let (s, e) = expand_word(&g, Point::new(0, 0), EXTRA);
+    let mut g = wide_grid();
+    let (s, e) = expand_word(&mut g, Point::new(0, 0), EXTRA);
     assert_eq!((s, e), span((0, 0), (0, 2))); // spans head + spacer
                                               // Starting on the spacer itself classifies as the head.
-    let (s, e) = expand_word(&g, Point::new(0, 2), EXTRA);
+    let (s, e) = expand_word(&mut g, Point::new(0, 2), EXTRA);
     assert_eq!((s, e), span((0, 0), (0, 2)));
 }
 
@@ -118,11 +118,11 @@ fn line_expansion_follows_wraps_both_ways() {
     let mut g = grid_3x10(&["aaaaaaaaaa", "bbbbbbbbbb", "cc"]);
     g.row_mut(0).wrapped = true;
     g.row_mut(1).wrapped = true;
-    let (s, e) = expand_line(&g, Point::new(1, 4));
+    let (s, e) = expand_line(&mut g, Point::new(1, 4));
     assert_eq!((s, e), span((0, 0), (2, 9)));
     // An unwrapped row is its own logical line.
-    let g2 = grid_3x10(&["a", "b", "c"]);
-    let (s, e) = expand_line(&g2, Point::new(1, 4));
+    let mut g2 = grid_3x10(&["a", "b", "c"]);
+    let (s, e) = expand_line(&mut g2, Point::new(1, 4));
     assert_eq!((s, e), span((1, 0), (1, 9)));
 }
 
@@ -133,7 +133,7 @@ fn line_expansion_reaches_into_scrollback() {
     g.row_mut(0).wrapped = true;
     g.scroll_up(0, 1, 1, true, Cell::default()); // "wrap" -> scrollback
     put(&mut g, 0, "tail");
-    let (s, e) = expand_line(&g, Point::new(0, 1));
+    let (s, e) = expand_line(&mut g, Point::new(0, 1));
     assert_eq!((s, e), span((-1, 0), (0, 3)));
 }
 
@@ -142,28 +142,28 @@ fn text_joins_soft_wraps_without_newline() {
     let mut g = grid_3x10(&["aaaaaaaaaa", "bb", "cc"]);
     g.row_mut(0).wrapped = true;
     let sel = Selection::new(SelectionMode::Cell, span((0, 0), (2, 9)));
-    assert_eq!(text(&g, &sel), "aaaaaaaaaabb\ncc");
+    assert_eq!(text(&mut g, &sel), "aaaaaaaaaabb\ncc");
 }
 
 #[test]
 fn text_trims_trailing_whitespace_per_hard_line() {
-    let g = grid_3x10(&["hi   ", "there  "]);
+    let mut g = grid_3x10(&["hi   ", "there  "]);
     let sel = Selection::new(SelectionMode::Cell, span((0, 0), (1, 9)));
-    assert_eq!(text(&g, &sel), "hi\nthere");
+    assert_eq!(text(&mut g, &sel), "hi\nthere");
 }
 
 #[test]
 fn text_skips_wide_spacers() {
-    let g = wide_grid();
+    let mut g = wide_grid();
     let sel = Selection::new(SelectionMode::Cell, span((0, 0), (0, 4)));
-    assert_eq!(text(&g, &sel), "a漢 b");
+    assert_eq!(text(&mut g, &sel), "a漢 b");
 }
 
 #[test]
 fn text_partial_first_and_last_rows() {
-    let g = grid_3x10(&["abcdefghij", "klmnopqrst"]);
+    let mut g = grid_3x10(&["abcdefghij", "klmnopqrst"]);
     let sel = Selection::new(SelectionMode::Cell, span((0, 7), (1, 2)));
-    assert_eq!(text(&g, &sel), "hij\nklm");
+    assert_eq!(text(&mut g, &sel), "hij\nklm");
 }
 
 #[test]
@@ -173,7 +173,7 @@ fn text_spans_scrollback_and_live() {
     g.scroll_up(0, 1, 1, true, Cell::default());
     put(&mut g, 0, "new");
     let sel = Selection::new(SelectionMode::Cell, span((-1, 0), (0, 3)));
-    assert_eq!(text(&g, &sel), "old\nnew");
+    assert_eq!(text(&mut g, &sel), "old\nnew");
 }
 
 #[test]

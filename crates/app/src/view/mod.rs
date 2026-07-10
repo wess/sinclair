@@ -42,6 +42,13 @@ const SYNC_TIMEOUT: Duration = Duration::from_millis(150);
 /// How long the visual bell flash stays on screen.
 const BELL_FLASH: Duration = Duration::from_millis(120);
 
+/// How long a pane must be quiet before idle scrollback compaction starts.
+const COMPACT_IDLE: Duration = Duration::from_millis(500);
+
+/// Gap between compaction steps (one compressed block per step), so the
+/// terminal lock is only ever held for a single block encode at a time.
+const COMPACT_TICK: Duration = Duration::from_millis(80);
+
 /// Pane events the workspace root reacts to.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ViewEvent {
@@ -316,6 +323,11 @@ pub struct TerminalView {
     suggest_cfg: crate::suggest::SuggestConfig,
     /// Live autosuggestion state (candidates, ghost, popup, tab-cycle, AI).
     suggest: crate::suggest::Suggest,
+    /// Wakeup counter; the idle compaction task compares it across its waits
+    /// to detect new output.
+    activity: u64,
+    /// True while an idle compaction task is scheduled for this pane.
+    compact_armed: bool,
     /// Focus in/out listeners that drive focus reporting (?1004).
     _focus_subs: [Subscription; 2],
 }
@@ -416,6 +428,8 @@ impl TerminalView {
             assist: None,
             suggest_cfg,
             suggest: crate::suggest::Suggest::default(),
+            activity: 0,
+            compact_armed: false,
             _focus_subs: [sub_in, sub_out],
         }
     }
@@ -558,6 +572,8 @@ impl TerminalView {
     /// a short safety timer so a program that never clears ?2026 can't
     /// freeze the view.
     fn wakeup(&mut self, cx: &mut Context<Self>) {
+        self.activity += 1;
+        self.arm_compaction(cx);
         self.scan_triggers(cx);
         self.update_line_times(cx);
         if let Some(s) = &mut self.search {
@@ -586,6 +602,61 @@ impl TerminalView {
         self.sync_pending = false;
         self.recompute_suggestions(cx);
         cx.notify();
+    }
+
+    /// Schedule idle scrollback compaction: once this pane has been quiet
+    /// for [`COMPACT_IDLE`], compress one history block per [`COMPACT_TICK`]
+    /// until vt reports no work left, backing off whenever output resumes.
+    /// One task per pane; wakeups while it runs just bump `activity`.
+    fn arm_compaction(&mut self, cx: &mut Context<Self>) {
+        if self.compact_armed {
+            return;
+        }
+        self.compact_armed = true;
+        let session = self.session.clone();
+        let executor = cx.background_executor().clone();
+        cx.spawn(async move |this, cx| {
+            loop {
+                let Ok(seen) = this.update(cx, |this, _| this.activity) else {
+                    return;
+                };
+                executor.timer(COMPACT_IDLE).await;
+                let Ok(now) = this.update(cx, |this, _| this.activity) else {
+                    return;
+                };
+                if now != seen {
+                    continue; // output arrived; wait out a fresh idle window
+                }
+                loop {
+                    if !session.with_term(|t| t.compact_scrollback()) {
+                        // Done. Disarm, unless output slipped in meanwhile -
+                        // then keep the task and go back to the idle wait.
+                        let Ok(restart) = this.update(cx, |this, _| {
+                            if this.activity != seen {
+                                true
+                            } else {
+                                this.compact_armed = false;
+                                false
+                            }
+                        }) else {
+                            return;
+                        };
+                        if restart {
+                            break;
+                        }
+                        return;
+                    }
+                    executor.timer(COMPACT_TICK).await;
+                    let Ok(cur) = this.update(cx, |this, _| this.activity) else {
+                        return;
+                    };
+                    if cur != seen {
+                        break; // output resumed mid-compaction
+                    }
+                }
+            }
+        })
+        .detach();
     }
 
     /// Whether a foreground process (beyond the shell) is running in this pane.

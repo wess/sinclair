@@ -10,13 +10,12 @@ impl TerminalView {
     /// assist lines, numbered in global-row space.
     fn lines(&self) -> Vec<::assist::Line> {
         self.session.with_term(|term| {
-            let grid = term.grid();
-            let sb = grid.scrollback();
-            let total = sb.len() + grid.rows();
+            let sb_len = term.grid().scrollback().len();
+            let total = sb_len + term.grid().rows();
             let skip = total.saturating_sub(ASSIST_SCAN_ROWS);
             let mut out = Vec::with_capacity(total - skip);
-            for i in skip..sb.len() {
-                if let Some(row) = sb.get(i) {
+            for i in skip..sb_len {
+                if let Some(row) = term.grid_mut().scrollback_mut().row(i) {
                     out.push(::assist::Line {
                         number: i,
                         text: row.text(),
@@ -24,8 +23,8 @@ impl TerminalView {
                     });
                 }
             }
-            for i in sb.len().max(skip)..total {
-                let row = grid.row(i - sb.len());
+            for i in sb_len.max(skip)..total {
+                let row = term.grid().row(i - sb_len);
                 out.push(::assist::Line {
                     number: i,
                     text: row.text(),

@@ -13,7 +13,7 @@ documented limits), **✗** not yet.
 | SGR (colors + attributes) | ✓ | 16/256/truecolor (semicolon + colon forms), underline styles, all attrs |
 | Modes (DEC private + ANSI) | ✓ | DECAWM/DECTCEM/DECOM/IRM, 47/1047/1048/1049, bracketed paste |
 | Charsets (G0/G1, DEC special) | ✓ | line-drawing via SCS + SO/SI |
-| Scrollback + alt screen | ✓ | ring buffer, content-anchored offset, no scrollback on alt |
+| Scrollback + alt screen | ✓ | two-tier ring: hot tail + lz4-compressed 512-row blocks, compacted incrementally when the pane is idle (~60x smaller history; default limit 100k rows); content-anchored offset, no scrollback on alt |
 | Wide characters | ✓ | width 2 + spacer cells |
 | Combining characters | ◑ | one inline combining mark per cell (covers diacritics; stacked marks beyond the first are dropped) |
 | Reflow on resize | ✓ | rejoins `wrapped` lines and re-wraps at the new width, cursor follows, overflow → scrollback |

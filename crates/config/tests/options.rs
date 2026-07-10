@@ -11,7 +11,7 @@ fn defaults() {
     assert_eq!(o.foreground, None);
     assert_eq!(o.cursor_style, CursorStyle::Block);
     assert!(o.cursor_style_blink);
-    assert_eq!(o.scrollback_limit, 10_000);
+    assert_eq!(o.scrollback_limit, 100_000);
     assert_eq!(o.window_padding_x, 2);
     assert_eq!(o.window_padding_y, 2);
     assert_eq!(o.window_width, 0);

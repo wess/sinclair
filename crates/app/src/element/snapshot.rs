@@ -209,7 +209,11 @@ pub(crate) fn snapshot(
     let mut bg_runs: Vec<BgRun> = Vec::with_capacity(rows);
     let mut spans: Vec<Span> = Vec::with_capacity(rows * 2);
     let mut boxes: Vec<BoxCell> = Vec::with_capacity(rows);
-    let ovr = |i: u8| term.palette_override(i);
+    // Copied out: the row loop below borrows the terminal mutably
+    // (scrolled-back rows may decode out of compressed history).
+    let palette: [Option<(u8, u8, u8)>; 256] =
+        std::array::from_fn(|i| term.palette_override(i as u8));
+    let ovr = |i: u8| palette[i as usize];
     let offset = term.display_offset();
     let selection = term.selection().copied();
 
@@ -225,7 +229,8 @@ pub(crate) fn snapshot(
         }
     }
 
-    for (row_i, row) in term.visible_rows().enumerate() {
+    for row_i in 0..rows {
+        let row = term.visible_row(row_i);
         for (col, cell) in row.cells.iter().enumerate() {
             if cell.is_wide_spacer() {
                 continue;

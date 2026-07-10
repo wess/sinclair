@@ -30,8 +30,8 @@ fn scroll_up_saves_to_scrollback() {
     let mut g = grid_with_letters(3);
     g.scroll_up(0, 2, 2, true, Cell::default());
     assert_eq!(g.scrollback().len(), 2);
-    assert_eq!(g.scrollback().get(0).unwrap().text(), "a");
-    assert_eq!(g.scrollback().get(1).unwrap().text(), "b");
+    assert_eq!(g.scrollback_mut().row(0).unwrap().text(), "a");
+    assert_eq!(g.scrollback_mut().row(1).unwrap().text(), "b");
     assert_eq!(g.row(0).text(), "c");
 }
 
@@ -86,8 +86,8 @@ fn height_shrink_rotates_top_rows_into_scrollback() {
     assert_eq!(g.row(0).text(), "c");
     assert_eq!(g.row(1).text(), "d");
     assert_eq!(g.scrollback().len(), 2);
-    assert_eq!(g.scrollback().get(0).unwrap().text(), "a");
-    assert_eq!(g.scrollback().get(1).unwrap().text(), "b");
+    assert_eq!(g.scrollback_mut().row(0).unwrap().text(), "a");
+    assert_eq!(g.scrollback_mut().row(1).unwrap().text(), "b");
     assert_eq!(cursor, (1, 0));
 }
 

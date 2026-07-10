@@ -10,6 +10,18 @@ use std::num::NonZeroU16;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct HyperlinkId(NonZeroU16);
 
+impl HyperlinkId {
+    /// Raw id for the scrollback codec; never 0.
+    pub(crate) fn as_u16(self) -> u16 {
+        self.0.get()
+    }
+
+    /// Rebuild from a codec id; 0 means no link.
+    pub(crate) fn from_u16(raw: u16) -> Option<HyperlinkId> {
+        NonZeroU16::new(raw).map(HyperlinkId)
+    }
+}
+
 /// One hyperlink target.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Hyperlink {

@@ -382,7 +382,7 @@ impl Default for Options {
             title: None,
             clipboard_read: ClipboardAccess::Ask,
             clipboard_write: ClipboardAccess::Allow,
-            scrollback_limit: 10_000,
+            scrollback_limit: 100_000,
             window_padding_x: 2,
             window_padding_y: 2,
             window_width: 0,

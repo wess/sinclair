@@ -16,8 +16,8 @@ fn shell(args: &[&str]) -> SessionOptions {
 /// Flatten the visible grid rows into one newline-joined string.
 fn grid_text(session: &Session) -> String {
     session.with_term(|term| {
-        term.visible_rows()
-            .map(|row| row.text())
+        (0..term.rows())
+            .map(|r| term.row_text(r))
             .collect::<Vec<_>>()
             .join("\n")
     })

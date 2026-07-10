@@ -194,7 +194,7 @@ pub fn clamp_point(grid: &Grid, p: Point) -> Point {
 /// wrap across row edges; the rest move within their column or to the row
 /// ends; the word motions jump to the next/previous word boundary.
 pub fn adjust_point(
-    grid: &Grid,
+    grid: &mut Grid,
     caret: Point,
     dir: SelectionAdjust,
     page: usize,
@@ -239,7 +239,7 @@ pub fn adjust_point(
 /// back instead of leaving a stray character. The caret's side relative to
 /// the anchor decides which it is; at rest the motion's own direction does.
 pub fn adjust_caret(
-    grid: &Grid,
+    grid: &mut Grid,
     anchor: Point,
     caret: Point,
     dir: SelectionAdjust,
@@ -277,7 +277,7 @@ pub fn adjust_caret(
 
 /// One cell step in `right`'s reading-order direction, crossing into the
 /// adjacent content row at the line edge. `None` at the content boundary.
-fn step_cell(grid: &Grid, p: Point, right: bool) -> Option<Point> {
+fn step_cell(grid: &mut Grid, p: Point, right: bool) -> Option<Point> {
     let cols = grid.cols().max(1);
     if right {
         if p.col + 1 < cols {
@@ -298,7 +298,7 @@ fn step_cell(grid: &Grid, p: Point, right: bool) -> Option<Point> {
 /// going left). Crosses row boundaries within existing content, matching
 /// the per-cell Left/Right wrap, so word selection flows across lines.
 /// Returns `caret` unchanged at the content edge.
-fn word_step(grid: &Grid, caret: Point, right: bool, extra: &[char]) -> Point {
+fn word_step(grid: &mut Grid, caret: Point, right: bool, extra: &[char]) -> Point {
     let Some(mut q) = step_cell(grid, caret, right) else {
         return caret;
     };
@@ -322,7 +322,7 @@ fn word_step(grid: &Grid, caret: Point, right: bool, extra: &[char]) -> Point {
 /// skip the current word's cells, then the gap, landing on the near edge of
 /// the next word (its end coming from the right, its start from the left).
 /// This is what retraction uses, so shrinking gives back an entire word.
-fn word_skip(grid: &Grid, caret: Point, right: bool, extra: &[char]) -> Point {
+fn word_skip(grid: &mut Grid, caret: Point, right: bool, extra: &[char]) -> Point {
     let mut q = caret;
     while is_word(grid, q, extra) {
         match step_cell(grid, q, right) {
@@ -342,7 +342,7 @@ fn word_skip(grid: &Grid, caret: Point, right: bool, extra: &[char]) -> Point {
 /// Expand `p` to the word around it: a run of word characters
 /// (alphanumeric or in `extra`), crossing soft-wrap boundaries. A
 /// non-word starting cell expands to just itself.
-pub fn expand_word(grid: &Grid, p: Point, extra: &[char]) -> (Point, Point) {
+pub fn expand_word(grid: &mut Grid, p: Point, extra: &[char]) -> (Point, Point) {
     let p = clamp_point(grid, p);
     if !is_word(grid, p, extra) {
         return (p, p);
@@ -366,7 +366,7 @@ pub fn expand_word(grid: &Grid, p: Point, extra: &[char]) -> (Point, Point) {
 
 /// Smart-select the semantic token (URL / email / path / hash) under `p`,
 /// falling back to word selection when there's no token. Endpoints inclusive.
-pub fn smart_span(grid: &Grid, p: Point, extra: &[char]) -> (Point, Point) {
+pub fn smart_span(grid: &mut Grid, p: Point, extra: &[char]) -> (Point, Point) {
     let p = clamp_point(grid, p);
     if let Some(row) = grid.absolute_row(p.line) {
         let chars: Vec<char> = row
@@ -383,7 +383,7 @@ pub fn smart_span(grid: &Grid, p: Point, extra: &[char]) -> (Point, Point) {
 
 /// Expand `p` to the full logical line: walk up while the row above
 /// soft-wraps into this one, down while this row soft-wraps onward.
-pub fn expand_line(grid: &Grid, p: Point) -> (Point, Point) {
+pub fn expand_line(grid: &mut Grid, p: Point) -> (Point, Point) {
     let p = clamp_point(grid, p);
     let mut top = p.line;
     while let Some(above) = grid.absolute_row(top - 1) {
@@ -405,7 +405,7 @@ pub fn expand_line(grid: &Grid, p: Point) -> (Point, Point) {
 /// (per the row wrap flag) and with `\n` at hard breaks; each hard line
 /// (including the final segment) is right-trimmed; wide-char spacer
 /// cells are skipped.
-pub fn text(grid: &Grid, sel: &Selection) -> String {
+pub fn text(grid: &mut Grid, sel: &Selection) -> String {
     let (start, end) = (sel.start(), sel.end());
     let mut out = String::new();
     let mut logical = String::new();
@@ -438,7 +438,7 @@ pub fn text(grid: &Grid, sel: &Selection) -> String {
     out
 }
 
-fn is_word(grid: &Grid, p: Point, extra: &[char]) -> bool {
+fn is_word(grid: &mut Grid, p: Point, extra: &[char]) -> bool {
     let Some(row) = grid.absolute_row(p.line) else {
         return false;
     };
@@ -454,7 +454,7 @@ fn is_word(grid: &Grid, p: Point, extra: &[char]) -> bool {
 }
 
 /// Reading-order predecessor, crossing a soft wrap from the row above.
-fn prev_point(grid: &Grid, p: Point) -> Option<Point> {
+fn prev_point(grid: &mut Grid, p: Point) -> Option<Point> {
     if p.col > 0 {
         return Some(Point::new(p.line, p.col - 1));
     }
@@ -465,7 +465,7 @@ fn prev_point(grid: &Grid, p: Point) -> Option<Point> {
 }
 
 /// Reading-order successor, crossing a soft wrap onto the row below.
-fn next_point(grid: &Grid, p: Point) -> Option<Point> {
+fn next_point(grid: &mut Grid, p: Point) -> Option<Point> {
     if p.col + 1 < grid.cols() {
         return Some(Point::new(p.line, p.col + 1));
     }

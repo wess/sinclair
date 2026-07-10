@@ -6,7 +6,7 @@ fn term(cols: usize, rows: usize) -> Terminal {
     Terminal::new(cols, rows, 100)
 }
 
-fn screen_text(t: &Terminal) -> Vec<String> {
+fn screen_text(t: &mut Terminal) -> Vec<String> {
     (0..t.rows()).map(|r| t.row_text(r)).collect()
 }
 
@@ -98,17 +98,17 @@ fn ed_variants() {
     let mut t = term(4, 3);
     t.feed(b"aaaa\r\nbbbb\r\ncccc\x1b[2;2H");
     t.feed(b"\x1b[0J");
-    assert_eq!(screen_text(&t), vec!["aaaa", "b", ""]);
+    assert_eq!(screen_text(&mut t), vec!["aaaa", "b", ""]);
 
     let mut t = term(4, 3);
     t.feed(b"aaaa\r\nbbbb\r\ncccc\x1b[2;2H");
     t.feed(b"\x1b[1J");
-    assert_eq!(screen_text(&t), vec!["", "  bb", "cccc"]);
+    assert_eq!(screen_text(&mut t), vec!["", "  bb", "cccc"]);
 
     let mut t = term(4, 3);
     t.feed(b"aaaa\r\nbbbb\r\ncccc");
     t.feed(b"\x1b[2J");
-    assert_eq!(screen_text(&t), vec!["", "", ""]);
+    assert_eq!(screen_text(&mut t), vec!["", "", ""]);
 }
 
 #[test]
@@ -143,19 +143,19 @@ fn scroll_region_with_ind_and_ri() {
     assert_eq!(t.cursor_pos(), (0, 0));
     // IND from the region bottom scrolls only the region.
     t.feed(b"\x1b[3;1H\x1bD");
-    assert_eq!(screen_text(&t), vec!["a", "c", "", "d"]);
+    assert_eq!(screen_text(&mut t), vec!["a", "c", "", "d"]);
     // RI from the region top scrolls the region down.
     t.feed(b"\x1b[2;1H\x1bM");
-    assert_eq!(screen_text(&t), vec!["a", "", "c", "d"]);
+    assert_eq!(screen_text(&mut t), vec!["a", "", "c", "d"]);
 }
 
 #[test]
 fn scroll_region_su_sd() {
     let mut t = term(4, 4);
     t.feed(b"a\r\nb\r\nc\r\nd\x1b[2;3r\x1b[1S");
-    assert_eq!(screen_text(&t), vec!["a", "c", "", "d"]);
+    assert_eq!(screen_text(&mut t), vec!["a", "c", "", "d"]);
     t.feed(b"\x1b[1T");
-    assert_eq!(screen_text(&t), vec!["a", "", "c", "d"]);
+    assert_eq!(screen_text(&mut t), vec!["a", "", "c", "d"]);
 }
 
 #[test]
@@ -292,16 +292,16 @@ fn il_dl_within_region() {
     let mut t = term(4, 4);
     t.feed(b"a\r\nb\r\nc\r\nd");
     t.feed(b"\x1b[2;1H\x1b[1L");
-    assert_eq!(screen_text(&t), vec!["a", "", "b", "c"]);
+    assert_eq!(screen_text(&mut t), vec!["a", "", "b", "c"]);
     t.feed(b"\x1b[2;1H\x1b[1M");
-    assert_eq!(screen_text(&t), vec!["a", "b", "c", ""]);
+    assert_eq!(screen_text(&mut t), vec!["a", "b", "c", ""]);
 }
 
 #[test]
 fn dl_outside_region_is_ignored() {
     let mut t = term(4, 4);
     t.feed(b"a\r\nb\r\nc\r\nd\x1b[3;4r\x1b[1;1H\x1b[1M");
-    assert_eq!(screen_text(&t), vec!["a", "b", "c", "d"]);
+    assert_eq!(screen_text(&mut t), vec!["a", "b", "c", "d"]);
 }
 
 #[test]
@@ -316,7 +316,7 @@ fn scrollback_accumulates_and_ed3_clears() {
     let mut t = term(4, 2);
     t.feed(b"a\r\nb\r\nc\r\nd");
     assert_eq!(t.grid().scrollback().len(), 2);
-    assert_eq!(t.grid().scrollback().get(0).unwrap().text(), "a");
+    assert_eq!(t.grid_mut().scrollback_mut().row(0).unwrap().text(), "a");
     t.feed(b"\x1b[3J");
     assert_eq!(t.grid().scrollback().len(), 0);
 }
@@ -372,7 +372,7 @@ fn split_feeds_parse_identically() {
     for &byte in bytes {
         b.feed(&[byte]);
     }
-    assert_eq!(screen_text(&a), screen_text(&b));
+    assert_eq!(screen_text(&mut a), screen_text(&mut b));
     assert_eq!(a.cursor_pos(), b.cursor_pos());
 }
 
@@ -382,5 +382,5 @@ fn garbage_never_panics() {
     t.feed(b"\x1b[;;;m\x1b[999;999H\x1b[?9999h\x1b]\x07\x1bZ\x1b[>c");
     t.feed(&[0xff, 0xfe, 0x1b, b'[', 0x80, b'm']);
     t.feed(b"still alive");
-    assert!(screen_text(&t).join("").contains("still"));
+    assert!(screen_text(&mut t).join("").contains("still"));
 }

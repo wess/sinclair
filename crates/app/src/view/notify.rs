@@ -55,13 +55,16 @@ pub(crate) fn scanrange(hwm: u64, committed: u64, sb_len: usize, rows: usize) ->
 
 /// Text of the row holding stable sequence `seq`, or `None` once evicted or
 /// past the live grid.
-fn seqrow(t: &vt::Terminal, seq: u64, committed: u64, sb_len: usize) -> Option<String> {
+fn seqrow(t: &mut vt::Terminal, seq: u64, committed: u64, sb_len: usize) -> Option<String> {
     if seq >= committed {
         let r = (seq - committed) as usize;
         (r < t.rows()).then(|| t.grid().row(r).text())
     } else {
         let i = (seq + sb_len as u64).checked_sub(committed)?;
-        t.grid().scrollback().get(i as usize).map(|row| row.text())
+        t.grid_mut()
+            .scrollback_mut()
+            .row(i as usize)
+            .map(|row| row.text())
     }
 }
 
