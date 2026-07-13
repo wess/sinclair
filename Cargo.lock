@@ -258,7 +258,7 @@ checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 
 [[package]]
 name = "app"
-version = "1.27.1"
+version = "1.27.2"
 dependencies = [
  "assist",
  "config",
@@ -375,7 +375,7 @@ dependencies = [
 
 [[package]]
 name = "assist"
-version = "1.27.1"
+version = "1.27.2"
 dependencies = [
  "candle-core",
 ]
@@ -1229,7 +1229,7 @@ dependencies = [
 
 [[package]]
 name = "cast"
-version = "1.27.1"
+version = "1.27.2"
 dependencies = [
  "serde_json",
 ]
@@ -1571,7 +1571,7 @@ dependencies = [
 
 [[package]]
 name = "config"
-version = "1.27.1"
+version = "1.27.2"
 
 [[package]]
 name = "console_error_panic_hook"
@@ -1605,7 +1605,7 @@ dependencies = [
 
 [[package]]
 name = "container"
-version = "1.27.1"
+version = "1.27.2"
 
 [[package]]
 name = "convert_case"
@@ -2559,7 +2559,7 @@ dependencies = [
 
 [[package]]
 name = "export"
-version = "1.27.1"
+version = "1.27.2"
 dependencies = [
  "cast",
  "fontdue",
@@ -4415,7 +4415,7 @@ dependencies = [
 
 [[package]]
 name = "input"
-version = "1.27.1"
+version = "1.27.2"
 
 [[package]]
 name = "instant"
@@ -4984,7 +4984,7 @@ checksum = "670fdfda89751bc4a84ac13eaa63e205cf0fd22b4c9a5fbfa085b63c1f1d3a30"
 
 [[package]]
 name = "macros"
-version = "1.27.1"
+version = "1.27.2"
 
 [[package]]
 name = "malloc_buf"
@@ -5039,7 +5039,7 @@ dependencies = [
 
 [[package]]
 name = "mcp"
-version = "1.27.1"
+version = "1.27.2"
 dependencies = [
  "serde_json",
 ]
@@ -5319,7 +5319,7 @@ checksum = "0676bb32a98c1a483ce53e500a81ad9c3d5b3f7c920c28c24e9cb0980d0b5bc8"
 
 [[package]]
 name = "notes"
-version = "1.27.1"
+version = "1.27.2"
 dependencies = [
  "axum",
  "include_dir",
@@ -6195,7 +6195,7 @@ checksum = "19f132c84eca552bf34cab8ec81f1c1dcc229b811638f9d283dceabe58c5569e"
 
 [[package]]
 name = "plugin"
-version = "1.27.1"
+version = "1.27.2"
 dependencies = [
  "serde",
  "toml 0.8.23",
@@ -6203,7 +6203,7 @@ dependencies = [
 
 [[package]]
 name = "pluginrt"
-version = "1.27.1"
+version = "1.27.2"
 dependencies = [
  "anyhow",
  "serde_json",
@@ -6467,7 +6467,7 @@ dependencies = [
 
 [[package]]
 name = "pty"
-version = "1.27.1"
+version = "1.27.2"
 dependencies = [
  "rustix 0.38.44",
  "windows 0.58.0",
@@ -8157,7 +8157,7 @@ dependencies = [
 
 [[package]]
 name = "terminal"
-version = "1.27.1"
+version = "1.27.2"
 dependencies = [
  "cast",
  "pty",
@@ -8166,7 +8166,7 @@ dependencies = [
 
 [[package]]
 name = "theme"
-version = "1.27.1"
+version = "1.27.2"
 
 [[package]]
 name = "thiserror"
@@ -8763,7 +8763,7 @@ checksum = "39ec24b3121d976906ece63c9daad25b85969647682eee313cb5779fdd69e14e"
 
 [[package]]
 name = "updater"
-version = "1.27.1"
+version = "1.27.2"
 dependencies = [
  "serde_json",
 ]
@@ -8980,7 +8980,7 @@ dependencies = [
 
 [[package]]
 name = "vt"
-version = "1.27.1"
+version = "1.27.2"
 dependencies = [
  "bitflags 2.13.0",
  "lz4_flex",
