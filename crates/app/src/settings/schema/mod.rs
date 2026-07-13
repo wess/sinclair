@@ -50,39 +50,17 @@ impl Section {
         }
     }
 
+    /// The monospace group label under the page title (Zed's subsection
+    /// header style).
     pub fn subtitle(self) -> &'static str {
         match self {
-            Section::General => "Shell, windows, clipboard, and OS-tab containers.",
-            Section::Appearance => "Themes, colors, fonts, cursor, and the color palette.",
-            Section::Terminal => "Grid density, scrollback, selection, and suggestions.",
-            Section::Keyboard => "Edit the keymap: change a trigger, remove it, or add one.",
-            Section::Macros => "Replay recorded command macros and assign each a shortcut.",
-            Section::Plugins => "Manage the directories Sinclair loads extensions from.",
-            Section::Ai => "Expose this terminal over MCP and run the Relay agent mesh.",
-        }
-    }
-
-    pub fn icon(self) -> &'static str {
-        match self {
-            Section::General => "\u{2699}",
-            Section::Appearance => "\u{25d0}",
-            Section::Terminal => "\u{25a3}",
-            Section::Keyboard => "\u{2328}",
-            Section::Macros => "\u{25b6}",
-            Section::Plugins => "\u{2739}",
-            Section::Ai => "\u{2728}",
-        }
-    }
-
-    pub fn accent(self) -> theme::Rgb {
-        match self {
-            Section::General => theme::Rgb::new(142, 142, 147),
-            Section::Appearance => theme::Rgb::new(88, 86, 214),
-            Section::Terminal => theme::Rgb::new(52, 199, 89),
-            Section::Keyboard => theme::Rgb::new(10, 132, 255),
-            Section::Macros => theme::Rgb::new(255, 45, 85),
-            Section::Plugins => theme::Rgb::new(255, 159, 10),
-            Section::Ai => theme::Rgb::new(191, 90, 242),
+            Section::General => "General Settings",
+            Section::Appearance => "Appearance Settings",
+            Section::Terminal => "Terminal Settings",
+            Section::Keyboard => "Keymap",
+            Section::Macros => "Macros",
+            Section::Plugins => "Plugin Settings",
+            Section::Ai => "AI Settings",
         }
     }
 }

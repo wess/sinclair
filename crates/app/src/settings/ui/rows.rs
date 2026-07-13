@@ -1,6 +1,6 @@
 //! Schema-driven rendering: every row comes from a [`Setting`] — label,
-//! description, the right control for its type, a modified-from-default
-//! bar, and a per-row reset.
+//! description, the right control for its type, and, when the user's file
+//! overrides the key, an inline reset arrow after the label.
 
 use super::super::schema::{self, Control, Section, Setting};
 use super::super::{EditTarget, SettingsView};
@@ -8,7 +8,7 @@ use super::*;
 use gpui::{px, AnyElement, Context};
 
 impl SettingsView {
-    /// One settings row (plus, for an expanded Choice, its variant list).
+    /// One settings row: title and description left, the control right.
     pub(crate) fn setting_row(&self, s: &'static Setting, cx: &mut Context<Self>) -> AnyElement {
         let control: AnyElement = match &s.control {
             Control::Toggle(get) => self.switch(s, *get, cx).into_any_element(),
@@ -20,88 +20,61 @@ impl SettingsView {
             // List settings render as groups, not rows.
             Control::List(_) => div().into_any_element(),
         };
-        let modified = self.modified(s.key);
-        let mut right = div().flex().items_center().gap_2().flex_none();
-        if modified {
-            right = right.child(self.reset_button(s.key, cx));
-        }
-        right = right.child(control);
-
-        let mut row = div()
-            .relative()
+        div()
             .w_full()
-            .min_h(px(54.0))
-            .px_3()
-            .py_2()
+            .min_h(px(64.0))
+            .py(px(14.0))
             .flex()
             .items_center()
             .justify_between()
             .gap_3()
-            .child(self.row_label(s, modified))
-            .child(right);
-        if modified {
-            row = row.child(
-                div()
-                    .absolute()
-                    .left_0()
-                    .top(px(8.0))
-                    .bottom(px(8.0))
-                    .w(px(3.0))
-                    .rounded(px(2.0))
-                    .bg(hsla(BLUE_TEXT)),
-            );
-        }
-        if let (Control::Choice(c), true) = (&s.control, self.open_choice == Some(s.key)) {
-            return div()
-                .flex()
-                .flex_col()
-                .child(row)
-                .child(self.choice_panel(s, *c, cx))
-                .into_any_element();
-        }
-        row.into_any_element()
+            .child(self.row_label(s, cx))
+            .child(div().flex().items_center().flex_none().child(control))
+            .into_any_element()
     }
 
-    /// The label + description column.
-    fn row_label(&self, s: &'static Setting, modified: bool) -> impl IntoElement {
+    /// The label + description column, with the reset arrow inline after the
+    /// title while the user's file overrides the key.
+    fn row_label(&self, s: &'static Setting, cx: &mut Context<Self>) -> impl IntoElement {
         let mut name = div()
             .flex()
             .items_center()
             .gap_2()
             .text_color(hsla(TEXT))
             .child(SharedString::from(s.label));
-        if modified {
-            name = name.child(
-                div()
-                    .text_size(px(10.0))
-                    .text_color(hsla(BLUE_TEXT))
-                    .child(SharedString::from("modified")),
-            );
+        if self.modified(s.key) {
+            name = name.child(self.reset_button(s.key, cx));
         }
         div()
             .flex()
             .flex_col()
             .flex_1()
             .min_w(px(0.0))
-            .gap(px(2.0))
+            .gap(px(3.0))
             .child(name)
             .child(
                 div()
-                    .text_size(px(11.0))
+                    .text_size(px(12.5))
                     .text_color(hsla(MUTED))
                     .child(SharedString::from(s.desc)),
             )
     }
 
-    /// The `↺` button that removes a key from settings.json.
+    /// The `↺` reset that removes a key from settings.json.
     pub(crate) fn reset_button(&self, key: &'static str, cx: &mut Context<Self>) -> impl IntoElement {
-        button_box("\u{21ba}").text_color(hsla(MUTED)).on_mouse_down(
-            MouseButton::Left,
-            cx.listener(move |this, _ev, _window, cx| {
-                this.reset(key, cx);
-                cx.stop_propagation();
-            }),
-        )
+        div()
+            .text_size(px(13.0))
+            .text_color(hsla(MUTED))
+            .cursor_pointer()
+            .hover(|d| d.text_color(hsla(TEXT)))
+            .child(SharedString::from("\u{21ba}"))
+            .on_mouse_down(
+                MouseButton::Left,
+                cx.listener(move |this, _ev, _window, cx| {
+                    this.reset(key, cx);
+                    cx.stop_propagation();
+                }),
+            )
     }
 
     /// The rows and list groups of the selected section (search empty).
@@ -117,8 +90,8 @@ impl SettingsView {
         }
     }
 
-    /// Scalar settings collect into one panel; each List setting renders as
-    /// its own group below, in declaration order.
+    /// Scalar settings collect into one divided run; each List setting
+    /// renders as its own labeled group below, in declaration order.
     pub(crate) fn rows_and_groups(
         &self,
         settings: &[&'static Setting],

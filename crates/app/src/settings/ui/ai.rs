@@ -103,7 +103,7 @@ impl SettingsView {
             .child(self.test_result(tool))
             .child(test)
             .child(self.switch(s, get, cx));
-        self.row(self.icon("\u{25cb}", Section::Ai.accent(), px(22.0)), s.label, control)
+        self.row(self.icon("\u{25cb}", px(18.0)), s.label, control)
             .into_any_element()
     }
 
@@ -128,9 +128,10 @@ impl SettingsView {
     fn relay_log_row(&self) -> AnyElement {
         let path = crate::relay::log_path().display().to_string();
         let text = div()
+            .text_size(px(12.5))
             .text_color(hsla(MUTED))
             .child(SharedString::from(path));
-        self.row(self.icon("\u{2630}", theme::Rgb::new(142, 142, 147), px(22.0)), "Log", text)
+        self.row(self.icon("\u{2630}", px(18.0)), "Log", text)
             .into_any_element()
     }
 }

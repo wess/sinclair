@@ -1,7 +1,7 @@
 //! The repeated-option groups (fonts, palette, keybinds, plugins, …) plus
 //! the Macros section, which manages files rather than settings keys.
 
-use super::super::schema::{ListKind, Section, Setting};
+use super::super::schema::{ListKind, Setting};
 use super::super::{EditTarget, SettingsView};
 use super::*;
 use gpui::{div, px, AnyElement, Context, MouseButton, SharedString};
@@ -35,7 +35,6 @@ impl SettingsView {
         let mut row = div()
             .w_full()
             .h(px(44.0))
-            .px_3()
             .flex()
             .items_center()
             .gap_2()
@@ -74,7 +73,6 @@ impl SettingsView {
         let mut row = div()
             .w_full()
             .h(px(44.0))
-            .px_3()
             .flex()
             .items_center()
             .gap_2();
@@ -89,7 +87,6 @@ impl SettingsView {
         } else {
             row = row.child(
                 button_box(SharedString::from(format!("+  {}", kind.add_label())))
-                    .px_3()
                     .text_color(hsla(BLUE_TEXT))
                     .on_mouse_down(
                         MouseButton::Left,
@@ -103,8 +100,8 @@ impl SettingsView {
         row
     }
 
-    /// A List setting's group: heading (with description and, when the
-    /// user's file sets the key, a reset), then the entries.
+    /// A List setting's group: a monospace label (with the description and,
+    /// when the user's file sets the key, a reset), then the entries.
     pub(crate) fn list_group(
         &self,
         s: &'static Setting,
@@ -119,35 +116,33 @@ impl SettingsView {
     }
 
     fn group_header(&self, s: &'static Setting, cx: &mut Context<Self>) -> impl IntoElement {
-        let mut header = div()
+        let mut label = div()
             .flex()
-            .items_end()
+            .items_center()
             .justify_between()
+            .child(self.mono_label(s.label));
+        if self.modified(s.key) {
+            label = label.child(self.reset_button(s.key, cx));
+        }
+        div()
+            .flex()
+            .flex_col()
+            .pt(px(18.0))
+            .gap(px(6.0))
+            .child(label)
             .child(
                 div()
-                    .flex()
-                    .flex_col()
-                    .child(self.heading(s.label))
-                    .child(
-                        div()
-                            .px_1()
-                            .pb_1()
-                            .text_size(px(11.0))
-                            .text_color(hsla(MUTED))
-                            .child(SharedString::from(s.desc)),
-                    ),
-            );
-        if self.modified(s.key) {
-            header = header.child(div().pb_1().child(self.reset_button(s.key, cx)));
-        }
-        header
+                    .text_size(px(12.5))
+                    .text_color(hsla(MUTED))
+                    .child(SharedString::from(s.desc)),
+            )
+            .child(div().pt(px(4.0)).child(self.divider()))
     }
 
     /// The Keybindings group plus a syntax hint and a Restore-defaults button.
     pub(crate) fn keyboard_group(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let hint = div()
-            .px_1()
-            .pb_1()
+            .text_size(px(12.5))
             .text_color(hsla(MUTED))
             .child(SharedString::from(
                 "trigger=action, e.g. cmd+shift+t=new_tab. Chain keys with > for a chord \
@@ -157,10 +152,9 @@ impl SettingsView {
             .flex()
             .items_center()
             .justify_between()
-            .child(self.heading(ListKind::Keybind.label()))
+            .child(self.mono_label(ListKind::Keybind.label()))
             .child(
                 button_box("\u{21ba}  Restore defaults")
-                    .px_3()
                     .text_color(hsla(MUTED))
                     .on_mouse_down(
                         MouseButton::Left,
@@ -173,8 +167,11 @@ impl SettingsView {
         div()
             .flex()
             .flex_col()
+            .pt(px(18.0))
+            .gap(px(6.0))
             .child(header)
             .child(hint)
+            .child(div().pt(px(4.0)).child(self.divider()))
             .child(self.list(self.list_rows(ListKind::Keybind, cx)))
     }
 
@@ -191,15 +188,16 @@ impl SettingsView {
         div()
             .flex()
             .flex_col()
-            .child(self.heading("Macros"))
+            .child(self.heading("Recorded Macros"))
             .child(self.list(rows))
     }
 
     fn macro_empty_row(&self) -> AnyElement {
         self.row(
-            self.icon("\u{25b6}", Section::Macros.accent(), px(22.0)),
+            self.icon("\u{25b6}", px(18.0)),
             "No macros recorded yet",
             div()
+                .text_size(px(12.5))
                 .text_color(hsla(MUTED))
                 .child(SharedString::from("Record one, then assign a shortcut here")),
         )
@@ -214,7 +212,7 @@ impl SettingsView {
         if self.editing.as_ref().map(|(t, _)| t) == Some(&rename_target) {
             return self
                 .row(
-                    self.icon("\u{25b6}", Section::Macros.accent(), px(22.0)),
+                    self.icon("\u{25b6}", px(18.0)),
                     "",
                     self.text_input(rename_target, name.to_string(), "new name", 220.0, cx),
                 )
@@ -233,6 +231,7 @@ impl SettingsView {
             .min_w(px(110.0))
             .flex()
             .justify_end()
+            .text_size(px(13.0))
             .text_color(hsla(color))
             .child(SharedString::from(text));
 
@@ -284,11 +283,7 @@ impl SettingsView {
             ),
         );
 
-        self.row(
-            self.icon("\u{25b6}", Section::Macros.accent(), px(22.0)),
-            name,
-            control,
-        )
-        .into_any_element()
+        self.row(self.icon("\u{25b6}", px(18.0)), name, control)
+            .into_any_element()
     }
 }

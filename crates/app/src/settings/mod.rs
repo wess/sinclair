@@ -20,8 +20,8 @@ use gpui::{
 use guise::TextEdit;
 use schema::{Control, ListKind, Section, Setting};
 
-const WIDTH: f32 = 780.0;
-const HEIGHT: f32 = 820.0;
+const WIDTH: f32 = 920.0;
+const HEIGHT: f32 = 780.0;
 
 /// What the single active text editor is bound to.
 #[derive(Clone, PartialEq)]
@@ -68,6 +68,9 @@ pub struct SettingsView {
     /// mouse-down (which carries a position but not the element's bounds) can
     /// be mapped to a value. Keyed by the option's settings key.
     slider_bounds: HashMap<&'static str, Bounds<Pixels>>,
+    /// Each choice button's window-space bounds, captured every frame so the
+    /// open dropdown menu can anchor below its button. Keyed by settings key.
+    choice_bounds: HashMap<&'static str, Bounds<Pixels>>,
 }
 
 pub fn open(parent: &Window, cx: &mut App) {
@@ -144,6 +147,7 @@ impl SettingsView {
             relay_running: false,
             tool_tests: HashMap::new(),
             slider_bounds: HashMap::new(),
+            choice_bounds: HashMap::new(),
         };
         view.reload();
         view.poll_relay_status(cx);

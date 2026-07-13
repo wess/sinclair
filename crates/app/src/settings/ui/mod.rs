@@ -1,8 +1,9 @@
-//! Rendering for the settings window: the search bar, category sidebar,
-//! reusable controls, and the schema-driven rows.
+//! Rendering for the settings window, styled after Zed's settings UI: a
+//! navbar with the search field and flat section list, and a content pane
+//! with a page title, monospace group labels, and hairline-divided rows.
 
 use gpui::prelude::*;
-use gpui::{div, px, Div, MouseButton, SharedString, Window, WindowControlArea};
+use gpui::{div, px, Div, FontWeight, MouseButton, SharedString, Window, WindowControlArea};
 use gpui::{Context, Hsla};
 
 use super::schema::Section;
@@ -19,18 +20,24 @@ const SIDEBAR: f32 = 226.0;
 impl SettingsView {
     fn sidebar_item(&self, section: Section, cx: &mut Context<Self>) -> impl IntoElement {
         let selected = self.section == section && self.search().is_empty();
-        let mut bg = hsla(if selected { BLUE } else { SIDEBAR_BG });
+        let mut bg = hsla(NAV_SELECTED);
         bg.a = if selected { 1.0 } else { 0.0 };
         div()
             .flex()
             .items_center()
             .gap_2()
-            .h(px(32.0))
+            .h(px(30.0))
             .px_2()
-            .rounded(px(7.0))
+            .rounded(px(6.0))
             .bg(bg)
-            .text_color(hsla(TEXT))
-            .child(self.icon(section.icon(), section.accent(), px(20.0)))
+            .text_color(hsla(if selected { TEXT } else { NAV_TEXT }))
+            .child(
+                div()
+                    .w(px(10.0))
+                    .text_size(px(12.0))
+                    .text_color(hsla(MUTED))
+                    .child(SharedString::from("\u{203a}")),
+            )
             .child(SharedString::from(section.title()))
             .on_mouse_down(
                 MouseButton::Left,
@@ -49,66 +56,28 @@ impl SettingsView {
             .flex_none()
             .h_full()
             .px_3()
-            .pt(px(58.0))
+            .pt(px(44.0))
             .pb_3()
+            .gap(px(1.0))
             .bg(hsla(SIDEBAR_BG))
-            .child(self.identity());
+            .border_r_1()
+            .border_color(hsla(LINE))
+            .child(self.search_bar(cx));
         for section in Section::ALL {
             bar = bar.child(self.sidebar_item(section, cx));
         }
-        bar.child(div().flex_1()).child(self.file_link(cx))
+        bar.child(div().flex_1()).child(self.sidebar_hint())
     }
 
-    /// The escape hatch: open the backing settings.json in an editor.
-    fn file_link(&self, cx: &mut Context<Self>) -> impl IntoElement {
+    /// The navbar footer hint: the search box is always live.
+    fn sidebar_hint(&self) -> impl IntoElement {
         div()
-            .flex()
-            .items_center()
-            .gap_2()
-            .h(px(32.0))
             .px_2()
-            .rounded(px(7.0))
+            .text_size(px(12.0))
+            .italic()
+            .font_family(SharedString::from(self.opts.primary_font().to_string()))
             .text_color(hsla(MUTED))
-            .child(self.icon("{}", theme::Rgb::new(99, 99, 102), px(20.0)))
-            .child(SharedString::from("Edit in settings.json"))
-            .on_mouse_down(
-                MouseButton::Left,
-                cx.listener(|_this, _ev, _window, cx| {
-                    super::open_settings_file();
-                    cx.stop_propagation();
-                }),
-            )
-    }
-
-    fn identity(&self) -> impl IntoElement {
-        div()
-            .flex()
-            .items_center()
-            .gap_2()
-            .mb_4()
-            .child(
-                div()
-                    .w(px(38.0))
-                    .h(px(38.0))
-                    .rounded(px(19.0))
-                    .bg(hsla(theme::Rgb::new(232, 235, 241)))
-                    .text_color(hsla(theme::Rgb::new(97, 103, 112)))
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .child(SharedString::from("S")),
-            )
-            .child(
-                div()
-                    .flex()
-                    .flex_col()
-                    .child(SharedString::from("Sinclair"))
-                    .child(
-                        div()
-                            .text_color(hsla(MUTED))
-                            .child(SharedString::from("Settings")),
-                    ),
-            )
+            .child(SharedString::from("Type to search"))
     }
 
     /// The always-live search box. It has no click-to-focus state: whenever
@@ -116,20 +85,23 @@ impl SettingsView {
     fn search_bar(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let idle = self.editing.is_some();
         let text = self.query.text();
-        let mut border = hsla(if idle { FIELD_BORDER } else { BLUE });
-        border.a = if idle { 0.75 } else { 1.0 };
         let mut field = div()
             .flex_1()
             .h(px(30.0))
             .px_2()
-            .rounded(px(7.0))
+            .rounded(px(6.0))
             .border_1()
-            .border_color(border)
-            .bg(hsla(FIELD_BG))
+            .border_color(hsla(FIELD_BORDER))
+            .bg(hsla(CONTENT_BG))
             .flex()
             .items_center()
             .gap_1()
             .overflow_hidden()
+            .child(
+                div()
+                    .text_color(hsla(MUTED))
+                    .child(SharedString::from("\u{2315}")),
+            )
             .on_mouse_down(
                 MouseButton::Left,
                 cx.listener(|this, _ev, window, cx| {
@@ -142,7 +114,7 @@ impl SettingsView {
         if text.is_empty() && idle {
             field = field
                 .text_color(hsla(MUTED))
-                .child(SharedString::from("Search settings"));
+                .child(SharedString::from("Search settings\u{2026}"));
         } else if idle {
             field = field.text_color(hsla(TEXT)).child(SharedString::from(text));
         } else {
@@ -159,25 +131,27 @@ impl SettingsView {
                 let (before, after) = self.query.split();
                 if before.is_empty() && after.is_empty() {
                     field = field
-                        .child(div().w(px(1.0)).h(px(16.0)).bg(hsla(TEXT)))
+                        .child(div().w(px(1.0)).h(px(16.0)).bg(hsla(BLUE)))
                         .child(
                             div()
                                 .text_color(hsla(MUTED))
-                                .child(SharedString::from("Search settings")),
+                                .child(SharedString::from("Search settings\u{2026}")),
                         );
                 } else {
                     field = field
                         .child(SharedString::from(before))
-                        .child(div().w(px(1.0)).h(px(16.0)).bg(hsla(TEXT)))
+                        .child(div().w(px(1.0)).h(px(16.0)).bg(hsla(BLUE)))
                         .child(SharedString::from(after));
                 }
             }
         }
-        let mut bar = div().flex().items_center().gap_2().pb_3().child(field);
+        let mut bar = div().flex().items_center().gap_2().mb_2().child(field);
         if !self.query.is_empty() {
             bar = bar.child(
-                button_box("\u{2715}")
+                div()
                     .text_color(hsla(MUTED))
+                    .cursor_pointer()
+                    .child(SharedString::from("\u{2715}"))
                     .on_mouse_down(
                         MouseButton::Left,
                         cx.listener(|this, _ev, _window, cx| {
@@ -191,23 +165,56 @@ impl SettingsView {
         bar
     }
 
-    /// The section header shown when browsing (search empty).
-    fn section_header(&self) -> impl IntoElement {
+    /// The content header: the settings-file badge and the escape hatch into
+    /// the backing settings.json.
+    fn content_header(&self, cx: &mut Context<Self>) -> impl IntoElement {
         div()
-            .pb_2()
             .flex()
-            .flex_col()
+            .items_center()
+            .justify_between()
+            .pt(px(16.0))
             .child(
                 div()
-                    .text_size(px(20.0))
-                    .text_color(hsla(TEXT))
-                    .child(SharedString::from(self.section.title())),
+                    .h(px(24.0))
+                    .px_2()
+                    .rounded(px(5.0))
+                    .bg(hsla(PILL_BG))
+                    .flex()
+                    .items_center()
+                    .text_size(px(12.5))
+                    .text_color(hsla(BLUE))
+                    .child(SharedString::from("User")),
             )
             .child(
-                div()
-                    .text_color(hsla(MUTED))
-                    .child(SharedString::from(self.section.subtitle())),
+                button_box("Edit in settings.json").on_mouse_down(
+                    MouseButton::Left,
+                    cx.listener(|_this, _ev, _window, cx| {
+                        super::open_settings_file();
+                        cx.stop_propagation();
+                    }),
+                ),
             )
+    }
+
+    /// The page title and monospace group label shown when browsing. Sections
+    /// that are a single labeled group (Keyboard, Macros, Plugins) skip the
+    /// label — the group's own header carries it.
+    fn section_header(&self) -> impl IntoElement {
+        let grouped = matches!(
+            self.section,
+            Section::Keyboard | Section::Macros | Section::Plugins
+        );
+        let mut header = div().flex().flex_col().pt(px(18.0)).child(
+            div()
+                .text_size(px(22.0))
+                .font_weight(FontWeight::SEMIBOLD)
+                .text_color(hsla(TEXT))
+                .child(SharedString::from(self.section.title())),
+        );
+        if !grouped {
+            header = header.child(self.heading(self.section.subtitle()));
+        }
+        header
     }
 
     fn content(&self, cx: &mut Context<Self>) -> impl IntoElement {
@@ -234,10 +241,10 @@ impl SettingsView {
             .flex_1()
             .min_w(px(0.0))
             .h_full()
-            .px_5()
-            .pt(px(50.0))
+            .px(px(32.0))
+            .pt(px(12.0))
             .bg(hsla(CONTENT_BG))
-            .child(self.search_bar(cx))
+            .child(self.content_header(cx))
             .child(body)
     }
 }
@@ -249,10 +256,12 @@ impl Render for SettingsView {
             .flex()
             .track_focus(&self.focus)
             .on_key_down(cx.listener(Self::key_down))
+            .text_size(px(14.0))
             .text_color(hsla(TEXT))
             .bg(hsla(CONTENT_BG))
             .child(self.sidebar(cx))
             .child(self.content(cx))
+            .children(self.choice_overlay(cx))
             .child(drag_strip())
     }
 }
@@ -274,16 +283,16 @@ fn drag_strip() -> impl IntoElement {
 /// The shared chrome for a small bordered button (no behavior attached yet).
 fn button_box(label: impl Into<SharedString>) -> Div {
     div()
-        .h(px(26.0))
+        .h(px(28.0))
         .min_w(px(28.0))
-        .px_2()
+        .px_3()
         .rounded(px(6.0))
         .border_1()
-        .border_color(hsla(FIELD_BORDER))
-        .bg(hsla(FIELD_BG))
+        .border_color(hsla(LINE))
         .flex()
         .items_center()
         .justify_center()
+        .text_size(px(13.0))
         .text_color(hsla(TEXT))
         .child(label.into())
 }
@@ -301,13 +310,19 @@ fn trunc(s: &str, n: usize) -> String {
     }
 }
 
-const SIDEBAR_BG: theme::Rgb = theme::Rgb::new(30, 35, 38);
-const CONTENT_BG: theme::Rgb = theme::Rgb::new(35, 42, 44);
-const PANEL: theme::Rgb = theme::Rgb::new(43, 52, 54);
-const FIELD_BG: theme::Rgb = theme::Rgb::new(49, 56, 58);
-const FIELD_BORDER: theme::Rgb = theme::Rgb::new(76, 84, 88);
-const LINE: theme::Rgb = theme::Rgb::new(61, 70, 73);
-const TEXT: theme::Rgb = theme::Rgb::new(242, 244, 246);
-const MUTED: theme::Rgb = theme::Rgb::new(170, 177, 181);
-const BLUE: theme::Rgb = theme::Rgb::new(10, 102, 220);
-const BLUE_TEXT: theme::Rgb = theme::Rgb::new(90, 170, 255);
+// The palette, sampled from Zed's dark settings window.
+const SIDEBAR_BG: theme::Rgb = theme::Rgb::new(48, 52, 61); // #30343d
+const CONTENT_BG: theme::Rgb = theme::Rgb::new(41, 44, 50); // #292c32
+const NAV_SELECTED: theme::Rgb = theme::Rgb::new(59, 63, 73); // #3b3f49
+const LINE: theme::Rgb = theme::Rgb::new(55, 60, 69); // #373c45
+const FIELD_BG: theme::Rgb = theme::Rgb::new(47, 52, 61); // #2f343d
+const FIELD_BORDER: theme::Rgb = theme::Rgb::new(71, 75, 86); // #474b56
+const PILL_BG: theme::Rgb = theme::Rgb::new(50, 57, 68); // #323944
+const TEXT: theme::Rgb = theme::Rgb::new(221, 224, 228); // #dde0e4
+const MUTED: theme::Rgb = theme::Rgb::new(143, 148, 159); // #8f949f
+const NAV_TEXT: theme::Rgb = theme::Rgb::new(170, 175, 187); // #aaafbb
+const BLUE: theme::Rgb = theme::Rgb::new(128, 171, 227); // #80abe3
+const BLUE_TEXT: theme::Rgb = theme::Rgb::new(128, 171, 227); // #80abe3
+const TOGGLE_ON: theme::Rgb = theme::Rgb::new(75, 95, 121); // #4b5f79
+const TOGGLE_ON_EDGE: theme::Rgb = theme::Rgb::new(86, 110, 142); // #566e8e
+const KNOB_OFF: theme::Rgb = theme::Rgb::new(134, 138, 145); // #868a91
