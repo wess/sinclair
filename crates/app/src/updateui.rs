@@ -7,7 +7,7 @@ use gpui::{
     div, point, px, size, App, Bounds, Context, FocusHandle, FontWeight, KeyDownEvent, MouseButton,
     SharedString, TitlebarOptions, Window, WindowBounds, WindowControlArea, WindowOptions,
 };
-use guise::{Button, Variant};
+use guise::{Button, Loader, Size, Variant};
 
 use updater::{Install, Release, Relaunch};
 
@@ -130,16 +130,21 @@ struct UpdatePromptView {
     release: Release,
     install: Install,
     focus: FocusHandle,
+    /// True while a staged install is downloading; the buttons disable and the
+    /// prompt shows a spinner until the restart (or a failure re-enables them).
+    updating: bool,
 }
 
 impl UpdatePromptView {
     fn new(release: Release, _window: &mut Window, cx: &mut Context<Self>) -> Self {
-        Self { release, install: updater::detect(), focus: cx.focus_handle() }
+        Self { release, install: updater::detect(), focus: cx.focus_handle(), updating: false }
     }
 
     /// The Update button's label, tailored to how the app was installed.
     fn action_label(&self) -> &'static str {
-        if self.install.is_in_place() {
+        if self.updating {
+            "Updating…"
+        } else if self.install.is_in_place() {
             "Update & Restart"
         } else {
             "Open Download"
@@ -147,8 +152,13 @@ impl UpdatePromptView {
     }
 
     fn do_update(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.updating {
+            return;
+        }
         if self.install.is_in_place() {
             // Download the release and swap it in place, then relaunch.
+            self.updating = true;
+            cx.notify();
             self.stage_and_restart(cx);
         } else {
             // Can't rewrite this install ourselves — open the release page.
@@ -163,29 +173,40 @@ impl UpdatePromptView {
         let release = self.release.clone();
         let install = self.install.clone();
         let executor = cx.background_executor().clone();
-        cx.spawn(async move |_this, cx| {
+        cx.spawn(async move |this, cx| {
             let staged =
                 executor.spawn(async move { updater::install(&release, &install) }).await;
-            cx.update(|cx| match staged {
+            match staged {
                 Ok(relaunch) => {
-                    save_sessions(cx);
-                    // Relaunch::Current restarts with no explicit path on
-                    // purpose: gpui reopens the running bundle via NSBundle.
-                    // Handing `open` an explicit path right after the install
-                    // is what used to relaunch the bare Mach-O in Terminal.app.
-                    if let Relaunch::Binary(path) = relaunch {
-                        cx.set_restart_path(path);
-                    }
-                    cx.restart();
+                    cx.update(|cx| {
+                        save_sessions(cx);
+                        // Relaunch::Current restarts with no explicit path on
+                        // purpose: gpui reopens the running bundle via NSBundle.
+                        // Handing `open` an explicit path right after the install
+                        // is what used to relaunch the bare Mach-O in Terminal.app.
+                        if let Relaunch::Binary(path) = relaunch {
+                            cx.set_restart_path(path);
+                        }
+                        cx.restart();
+                    });
                 }
-                Err(e) => crate::view::post_os_notification("Update failed", &e),
-            });
+                Err(e) => {
+                    crate::view::post_os_notification("Update failed", &e);
+                    // Re-enable the prompt so the user can retry.
+                    this.update(cx, |view, cx| {
+                        view.updating = false;
+                        cx.notify();
+                    })
+                    .ok();
+                }
+            }
         })
         .detach();
     }
 
     fn key_down(&mut self, event: &KeyDownEvent, window: &mut Window, _cx: &mut Context<Self>) {
-        if event.keystroke.key == "escape" {
+        // While an update is staging, keep the window (and its spinner) around.
+        if event.keystroke.key == "escape" && !self.updating {
             window.remove_window();
         }
     }
@@ -235,11 +256,16 @@ impl Render for UpdatePromptView {
             .child(
                 div()
                     .flex()
+                    .items_center()
                     .justify_end()
                     .gap(px(8.0))
+                    .when(self.updating, |row| {
+                        row.child(div().pr(px(4.0)).child(Loader::new().size(Size::Xs)))
+                    })
                     .child(
                         Button::new("upd-notes", "Release Notes")
                             .variant(Variant::Subtle)
+                            .disabled(self.updating)
                             .on_click({
                                 let url = self.release.url.clone();
                                 move |_e, _w, app| app.open_url(&url)
@@ -248,11 +274,13 @@ impl Render for UpdatePromptView {
                     .child(
                         Button::new("upd-later", "Later")
                             .variant(Variant::Default)
+                            .disabled(self.updating)
                             .on_click(|_e, window, _app| window.remove_window()),
                     )
                     .child(
                         Button::new("upd-go", self.action_label())
                             .variant(Variant::Filled)
+                            .disabled(self.updating)
                             .on_click({
                                 let me = me.clone();
                                 move |_e, window, app| {
