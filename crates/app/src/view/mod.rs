@@ -167,6 +167,19 @@ pub fn label<'a>(title: Option<&'a str>, fallback: &'a str) -> &'a str {
     }
 }
 
+/// Schedule a repaint from a focus in/out listener. gpui dispatches these at
+/// the end of a draw, inside the draw's focus phase, where `notify` cannot
+/// mark the window dirty — the `focused`/`pane_active` flip would sit
+/// unpainted until the next unrelated redraw, leaving an idle pane's cursor
+/// stuck hollow (or filled) after a focus switch. Deferring the notify lands
+/// it after the draw, where it schedules a real frame.
+fn repaint_after_focus_change(view: &gpui::WeakEntity<TerminalView>, cx: &mut App) {
+    let view = view.clone();
+    cx.defer(move |cx| {
+        let _ = view.update(cx, |_, cx| cx.notify());
+    });
+}
+
 /// Scrollback search overlay state.
 struct Search {
     edit: guise::TextEdit,
@@ -367,6 +380,7 @@ impl TerminalView {
                 this.clear_attention(cx);
                 cx.emit(ViewEvent::Focused);
             });
+            repaint_after_focus_change(&on_in, cx);
         });
         let on_out = cx.weak_entity();
         let sub_out = window.on_focus_out(&focus, cx, move |_event, window, cx| {
@@ -378,14 +392,14 @@ impl TerminalView {
             // deactivates (which also fires focus-out); only a real pane switch,
             // where the window is still active, clears it.
             let pane_switch = window.is_window_active();
-            let _ = on_out.update(cx, |this, cx| {
+            let _ = on_out.update(cx, |this, _| {
                 this.focused = false;
                 this.report_focus(false);
                 if pane_switch {
                     this.pane_active = false;
                 }
-                cx.notify();
             });
+            repaint_after_focus_change(&on_out, cx);
         });
         Self {
             session,
