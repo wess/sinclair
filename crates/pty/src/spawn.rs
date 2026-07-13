@@ -42,6 +42,11 @@ pub fn default_env() -> Vec<(String, String)> {
     vec![
         ("TERM".to_string(), "xterm-256color".to_string()),
         ("COLORTERM".to_string(), "truecolor".to_string()),
+        ("TERM_PROGRAM".to_string(), "sinclair".to_string()),
+        (
+            "TERM_PROGRAM_VERSION".to_string(),
+            env!("CARGO_PKG_VERSION").to_string(),
+        ),
     ]
 }
 
