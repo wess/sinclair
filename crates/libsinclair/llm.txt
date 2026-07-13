@@ -1,0 +1,139 @@
+# libsinclair — API reference for coding agents
+
+Sinclair's terminal as an embeddable Rust library. Headless core (pty
+session + VT emulation + frame policy) always; gpui rendering behind the
+default `ui` feature. The Sinclair app consumes this same crate, so the
+renderer here is the shipped one.
+
+## Dependency setup
+
+Git dependency only (crate names are not on crates.io):
+
+    [dependencies]
+    libsinclair = { git = "https://github.com/wess/sinclair" }
+
+    # REQUIRED with the `ui` feature (gpui breaks without these; cargo
+    # patches do not propagate through git dependencies):
+    [patch.crates-io]
+    async-process = { git = "https://github.com/zed-industries/async-process.git", rev = "0b6d6713570af61806e1e5cb40e0f757cb93fd9d" }
+    async-task = { git = "https://github.com/smol-rs/async-task.git", rev = "b4486cd71e4e94fbda54ce6302444de14f4d190e" }
+
+Rust stable >= 1.96. `default-features = false` = headless, no gpui in the
+tree, patch block unnecessary. If the consumer also pulls a crates.io gpui
+(e.g. via another UI library), redirect it to the same zed rev with a
+`[patch.crates-io] gpui = { git = "https://github.com/zed-industries/zed", rev = "96285fc1" }`.
+
+## Top-level exports (src/lib.rs)
+
+Always:
+- pub use cast, input, pty, terminal, theme, vt   (the whole stack)
+- Session, SessionOptions, Event                  (from `terminal`)
+- Colors (colors::), CellSize, Padding (metrics::)
+- modules: colors, metrics, mouse, boxdraw
+
+With `ui` (default):
+- modules: bridge, element, pointer, termview
+- TerminalElement, CursorShape, SearchQuery, SnapCache (element::)
+- TermView, TermOptions (termview::)
+
+## Headless embedding
+
+    use libsinclair::{Session, SessionOptions};
+    let (session, events) = Session::spawn(SessionOptions::default())?;
+    // events: std::sync::mpsc::Receiver<Event>
+
+- SessionOptions { cols, rows, scrollback_limit, spawn: pty::SpawnOptions }.
+  Default: 80x24 login shell. SessionOptions::command(argv) runs an explicit
+  argv. spawn.cwd / spawn.env for working dir and environment.
+- session.with_term(|term: &mut vt::Terminal| ...) — ALL terminal reads and
+  state changes happen under this lock.
+- session.write(bytes) — bytes to the pty (already-encoded input).
+- session.resize(cols, rows) / resize_px(cols, rows, cell_w, cell_h).
+- Event variants: Wakeup, TitleChanged(String), Bell,
+  Clipboard { kind, data } (OSC 52), Notify { title, body } (OSC 9/777/99),
+  Exit(Option<i32>), CommandFinished(Option<i32>) (OSC 133 D),
+  DirChanged(String) (OSC 7).
+- CONTRACT: Wakeup is coalesced — at most one unconsumed Wakeup sits in the
+  channel; the next arrives only after the embedder re-locks the terminal
+  via with_term. Redraw on Wakeup, read grid under the lock.
+- Partial redraw: term.take_damage() (vt::Damage) accumulates dirty regions.
+- Useful vt::Terminal reads: cols(), rows(), visible_row(i), cursor_pos(),
+  cursor_visible(), display_offset(), scroll_display(n),
+  set_display_offset(n), selection_text(), buffer_text(), cwd(),
+  mouse_mode(), bracketed_paste(), synchronized_output(), images().
+- Key encoding: input::encode_key(key, key_char, Mods, TermState) -> bytes;
+  input::encode_paste(text, bracketed); input::encode_mouse(...). Build
+  TermState from term: cursor_keys_app(), keypad_app(), bracketed_paste(),
+  kitty_keyboard_flags().
+- Colors: Colors::from_scheme(theme::default_scheme()) or
+  theme::builtin("name"); colors::cell_rgb resolves one vt::Color;
+  colors::report_colors(&colors) -> vt::ReportColors for
+  term.set_report_colors (OSC 4/10/11/12 query answers).
+
+## gpui embedding (ui feature)
+
+Drop-in pane:
+
+    use gpui::AppContext as _;
+    use libsinclair::terminal::{Event, SessionOptions};
+    use libsinclair::termview::{TermOptions, TermView};
+
+    let view = cx.new(|cx| {
+        TermView::spawn(SessionOptions::default(), TermOptions::default(), window, cx)
+            .expect("spawn shell")
+    });
+
+- TermView::spawn(SessionOptions, TermOptions, &mut Window, &mut Context<Self>)
+  -> io::Result<Self>; TermView::new(Arc<Session>, Receiver<Event>, ...)
+  adopts an existing session.
+- TermOptions fields (all pub, Default provided): colors: Colors,
+  font: gpui::Font, font_size: f32 (px), pad: Padding,
+  cursor: CursorShape (Block|Bar|Underline), copy_on_select: bool,
+  smart_select: bool (double-click semantic token), middle_click_paste: bool,
+  option_as_alt: bool (macOS), clipboard_write: bool (honor OSC 52),
+  copy: Rc<CopyHook> (what copy-on-select/copy shortcut does; default =
+  plain clipboard write).
+- TermView methods: session() -> &Arc<Session>, title() -> Option<&str>,
+  exited() -> bool, set_colors(Colors, cx), set_font(Font, f32, window, cx),
+  paste(cx), copy_selection(cx) -> bool.
+- TermView impls Render, Focusable, EventEmitter<terminal::Event> — every
+  session Event is re-emitted; subscribe and close the pane on Exit.
+- Built-in shortcuts: Cmd+C/Cmd+V (macOS), Ctrl+Shift+C/V (elsewhere).
+  Grid auto-resizes to the element bounds and resizes the pty (TIOCSWINSZ
+  with pixel sizes). Synchronized output (?2026) withholds repaint <=150ms.
+- Wheel/selection/link-hover/mouse-reporting handled by the element's
+  pointer glue (pointer::). Link opening is scheme-filtered
+  (http/https/ftp/ftps/file/mailto/tel only).
+
+Custom view instead of TermView: construct element::TerminalElement::new(
+session, colors: Rc<Colors>, font, font_size: Pixels, cell: CellSize,
+pad: Padding, cursor: CursorShape, mouse: Rc<RefCell<MouseState>>,
+copy_on_select: bool, copy: Rc<CopyHook>, smart_select: bool,
+middle_click_paste: bool, focused: bool, search: Option<SearchQuery>,
+ghost: Option<String>, image_cache, snap_cache) each frame. Measure cell
+with metrics::measure(window.text_system(), &font, font_size). Keep
+mouse/image_cache/snap_cache Rc'd across frames. Pump events with
+bridge::forward(receiver) -> async UnboundedReceiver, apply on the
+foreground. Sinclair's own pane (crates/app/src/view/) is the reference
+implementation.
+
+## Layout
+
+    src/lib.rs        exports + feature gates
+    src/colors.rs     vt::Color -> Rgb resolution, contrast enforcement
+    src/metrics.rs    cell/grid/pixel math, font measuring (ui)
+    src/mouse.rs      pure mouse policy (reporting, click modes, wheel)
+    src/boxdraw.rs    box-drawing/block glyph geometry
+    src/bridge.rs     std channel -> async stream           (ui)
+    src/pointer.rs    gpui mouse events -> pty/selection    (ui)
+    src/element/      TerminalElement: snapshot + paint     (ui)
+    src/termview.rs   TermView drop-in pane                 (ui)
+    examples/embed.rs complete window: cargo run -p libsinclair --example embed
+    tests/            per-module unit tests (pulled in via #[path])
+
+Underlying crates (same workspace, re-exported): vt (emulation, pure),
+pty (unix + windows/conpty), terminal (session runtime), input (key/mouse
+encoding, zero deps), theme (schemes), cast (asciinema recording).
+
+Not in this crate: config loading, plugins, relay mesh, auto-update,
+window chrome — those live in the Sinclair app.
