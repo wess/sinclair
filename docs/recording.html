@@ -34,8 +34,8 @@
         <p>
           Focus the pane you want to capture and press <kbd>⌘⇧R</kbd>
           (<code>toggle_recording</code>). Recording starts immediately, capturing everything
-          that pane prints to an asciinema v2 <code>.cast</code> file. A blue indicator shows
-          while capture is running, so you always know you're rolling. Do your thing — run the
+          that pane prints to an asciinema v2 <code>.cast</code> file. A red <em>● REC</em>
+          pill shows while capture is running, so you always know you're rolling. Do your thing — run the
           command, show the failure, walk through the fix — then press <kbd>⌘⇧R</kbd> again to
           stop.
         </p>
@@ -80,8 +80,9 @@
 
         <h2>4. Export to a GIF or video</h2>
         <p>
-          The fastest path is inside the app. Run <em>Export Recording</em> — it's in the File
-          menu and the command palette as <code>export_recording</code>. It renders your most
+          The fastest path is inside the app. Run <em>Export Recording as GIF</em> or
+          <em>Export Recording as MP4</em> — both in the File menu, and in the command palette
+          as <em>Export Recording (GIF)</em> / <em>(MP4)</em>. It renders your most
           recent recording in the background and posts a notification when the file is ready,
           so you can keep working while it encodes. A <strong>GIF needs no external tools</strong>;
           an <strong>MP4 needs ffmpeg</strong> on your <code>PATH</code>.
@@ -103,11 +104,11 @@ sinclair export session.cast demo.mp4</code></pre>
           <table>
             <thead><tr><th>Option</th><th>What it controls</th></tr></thead>
             <tbody>
-              <tr><td><code>--fps</code></td><td>Frame rate of the exported clip.</td></tr>
+              <tr><td><code>--fps</code></td><td>Frame rate of the exported clip (default 30).</td></tr>
               <tr><td><code>--speed</code></td><td>Playback speed multiplier.</td></tr>
-              <tr><td><code>--idle-cap</code></td><td>Collapse long idle gaps (default 2s), so dead air doesn't bloat the file.</td></tr>
-              <tr><td><code>--tail</code></td><td>Export only the tail end of the recording.</td></tr>
-              <tr><td><code>--font-px</code></td><td>Font size, in pixels, of the rendered frames.</td></tr>
+              <tr><td><code>--idle-cap</code></td><td>Collapse long idle gaps (default 2s), so dead air doesn't bloat the file. <code>--no-idle-cap</code> keeps real time.</td></tr>
+              <tr><td><code>--tail</code></td><td>Hold the final frame for this many seconds (default 1), so the ending is readable.</td></tr>
+              <tr><td><code>--font-px</code></td><td>Font size, in pixels, of the rendered frames (default 16).</td></tr>
               <tr><td><code>--cols</code> / <code>--rows</code></td><td>Terminal grid size to render at.</td></tr>
               <tr><td><code>--theme</code></td><td>Color scheme used for the frames.</td></tr>
             </tbody>

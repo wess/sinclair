@@ -39,10 +39,12 @@
           activity at all) and <strong>Relay agent mesh</strong>. That's enough; the relay
           daemon starts on demand. The same settings round-trip through the config file:
         </p>
-        <pre><code><span class="c"># ~/.config/sinclair/config</span>
-ai-enabled = true
-relay-enabled = true
-relay-start-on-launch = true   <span class="c"># optional: bring the mesh up automatically</span></code></pre>
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "ai-enabled": true,
+  "relay-enabled": true,
+  "relay-start-on-launch": true   <span class="c">// optional: bring the mesh up automatically</span>
+}</code></pre>
         <p>
           With the mesh on, an <strong>AI</strong> menu appears in the menu bar and a live
           status dot shows next to the setting — green when the server is listening. The

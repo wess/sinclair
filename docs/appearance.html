@@ -26,8 +26,9 @@
 
         <div class="callout note">
           <span class="label">Note</span>
-          <p>The config lives at <code>~/.config/sinclair/config</code> (or
-          <code>$XDG_CONFIG_HOME/sinclair/config</code>). It's watched live — save and the
+          <p>Settings live at <code>~/.config/sinclair/settings.json</code> (or
+          <code>$XDG_CONFIG_HOME/sinclair/settings.json</code>) — JSON with
+          <code>//</code> comments. It's watched live — save and the
           change is on screen instantly. A bad line never aborts the load; it just becomes a
           diagnostic while the rest applies.</p>
         </div>
@@ -38,7 +39,7 @@
           hand-tuned built-ins</strong> — a big enough library that you'll almost certainly
           find one you like before you touch a single color:
         </p>
-        <pre><code>theme = tokyo night</code></pre>
+        <pre><code>{ "theme": "tokyo night" }</code></pre>
         <p>
           Names are forgiving: they're case-insensitive and ignore spaces, dashes, and
           underscores, so <code>tokyo night</code>, <code>tokyo-night</code>, and
@@ -91,9 +92,11 @@
           Sinclair watches the OS appearance and rebuilds its colors live when it flips —
           picking the matching one, no restart and no manual toggle:
         </p>
-        <pre><code><span class="c"># ~/.config/sinclair/config</span>
-theme-light = github light
-theme-dark  = github dark</code></pre>
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "theme-light": "github light",
+  "theme-dark": "github dark"
+}</code></pre>
         <p>
           Either key works on its own: whichever is set wins for that appearance, and plain
           <code>theme</code> is the fallback for the other. Set all three and you get a bright
@@ -132,15 +135,15 @@ theme-dark  = github dark</code></pre>
           16–231 the 6×6×6 color cube, and 232–255 the grayscale ramp. Repeat it to remap as
           many slots as you want:
         </p>
-        <pre><code><span class="c"># start from a base theme, then override</span>
-theme = tokyo night
+        <pre><code>{
+  <span class="c">// start from a base theme, then override</span>
+  "theme": "tokyo night",
+  "background": "#0b0e14",
+  "cursor-color": "#ffcc66",
 
-background = #0b0e14
-cursor-color = #ffcc66
-
-<span class="c"># recolor ANSI red (index 1) and bright black (index 8)</span>
-palette = 1=#ff5555
-palette = 8=#5c6370</code></pre>
+  <span class="c">// recolor ANSI red (index 1) and bright black (index 8)</span>
+  "palette": ["1=#ff5555", "8=#5c6370"]
+}</code></pre>
 
         <h2>4. Fonts &amp; ligatures</h2>
         <p>
@@ -165,13 +168,13 @@ palette = 8=#5c6370</code></pre>
             </tbody>
           </table>
         </div>
-        <pre><code>font-family = JetBrains Mono
-font-family = Menlo
-font-size = 14
-font-style = normal
-font-feature = +liga
-font-feature = cv01=2
-adjust-cell-height = 2</code></pre>
+        <pre><code>{
+  "font-family": ["JetBrains Mono", "Menlo"],
+  "font-size": 14,
+  "font-style": "normal",
+  "font-feature": ["+liga", "cv01=2"],
+  "adjust-cell-height": 2
+}</code></pre>
         <p>
           <code>font-feature</code> is where a font's personality lives. Turn ligatures on
           with <code>+liga</code> (or off with <code>-calt</code>), switch on a stylistic set
@@ -204,10 +207,12 @@ adjust-cell-height = 2</code></pre>
             </tbody>
           </table>
         </div>
-        <pre><code>cursor-style = bar
-cursor-style-blink = true
-cursor-color = #ffcc66
-cursor-text = #0b0e14</code></pre>
+        <pre><code>{
+  "cursor-style": "bar",
+  "cursor-style-blink": true,
+  "cursor-color": "#ffcc66",
+  "cursor-text": "#0b0e14"
+}</code></pre>
         <p>
           Go <code>block</code> for the classic terminal look, <code>bar</code> for an editor
           feel, or <code>underline</code> for something quieter. If you pick a bold
@@ -231,11 +236,13 @@ cursor-text = #0b0e14</code></pre>
           <li><code>badge</code> paints a faint watermark in each pane's corner, with
           <code>{cwd}</code> and <code>{host}</code> substituted per pane.</li>
         </ul>
-        <pre><code><span class="c"># ~/.config/sinclair/config</span>
-background-opacity = 0.85
-background-image = ~/Pictures/wallpaper.png
-minimum-contrast = 4.5
-badge = {host} · {cwd}</code></pre>
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "background-opacity": 0.85,
+  "background-image": "~/Pictures/wallpaper.png",
+  "minimum-contrast": 4.5,
+  "badge": "{host} · {cwd}"
+}</code></pre>
         <div class="callout tip">
           <span class="label">Tip</span>
           <p>Transparency and a background image look great right up until text vanishes over
@@ -261,10 +268,12 @@ badge = {host} · {cwd}</code></pre>
             </tbody>
           </table>
         </div>
-        <pre><code>window-padding-x = 8
-window-padding-y = 6
-unfocused-split-opacity = 0.6
-bold-is-bright = true</code></pre>
+        <pre><code>{
+  "window-padding-x": 8,
+  "window-padding-y": 6,
+  "unfocused-split-opacity": 0.6,
+  "bold-is-bright": true
+}</code></pre>
         <p>
           A little breathing room goes a long way — bump <code>window-padding-x</code> and
           <code>window-padding-y</code> up from their default of <code>2</code> so text isn't

@@ -39,9 +39,13 @@
           title; the <strong>matched line becomes the notification body</strong>. Add a
           couple to your config:
         </p>
-        <pre><code><span class="c"># ~/.config/sinclair/config</span>
-trigger = error|Build failed
-trigger = \bDONE\b | Job finished</code></pre>
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "trigger": [
+    "error|Build failed",
+    "\\bDONE\\b | Job finished"
+  ]
+}</code></pre>
         <p>
           Now kick off a long build in one pane and go read something in another. When a line
           containing <code>error</code> scrolls by, a banner titled <em>Build failed</em> pops
@@ -72,11 +76,13 @@ trigger = \bDONE\b | Job finished</code></pre>
         </p>
         <pre><code>./scripts/migrate.sh &amp;&amp; sinclair notify "Migration complete"</code></pre>
         <p>
-          The awareness carries into the tab strip, too. When a <strong>background</strong>
-          tab posts a notification, it grows a <strong>yellow attention dot</strong> that
-          stays until you focus that tab — so even if you missed the banner, you can see at a
-          glance which session was trying to reach you. See the <a href="cli.html">CLI</a>
-          page for <code>sinclair notify</code>.
+          The awareness carries into the tab strip, too. When a program in a
+          <strong>background</strong> tab emits an in-pane notification escape (OSC 9, 777,
+          or 99), that tab grows an <strong>attention dot</strong> that stays until you focus
+          it — so even if you missed the banner, you can see at a glance which session was
+          trying to reach you. (<code>sinclair notify</code> runs outside your panes, so it
+          posts the desktop notification without marking a tab.) See the
+          <a href="cli.html">CLI</a> page for <code>sinclair notify</code>.
         </p>
 
         <h2>3. Stamp scrollback with relative times</h2>
@@ -84,8 +90,10 @@ trigger = \bDONE\b | Job finished</code></pre>
           "How long ago did that line print?" is a question you ask constantly while a job
           churns. Answer it permanently with one config key:
         </p>
-        <pre><code><span class="c"># ~/.config/sinclair/config</span>
-timestamps = true</code></pre>
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "timestamps": true
+}</code></pre>
         <p>
           Now each scrollback row carries a faint relative time beside it —
           <code>5s</code>, <code>2m</code>, <code>1h</code>, <code>3d</code> — captured as the
@@ -115,8 +123,10 @@ timestamps = true</code></pre>
           <code>badge</code> to any text, and <code>{cwd}</code> and <code>{host}</code> are
           substituted per pane:
         </p>
-        <pre><code><span class="c"># ~/.config/sinclair/config</span>
-badge = {host} · {cwd}</code></pre>
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "badge": "{host} · {cwd}"
+}</code></pre>
         <p>
           Every pane now quietly labels itself with its own host and working directory. It
           reads as a background watermark, not chrome — present when you glance for it,
@@ -147,10 +157,11 @@ badge = {host} · {cwd}</code></pre>
         </div>
         <p>
           A pane that <em>isn't</em> reporting an agent state falls back to the terminal's own
-          signals, so the panel is useful for plain shells too: 🔴 attention (a bell or an
-          OSC 9 notification fired), 🟡 a foreground command is running, and 🟢 idle. That's
-          the whole awareness story in one column — a trigger or a bell turns a background tab
-          red, a running build shows yellow, and you know exactly where to click.
+          signals, so the panel is useful for plain shells too: 🔴 attention (an OSC 9/777/99
+          notification fired while the tab was in the background), 🟡 a foreground command is
+          running, and 🟢 idle. That's the whole awareness story in one column — a notifying
+          background job turns its tab red, a running build shows yellow, and you know exactly
+          where to click.
         </p>
         <div class="callout note">
           <p>Coding agents can drive these dots directly by reporting their state. To wire

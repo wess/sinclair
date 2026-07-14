@@ -43,13 +43,14 @@
         </table></div>
         <p>When Relay is enabled the section also shows a live <strong>status dot</strong> — green when the server is listening, red when stopped, re-probed every ~1.5 seconds — and the <strong>log path</strong>.</p>
         <p>Everything maps to plain config keys, so it round-trips through the file too:</p>
-        <pre><code><span class="c"># ~/.config/sinclair/config</span>
-ai-enabled = true
-ai-optimize-tokens = true
-mcp-server-enabled = true
-relay-enabled = true
-relay-start-on-launch = true
-relay-address = 127.0.0.1:7777
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "ai-enabled": true,
+  "ai-optimize-tokens": true,
+  "mcp-server-enabled": true,
+  "relay-enabled": true,
+  "relay-start-on-launch": true,
+  "relay-address": "127.0.0.1:7777"
 relay-default-agent = claude</code></pre>
         <p>Toggling <strong>Relay agent mesh</strong> starts or stops the daemon immediately; <strong>Start Relay on launch</strong> only affects what happens at startup.</p>
         <div class="callout note"><span class="label">Note</span><p>The AI and agent config keys are documented alongside every other option on the <a href="configuration.html">Configuration</a> page, and the terminal-facing MCP server has its own <a href="mcp.html">MCP server</a> page.</p></div>
@@ -186,13 +187,15 @@ role = "frontend"</code></pre>
 
         <h2>Agent CLI flags</h2>
         <p>Each built-in provider can carry extra command-line flags, appended to its own invocation on every launch — quick-launch, Define Agent, saved agents, and team members alike. Edit them under <strong>Settings → AI → Agent tools</strong>, or in the config file:</p>
-        <pre><code><span class="c"># ~/.config/sinclair/config</span>
-agent-claude-args = --dangerously-skip-permissions
-agent-codex-args  = --model o3
-agent-gemini-args = --yolo
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "agent-claude-args": "--dangerously-skip-permissions",
+  "agent-codex-args": "--model o3",
+  "agent-gemini-args": "--yolo",
 
-<span class="c"># and an explicit binary path when it isn't on PATH</span>
-agent-claude-path = /opt/homebrew/bin/claude</code></pre>
+  <span class="c">// and an explicit binary path when it isn't on PATH</span>
+  "agent-claude-path": "/opt/homebrew/bin/claude"
+}</code></pre>
         <p>The most common use is running Claude Code with <code>--dangerously-skip-permissions</code> so it doesn't stop to ask. Values with spaces can be quoted; Ollama has no flags field (it is driven by relay's own bridge, not a CLI).</p>
 
         <h2>Notes &amp; limits</h2>

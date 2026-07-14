@@ -109,9 +109,9 @@
         <ul>
           <li><strong>Two Columns</strong> and <strong>Three Columns</strong> — side-by-side panes</li>
           <li><strong>Two Rows</strong> — stacked top and bottom</li>
-          <li><strong>4-pane Grid</strong> — a 2×2 grid</li>
-          <li><strong>Main + Bottom</strong> — a large pane over a wide one</li>
-          <li><strong>Main + Right</strong> — a large pane beside a narrow sidebar pane</li>
+          <li><strong>Grid (4)</strong> — a 2×2 grid</li>
+          <li><strong>Main + Bottom Row</strong> — a large pane over a wide row</li>
+          <li><strong>Main + Right Stack</strong> — a large pane beside a narrow stack</li>
         </ul>
         <p>
           Apply any preset from the <strong>Layouts</strong> sidebar panel or the
@@ -137,7 +137,9 @@
             <thead><tr><th>Panel</th><th>Shows</th></tr></thead>
             <tbody>
               <tr><td>Terminals</td><td>The tab and pane tree</td></tr>
+              <tr><td>Activity</td><td>Every tab's working / attention / idle state at a glance</td></tr>
               <tr><td>Layouts</td><td>Tile presets plus your saved layouts</td></tr>
+              <tr><td>Containers</td><td>Running Docker/Podman containers — double-click to attach</td></tr>
               <tr><td>Relay</td><td>Server status and connected agents</td></tr>
               <tr><td>Agents</td><td>Saved agent definitions</td></tr>
               <tr><td>Plugins</td><td>Installed plugins and the installable catalog</td></tr>
@@ -183,18 +185,19 @@
           launches, so you resume exactly where you stopped. A pane that was running a
           coding agent is remembered as one: on restore it relaunches the agent —
           <em>resumed</em>, reloading its own session rather than starting cold where the
-          provider supports it — instead of dropping to a bare shell. Add
-          <code>window-inherit-working-directory</code> so every new tab and split opens in
-          the focused pane's current directory instead of your home folder, keeping related
+          provider supports it — instead of dropping to a bare shell. New tabs and splits already open in
+          the focused pane's current directory — that's
+          <code>window-inherit-working-directory</code>, on by default — keeping related
           shells rooted in the same project.
         </p>
-        <pre><code><span class="c"># ~/.config/sinclair/config</span>
-session-restore = true                     <span class="c"># reopen tabs &amp; splits on next launch</span>
-window-inherit-working-directory = true    <span class="c"># new tabs open in the current dir</span></code></pre>
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "session-restore": true      <span class="c">// reopen tabs &amp; splits on next launch</span>
+}</code></pre>
         <div class="callout note">
           <p><code>session-restore</code> and <code>window-inherit-working-directory</code>
-          are config options, not keybinds — set them in your config file. See
-          <a href="configuration.html">Configuration</a>.</p>
+          are config options, not keybinds — set them in
+          <code>settings.json</code>. See <a href="configuration.html">Configuration</a>.</p>
         </div>
 
         <h2>9. Keep a shell one keystroke away</h2>

@@ -23,6 +23,9 @@ const MANIFEST = [
       { slug: "clipboard", title: "Clipboard, snippets & pickers", href: "clipboard.html" },
       { slug: "awareness", title: "Triggers & notifications", href: "awareness.html" },
       { slug: "recording", title: "Record & share", href: "recording.html" },
+      { slug: "ostabs", title: "Linux in a tab", href: "ostabs.html" },
+      { slug: "images", title: "Images in the terminal", href: "images.html" },
+      { slug: "assist", title: "Assist: type less", href: "assist.html" },
     ],
   },
   {

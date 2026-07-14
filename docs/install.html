@@ -96,15 +96,14 @@ cargo run -p app --release</code></pre>
         </div>
 
         <h2>Keeping Sinclair up to date</h2>
-        <p>Sinclair checks GitHub for a newer release on launch and once an hour, and offers to update when one is available. You can also check any time from <strong>Sinclair → Check for Updates…</strong>. Turn the automatic check off with <code>auto-update = false</code>.</p>
+        <p>Sinclair checks GitHub for a newer release on launch and once an hour, and offers to update when one is available. You can also check any time from <strong>Sinclair → Check for Updates…</strong>. Turn the automatic check off with <code>"auto-update": false</code>.</p>
         <p>How the update is applied depends on how you installed Sinclair:</p>
         <ul>
-          <li><strong>Homebrew</strong> — Sinclair runs <code>brew upgrade --cask prompt</code> in a new tab, so the cask stays the source of truth.</li>
-          <li><strong>Debian/Ubuntu (<code>.deb</code>)</strong> — Sinclair shows the <code>apt</code> upgrade command to run.</li>
-          <li><strong>Manual <code>.dmg</code></strong> — Sinclair downloads the notarized disk image, swaps the app in place, and relaunches into the new version.</li>
+          <li><strong>macOS <code>.app</code></strong> — Homebrew cask or manual <code>.dmg</code> alike: Sinclair downloads the notarized disk image, rewrites the app in place, and relaunches into the new version. (The bundle is updated where it sits, so a cask install stays where <code>brew</code> expects it.)</li>
           <li><strong>AppImage</strong> — Sinclair downloads the new image, replaces the running one, and relaunches.</li>
+          <li><strong>Debian/Ubuntu (<code>.deb</code>) and other package installs</strong> — the install is root-owned, so Sinclair opens the release page instead of swapping files itself; update through your package flow.</li>
         </ul>
-        <div class="callout note"><span class="label">Note</span><p>Package-managed installs always defer to the package manager rather than swapping the binary themselves, so <code>brew</code>/<code>apt</code> never lose track of what's installed.</p></div>
+        <div class="callout note"><span class="label">Note</span><p>The update check only asks GitHub for the latest release tag — no package manager is consulted, and nothing is downloaded until you say yes.</p></div>
       </article>
     </main>
     <script type="module" src="docs.js"></script>

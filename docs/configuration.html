@@ -16,27 +16,27 @@
       <article class="doc-article" data-doc-page="configuration">
         <p class="kicker">Configuration</p>
         <h1>Configuration</h1>
-        <p class="lede">Sinclair reads a single plain-text config file of <code>key = value</code> lines. Appearance and keybindings reload the instant you save it — no restart required.</p>
+        <p class="lede">Sinclair reads a single <code>settings.json</code> — JSON with <code>//</code> comments. Appearance and keybindings reload the instant you save it — no restart required.</p>
 
         <h2>Where the config lives</h2>
-        <p>Sinclair loads its config from <code>$XDG_CONFIG_HOME/sinclair/config</code>, falling back to <code>~/.config/sinclair/config</code> when <code>XDG_CONFIG_HOME</code> is unset. The file is created on demand, so you can start from an empty file (or none at all) and add only the keys you care about.</p>
+        <p>Sinclair loads its settings from <code>$XDG_CONFIG_HOME/sinclair/settings.json</code>, falling back to <code>~/.config/sinclair/settings.json</code> when <code>XDG_CONFIG_HOME</code> is unset (Windows: <code>%APPDATA%\sinclair\settings.json</code>). The file is created on demand, so you can start from an empty <code>{}</code> (or no file at all) and add only the keys you care about. A legacy <code>key = value</code> <code>config</code> file from older versions is migrated into <code>settings.json</code> once on launch and no longer read.</p>
         <p>If you would rather not edit text by hand, open the built-in GUI settings with <kbd>⌘,</kbd> and the same options are exposed there.</p>
 
         <h2>Format</h2>
-        <p>The file is INI-style: one <code>key = value</code> per line. Lines beginning with <code>#</code> are comments and are ignored, as are blank lines. Whitespace around the key and value is trimmed.</p>
-        <p>Most keys take a single value, where the last assignment wins. A handful of keys are <em>repeatable</em>: each occurrence accumulates into a list rather than overwriting the previous one. The repeatable keys are <code>font-family</code>, <code>font-feature</code>, <code>keybind</code>, <code>palette</code>, <code>plugin</code>, <code>agent-custom</code>, <code>redact</code>, <code>trigger</code>, <code>snippet</code>, and <code>profile</code>.</p>
+        <p>The file is JSON with comments: one object, one member per setting. <code>//</code> comment lines are allowed and ignored.</p>
+        <p>Most keys take a single scalar value. A handful of keys are <em>lists</em> and take a JSON array, one entry per value. The list keys are <code>font-family</code>, <code>font-feature</code>, <code>keybind</code>, <code>palette</code>, <code>plugin</code>, <code>container</code>, <code>agent-custom</code>, <code>redact</code>, <code>trigger</code>, <code>snippet</code>, and <code>profile</code>.</p>
         <p>Bad lines never abort the load. An unknown key, a malformed value, or a typo becomes a friendly diagnostic surfaced on startup, and the rest of the file is applied normally.</p>
-        <pre><code><span class="c"># ~/.config/sinclair/config</span>
-font-family = JetBrains Mono
-font-family = Menlo          <span class="c"># fallback chain, in order</span>
-font-size = 14.0
-font-feature = +liga
-font-feature = ss01
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "font-family": ["JetBrains Mono", "Menlo"],   <span class="c">// fallback chain, in order</span>
+  "font-size": 14,
+  "font-feature": ["+liga", "ss01"],
 
-theme = Catppuccin Mocha
-cursor-style = bar
-copy-on-select = true
-scrollback-limit = 50000</code></pre>
+  "theme": "Catppuccin Mocha",
+  "cursor-style": "bar",
+  "copy-on-select": true,
+  "scrollback-limit": 50000
+}</code></pre>
 
         <h2>Live reload</h2>
         <p>Sinclair watches the config file. Appearance settings (fonts, theme, colors, padding, cursor) and keybindings take effect the moment you save — there is no need to quit and relaunch.</p>

@@ -37,13 +37,16 @@ server is listening, red = stopped, re-probed every ~1.5s) and the **log path**.
 
 Everything maps to plain config keys, so it round-trips through the file too:
 
-```ini
-ai-enabled = true
-mcp-server-enabled = true
-relay-enabled = true
-relay-start-on-launch = true
-relay-address = 127.0.0.1:7777
-relay-default-agent = claude
+```jsonc
+// ~/.config/sinclair/settings.json
+{
+  "ai-enabled": true,
+  "mcp-server-enabled": true,
+  "relay-enabled": true,
+  "relay-start-on-launch": true,
+  "relay-address": "127.0.0.1:7777",
+  "relay-default-agent": "claude"
+}
 ```
 
 Toggling **Relay agent mesh** starts or stops the daemon immediately;

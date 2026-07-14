@@ -24,9 +24,11 @@
         <pre><code>~/.config/sinclair/plugins/&lt;name&gt;/plugin.toml
 <span class="c"># or, when XDG_CONFIG_HOME is set:</span>
 $XDG_CONFIG_HOME/sinclair/plugins/&lt;name&gt;/plugin.toml</code></pre>
-        <p>You can also point at a plugin folder anywhere on disk from your main config file (<code>~/.config/sinclair/config</code>) with a <code>plugin</code> line. The key is repeatable, so add as many as you like:</p>
-        <pre><code><span class="c"># ~/.config/sinclair/config</span>
-plugin = /path/to/your/plugin-dir</code></pre>
+        <p>You can also point at a plugin folder anywhere on disk from your settings file (<code>~/.config/sinclair/settings.json</code>) with a <code>plugin</code> entry. The key is an array, so add as many as you like:</p>
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "plugin": ["/path/to/your/plugin-dir"]
+}</code></pre>
         <p>Plugins load on the next launch. Config reloads live, so most config saves pick up a newly added <code>plugin</code> line without a full restart.</p>
 
         <h2>Installing from the catalog</h2>
@@ -95,11 +97,14 @@ keybind = "cmd+ctrl+g"      <span class="c"># optional default binding</span></c
 <span class="c"># for the example above:</span>
 plugin_command:lazygit/open</code></pre>
         <p>The action is bindable and unbindable from your own config, shows up in the command palette, and is reachable from quick-open. The <code>keybind</code> in <code>plugin.toml</code> is only a default; a binding in your config always wins:</p>
-        <pre><code><span class="c"># ~/.config/sinclair/config</span>
-keybind = cmd+ctrl+g=plugin_command:lazygit/open</code></pre>
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "keybind": ["cmd+ctrl+g=plugin_command:lazygit/open"]
+}</code></pre>
         <p>To remove a default binding entirely, rebind the key elsewhere or point it at <code>unbind</code>:</p>
-        <pre><code><span class="c"># ~/.config/sinclair/config</span>
-keybind = cmd+ctrl+g=unbind</code></pre>
+        <pre><code>{
+  "keybind": ["cmd+ctrl+g=unbind"]
+}</code></pre>
         <div class="callout warn"><span class="label">Warning</span><p>A plugin keybind overrides any built-in binding with the same trigger. Avoid Sinclair's <kbd>⌘⇧</kbd> defaults (Compose, Broadcast, the relay shortcuts, and so on) — use the <kbd>⌘⌃</kbd> namespace for plugin commands to stay clear of them.</p></div>
 
         <h2>IPC plugins (live panels)</h2>

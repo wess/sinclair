@@ -81,9 +81,13 @@
         <h2>Macros</h2>
         <p>A macro records a sequence of typed commands and replays them on demand. The <code>macro_record</code> action starts and stops capturing the commands you type; while recording, a floating pill shows the state with a red <code>● REC</code> indicator. Replay a saved macro with the <code>macro:NAME</code> action, bound to a key of your choosing.</p>
         <p>Macros are stored as plain text under <code>~/.config/sinclair/macros/&lt;name&gt;.macro</code> — one command per line, with <code>#</code> comment lines — so you can edit them by hand or check them into version control. Replay paces itself off shell-integration prompt marks, waiting for each command's prompt before sending the next rather than blasting them all at once.</p>
-        <pre><code><span class="c"># ~/.config/sinclair/config</span>
-keybind = cmd+shift+m=macro_record
-keybind = cmd+shift+1=macro:deploy</code></pre>
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "keybind": [
+    "cmd+shift+m=macro_record",
+    "cmd+shift+1=macro:deploy"
+  ]
+}</code></pre>
         <pre><code><span class="c"># ~/.config/sinclair/macros/deploy.macro</span>
 <span class="c"># one command per line</span>
 git pull --rebase
@@ -110,15 +114,23 @@ cargo build --release
 
         <h2>Snippets &amp; workflows</h2>
         <p>Save frequently-typed commands as snippets and recall them from a fuzzy picker. Each <code>snippet</code> config entry is <code>label | command</code>; <kbd>⌘⌥S</kbd> (<code>snippets</code>) opens the picker, and choosing one <em>inserts</em> the command into the focused pane so you can edit it before pressing Enter.</p>
-        <pre><code><span class="c"># ~/.config/sinclair/config</span>
-snippet = deploy | git push origin main
-snippet = logs | kubectl logs -f deploy/api</code></pre>
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "snippet": [
+    "deploy | git push origin main",
+    "logs | kubectl logs -f deploy/api"
+  ]
+}</code></pre>
 
         <h2>Launch profiles</h2>
         <p>Profiles are named launch setups — an SSH host, a REPL, a project environment. Each <code>profile</code> entry is <code>label | command</code>; <kbd>⌘⌥P</kbd> (<code>profiles</code>) opens a picker, and choosing one opens a <em>new tab</em> running that command.</p>
-        <pre><code><span class="c"># ~/.config/sinclair/config</span>
-profile = prod | ssh prod.example.com
-profile = repl | python3</code></pre>
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "profile": [
+    "prod | ssh prod.example.com",
+    "repl | python3"
+  ]
+}</code></pre>
 
         <h2>Clipboard history</h2>
         <p>Every copy is recorded in a ring of recent entries (after redaction, below). <kbd>⌘⇧Y</kbd> (<code>clipboard_history</code>) opens a fuzzy picker over them; choose one to paste it into the focused pane. Handy for pulling back something you copied three commands ago.</p>
@@ -128,18 +140,26 @@ profile = repl | python3</code></pre>
 
         <h2>Output triggers</h2>
         <p>Triggers watch a pane's output and fire a desktop notification when a line matches a regular expression. Each <code>trigger</code> entry is a regex, optionally followed by <code>| Title</code> for a custom notification title. The matched line becomes the notification body. Useful for surfacing build failures or long-running jobs that finish while you're in another window.</p>
-        <pre><code><span class="c"># ~/.config/sinclair/config</span>
-trigger = error|Build failed
-trigger = \bDONE\b | Job finished</code></pre>
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "trigger": [
+    "error|Build failed",
+    "\\bDONE\\b | Job finished"
+  ]
+}</code></pre>
 
         <h2>Secret redaction</h2>
         <p>Keep API keys and tokens off your clipboard. Each <code>redact</code> entry is a regex; anything it matches is masked with bullets (<code>•</code>) before the text ever reaches the clipboard — on an explicit copy, copy-on-select, copy-command-output, or a copy-mode yank alike.</p>
-        <pre><code><span class="c"># ~/.config/sinclair/config</span>
-redact = sk-[A-Za-z0-9]{20,}
-redact = ghp_[A-Za-z0-9]{36}</code></pre>
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "redact": [
+    "sk-[A-Za-z0-9]{20,}",
+    "ghp_[A-Za-z0-9]{36}"
+  ]
+}</code></pre>
 
         <h2>Line timestamps</h2>
-        <p>Set <code>timestamps = true</code> to show a faint relative time (<code>5s</code>, <code>2m</code>, <code>1h</code>, <code>3d</code>) beside each scrollback row, so you can see how long ago a line was printed. Times are captured as rows scroll into history and travel with the content.</p>
+        <p>Set <code>"timestamps": true</code> to show a faint relative time (<code>5s</code>, <code>2m</code>, <code>1h</code>, <code>3d</code>) beside each scrollback row, so you can see how long ago a line was printed. Times are captured as rows scroll into history and travel with the content.</p>
 
         <h2>Line annotations</h2>
         <p><kbd>⌘⌥A</kbd> (<code>annotate</code>) pins a note to the current line: a small dialog takes the text, and it's drawn as a pill in that row's left gutter. Notes are keyed to a stable line sequence, so they scroll with the content and survive until the line falls off the scrollback — good for marking "the error is here" while you work.</p>

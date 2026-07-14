@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Images in the terminal — Sinclair docs</title>
+    <meta name="description" content="Render images inline with sixel graphics: try it with img2sixel or chafa, let tools auto-detect support, preview files in your file manager, and plot from Python.">
+    <meta name="theme-color" content="#05070c">
+    <link rel="icon" href="icon.png">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="docs.css">
+  </head>
+  <body class="docs">
+    <a class="skip" href="#doc-main">Skip to content</a>
+    <main id="doc-main" class="doc-main">
+      <article class="doc-article" data-doc-page="images">
+        <p class="kicker">Tutorial</p>
+        <h1>Images in the terminal</h1>
+        <p class="lede">
+          Sinclair renders <strong>sixel</strong> graphics: programs print an escape sequence,
+          and an actual image appears in the grid — composited on the GPU, anchored to the
+          text it arrived with, scrolling away with the rest of your output. File previews,
+          plots, thumbnails, QR codes: if a tool can speak sixel, it draws right in your
+          terminal. This walkthrough renders your first image, explains how tools detect
+          support automatically, and wires up a couple of everyday uses.
+        </p>
+
+        <h2>1. Render your first image</h2>
+        <p>
+          Grab either of the two standard converters and point it at any image:
+        </p>
+        <pre><code><span class="c"># with libsixel</span>
+brew install libsixel        <span class="c"># apt/dnf: libsixel-bin</span>
+img2sixel photo.png
+
+<span class="c"># or with chafa</span>
+brew install chafa
+chafa -f sixels photo.png</code></pre>
+        <p>
+          The image prints like output — because it <em>is</em> output. Run it again, scroll
+          back, and both copies are exactly where they happened in the history. Since sixel is
+          just bytes on the wire, this works over <code>ssh</code> too: run
+          <code>img2sixel</code> on a remote host and the picture renders in your local
+          Sinclair.
+        </p>
+
+        <h2>2. How tools know they can do this</h2>
+        <p>
+          You don't have to configure anything. Sinclair advertises sixel in its
+          <strong>DA1</strong> (Primary Device Attributes) response and answers
+          <strong>XTSMGRAPHICS</strong> and <strong>XTWINOPS</strong> queries, which report
+          the pixel dimensions of the cell grid. Programs that probe the terminal — the way
+          <code>notcurses</code>, <code>timg</code>, or matplotlib's terminal backends do —
+          light up sixel support on their own and size images to your actual cells.
+        </p>
+        <div class="callout note">
+          <span class="label">Note</span>
+          <p>Sinclair speaks <strong>sixel</strong>, not the kitty graphics protocol. Tools
+          that support several backends usually pick sixel automatically from DA1; if one
+          needs a hint, look for a <code>--format sixel</code> or similar flag. Images up to
+          10,000&nbsp;px per side (8&nbsp;megapixels total) are accepted.</p>
+        </div>
+
+        <h2>3. Previews in your file manager</h2>
+        <p>
+          Terminal file managers make the best everyday use of this. <code>yazi</code> shows
+          sixel previews out of the box when the terminal advertises support. For
+          <code>lf</code> or <code>ranger</code>, set the previewer to <code>chafa -f
+          sixels</code> and browsing a directory of screenshots becomes an image gallery —
+          without leaving the keyboard.
+        </p>
+
+        <h2>4. Plot from Python</h2>
+        <p>
+          For quick data exploration, a sixel matplotlib backend (e.g.
+          <code>matplotlib-backend-sixel</code>) prints figures straight into the session:
+        </p>
+        <pre><code>pip install matplotlib-backend-sixel
+
+python -c "
+import matplotlib; matplotlib.use('module://matplotlib_backend_sixel')
+import matplotlib.pyplot as plt
+plt.plot([1, 4, 2, 8, 5]); plt.title('right here in the terminal'); plt.show()
+"</code></pre>
+        <p>
+          The figure appears inline, scrolls with your session, and is captured in the
+          scrollback next to the code that produced it — a lab notebook for free.
+        </p>
+
+        <div class="callout tip">
+          <span class="label">Tip</span>
+          <p>Recording with <kbd>⌘⇧R</kbd> captures the raw session — and that includes the
+          sixel escapes. Playback through a sixel-capable player reproduces the images,
+          pictures and all.</p>
+        </div>
+
+        <h2>Where to next</h2>
+        <div class="cards">
+          <a href="recording.html"><strong>Record &amp; share</strong>Turn a session — images included — into a GIF or video for a README.</a>
+          <a href="coverage.html"><strong>Terminal coverage</strong>The full protocol matrix: what Sinclair answers, including DA1 and XTSMGRAPHICS.</a>
+          <a href="navigate.html"><strong>Navigate &amp; select</strong>Scroll, search, and jump around the history your images now live in.</a>
+        </div>
+      </article>
+    </main>
+    <script type="module" src="docs.js"></script>
+  </body>
+</html>

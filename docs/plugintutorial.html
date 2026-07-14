@@ -33,8 +33,10 @@
 
         <h2>Set up a development loop</h2>
         <p>Sinclair loads plugins from <code>$XDG_CONFIG_HOME/sinclair/plugins</code> (usually <code>~/.config/sinclair/plugins/</code>) and from any folder you add to your config with a <code>plugin</code> line. Config is watched live, so while you iterate it is easiest to point Sinclair at a working directory:</p>
-        <pre><code><span class="c"># ~/.config/sinclair/config</span>
-plugin = /Users/you/code/my-plugin</code></pre>
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "plugin": ["/Users/you/code/my-plugin"]
+}</code></pre>
         <p>Each plugin is a folder containing <code>plugin.toml</code>. There is no build step: edit the manifest or the runtime script, and reload. Command and panel contributions pick up on a config reload; if a change doesn't show, relaunch Sinclair. A conventional layout:</p>
         <pre><code>my-plugin/
   plugin.toml     <span class="c"># the manifest — always required</span>
@@ -65,7 +67,7 @@ id = "open"
 title = "Open lazygit"
 run = "lazygit"
 mode = "tab"              <span class="c"># pane | tab | split-right | split-down</span>
-keybind = "cmd+shift+g"   <span class="c"># optional default binding</span></code></pre>
+keybind = "cmd+ctrl+g"    <span class="c"># optional default binding — pick one Sinclair doesn't use</span></code></pre>
           </li>
           <li>
             <p>Reload. The command becomes the action <code>plugin_command:lazy/open</code> — it shows up in the command palette (<kbd>⌘⇧P</kbd>) as <em>Lazygit: Open lazygit</em>, and <kbd>⌘⇧G</kbd> runs it. A user can rebind or unbind it in their config like any built-in action.</p>
@@ -148,7 +150,7 @@ if (req.kind === "action" &amp;&amp; req.action === "edit") {
         <p>When a block tree isn't enough, host your own HTML/JS in a native web view. The page talks to Sinclair through an injected <code>window.Sinclair</code> bridge; unknown calls are forwarded to your <code>[runtime]</code>.</p>
         <ol>
           <li>
-            <p>Declare a <code>[webview]</code>. Load a local file with <code>entry</code> (served over <code>file://</code> from the plugin folder) or a remote page with <code>url</code> — exactly one. <code>placement</code> is <code>panel</code>, <code>window</code>, or <code>tab</code>.</p>
+            <p>Declare a <code>[webview]</code>. Load a local file with <code>entry</code> (served over the internal <code>guise://</code> origin, so the page can reach the native bridge — <code>file://</code> pages can't) or a remote page with <code>url</code> — exactly one. <code>placement</code> is <code>panel</code>, <code>window</code>, or <code>tab</code> (tab currently opens as a window). A <code>service</code> entry with <code>boot</code> can even have Sinclair run a local server for you on an auto-allocated port.</p>
             <pre><code><span class="c"># ~/.config/sinclair/plugins/board/plugin.toml</span>
 id = "board"
 name = "Board"

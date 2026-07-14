@@ -17,8 +17,8 @@
         <p class="kicker">Tutorial</p>
         <h1>Configuration &amp; keybindings</h1>
         <p class="lede">
-          Sinclair reads a single plain-text file of <code>key = value</code> lines, and it
-          watches that file while it runs. In this walkthrough you'll find the config, save a
+          Sinclair reads a single <code>settings.json</code> — JSON with
+          <code>//</code> comments — and watches it while it runs. In this walkthrough you'll find the config, save a
           change and watch it apply live, see what happens when you fat-finger a line, and then
           rebind a key to any action in the catalog. Nothing here needs a restart — every save
           takes effect the instant you write it.
@@ -32,24 +32,30 @@
 
         <h2>1. Find the config file</h2>
         <p>
-          Sinclair loads its config from <code>$XDG_CONFIG_HOME/sinclair/config</code>, falling back
-          to <code>~/.config/sinclair/config</code> when <code>XDG_CONFIG_HOME</code> is unset. The
-          file is created on demand, so you can start from an empty file — or none at all — and
-          add only the keys you care about.
+          Sinclair loads its settings from
+          <code>$XDG_CONFIG_HOME/sinclair/settings.json</code>, falling back to
+          <code>~/.config/sinclair/settings.json</code> when <code>XDG_CONFIG_HOME</code> is
+          unset (on Windows: <code>%APPDATA%\sinclair\settings.json</code>). The file is
+          created on demand, so you can start from an empty <code>{}</code> — or no file at
+          all — and add only the keys you care about. If you have a legacy
+          <code>key = value</code> <code>config</code> file from an older Sinclair, it is
+          migrated into <code>settings.json</code> once on launch and no longer read.
         </p>
         <p>
-          The format is INI-style: one <code>key = value</code> per line. Lines beginning with
-          <code>#</code> are comments and are ignored, as are blank lines, and whitespace around
-          the key and value is trimmed. Most keys take a single value where the last assignment
-          wins; a handful are <em>repeatable</em> (like <code>font-family</code> and
-          <code>keybind</code>) and accumulate into a list. Save one line and see for yourself:
+          The format is JSON with comments: one object, one member per setting, and
+          <code>//</code> comment lines are ignored. Most keys take a single scalar value;
+          a handful (like <code>font-family</code> and <code>keybind</code>) take an
+          <em>array</em> and accumulate entries. Every key is optional — remove one and it
+          falls back to its built-in default. Save one member and see for yourself:
         </p>
-        <pre><code><span class="c"># ~/.config/sinclair/config</span>
-theme = Catppuccin Mocha
-font-family = JetBrains Mono
-font-size = 14.0
-cursor-style = bar
-copy-on-select = true</code></pre>
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "theme": "Catppuccin Mocha",
+  "font-family": ["JetBrains Mono"],
+  "font-size": 14,
+  "cursor-style": "bar",
+  "copy-on-select": true
+}</code></pre>
         <p>
           Sinclair watches the file. Appearance settings — fonts, theme, colors, padding, cursor —
           and keybindings <strong>take effect the moment you save</strong>, with no need to quit
@@ -67,11 +73,13 @@ copy-on-select = true</code></pre>
           becomes a friendly diagnostic surfaced on startup, and the rest of the file is applied
           normally. Add a nonsense key and a broken one alongside your good keys:
         </p>
-        <pre><code><span class="c"># ~/.config/sinclair/config</span>
-theme = Catppuccin Mocha
-fnot-size = 14.0        <span class="c"># unknown key → diagnostic, not a crash</span>
-font-size = huge        <span class="c"># malformed value → diagnostic, not a crash</span>
-cursor-style = bar</code></pre>
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "theme": "Catppuccin Mocha",
+  "fnot-size": 14,        <span class="c">// unknown key → diagnostic, not a crash</span>
+  "font-size": "huge",    <span class="c">// malformed value → diagnostic, not a crash</span>
+  "cursor-style": "bar"
+}</code></pre>
         <p>
           Your <code>theme</code> and <code>cursor-style</code> still apply; the two bad lines are
           reported and skipped. This is deliberate: one mistake never leaves you staring at an
@@ -93,7 +101,7 @@ cursor-style = bar</code></pre>
           lines. That key is <strong>repeatable</strong> — list as many as you like. Each binding
           is a single line:
         </p>
-        <pre><code>keybind = trigger=action<span class="c"># optionally with a :param</span></code></pre>
+        <pre><code>"keybind": ["trigger=action"]   <span class="c">// optionally with a :param</span></code></pre>
         <p>
           A <code>trigger</code> is one or more modifiers and a key, joined with <code>+</code>.
           The modifier tokens are:
@@ -106,7 +114,7 @@ cursor-style = bar</code></pre>
               <tr><td><code>ctrl</code></td><td>Control</td></tr>
               <tr><td><code>alt</code></td><td>Alt / Option</td></tr>
               <tr><td><code>shift</code></td><td>Shift</td></tr>
-              <tr><td><code>super</code></td><td>Super</td></tr>
+              <tr><td><code>super</code></td><td>Alias for <code>cmd</code></td></tr>
             </tbody>
           </table>
         </div>
@@ -120,14 +128,18 @@ cursor-style = bar</code></pre>
           after a colon (for example <code>new_split:right</code>). Your bindings are merged on top
           of the defaults, so you only declare what you want to change:
         </p>
-        <pre><code><span class="c"># Override: make Cmd+T open a split to the right instead of a new tab</span>
-keybind = cmd+t=new_split:right
+        <pre><code>{
+  "keybind": [
+    <span class="c">// Override: make Cmd+T open a split to the right instead of a new tab</span>
+    "cmd+t=new_split:right",
 
-<span class="c"># Add: a fresh shortcut for clearing the screen and scrollback</span>
-keybind = cmd+shift+k=clear_screen
+    <span class="c">// Add: a fresh shortcut for clearing the screen and scrollback</span>
+    "cmd+shift+k=clear_screen",
 
-<span class="c"># Add: jump straight to the first tab</span>
-keybind = cmd+shift+1=goto_tab:1</code></pre>
+    <span class="c">// Add: jump straight to the first tab</span>
+    "cmd+shift+1=goto_tab:1"
+  ]
+}</code></pre>
         <p>
           You can also chain keys into a <strong>chord</strong> with <code>&gt;</code> — the binding
           fires only when the keys are pressed in sequence. For example,
@@ -146,8 +158,11 @@ keybind = cmd+shift+1=goto_tab:1</code></pre>
           Sinclair then stops handling that combination and lets it fall through — handy when you
           want a key back for the shell:
         </p>
-        <pre><code><span class="c"># Reclaim Cmd+K for the shell</span>
-keybind = cmd+k=unbind</code></pre>
+        <pre><code>{
+  "keybind": [
+    "cmd+k=unbind"   <span class="c">// reclaim Cmd+K for the shell</span>
+  ]
+}</code></pre>
 
         <h2>6. Discover an action's token</h2>
         <p>

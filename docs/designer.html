@@ -48,7 +48,8 @@
           <li><strong>Preview</strong> — a live, plain-text approximation of the result.</li>
         </ul>
         <p>
-          When it looks right, click <strong>Apply</strong>. Your choices persist in
+          When it looks right, click <strong>Apply to zsh</strong> (or <strong>Apply to
+          bash</strong>). Your choices persist in
           <code>~/.config/prompt-designer/design.json</code>, so the panel always opens
           on your current design.
         </p>
@@ -66,9 +67,9 @@
           <li>Apply also <code>source</code>s the file in the focused pane, so the new
             prompt appears immediately — no need to open a new shell.</li>
         </ol>
-        <pre><code><span class="c"># the managed block added to your rc file</span>
+        <pre><code><span class="c"># the managed block added to your rc file (with your real home path)</span>
 # &gt;&gt;&gt; prompt-designer &gt;&gt;&gt;
-[ -f "$HOME/.config/prompt-designer/prompt.sh" ] &amp;&amp; source "$HOME/.config/prompt-designer/prompt.sh"
+[ -f "/Users/you/.config/prompt-designer/prompt.sh" ] &amp;&amp; source "/Users/you/.config/prompt-designer/prompt.sh"
 # &lt;&lt;&lt; prompt-designer &lt;&lt;&lt;</code></pre>
         <div class="callout tip">
           <span class="label">Tip</span>

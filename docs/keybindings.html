@@ -19,11 +19,11 @@
         <p class="lede">Every command in Sinclair is an <em>action</em>, and any action can be bound to any key combination from your config file. Sinclair ships with a sensible default keymap so it works the moment you launch it, but nothing is fixed: override a default, remove one you never use, or invent entirely new shortcuts — including chords and bindings that drive plugin commands. Changes take effect the instant you save the file.</p>
 
         <h2>Syntax</h2>
-        <p>Keybindings live in your config file (<code>$XDG_CONFIG_HOME/sinclair/config</code> or <code>~/.config/sinclair/config</code>). Each binding is a single line:</p>
-        <pre><code>keybind = trigger=action<span class="c"># optionally with a :param</span></code></pre>
-        <p>The <code>keybind</code> key is <strong>repeatable</strong> — list as many lines as you like. A <code>trigger</code> is one or more modifiers and a key, joined with <code>+</code>:</p>
+        <p>Keybindings live in your settings file (<code>$XDG_CONFIG_HOME/sinclair/settings.json</code> or <code>~/.config/sinclair/settings.json</code>). Each binding is one entry in the <code>keybind</code> array:</p>
+        <pre><code>"keybind": ["trigger=action"]   <span class="c">// optionally with a :param</span></code></pre>
+        <p>The <code>keybind</code> array takes as many entries as you like. A <code>trigger</code> is one or more modifiers and a key, joined with <code>+</code>:</p>
         <ul>
-          <li><strong>Modifiers:</strong> <code>cmd</code>, <code>ctrl</code>, <code>alt</code>, <code>shift</code>, <code>super</code>.</li>
+          <li><strong>Modifiers:</strong> <code>cmd</code>, <code>ctrl</code>, <code>alt</code>, <code>shift</code> (<code>super</code> is accepted as an alias for <code>cmd</code>).</li>
           <li><strong>Keys:</strong> the alphanumerics (<code>a</code>–<code>z</code>, <code>0</code>–<code>9</code>); the named keys <code>enter</code>, <code>tab</code>, <code>escape</code>, <code>space</code>, <code>backspace</code>, <code>delete</code>, <code>insert</code>, <code>up</code>, <code>down</code>, <code>left</code>, <code>right</code>, <code>home</code>, <code>end</code>, <code>page_up</code>, <code>page_down</code>, <code>f1</code>–<code>f12</code>; and the punctuation names <code>plus</code>, <code>minus</code>, <code>equal</code>, <code>comma</code>, <code>period</code>, <code>slash</code>, <code>backslash</code>, <code>semicolon</code>, <code>apostrophe</code>, <code>grave_accent</code>, <code>bracket_left</code>, <code>bracket_right</code>.</li>
         </ul>
         <div class="callout note">

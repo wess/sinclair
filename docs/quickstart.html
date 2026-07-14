@@ -88,8 +88,10 @@
           system? Sinclair can track the OS light/dark setting and switch automatically.
           Everything is also a plain config key, so a theme is one line:
         </p>
-        <pre><code><span class="c"># ~/.config/sinclair/config</span>
-theme = "Catppuccin Mocha"</code></pre>
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "theme": "Catppuccin Mocha"
+}</code></pre>
         <p>
           You can override individual colors, set transparency, drop in a background image,
           and enforce a readability contrast floor — see
@@ -98,16 +100,18 @@ theme = "Catppuccin Mocha"</code></pre>
 
         <h2>5. Edit the config and watch it reload</h2>
         <p>
-          Sinclair's settings live in a readable text file at
-          <code>~/.config/sinclair/config</code> (or <code>$XDG_CONFIG_HOME/sinclair/config</code>).
+          Sinclair's settings live in a readable JSON-with-comments file at
+          <code>~/.config/sinclair/settings.json</code> (or
+          <code>$XDG_CONFIG_HOME/sinclair/settings.json</code>).
           It's watched live: <strong>save the file and the change applies immediately</strong>,
           no relaunch. Try a few:
         </p>
-        <pre><code><span class="c"># ~/.config/sinclair/config</span>
-font-family = "JetBrains Mono"
-font-size = 14
-window-inherit-working-directory = true   <span class="c"># new tabs open in the current dir</span>
-session-restore = true                     <span class="c"># reopen tabs &amp; splits on next launch</span></code></pre>
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "font-family": ["JetBrains Mono"],
+  "font-size": 14,
+  "session-restore": true      <span class="c">// reopen tabs &amp; splits on next launch</span>
+}</code></pre>
         <p>
           A bad line never aborts the load — it becomes a friendly diagnostic and the rest
           still applies. Every option is catalogued on the

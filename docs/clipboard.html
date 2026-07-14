@@ -38,19 +38,24 @@
           it — no keystroke — and turn on <code>middle-click-paste</code> to drop the current
           selection with a middle click, the way X11 users already expect:
         </p>
-        <pre><code><span class="c"># ~/.config/sinclair/config</span>
-copy-on-select = true          <span class="c"># selecting text copies it immediately</span>
-middle-click-paste = true      <span class="c"># middle-click pastes the selection (X-style)</span></code></pre>
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "copy-on-select": true,        <span class="c">// selecting text copies it immediately</span>
+  "middle-click-paste": true     <span class="c">// middle-click pastes the selection (X-style)</span>
+}</code></pre>
         <p>
           Remote programs get a say too: a process can set your clipboard through
           <strong>OSC 52</strong>, so a tool running over SSH can copy to your local clipboard
           without any round trip. That power cuts both ways on paste, which is why
           <code>clipboard-paste-protection</code> warns you before pasting content that looks
-          risky — multi-line text or shell control characters, the kind of thing that can run
-          before you've read it:
+          risky — multi-line pastes and dangerous patterns like <code>rm -rf</code>,
+          <code>curl … | sh</code>, <code>sudo</code>, or writes to <code>/dev</code> — with
+          the reasons listed, so nothing runs before you've read it:
         </p>
-        <pre><code><span class="c"># ~/.config/sinclair/config</span>
-clipboard-paste-protection = true   <span class="c"># confirm before pasting risky content</span></code></pre>
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "clipboard-paste-protection": true   <span class="c">// confirm before pasting risky content</span>
+}</code></pre>
 
         <h2>2. Clipboard history</h2>
         <p>
@@ -70,9 +75,13 @@ clipboard-paste-protection = true   <span class="c"># confirm before pasting ris
           anything it matches is masked with bullets (<code>•</code>) <em>before</em> the text
           ever reaches the clipboard:
         </p>
-        <pre><code><span class="c"># ~/.config/sinclair/config</span>
-redact = sk-[A-Za-z0-9]{20,}    <span class="c"># mask OpenAI-style keys</span>
-redact = ghp_[A-Za-z0-9]{36}    <span class="c"># mask GitHub tokens</span></code></pre>
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "redact": [
+    "sk-[A-Za-z0-9]{20,}",    <span class="c">// mask OpenAI-style keys</span>
+    "ghp_[A-Za-z0-9]{36}"     <span class="c">// mask GitHub tokens</span>
+  ]
+}</code></pre>
         <p>
           The key detail is that redaction runs on <em>every</em> copy path — an explicit
           <kbd>⌘C</kbd>, copy-on-select, copy-command-output, and a copy-mode yank alike — so
@@ -86,9 +95,13 @@ redact = ghp_[A-Za-z0-9]{36}    <span class="c"># mask GitHub tokens</span></cod
           snippets and recall them from a fuzzy picker instead. Each <code>snippet</code> entry
           is <code>label | command</code>:
         </p>
-        <pre><code><span class="c"># ~/.config/sinclair/config</span>
-snippet = deploy | git push origin main
-snippet = logs | kubectl logs -f deploy/api</code></pre>
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "snippet": [
+    "deploy | git push origin main",
+    "logs | kubectl logs -f deploy/api"
+  ]
+}</code></pre>
         <p>
           Press <kbd>⌘⌥S</kbd> (<code>snippets</code>) to open the picker and pick one. The
           payoff is in what happens next: the picker <em>inserts</em> the command into the
@@ -102,9 +115,13 @@ snippet = logs | kubectl logs -f deploy/api</code></pre>
           Profiles are named launch setups — an SSH host, a REPL, a project environment. Each
           <code>profile</code> entry is <code>label | command</code>, just like a snippet:
         </p>
-        <pre><code><span class="c"># ~/.config/sinclair/config</span>
-profile = prod | ssh prod.example.com
-profile = repl | python3</code></pre>
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "profile": [
+    "prod | ssh prod.example.com",
+    "repl | python3"
+  ]
+}</code></pre>
         <p>
           Press <kbd>⌘⌥P</kbd> (<code>profiles</code>) to open the picker, and choosing one
           opens a <strong>new tab</strong> running that command. The difference from a snippet
@@ -116,7 +133,7 @@ profile = repl | python3</code></pre>
         <p>
           You don't need a separate app to type a glyph you can't reach on the keyboard. Press
           <kbd>⌘⌥E</kbd> (<code>unicode_picker</code>) to open a searchable list of common emoji
-          and symbols — arrows, math signs, box glyphs, and more — each one named so you can
+          and symbols — arrows, math signs, Greek letters, and more — each one named so you can
           fuzzy-find it. Pick one and Sinclair sends the glyph straight to the focused pane. Handy
           for a commit message, a comment, or a quick <code>→</code> in some notes.
         </p>
@@ -130,7 +147,7 @@ profile = repl | python3</code></pre>
           <table>
             <thead><tr><th>Shortcut</th><th>Opens</th><th>Use it to</th></tr></thead>
             <tbody>
-              <tr><td><kbd>⌘P</kbd></td><td>Quick open (<code>quick_open</code>)</td><td>A Spotlight-style launcher; type a few letters and run any action — including a launch profile.</td></tr>
+              <tr><td><kbd>⌘P</kbd></td><td>Quick open (<code>quick_open</code>)</td><td>A Spotlight-style launcher; type a few letters and run any action — including the pickers above.</td></tr>
               <tr><td><kbd>⌘⇧P</kbd></td><td>Command palette (<code>command_palette</code>)</td><td>Fuzzy over Sinclair's full action catalog — the pickers, copy mode, splits, settings — with each row showing its current keybinding.</td></tr>
             </tbody>
           </table>
