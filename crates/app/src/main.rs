@@ -61,10 +61,13 @@ use std::rc::Rc;
 
 use gpui::AppContext as _;
 use libsinclair::metrics;
-use gpui::{point, px, size, App, Bounds, TitlebarOptions, WindowBounds, WindowOptions};
+use gpui::{point, px, size, App, Bounds, Pixels, TitlebarOptions, WindowBounds, WindowOptions};
 
 const DEFAULT_COLS: usize = 80;
 const DEFAULT_ROWS: usize = 24;
+
+/// How far a torn-off window is nudged from the window it came from.
+const CASCADE_STEP: f32 = 36.0;
 
 /// Parse `notify` argv into `(title, body)`. `--title`/`-t` sets the title
 /// (default "Sinclair"); the remaining words join into the body.
@@ -197,7 +200,26 @@ fn open_default_window(opts: config::Options, cx: &mut App) {
         x: opts.window_padding_x as f32,
         y: opts.window_padding_y as f32,
     };
-    open_window(opts, colors, font, font_size, cell, pad, None, None, cx);
+    open_window(opts, colors, font, font_size, cell, pad, None, None, None, cx);
+}
+
+/// Where a torn-off window goes: the source window's size, stepped down and to
+/// the right so it reads as a separate window instead of hiding the one it was
+/// dragged out of. Steps back to the display's top-left once the nudge would
+/// push the window past the bottom or right edge.
+pub(crate) fn cascade(source: Bounds<Pixels>, display: Bounds<Pixels>) -> Bounds<Pixels> {
+    let step = px(CASCADE_STEP);
+    let limit = point(
+        display.origin.x + (display.size.width - source.size.width).max(px(0.0)),
+        display.origin.y + (display.size.height - source.size.height).max(px(0.0)),
+    );
+    let stepped = point(source.origin.x + step, source.origin.y + step);
+    let origin = if stepped.x > limit.x || stepped.y > limit.y {
+        point(display.origin.x + step, display.origin.y + step)
+    } else {
+        stepped
+    };
+    Bounds::new(origin, source.size)
 }
 
 /// Open a fresh top-level window hosting its own `WorkspaceView`. Shared by
@@ -214,20 +236,33 @@ pub(crate) fn open_window(
     cwd: Option<std::path::PathBuf>,
     // A torn-off tab re-homed here as the first item (else spawn a fresh shell).
     adopt: Option<root::PaneContent>,
+    // Exact screen bounds to open at (a torn-off window cascades off its
+    // source); `None` centers a default-sized window on the active display.
+    place: Option<Bounds<Pixels>>,
     cx: &mut App,
 ) {
-    let cols = if opts.window_width > 0 {
-        opts.window_width as usize
-    } else {
-        DEFAULT_COLS
+    let (bounds, cols, rows) = match place {
+        Some(bounds) => {
+            let (cols, rows) =
+                metrics::grid_size(bounds.size.width.into(), bounds.size.height.into(), pad, cell);
+            (bounds, cols, rows)
+        }
+        None => {
+            let cols = if opts.window_width > 0 {
+                opts.window_width as usize
+            } else {
+                DEFAULT_COLS
+            };
+            let rows = if opts.window_height > 0 {
+                opts.window_height as usize
+            } else {
+                DEFAULT_ROWS
+            };
+            let (width, height) = metrics::pixel_size(cols, rows, pad, cell);
+            let bounds = Bounds::centered(None, size(px(width), px(height)), cx);
+            (bounds, cols, rows)
+        }
     };
-    let rows = if opts.window_height > 0 {
-        opts.window_height as usize
-    } else {
-        DEFAULT_ROWS
-    };
-    let (width, height) = metrics::pixel_size(cols, rows, pad, cell);
-    let bounds = Bounds::centered(None, size(px(width), px(height)), cx);
     #[cfg_attr(not(target_os = "linux"), allow(unused_mut))]
     let mut options = WindowOptions {
         window_bounds: Some(WindowBounds::Windowed(bounds)),
@@ -268,8 +303,22 @@ pub(crate) fn open_window(
             return;
         }
     };
-    // Bring the new window to the front (a torn-off tab must not open behind).
-    handle
-        .update(cx, |_view, window, _cx| window.activate_window())
-        .ok();
+    // Bring the new window to the front. A tear-off opens from inside the
+    // source window's mouse-up, and the key-window change AppKit makes while
+    // that event is still on the stack loses to the source window's own
+    // ordering — so raise the app and re-key the new window once the current
+    // effect cycle has drained, when nothing is left to override it.
+    cx.activate(true);
+    cx.defer(move |cx| {
+        handle
+            .update(cx, |view, window, cx| {
+                window.activate_window();
+                view.focusactive(window, cx);
+            })
+            .ok();
+    });
 }
+
+#[cfg(test)]
+#[path = "../tests/main.rs"]
+mod tests;

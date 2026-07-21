@@ -737,10 +737,15 @@ impl WorkspaceView {
     /// (guise `tear_off`); take its live content out of `items` — dropping the
     /// old event subscription, but keeping the `TerminalView` entity and its pty
     /// alive (the event pump is app-scoped) — and open a new window adopting it.
-    fn tear_off_to_window(&mut self, item: ItemId, _window: &mut Window, cx: &mut Context<Self>) {
+    fn tear_off_to_window(&mut self, item: ItemId, window: &mut Window, cx: &mut Context<Self>) {
         let Some(Item { content, .. }) = self.items.borrow_mut().remove(&item) else {
             return;
         };
+        // Match the window the tab came from and step off it, so the torn-off
+        // window keeps its size and doesn't land squarely behind its source.
+        let place = window
+            .display(cx)
+            .map(|d| crate::cascade(window.bounds(), d.bounds()));
         crate::open_window(
             self.opts.clone(),
             self.colors.clone(),
@@ -750,6 +755,7 @@ impl WorkspaceView {
             self.pad,
             None,
             Some(content),
+            place,
             cx,
         );
         cx.notify();

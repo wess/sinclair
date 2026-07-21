@@ -190,6 +190,70 @@ fn repaint_after_focus_change(view: &gpui::WeakEntity<TerminalView>, cx: &mut Ap
     });
 }
 
+/// Bind a view's focus listeners to `window`. Split out of `new` because these
+/// are per-*window* subscriptions: a torn-off pane keeps its `TerminalView` but
+/// lands in a different window, and listeners still pointed at the old one see
+/// that window's activation instead of their own (see `rehome`).
+fn focus_subs(
+    focus: &gpui::FocusHandle,
+    window: &mut Window,
+    cx: &mut Context<TerminalView>,
+) -> [Subscription; 3] {
+    let on_in = cx.weak_entity();
+    let sub_in = window.on_focus_in(focus, cx, move |_window, cx| {
+        let _ = on_in.update(cx, |this, cx| {
+            this.focused = true;
+            this.pane_active = true;
+            this.report_focus(true);
+            this.clear_attention(cx);
+            cx.emit(ViewEvent::Focused);
+        });
+        repaint_after_focus_change(&on_in, cx);
+    });
+    let on_out = cx.weak_entity();
+    let sub_out = window.on_focus_out(focus, cx, move |_event, window, cx| {
+        // `focused` tracks true focus (window + pane) — it drives ?1004
+        // reporting and the background-notification attention dot, both of
+        // which should react to the window losing focus. `pane_active`
+        // tracks the active *pane* only and drives the split dimming +
+        // hidden cursor, so it stays set when the whole window merely
+        // deactivates (which also fires focus-out); only a real pane switch,
+        // where the window is still active, clears it.
+        let pane_switch = window.is_window_active();
+        let _ = on_out.update(cx, |this, _| {
+            this.focused = false;
+            this.report_focus(false);
+            if pane_switch {
+                this.pane_active = false;
+            }
+        });
+        repaint_after_focus_change(&on_out, cx);
+    });
+    // gpui derives focus in/out from the drawn frame and folds window
+    // activation into it, so a frame drawn before the platform reports the
+    // window active carries an empty focus path. A window that gains focus and
+    // activation together can therefore settle with neither flag set, painting
+    // a hollow cursor in the pane the user is typing into. Activation is the
+    // one signal that outranks the frame — re-derive both flags from it.
+    let sub_act = cx.observe_window_activation(window, |this, window, cx| {
+        let active = window.is_window_active();
+        let mine = this.focus.contains_focused(window, cx);
+        if active {
+            this.pane_active = mine;
+        }
+        let focused = active && mine;
+        if this.focused != focused {
+            this.focused = focused;
+            this.report_focus(focused);
+            if focused {
+                this.clear_attention(cx);
+            }
+        }
+        cx.notify();
+    });
+    [sub_in, sub_out, sub_act]
+}
+
 /// Scrollback search overlay state.
 struct Search {
     edit: guise::TextEdit,
@@ -354,8 +418,9 @@ pub struct TerminalView {
     activity: u64,
     /// True while an idle compaction task is scheduled for this pane.
     compact_armed: bool,
-    /// Focus in/out listeners that drive focus reporting (?1004).
-    _focus_subs: [Subscription; 2],
+    /// Focus in/out listeners plus the window-activation resync; together they
+    /// drive focus reporting (?1004) and the focused/unfocused cursor.
+    _focus_subs: [Subscription; 3],
 }
 
 impl TerminalView {
@@ -384,36 +449,7 @@ impl TerminalView {
         let chars = paneopts::word_chars(cx);
         session.with_term(|term| term.set_word_chars(&chars));
         let focus = cx.focus_handle();
-        let on_in = cx.weak_entity();
-        let sub_in = window.on_focus_in(&focus, cx, move |_window, cx| {
-            let _ = on_in.update(cx, |this, cx| {
-                this.focused = true;
-                this.pane_active = true;
-                this.report_focus(true);
-                this.clear_attention(cx);
-                cx.emit(ViewEvent::Focused);
-            });
-            repaint_after_focus_change(&on_in, cx);
-        });
-        let on_out = cx.weak_entity();
-        let sub_out = window.on_focus_out(&focus, cx, move |_event, window, cx| {
-            // `focused` tracks true focus (window + pane) — it drives ?1004
-            // reporting and the background-notification attention dot, both of
-            // which should react to the window losing focus. `pane_active`
-            // tracks the active *pane* only and drives the split dimming +
-            // hidden cursor, so it stays set when the whole window merely
-            // deactivates (which also fires focus-out); only a real pane switch,
-            // where the window is still active, clears it.
-            let pane_switch = window.is_window_active();
-            let _ = on_out.update(cx, |this, _| {
-                this.focused = false;
-                this.report_focus(false);
-                if pane_switch {
-                    this.pane_active = false;
-                }
-            });
-            repaint_after_focus_change(&on_out, cx);
-        });
+        let subs = focus_subs(&focus, window, cx);
         Self {
             session,
             colors,
@@ -462,8 +498,19 @@ impl TerminalView {
             suggest: crate::suggest::Suggest::default(),
             activity: 0,
             compact_armed: false,
-            _focus_subs: [sub_in, sub_out],
+            _focus_subs: subs,
         }
+    }
+
+    /// Move this view's focus listeners onto `window`. A torn-off pane keeps
+    /// its `TerminalView` — and with it subscriptions bound to the window it
+    /// was dragged out of, which go on reporting *that* window's focus and
+    /// activation. Without this the pane arrives in its new window with
+    /// `pane_active` still cleared by the tear-off's focus-out and no listener
+    /// left that can set it again, so it paints a hollow cursor until the user
+    /// clicks away and back.
+    pub(crate) fn rehome(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self._focus_subs = focus_subs(&self.focus, window, cx);
     }
 
     /// Emit a focus-in/out report to the child if it enabled ?1004, then

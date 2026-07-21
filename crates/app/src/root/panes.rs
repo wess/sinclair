@@ -92,6 +92,11 @@ impl WorkspaceView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> ItemId {
+        // The content's focus listeners still watch the window it was torn out
+        // of; point them at this one before it can be focused here.
+        if let PaneContent::Terminal(view) = &content {
+            view.update(cx, |v, cx| v.rehome(window, cx));
+        }
         self.insert_item(content, 0, window, cx)
     }
 
@@ -258,6 +263,7 @@ impl WorkspaceView {
             self.cell,
             self.pad,
             cwd,
+            None,
             None,
             cx,
         );
