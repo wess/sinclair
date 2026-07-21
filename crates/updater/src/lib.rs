@@ -22,6 +22,12 @@
 //!   build, Windows) can't be rewritten in place — the UI opens the release
 //!   page instead.
 //!
+//! A release is only ever offered once it has published the asset this machine
+//! would install — see [`Release::ready_for`]. GitHub publishes the release
+//! before CI uploads to it, so a newer tag can be visible for the length of a
+//! notarization run with nothing on it we can use; prompting in that window
+//! yields an Update button that can only fail.
+//!
 //! [`migrate_bundle`] is the one exception to "never touch the bundle
 //! directory", and it runs at startup rather than during an install: a
 //! `Prompt.app` that has already updated its *contents* to Sinclair renames
@@ -35,9 +41,9 @@ mod migrate;
 mod release;
 mod semver;
 
-pub use install::{detect, install, Install, Relaunch};
+pub use install::{detect, install, Install, Relaunch, Stage};
 pub use migrate::migrate_bundle;
-pub use release::{check, Release};
+pub use release::{check, Asset, Check, Release};
 pub use semver::is_newer;
 
 /// How often to re-check while running (a conservative hourly cadence).

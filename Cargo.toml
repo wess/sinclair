@@ -39,7 +39,7 @@ async-task = { git = "https://github.com/smol-rs/async-task.git", rev = "b4486cd
 block = { path = "thirdparty/block" }
 
 [workspace.package]
-version = "1.27.8"
+version = "1.28.0"
 edition = "2021"
 license = "Apache-2.0"
 

@@ -11,6 +11,7 @@ mod colors;
 mod confwrite;
 mod envpath;
 mod notes;
+mod notify;
 mod exportcmd;
 #[cfg(target_os = "macos")]
 mod fidelity;

@@ -319,38 +319,17 @@ impl TerminalView {
     }
 }
 
-/// Post a native desktop notification without blocking the UI (spawns a thread
-/// that runs [`notify_command`]). Best-effort: missing tools and errors are
-/// ignored; the in-app indicator is the reliable signal.
+/// Post a native desktop notification without blocking the UI. Best-effort:
+/// missing tools and errors are ignored; the in-app indicator is the reliable
+/// signal. The platform backends live in [`crate::notify`].
 pub fn post_os_notification(title: &str, body: &str) {
-    let (title, body) = (title.to_string(), body.to_string());
-    std::thread::spawn(move || notify_command(&title, &body));
+    crate::notify::post(title, body);
 }
 
-/// Post a native desktop notification synchronously. macOS uses `osascript
-/// display notification`; Linux uses `notify-send`. Used by `sinclair notify`,
+/// Post a native desktop notification synchronously. Used by `sinclair notify`,
 /// which must wait for the helper before the process exits.
 pub fn notify_command(title: &str, body: &str) {
-    #[cfg(target_os = "macos")]
-    {
-        let esc = |s: &str| s.replace('\\', "\\\\").replace('"', "\\\"");
-        let script = format!(
-            "display notification \"{}\" with title \"{}\"",
-            esc(body),
-            esc(title)
-        );
-        let _ = std::process::Command::new("osascript")
-            .args(["-e", &script])
-            .output();
-    }
-    #[cfg(target_os = "linux")]
-    {
-        let _ = std::process::Command::new("notify-send")
-            .args([title, body])
-            .output();
-    }
-    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
-    let _ = (title, body);
+    crate::notify::send(title, body);
 }
 
 /// Path for a new recording under `~/.config/sinclair/recordings/`, plus the

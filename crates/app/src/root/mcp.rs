@@ -61,26 +61,48 @@ impl WorkspaceView {
             #[cfg(debug_assertions)]
             "simulate_update" => {
                 let version = args.get("version").and_then(Value::as_str).unwrap_or("9.9.9");
+                // `assets` opts into a release that carries the asset this
+                // platform installs from, so the prompt can be driven through
+                // its real download path instead of only the no-asset case.
+                // `url`/`size` point that asset at something big enough to
+                // watch the progress bar actually move.
+                let assets = if args.get("assets").and_then(Value::as_bool).unwrap_or(false) {
+                    let url = args
+                        .get("url")
+                        .and_then(Value::as_str)
+                        .unwrap_or("https://github.com/wess/sinclair/releases");
+                    vec![updater::Asset {
+                        name: format!("Sinclair-{version}{}", asset_suffix()),
+                        url: url.to_string(),
+                        size: args.get("size").and_then(Value::as_u64).unwrap_or(0),
+                    }]
+                } else {
+                    Vec::new()
+                };
                 let rel = updater::Release {
                     version: version.to_string(),
                     url: "https://github.com/wess/sinclair/releases".to_string(),
-                    assets: Vec::new(),
+                    assets,
                 };
                 crate::updateui::open(rel, cx);
                 Ok(json!({ "opened": true }))
             }
             #[cfg(debug_assertions)]
             "update_probe" => {
-                let install = format!("{:?}", updater::detect());
-                let (available, latest, err) = match updater::check(crate::updateui::current()) {
-                    Ok(Some(r)) => (true, r.version, String::new()),
-                    Ok(None) => (false, String::new(), String::new()),
-                    Err(e) => (false, String::new(), e),
-                };
+                let detected = updater::detect();
+                let (state, latest, err) =
+                    match updater::check(crate::updateui::current(), &detected) {
+                        Ok(updater::Check::Ready(r)) => ("ready", r.version, String::new()),
+                        Ok(updater::Check::Pending(v)) => ("pending", v, String::new()),
+                        Ok(updater::Check::UpToDate) => {
+                            ("up-to-date", String::new(), String::new())
+                        }
+                        Err(e) => ("error", String::new(), e),
+                    };
                 Ok(json!({
                     "current": crate::updateui::current(),
-                    "install": install,
-                    "available": available,
+                    "install": format!("{detected:?}"),
+                    "state": state,
                     "latest": latest,
                     "error": err,
                 }))
@@ -426,5 +448,17 @@ impl WorkspaceView {
     ) -> Option<ItemId> {
         let options = session::options(&self.opts, SPAWN_COLS, SPAWN_ROWS, cwd);
         self.spawn(options, window, cx)
+    }
+}
+
+/// The asset-name suffix this platform's installer looks for, so a simulated
+/// release is picked up by the same `asset_for` matching a real one goes
+/// through. Debug-only, for driving the update prompt in verification.
+#[cfg(debug_assertions)]
+fn asset_suffix() -> String {
+    if cfg!(target_os = "macos") {
+        ".dmg".to_string()
+    } else {
+        format!("-{}.AppImage", std::env::consts::ARCH)
     }
 }

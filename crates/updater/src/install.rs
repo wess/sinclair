@@ -31,6 +31,35 @@ impl Install {
     }
 }
 
+/// What the installer is doing, reported as it happens so the UI can show real
+/// progress. Without this the whole install is one opaque blocking call, and a
+/// failure that arrives in microseconds — a missing asset, say — never renders
+/// a single frame of feedback.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Stage {
+    /// Fetching the asset: bytes written of the total (0 total = unknown).
+    Downloading { done: u64, total: u64 },
+    /// Opening what we downloaded (macOS mounts the `.dmg`).
+    Preparing,
+    /// Writing the new version over the install.
+    Installing,
+    /// Checking the result before we relaunch into it.
+    Verifying,
+}
+
+impl Stage {
+    /// Short present-tense label for the UI. Lives here so the stages and the
+    /// words describing them can't drift apart.
+    pub fn label(&self) -> &'static str {
+        match self {
+            Stage::Downloading { .. } => "Downloading update…",
+            Stage::Preparing => "Preparing…",
+            Stage::Installing => "Installing…",
+            Stage::Verifying => "Verifying…",
+        }
+    }
+}
+
 /// How to relaunch after a successful [`install`].
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Relaunch {
@@ -80,10 +109,17 @@ pub fn detect() -> Install {
 /// Only for in-place installs ([`Install::MacApp`], [`Install::AppImage`]);
 /// an [`Install::Unknown`] has no in-place path and opens the release page
 /// instead (see the app's `updateui`). Blocking — run off the UI thread.
-pub fn install(release: &Release, install: &Install) -> Result<Relaunch, String> {
+///
+/// `on_stage` is called from this thread as the install moves through
+/// [`Stage`]s, including once per download sample.
+pub fn install(
+    release: &Release,
+    install: &Install,
+    on_stage: &dyn Fn(Stage),
+) -> Result<Relaunch, String> {
     match install {
-        Install::MacApp(app) => crate::mac::install(release, app),
-        Install::AppImage(path) => crate::appimage::install(release, path),
+        Install::MacApp(app) => crate::mac::install(release, app, on_stage),
+        Install::AppImage(path) => crate::appimage::install(release, path, on_stage),
         Install::Unknown => Err("this install can't be updated in place".to_string()),
     }
 }

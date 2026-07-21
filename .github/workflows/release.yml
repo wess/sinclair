@@ -51,12 +51,18 @@ jobs:
           git tag "v${{ needs.check-version.outputs.version }}"
           git push origin "v${{ needs.check-version.outputs.version }}"
 
-      - name: Create GitHub Release
+      # Created as a draft and published by the `publish` job once the build
+      # jobs have uploaded to it. A published release is what `releases/latest`
+      # reports, and the in-app updater checks that endpoint — so publishing up
+      # front advertises a version for the length of a notarization run with
+      # none of its assets attached yet, and the update prompt can only fail.
+      # Drafts are invisible to `releases/latest` and still accept uploads.
+      - name: Create GitHub Release (draft)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: "v${{ needs.check-version.outputs.version }}"
           generate_release_notes: true
-          draft: false
+          draft: true
 
   build:
     needs: [check-version, create-release]
@@ -200,9 +206,30 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
+  # Flip the draft live once every platform users can auto-update on has
+  # uploaded. Waits for Windows so its artifacts are usually there too, but
+  # doesn't require it: Windows is beta and has no in-place update path, so a
+  # failure there must not hold back the macOS and Linux release.
+  publish:
+    runs-on: ubuntu-latest
+    needs: [check-version, build, build-linux, build-windows]
+    # `!cancelled()` rather than `always()`: always() is also true for a
+    # cancelled run, which would publish a release whose remaining jobs were
+    # deliberately stopped.
+    if: |
+      !cancelled()
+      && needs.check-version.outputs.changed == 'true'
+      && needs.build.result == 'success'
+      && needs.build-linux.result == 'success'
+    steps:
+      - name: Publish the release
+        run: gh release edit "v${{ needs.check-version.outputs.version }}" --draft=false --repo "$GITHUB_REPOSITORY"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
   update-homebrew:
     runs-on: ubuntu-latest
-    needs: [check-version, build]
+    needs: [check-version, publish]
     if: needs.check-version.outputs.changed == 'true'
     steps:
       - name: Download DMG and compute SHA
@@ -217,6 +244,13 @@ jobs:
             echo "Waiting for Sinclair.dmg... ($i/30)"
             sleep 10
           done
+          # curl -f still creates the output file on an HTTP error, so without
+          # this guard a run that exhausted every retry would hash a 0-byte file
+          # and publish the empty-string digest as a working cask.
+          if [ ! -s /tmp/Sinclair.dmg ]; then
+            echo "::error::Sinclair.dmg never became downloadable from ${URL}"
+            exit 1
+          fi
           SHA=$(sha256sum /tmp/Sinclair.dmg | cut -d' ' -f1)
           echo "sha_darwin_arm64=${SHA}" >> "$GITHUB_OUTPUT"
 
@@ -330,7 +364,9 @@ jobs:
   # succeeds and the manifest can be updated by hand (see packaging/README.md).
   update-scoop:
     runs-on: ubuntu-latest
-    needs: [check-version, build-windows]
+    # Also needs `publish`: the manifest is built by downloading the uploaded
+    # zip from its public release URL, which 404s while the release is a draft.
+    needs: [check-version, build-windows, publish]
     if: needs.check-version.outputs.changed == 'true'
     continue-on-error: true
     steps:
@@ -344,6 +380,12 @@ jobs:
             if curl -fsSL -o /tmp/p.zip "${URL}" 2>/dev/null; then break; fi
             echo "Waiting for windows zip... ($i/30)"; sleep 10
           done
+          # See the cask job: curl -f leaves an empty file behind on failure, and
+          # hashing that would publish a manifest nobody can install.
+          if [ ! -s /tmp/p.zip ]; then
+            echo "::error::windows zip never became downloadable from ${URL}"
+            exit 1
+          fi
           SHA=$(sha256sum /tmp/p.zip | cut -d' ' -f1)
           python3 - "$VERSION" "$SHA" << 'PY'
           import json, sys

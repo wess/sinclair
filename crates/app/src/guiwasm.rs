@@ -134,6 +134,9 @@ impl AppHost for GuiHost {
         Err("clipboard access is not yet available".into())
     }
     fn notify(&mut self, title: String, body: String) {
-        crate::view::notify_command(&title, &body);
+        // Async on purpose: this runs on the gpui main thread (the host is
+        // driven synchronously from `render_wasm_panel`), and the macOS backend
+        // can block for as long as the system authorization dialog is up.
+        crate::view::post_os_notification(&title, &body);
     }
 }

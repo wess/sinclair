@@ -258,9 +258,10 @@ checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 
 [[package]]
 name = "app"
-version = "1.27.8"
+version = "1.28.0"
 dependencies = [
  "assist",
+ "block2 0.6.2",
  "config",
  "container",
  "export",
@@ -277,6 +278,7 @@ dependencies = [
  "objc2 0.6.4",
  "objc2-app-kit 0.3.2",
  "objc2-foundation 0.3.2",
+ "objc2-user-notifications",
  "plugin",
  "pluginrt",
  "pty",
@@ -374,7 +376,7 @@ dependencies = [
 
 [[package]]
 name = "assist"
-version = "1.27.8"
+version = "1.28.0"
 dependencies = [
  "candle-core",
 ]
@@ -1228,7 +1230,7 @@ dependencies = [
 
 [[package]]
 name = "cast"
-version = "1.27.8"
+version = "1.28.0"
 dependencies = [
  "serde_json",
 ]
@@ -1570,7 +1572,7 @@ dependencies = [
 
 [[package]]
 name = "config"
-version = "1.27.8"
+version = "1.28.0"
 
 [[package]]
 name = "console_error_panic_hook"
@@ -1604,7 +1606,7 @@ dependencies = [
 
 [[package]]
 name = "container"
-version = "1.27.8"
+version = "1.28.0"
 
 [[package]]
 name = "convert_case"
@@ -2558,7 +2560,7 @@ dependencies = [
 
 [[package]]
 name = "export"
-version = "1.27.8"
+version = "1.28.0"
 dependencies = [
  "cast",
  "fontdue",
@@ -4414,7 +4416,7 @@ dependencies = [
 
 [[package]]
 name = "input"
-version = "1.27.8"
+version = "1.28.0"
 
 [[package]]
 name = "instant"
@@ -4801,7 +4803,7 @@ dependencies = [
 
 [[package]]
 name = "libsinclair"
-version = "1.27.8"
+version = "1.28.0"
 dependencies = [
  "cast",
  "futures",
@@ -5000,7 +5002,7 @@ checksum = "670fdfda89751bc4a84ac13eaa63e205cf0fd22b4c9a5fbfa085b63c1f1d3a30"
 
 [[package]]
 name = "macros"
-version = "1.27.8"
+version = "1.28.0"
 
 [[package]]
 name = "malloc_buf"
@@ -5055,7 +5057,7 @@ dependencies = [
 
 [[package]]
 name = "mcp"
-version = "1.27.8"
+version = "1.28.0"
 dependencies = [
  "serde_json",
 ]
@@ -5335,7 +5337,7 @@ checksum = "0676bb32a98c1a483ce53e500a81ad9c3d5b3f7c920c28c24e9cb0980d0b5bc8"
 
 [[package]]
 name = "notes"
-version = "1.27.8"
+version = "1.28.0"
 dependencies = [
  "axum",
  "include_dir",
@@ -5689,6 +5691,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "objc2-core-location"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ca347214e24bc973fc025fd0d36ebb179ff30536ed1f80252706db19ee452009"
+dependencies = [
+ "objc2 0.6.4",
+ "objc2-foundation 0.3.2",
+]
+
+[[package]]
 name = "objc2-core-text"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5823,6 +5835,19 @@ dependencies = [
  "bitflags 2.13.0",
  "objc2 0.6.4",
  "objc2-core-foundation",
+ "objc2-foundation 0.3.2",
+]
+
+[[package]]
+name = "objc2-user-notifications"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9df9128cbbfef73cda168416ccf7f837b62737d748333bfe9ab71c245d76613e"
+dependencies = [
+ "bitflags 2.13.0",
+ "block2 0.6.2",
+ "objc2 0.6.4",
+ "objc2-core-location",
  "objc2-foundation 0.3.2",
 ]
 
@@ -6211,7 +6236,7 @@ checksum = "19f132c84eca552bf34cab8ec81f1c1dcc229b811638f9d283dceabe58c5569e"
 
 [[package]]
 name = "plugin"
-version = "1.27.8"
+version = "1.28.0"
 dependencies = [
  "serde",
  "toml 0.8.23",
@@ -6219,7 +6244,7 @@ dependencies = [
 
 [[package]]
 name = "pluginrt"
-version = "1.27.8"
+version = "1.28.0"
 dependencies = [
  "anyhow",
  "serde_json",
@@ -6483,7 +6508,7 @@ dependencies = [
 
 [[package]]
 name = "pty"
-version = "1.27.8"
+version = "1.28.0"
 dependencies = [
  "rustix 0.38.44",
  "windows 0.58.0",
@@ -8173,7 +8198,7 @@ dependencies = [
 
 [[package]]
 name = "terminal"
-version = "1.27.8"
+version = "1.28.0"
 dependencies = [
  "cast",
  "pty",
@@ -8182,7 +8207,7 @@ dependencies = [
 
 [[package]]
 name = "theme"
-version = "1.27.8"
+version = "1.28.0"
 
 [[package]]
 name = "thiserror"
@@ -8779,7 +8804,7 @@ checksum = "39ec24b3121d976906ece63c9daad25b85969647682eee313cb5779fdd69e14e"
 
 [[package]]
 name = "updater"
-version = "1.27.8"
+version = "1.28.0"
 dependencies = [
  "serde_json",
 ]
@@ -8996,7 +9021,7 @@ dependencies = [
 
 [[package]]
 name = "vt"
-version = "1.27.8"
+version = "1.28.0"
 dependencies = [
  "bitflags 2.13.0",
  "lz4_flex",

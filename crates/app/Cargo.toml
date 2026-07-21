@@ -69,9 +69,13 @@ updater = { path = "../updater" }
 vt = { path = "../vt" }
 
 [target.'cfg(target_os = "macos")'.dependencies]
-objc2 = "0.6"
+block2 = "0.6"
+objc2 = { version = "0.6", features = ["exception"] }
 objc2-app-kit = { version = "0.3", features = ["NSWindow", "NSView", "NSResponder", "NSScreen", "NSButton", "NSControl"] }
-objc2-foundation = { version = "0.3", features = ["NSGeometry"] }
+objc2-foundation = { version = "0.3", features = ["NSGeometry", "NSBundle", "NSString", "NSError"] }
+# Posts desktop notifications through UserNotifications so they carry the app's
+# own icon; `osascript display notification` always shows Script Editor's.
+objc2-user-notifications = { version = "0.3", features = ["block2", "UNUserNotificationCenter", "UNNotificationRequest", "UNNotificationContent", "UNNotificationTrigger"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 x11rb = "0.13"

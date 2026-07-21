@@ -60,10 +60,37 @@ fn failed_download_leaves_no_staged_file() {
     let release = Release {
         version: "9.9.9".to_string(),
         url: String::new(),
-        assets: vec![("Sinclair.AppImage".to_string(), "http://127.0.0.1/x".to_string())],
+        assets: vec![crate::Asset {
+            name: format!("Sinclair-9.9.9-{}.AppImage", std::env::consts::ARCH),
+            url: "http://127.0.0.1/x".to_string(),
+            size: 0,
+        }],
     };
 
-    assert!(install(&release, &target).is_err());
+    assert!(install(&release, &target, &|_| {}).is_err());
     assert!(!staged.exists());
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn an_appimage_for_another_architecture_is_not_installed() {
+    // A release that has only uploaded the other arch's image must be refused
+    // outright, never renamed over the running install.
+    let dir = scratch("otherarch");
+    let target = dir.join("Sinclair.AppImage");
+    std::fs::write(&target, b"working").unwrap();
+    let other = if std::env::consts::ARCH == "aarch64" { "x86_64" } else { "aarch64" };
+    let release = Release {
+        version: "9.9.9".to_string(),
+        url: String::new(),
+        assets: vec![crate::Asset {
+            name: format!("Sinclair-9.9.9-{other}.AppImage"),
+            url: "https://d/x".to_string(),
+            size: 0,
+        }],
+    };
+
+    assert!(install(&release, &target, &|_| {}).is_err());
+    assert_eq!(std::fs::read(&target).unwrap(), b"working");
     let _ = std::fs::remove_dir_all(&dir);
 }

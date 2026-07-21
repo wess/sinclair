@@ -114,7 +114,11 @@ The workspace is layered bottom-up; each crate depends only on those below it.
   the new AppImage over the running one, staged on the same filesystem. Returns
   a `Relaunch` decision that `app`'s `updateui.rs` hands to gpui's restart —
   `Relaunch::Current` restarts with *no* explicit path so gpui reopens the
-  running bundle via `NSBundle`.
+  running bundle via `NSBundle`. A release is only offered once it has
+  published the asset *this* machine installs (`Release::ready_for`, matched by
+  OS **and** architecture); GitHub publishes a release before CI uploads to it,
+  so the gate is what stops a prompt whose Update button could only fail.
+  Installs report `Stage`s as they run so `updateui` can show real progress.
 - **`relay`** — the agent mesh, shipped as a standalone sidecar binary
   (`relay`), **not** part of the terminal. Lets independent coding-agent
   sessions (Claude Code, Codex, …) coordinate over a shared SQLite bus: agents

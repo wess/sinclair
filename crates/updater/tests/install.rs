@@ -26,5 +26,18 @@ fn unbundled_executables_have_no_bundle() {
 #[test]
 fn unknown_installs_refuse_in_place_update() {
     let release = Release { version: "9.9.9".into(), url: String::new(), assets: Vec::new() };
-    assert!(install(&release, &Install::Unknown).is_err());
+    assert!(install(&release, &Install::Unknown, &|_| {}).is_err());
+}
+
+#[test]
+fn every_stage_has_a_label() {
+    // The UI renders these verbatim, so an empty one is a blank status line.
+    for stage in [
+        Stage::Downloading { done: 0, total: 0 },
+        Stage::Preparing,
+        Stage::Installing,
+        Stage::Verifying,
+    ] {
+        assert!(!stage.label().is_empty());
+    }
 }

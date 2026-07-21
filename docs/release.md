@@ -11,12 +11,41 @@ cut by GitHub Actions (`.github/workflows/release.yml`); the local scripts under
 2. Merge to `main`.
 
 The workflow notices the new version (no matching `vX.Y.Z` tag yet), tags it,
-creates a GitHub Release, then in parallel: builds and notarizes `Sinclair.dmg`
-and updates the `sinclair` cask in
-[`wess/homebrew-packages`](https://github.com/wess/homebrew-packages); and
-builds the Linux packages (matrix over x86_64 and aarch64 on native runners)
-and uploads them to the release. The version check is idempotent, so re-running
-is safe.
+creates a **draft** GitHub Release, then in parallel: builds and notarizes
+`Sinclair.dmg`; and builds the Linux packages (matrix over x86_64 and aarch64
+on native runners). Both upload to the draft. Once macOS and Linux have both
+succeeded, the `publish` job flips the draft live, and only then do the
+`sinclair` cask in
+[`wess/homebrew-packages`](https://github.com/wess/homebrew-packages) and the
+Scoop manifest update — both build their manifests by downloading from the
+public release URL, which 404s on a draft. The version check is idempotent, so
+re-running is safe.
+
+The draft matters for more than tidiness. `releases/latest` only reports
+*published* releases, and that endpoint is what the in-app updater polls.
+Publishing up front advertised a version for the length of a notarization run
+with none of its macOS assets attached — the update prompt would appear and its
+Update button could only fail. The client refuses such a release now too (see
+`Release::ready_for` in `crates/updater/src/release.rs`), but the draft is what
+keeps the window from existing at all.
+
+`publish` waits for the Windows job but doesn't require it: Windows is beta and
+has no in-place update path, so a failure there won't hold back macOS or Linux.
+
+### If a build fails and the release is stuck as a draft
+
+`create-release` pushes the tag before the builds run, so once a version has
+been attempted, `check-version` sees the tag and reports `changed=false` — a
+re-push of the same version does nothing, and the draft sits there invisible.
+Recover with either:
+
+- **Re-run failed jobs** on the workflow run (keeps `check-version`'s outputs,
+  so `publish` re-evaluates and flips the draft once the retry succeeds), or
+- `gh release edit "vX.Y.Z" --draft=false` by hand, if the assets are actually
+  all present and only `publish` failed.
+
+Failing closed like this is deliberate: a stuck draft ships nothing, where the
+old behaviour shipped a release users' updaters could see but not install.
 
 Because the Linux build includes code that never compiles on the macOS dev host
 (`linux.rs`, the `#[cfg(target_os = "linux")]` blocks), validate it **before**
