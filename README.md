@@ -181,6 +181,8 @@ is migrated automatically on first launch.)
   "relay-enabled": true,
   "relay-address": "127.0.0.1:7777",
   "relay-default-agent": "claude",
+  "relay-team-window": true,           // a team gets its own window
+  "relay-team-autonomy": true,         // team members skip permission prompts
 
   // Keybindings — trigger=action[:param]; use =unbind to remove a default
   "keybind": [
@@ -305,8 +307,11 @@ and optionally start it on launch. An **AI** menu then appears:
 - **Open Feed** — streams every message on the bus in a split.
 - **Relay ▸** — server controls: shows whether the server is running, then
   Start / Stop / Restart it and **View Logs** (tails the server log in a split).
-- **Teams ▸** — open a whole **team** at once: Sinclair arranges a tile layout and
-  launches the right agent in each pane.
+- **Teams ▸** — open a whole **team** at once, in a window of its own: one member
+  per pane, resizable dividers between them, each tab named after its agent, and
+  the layout you were working in left alone. Members run unattended (their
+  permission prompts skipped), since nobody is sitting in each pane to answer
+  one. Both are settings — `relay-team-window` and `relay-team-autonomy`.
 
 The same `relay` binary works on its own (`relay start`, `relay launch <name>`,
 `relay feed --follow`, `relay ps`, `relay stop`). **Claude** and **Codex** join

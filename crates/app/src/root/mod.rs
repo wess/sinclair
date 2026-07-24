@@ -447,6 +447,24 @@ pub struct WorkspaceView {
     /// `render` so a live `background-opacity` change flips the window between
     /// opaque and transparent.
     bg_transparent: bool,
+    /// Set when this window was opened to hold a Relay team, naming it. Titles
+    /// the window and keeps the window out of session save/restore — the panes
+    /// are agents, reproducible from the team spec, and replaying their
+    /// `relay launch` on the next start would re-register a roster the daemon
+    /// may still be running.
+    team: Option<String>,
+}
+
+/// A team to realize in a freshly opened window. The roster becomes the
+/// window's whole pane group — one member per pane, nothing else in it — so a
+/// team reads as its own divided workspace rather than a tab folded into
+/// whatever you were already doing.
+pub(crate) struct TeamOpen {
+    /// Team name, shown in the window title.
+    pub name: String,
+    /// The roster resolved into panes. `panes.commands[0]` runs in the window's
+    /// first pane instead of the default shell; the rest split off it.
+    pub panes: crate::relay::TeamPanes,
 }
 
 /// Whether a gpui window appearance is one of the dark variants.
@@ -471,6 +489,8 @@ impl WorkspaceView {
         cwd: Option<std::path::PathBuf>,
         // A torn-off tab re-homed here as the first item (else spawn a shell).
         adopt: Option<PaneContent>,
+        // A Relay team to fill this window with, instead of a single shell.
+        team: Option<TeamOpen>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
@@ -532,6 +552,7 @@ impl WorkspaceView {
             _appearance: None,
             // main.rs always opens the window transparent-capable.
             bg_transparent: true,
+            team: team.as_ref().map(|t| t.name.clone()),
         };
         // Follow the OS light/dark appearance when `theme-light`/`theme-dark` are set.
         this._appearance = Some(cx.observe_window_appearance(window, |view, window, cx| {
@@ -549,6 +570,22 @@ impl WorkspaceView {
         let first = match adopt {
             // A torn-off tab: re-home its live terminal/webview as the first item.
             Some(content) => this.register_item(content, window, cx),
+            // A team window opens *on* its first member rather than spawning a
+            // shell and adding the team beside it, so no pane in the window
+            // holds anything but an agent. The lead takes the cwd explicitly:
+            // there is no focused pane to inherit one from yet, and every other
+            // member then inherits it from the lead. It is the directory each
+            // role resolves its project `.relay/roles` against.
+            None if team.is_some() => {
+                let lead = team
+                    .as_ref()
+                    .and_then(|t| t.panes.commands.first().cloned())
+                    .flatten();
+                match lead.and_then(|c| this.spawn_command_cwd(&c, cwd, window, cx)) {
+                    Some(id) => id,
+                    None => placeholder,
+                }
+            }
             None => {
                 let options = session::options(&this.opts, cols, rows, cwd);
                 match this.spawn(options, window, cx) {
@@ -572,10 +609,34 @@ impl WorkspaceView {
         crate::relaywatch::start(&this.opts, cx);
         this.refresh_agent_verification(cx);
         this.refresh_menu_data(cx);
+        // Split the rest of the roster off the lead's pane. Done after the group
+        // is rebuilt so the splits land in the real tree, not the placeholder's.
+        // Every pane is titled after its member: the tab would otherwise read
+        // `zsh`, since the launch command runs under a shell.
+        if let Some(t) = team.filter(|_| this.spawn_error.is_none()) {
+            let host = this.group.read(cx).focused_pane();
+            if let Some(lead) = t.panes.names.first() {
+                this.rename_item(first, lead, cx);
+            }
+            this.realize_into(
+                &t.panes.layout,
+                host,
+                0,
+                &t.panes.commands,
+                &t.panes.names,
+                window,
+                cx,
+            );
+            // Land on the lead, not on whichever pane was split last: the lead
+            // is the member that stays interactive for the human, so it is the
+            // one you start typing to.
+            this.activate_item(first, window, cx);
+        }
         // Restoring re-spawns shells; with the first spawn already failed there
         // is nothing to restore into (and closing the placeholder would close
-        // the window before the error is ever seen).
-        if this.opts.session_restore && this.spawn_error.is_none() {
+        // the window before the error is ever seen). A team window is already
+        // full of the roster it was opened for, and never restores.
+        if this.opts.session_restore && this.spawn_error.is_none() && this.team.is_none() {
             this.try_restore(window, cx);
         }
         this
@@ -694,7 +755,9 @@ impl WorkspaceView {
         self.settitle(window, cx);
     }
 
-    /// Set the window title from the focused item.
+    /// Set the window title from the focused item. A team window leads with the
+    /// team name, so its window is identifiable no matter which member has
+    /// focus.
     pub(crate) fn settitle(&self, window: &mut Window, cx: &App) {
         let item = self.group.read(cx).active_item();
         let title = self
@@ -703,7 +766,10 @@ impl WorkspaceView {
             .get(&item)
             .map(|it| it.content.title(cx))
             .unwrap_or_else(|| "sinclair".to_string());
-        window.set_window_title(&title);
+        match &self.team {
+            Some(team) => window.set_window_title(&format!("{team} \u{2014} {title}")),
+            None => window.set_window_title(&title),
+        }
     }
 
     /// Activate `item` in its pane and focus it.
@@ -756,6 +822,7 @@ impl WorkspaceView {
             None,
             Some(content),
             place,
+            None,
             cx,
         );
         cx.notify();

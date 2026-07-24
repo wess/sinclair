@@ -46,6 +46,12 @@ pub struct Spec<'a> {
     pub headless: bool,
     pub model: Option<&'a str>,
     pub channels: &'a [String],
+    /// Run the agent with its own permission/approval prompts bypassed: claude
+    /// `--dangerously-skip-permissions`, codex `approval_policy="never"`,
+    /// gemini `--yolo`. Needed whenever nobody is watching to answer one — a
+    /// headless worker (no terminal at all) or an unattended pane such as a
+    /// team split. A `--cmd` template and the ollama bridge get nothing: relay
+    /// doesn't know the template's flag, and the bridge has no such prompt.
     pub skip_perms: bool,
     /// Load *only* the relay MCP config, ignoring the project `.mcp.json` and the
     /// user's global servers (`claude --strict-mcp-config`). Off by default so an
@@ -157,7 +163,7 @@ pub fn build(spec: &Spec) -> Result<Launch> {
         // Ollama is driven by relay's own bridge, not an agent CLI, so host
         // flags meant for `claude`/`codex` don't apply — return as-is.
         "ollama" => return ollama(spec),
-        "gemini" => from_template(gemini_template(), spec),
+        "gemini" => gemini(spec),
         other => {
             return Err(anyhow!(
                 "unknown agent '{other}'. Use --agent claude|codex|ollama|gemini, or pass --cmd with a template."
@@ -183,11 +189,13 @@ fn claude(spec: &Spec) -> Launch {
             "stream-json".into(),
             "--verbose".into(),
         ]);
-        if spec.skip_perms {
-            args.push("--dangerously-skip-permissions".into());
-        }
     } else {
         args.push(spec.prompt.into());
+    }
+    // Applies to both shapes: a headless worker has no terminal to prompt in,
+    // and an unattended pane has no human to answer.
+    if spec.skip_perms {
+        args.push("--dangerously-skip-permissions".into());
     }
     args.extend(["--mcp-config".into(), spec.mcp_file.into()]);
     // `--mcp-config` is additive: without `--strict-mcp-config`, claude still
@@ -226,11 +234,12 @@ fn codex(spec: &Spec) -> Launch {
     let mut args: Vec<String> = Vec::new();
     if spec.headless {
         args.push("exec".into());
-        args.push(spec.prompt.into());
+    }
+    args.push(spec.prompt.into());
+    // `exec` can never answer an approval, and neither can an unattended pane.
+    if spec.headless || spec.skip_perms {
         args.push("-c".into());
         args.push("approval_policy=\"never\"".into());
-    } else {
-        args.push(spec.prompt.into());
     }
     args.push("-c".into());
     args.push(mcp);
@@ -279,6 +288,16 @@ fn ollama(spec: &Spec) -> Result<Launch> {
         args,
         env: Vec::new(),
     })
+}
+
+/// Gemini needs no special wiring beyond the template; `--yolo` is its
+/// equivalent of claude's permission bypass.
+fn gemini(spec: &Spec) -> Launch {
+    let mut launch = from_template(gemini_template(), spec);
+    if spec.skip_perms {
+        launch.args.push("--yolo".into());
+    }
+    launch
 }
 
 fn gemini_template() -> &'static str {
@@ -335,6 +354,82 @@ mod tests {
         let launch = build(&spec("claude", &extra)).unwrap();
         assert_eq!(launch.program, "claude");
         assert_eq!(launch.args.last().unwrap(), "--dangerously-skip-permissions");
+    }
+
+    /// An unattended interactive pane (a team split) needs the bypass just as
+    /// much as a headless worker: nobody is there to answer the prompt. Before
+    /// this, `skip_perms` only reached the `-p` branch.
+    #[test]
+    fn skip_perms_reaches_an_interactive_claude() {
+        let mut s = spec("claude", &[]);
+        s.skip_perms = true;
+        let launch = build(&s).unwrap();
+        assert!(!launch.args.iter().any(|a| a == "-p"), "should stay interactive");
+        assert!(launch.args.iter().any(|a| a == "--dangerously-skip-permissions"));
+    }
+
+    #[test]
+    fn skip_perms_sets_codex_approval_policy() {
+        let mut s = spec("codex", &[]);
+        s.skip_perms = true;
+        let launch = build(&s).unwrap();
+        assert!(!launch.args.iter().any(|a| a == "exec"), "should stay interactive");
+        assert!(launch.args.iter().any(|a| a == "approval_policy=\"never\""));
+    }
+
+    #[test]
+    fn skip_perms_yolos_gemini() {
+        let mut s = spec("gemini", &[]);
+        s.skip_perms = true;
+        assert!(build(&s).unwrap().args.iter().any(|a| a == "--yolo"));
+        // And stays off when it wasn't asked for.
+        assert!(!build(&spec("gemini", &[])).unwrap().args.iter().any(|a| a == "--yolo"));
+    }
+
+    /// Relay knows the bypass flag for the agents it builds argv for, and only
+    /// those. A `--cmd` template and the ollama bridge must come back untouched
+    /// rather than get a claude flag they'd choke on.
+    #[test]
+    fn skip_perms_never_guesses_a_flag() {
+        let mut s = spec("ollama", &[]);
+        s.skip_perms = true;
+        let launch = build(&s).unwrap();
+        assert!(!launch.args.iter().any(|a| a.contains("skip-permissions") || a == "--yolo"));
+
+        let mut s = spec("claude", &[]);
+        s.custom = Some("myagent --prompt {prompt}");
+        s.skip_perms = true;
+        let launch = build(&s).unwrap();
+        assert_eq!(launch.program, "myagent");
+        assert!(!launch.args.iter().any(|a| a.contains("skip-permissions")));
+    }
+
+    /// The default stays gated: an attended pane keeps its prompts.
+    #[test]
+    fn no_bypass_without_skip_perms() {
+        for agent in ["claude", "codex", "gemini"] {
+            let launch = build(&spec(agent, &[])).unwrap();
+            assert!(
+                !launch.args.iter().any(|a| {
+                    a == "--dangerously-skip-permissions"
+                        || a == "--yolo"
+                        || a == "approval_policy=\"never\""
+                }),
+                "{agent} bypassed permissions unasked: {:?}",
+                launch.args
+            );
+        }
+    }
+
+    /// A headless worker gets the bypass regardless — `claude -p` and `codex
+    /// exec` have no terminal to prompt in.
+    #[test]
+    fn headless_codex_still_never_approves() {
+        let mut s = spec("codex", &[]);
+        s.headless = true;
+        let launch = build(&s).unwrap();
+        assert_eq!(launch.args[0], "exec");
+        assert!(launch.args.iter().any(|a| a == "approval_policy=\"never\""));
     }
 
     #[test]

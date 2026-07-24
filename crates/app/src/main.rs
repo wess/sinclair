@@ -201,7 +201,7 @@ fn open_default_window(opts: config::Options, cx: &mut App) {
         x: opts.window_padding_x as f32,
         y: opts.window_padding_y as f32,
     };
-    open_window(opts, colors, font, font_size, cell, pad, None, None, None, cx);
+    open_window(opts, colors, font, font_size, cell, pad, None, None, None, None, cx);
 }
 
 /// Where a torn-off window goes: the source window's size, stepped down and to
@@ -240,6 +240,8 @@ pub(crate) fn open_window(
     // Exact screen bounds to open at (a torn-off window cascades off its
     // source); `None` centers a default-sized window on the active display.
     place: Option<Bounds<Pixels>>,
+    // A Relay team to fill the window with, one member per pane.
+    team: Option<root::TeamOpen>,
     cx: &mut App,
 ) {
     let (bounds, cols, rows) = match place {
@@ -294,7 +296,7 @@ pub(crate) fn open_window(
     let handle = match cx.open_window(options, move |window, cx| {
         cx.new(move |cx| {
             root::WorkspaceView::new(
-                opts, colors, font, font_size, cell, pad, cols, rows, cwd, adopt, window, cx,
+                opts, colors, font, font_size, cell, pad, cols, rows, cwd, adopt, team, window, cx,
             )
         })
     }) {

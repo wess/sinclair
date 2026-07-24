@@ -29,7 +29,12 @@ pre-order leaf order), and the tab title. On restore
 (`crates/app/src/root/persist.rs`) it spawns **fresh shells** at those cwds. It
 captures no running process and no agent state, so a pane that was running an
 agent restores as a bare shell. Saving is skipped entirely for a tab that holds
-a webview.
+a webview, and for a **team window** — the file holds one window's state and the
+last to save wins, so a roster opened beside your work must not overwrite it, and
+replaying every member's `relay launch` would re-register a team the daemon may
+still be running. Re-open a team from AI ▸ Teams. Restoring a team window with
+the rest of the session needs multi-window session state, which does not exist
+yet.
 
 **The relay bus** is the one thing that genuinely survives a kill/restart.
 `relay.db` is SQLite in WAL mode (`crates/relay/src/db/mod.rs`) and persists

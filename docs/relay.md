@@ -31,6 +31,16 @@ works standalone (over SSH, in CI, with any terminal).
   `server.json`; the CLI and the app follow the record, so nothing else needs
   to change.
 - **Default agent** — the agent CLI used by *Launch Agent…* (default `claude`).
+- **Team members run unattended** — on by default. Opening a team fills every
+  split at once and you can only watch one, so members launch with their
+  permission prompts bypassed; without this a member that stops to ask for
+  approval sits idle until you notice its pane. Turn it off to approve each
+  action yourself, pane by pane.
+- **Open teams in their own window** — on by default. A team gets a window to
+  itself: the first member opens as the window's first pane and the rest split
+  off it, one member per pane, with a draggable divider between every pair. The
+  layout you were working in is left untouched. Turn it off to open the team
+  into the focused pane instead, the way it used to work.
 
 When Relay is enabled the section also shows a live **status dot** (green = the
 server is listening, red = stopped, re-probed every ~1.5s) and the **log path**.
@@ -45,7 +55,9 @@ Everything maps to plain config keys, so it round-trips through the file too:
   "relay-enabled": true,
   "relay-start-on-launch": true,
   "relay-address": "127.0.0.1:7777",
-  "relay-default-agent": "claude"
+  "relay-default-agent": "claude",
+  "relay-team-autonomy": true,
+  "relay-team-window": true
 }
 ```
 
@@ -88,6 +100,7 @@ relay status
 
 relay launch <name>    # launch an agent under relay (foreground, this terminal)
 relay launch <name> --background   # ...as a server-monitored worker instead
+relay launch <name> --skip-permissions   # ...unattended: bypass its prompts
 relay ps               # registered agents + background workers
 relay kill <name>      # stop a background worker
 relay feed [--follow]  # print the message bus
@@ -99,7 +112,18 @@ relay team <list|info|create|edit|delete>   # manage teams (layout + roster)
 (repeatable), `--model`, `--cwd`, `--cmd <template>`, `--background`, `--lead`
 (launch interactively as the human-driven lead), `--allow-tool <rule>`
 (repeatable, pre-grants a tool via `claude --allowedTools`), `--strict-mcp`
-(load only relay's MCP server).
+(load only relay's MCP server), `--skip-permissions` (run unattended — see
+below).
+
+`--skip-permissions` bypasses the agent's own approval prompts using whatever
+flag that agent uses: `--dangerously-skip-permissions` for claude,
+`approval_policy="never"` for codex, `--yolo` for gemini. It resolves *after*
+the role picks the agent, so it works without naming one. `--background`
+implies it (a monitored worker has no terminal to prompt in); pass it
+explicitly for a pane nobody is watching, which is what the app does for team
+members when `relay-team-autonomy` is on. A `--cmd` template and the ollama
+bridge are left alone — relay won't guess a flag for a command it didn't
+build.
 
 - **Foreground** `launch` replaces the calling shell with the agent (you see and
   steer it).
@@ -159,8 +183,13 @@ layered project → user → built-in, like roles); **tiles** (the layouts) are 
 Sinclair feature, so they're useful on their own too.
 
 From Sinclair, with AI + Relay on, the **AI menu** lists teams under **Teams ▸** —
-click one to open it in a fresh tab — the agent panes live under that one tab,
-which is titled after the team (`web`). Standalone, manage teams with the CLI:
+click one and it opens in a window of its own, titled after the team (`web`).
+Every pane in that window is a member, with a draggable divider between each
+pair, so the whole roster reads as one divided workspace and the layout you were
+already working in is untouched. Each pane's tab bar carries that member's name
+and its agent-state dot, so you can see at a glance which one is working and
+which is blocked. Set `relay-team-window` to `false` to open teams into the
+focused pane instead. Standalone, manage teams with the CLI:
 
 ```
 relay team list                 # all teams + source
@@ -269,8 +298,9 @@ Tools join the mesh at one of three integration tiers:
   (config path), `{url}` (bus URL), `{name}`. **gemini** ships as a template.
 
 Pick the agent per launch with `--agent claude|codex|ollama|gemini` (or `--cmd`),
-or per team member. CLI background agents run with `--dangerously-skip-permissions`
-since they can't answer prompts.
+or per team member. Anything nobody is watching — a background worker, or a team
+member in its own pane — runs with that agent's permission bypass, since there's
+no one there to answer a prompt.
 
 In **Settings → AI → Agent tools**, each tool has an enable toggle and a **Test**
 button that checks it's reachable (CLI `--version`, or the Ollama API port).
@@ -328,10 +358,16 @@ button that checks it's reachable (CLI `--version`, or the Ollama API port).
   --strict-mcp-config`).
 - **Permissions.** Interactive agents inherit your project and user
   `.claude/settings.json` permission allow/deny lists automatically once you
-  accept the workspace-trust prompt — you don't re-grant them per agent.
-  Background workers can't answer a prompt, so they run with
-  `--dangerously-skip-permissions` by design. Pass extra flags to every launched
-  agent with `agent-claude-args` (e.g. `--permission-mode acceptEdits`).
+  accept the workspace-trust prompt — you don't re-grant them per agent. An
+  agent nobody is watching can't answer a prompt at all, so it runs with the
+  bypass: background workers always, and team members unless you turn
+  `relay-team-autonomy` off. Pass extra flags to every launched agent with
+  `agent-claude-args` (e.g. `--permission-mode acceptEdits`).
+- **Folder trust is separate.** `--dangerously-skip-permissions` covers
+  per-action prompts, *not* Claude Code's first-run "do you trust this folder"
+  dialog. Open a team in a directory Claude hasn't seen before and every pane
+  stops on that dialog regardless of the flag. Answer it once per pane, or open
+  the folder in Claude Code once beforehand, and it won't come back.
 - **Context.** A long-running agent holds one growing context for its whole
   shift. You can pause and resume the mesh (`relay pause` / `relay resume`, or
   AI → Relay ▸ **Pause/Resume Mesh**): the bus and the background-worker roster

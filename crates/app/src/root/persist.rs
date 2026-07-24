@@ -92,8 +92,10 @@ impl WorkspaceView {
     }
 
     /// Spawn `command` rooted at `cwd` (like [`Self::spawncommand`] but with an
-    /// explicit working directory rather than the focused pane's).
-    fn spawn_command_cwd(
+    /// explicit working directory rather than the focused pane's). A window's
+    /// first item has no focused pane to inherit from yet, so the team path
+    /// uses this.
+    pub(super) fn spawn_command_cwd(
         &mut self,
         command: &str,
         cwd: Option<std::path::PathBuf>,
@@ -107,6 +109,34 @@ impl WorkspaceView {
         let id = self.spawn(options, window, cx)?;
         self.set_item_command(id, command);
         Some(id)
+    }
+
+    /// Open `name`'s roster in a window of its own, inheriting this window's
+    /// appearance so the two match without re-reading config. The new window
+    /// spawns the lead as its first item and splits the rest off it, so the
+    /// team is the only thing in there.
+    pub(crate) fn open_team_window(
+        &self,
+        name: &str,
+        panes: crate::relay::TeamPanes,
+        cx: &mut Context<Self>,
+    ) {
+        crate::open_window(
+            self.opts.clone(),
+            self.colors.clone(),
+            self.font.clone(),
+            self.font_size,
+            self.cell,
+            self.pad,
+            self.focused_cwd_path(cx),
+            None,
+            None,
+            Some(crate::root::TeamOpen {
+                name: name.to_string(),
+                panes,
+            }),
+            cx,
+        );
     }
 
     /// Rebuild the saved session into this fresh window, then drop the empty
@@ -179,6 +209,14 @@ impl WorkspaceView {
         if !self.opts.session_restore {
             return;
         }
+        // A team window is not this window's session to save. Only one window's
+        // state fits the file (see `close_window`), so letting a team win the
+        // race would restore the roster in place of the user's real work — and
+        // replaying every member's `relay launch` would re-register a team the
+        // daemon may still be running. Re-open it from AI ▸ Teams instead.
+        if self.team.is_some() {
+            return;
+        }
         let tree = self.group.read(cx).tree().clone();
         let panes = tree.panes();
         let mut cwds = Vec::with_capacity(panes.len());
@@ -239,13 +277,18 @@ impl WorkspaceView {
     }
 
     /// Recursively split `host` to realize `node`; `host_index` is the pre-order
-    /// index of the subtree's anchor (left/top-most) leaf.
+    /// index of the subtree's anchor (left/top-most) leaf. `titles[i]` renames
+    /// leaf `i` — the index is exact here, so a team's panes are named without
+    /// having to assume pane traversal order matches leaf order. Pass `&[]` to
+    /// leave every pane titled by its own process.
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn realize_into(
         &mut self,
         node: &crate::tiles::Layout,
         host: PaneId,
         host_index: usize,
         commands: &[Option<String>],
+        titles: &[String],
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -263,9 +306,12 @@ impl WorkspaceView {
         let Some(item) = self.spawn_pane(cmd, window, cx) else {
             return;
         };
+        if let Some(t) = titles.get(second_index) {
+            self.rename_item(item, t, cx);
+        }
         let new_pane = self.split_pane(host, axis.axis(), *ratio, item, cx);
-        self.realize_into(first, host, host_index, commands, window, cx);
-        self.realize_into(second, new_pane, second_index, commands, window, cx);
+        self.realize_into(first, host, host_index, commands, titles, window, cx);
+        self.realize_into(second, new_pane, second_index, commands, titles, window, cx);
     }
 
     /// Apply a tile layout (preset or saved custom) as plain shells.
@@ -309,21 +355,15 @@ impl WorkspaceView {
                 if members.is_empty() {
                     return;
                 }
-                let layout = crate::tiles::generate(&shape, members.len());
-                let commands: Vec<Option<String>> = members
-                    .iter()
-                    .enumerate()
-                    .map(|(i, (m, role, agent))| {
-                        Some(crate::relay::launch_member(
-                            m,
-                            role,
-                            agent,
-                            i == 0,
-                            view.opts.ai_optimize_tokens,
-                        ))
-                    })
-                    .collect();
-                view.apply_layout(&layout, &commands, Some(&name), window, cx);
+                let panes = crate::relay::team_layout(&view.opts, &shape, &members);
+                if view.opts.relay_team_window {
+                    // The team gets a window of its own: every pane in it is a
+                    // member, the dividers between them resize, and the layout
+                    // you were working in is left alone.
+                    view.open_team_window(&name, panes, cx);
+                } else {
+                    view.apply_layout(&panes.layout, &panes.commands, Some(&name), window, cx);
+                }
             });
         })
         .detach();

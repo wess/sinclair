@@ -250,6 +250,17 @@ pub struct Options {
     pub relay_address: String,
     /// File key: `relay-default-agent` - default agent CLI for launches.
     pub relay_default_agent: String,
+    /// File key: `relay-team-autonomy` - launch team members with their
+    /// permission prompts bypassed. A team fills every split at once and nobody
+    /// is sitting in each one, so a member that stops to ask stalls until the
+    /// human finds the pane. On by default; turn it off to answer each prompt
+    /// yourself.
+    pub relay_team_autonomy: bool,
+    /// File key: `relay-team-window` - open a team in its own window, so the
+    /// roster gets a whole pane group to itself (one member per pane, resizable
+    /// dividers) instead of being folded into the focused pane as another tab
+    /// and carving up the layout already there. On by default.
+    pub relay_team_window: bool,
     /// File key: `agent-claude` - Claude Code available as an agent.
     pub agent_claude: bool,
     /// File key: `agent-codex` - Codex available as an agent.
@@ -419,6 +430,8 @@ impl Default for Options {
             relay_start_on_launch: false,
             relay_address: "127.0.0.1:7777".to_string(),
             relay_default_agent: "claude".to_string(),
+            relay_team_autonomy: true,
+            relay_team_window: true,
             agent_claude: true,
             agent_codex: false,
             agent_ollama: false,

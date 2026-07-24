@@ -191,24 +191,71 @@ pub(crate) fn extract_json(text: &str) -> Option<&str> {
     None
 }
 
+/// A roster resolved into panes: the split tree, plus each pane's member name
+/// and launch command, in the pre-order leaf order the layout realizer walks.
+pub struct TeamPanes {
+    pub layout: crate::tiles::Layout,
+    /// Member names, used as the pane titles so each tab names its agent
+    /// rather than the shell wrapping it.
+    pub names: Vec<String>,
+    pub commands: Vec<Option<String>>,
+}
+
+/// Resolve a roster into panes. The first member is the lead — it takes the
+/// window's first pane and stays interactive for the human, and the rest split
+/// off it.
+pub fn team_layout(opts: &config::Options, shape: &str, members: &[TeamMember]) -> TeamPanes {
+    TeamPanes {
+        layout: crate::tiles::generate(shape, members.len()),
+        names: members.iter().map(|(m, _, _)| m.clone()).collect(),
+        commands: members
+            .iter()
+            .enumerate()
+            .map(|(i, (m, role, agent))| {
+                Some(launch_member(opts, m, role, agent, i == 0, opts.ai_optimize_tokens))
+            })
+            .collect(),
+    }
+}
+
 /// Shell command that launches one team member in a pane. The team's first
 /// member is the human-driven `lead`, it stays interactive instead of parking
 /// on the `wait`-loop, so the human can steer it. `agent` overrides the role's
 /// default provider when set (issue #8).
-pub fn launch_member(member: &str, role: &str, agent: &str, lead: bool, optimize: bool) -> String {
+///
+/// Two things reach the member that a solo launch already got: the flags
+/// configured for its provider, and — unless `relay-team-autonomy` is off —
+/// `--skip-permissions`, so a member doesn't sit on a prompt in a split nobody
+/// is looking at. The provider flags need a named `agent`; the permission
+/// bypass doesn't, because relay resolves it after the role picks the agent.
+pub fn launch_member(
+    opts: &config::Options,
+    member: &str,
+    role: &str,
+    agent: &str,
+    lead: bool,
+    optimize: bool,
+) -> String {
     let flag = if lead { " --lead" } else { "" };
     let opt = if optimize { " --optimize" } else { "" };
+    let auto = if opts.relay_team_autonomy { " --skip-permissions" } else { "" };
     let agent = agent.trim();
     let agent_flag = if agent.is_empty() {
         String::new()
     } else {
         format!(" --agent {}", sh_quote(agent))
     };
-    keep_open(format!(
-        "{} --home {} launch {} --role {}{agent_flag}{flag}{opt}",
+    let mut cmd = format!(
+        "{} --home {} launch {} --role {}{agent_flag}{flag}{opt}{auto}",
         sh_quote(&binary()),
         sh_quote(&home_str()),
         sh_quote(member),
         sh_quote(role)
-    ))
+    );
+    if !agent.is_empty() {
+        for arg in provider_args(opts, agent) {
+            cmd.push_str(&format!(" --agent-arg {}", sh_quote(&arg)));
+        }
+    }
+    keep_open(cmd)
 }

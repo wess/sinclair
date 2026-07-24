@@ -100,6 +100,8 @@ pub const KEYS: &[(&str, Kind)] = &[
     ("relay-start-on-launch", Kind::Bool),
     ("relay-address", Kind::Str),
     ("relay-default-agent", Kind::Str),
+    ("relay-team-autonomy", Kind::Bool),
+    ("relay-team-window", Kind::Bool),
     ("agent-claude", Kind::Bool),
     ("agent-codex", Kind::Bool),
     ("agent-ollama", Kind::Bool),

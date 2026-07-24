@@ -130,8 +130,10 @@ The workspace is layered bottom-up; each crate depends only on those below it.
   (MCP tool impls), `mcp/` + `transport/` (MCP dispatch over HTTP), `control/`
   (plain-HTTP control plane for the CLI and non-MCP bridges), `spawn/`
   (background workers), and `cli/` (the `relay` subcommands). The app never runs
-  the mesh in-process — `app/src/relay.rs` starts/stops the bundled binary as a
-  detached daemon and launches agents into splits. Reads no env vars; every
+  the mesh in-process — `app/src/relay/` starts/stops the bundled binary as a
+  detached daemon and builds the `relay launch` command lines the app runs:
+  single agents into splits, and a whole team into its own window (one member
+  per pane) unless `relay-team-window` is off. Reads no env vars; every
   parameter comes from settings, passed explicitly. See `docs/relay.md`.
 - **`libsinclair`** — the terminal as an embeddable library: curated re-exports
   of the headless stack (`Session` + vt + input + theme) plus the gpui rendering

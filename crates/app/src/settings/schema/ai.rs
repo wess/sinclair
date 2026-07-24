@@ -73,6 +73,22 @@ pub(super) fn settings() -> Vec<Setting> {
             "claude",
         ),
         toggle(
+            "relay-team-autonomy",
+            "Team members run unattended",
+            "Launch team members with permission prompts skipped. A team fills every split at \
+             once, so a member that stops to ask would wait until you find its pane.",
+            s,
+            |o| o.relay_team_autonomy,
+        ),
+        toggle(
+            "relay-team-window",
+            "Open teams in their own window",
+            "Give a team a window to itself — one member per pane, resizable dividers between \
+             them — instead of folding it into the layout you're working in.",
+            s,
+            |o| o.relay_team_window,
+        ),
+        toggle(
             "agent-claude",
             "Claude Code",
             "Offer Claude Code in the agent pickers.",

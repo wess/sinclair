@@ -31,6 +31,8 @@ pub struct Options<'a> {
     pub optimize: bool,
     /// A server-monitored background worker rather than an interactive pane.
     pub headless: bool,
+    /// Bypass the agent's permission prompts (see [`agent::Spec::skip_perms`]).
+    /// Required for a headless worker; opt-in for an unattended pane.
     pub skip_perms: bool,
     pub strict_mcp: bool,
     /// Extra flags appended verbatim to the agent's own argv.

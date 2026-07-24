@@ -431,7 +431,7 @@ impl WorkspaceView {
         };
         self.group.update(cx, |g, cx| g.add_to_focused(root, cx));
         let host = self.group.read(cx).focused_pane();
-        self.realize_into(layout, host, 0, commands, window, cx);
+        self.realize_into(layout, host, 0, commands, &[], window, cx);
         if let Some(t) = title {
             self.rename_item(root, t, cx);
         }

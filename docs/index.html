@@ -89,7 +89,7 @@
             <div class="workspacegrid">
               <section class="terminalpane" aria-label="Terminal session preview">
                 <pre><code><span class="prompt">~/dev/sinclair</span> <span class="cmd">prompt open team web</span>
-<span class="ok">created tab “web” with 4 panes</span>
+<span class="ok">opened window “web” with 4 agent panes</span>
 
 <span class="prompt">~/dev/sinclair</span> <span class="cmd">cargo test -p vt screen</span>
 running 583 tests
@@ -179,15 +179,17 @@ running 583 tests
             where command-line work already happens: in tabs and splits you can
             see. Quick-launch Claude Code or Codex from the menu, or design a
             whole team — by hand or with an AI-guided builder — and open it into
-            a tiled layout.
+            a window of its own, one member per pane, resizable dividers between
+            them, your existing layout untouched.
           </p>
           <p>
             Every pane reports what it's doing as a <strong>colored status
             dot</strong> — working, blocked, done, idle — so you can read a whole
             team at a glance. Give each agent its own <strong>git worktree</strong>
             so they never clobber each other's files, and when you reopen Sinclair,
-            agent panes <strong>resume their sessions</strong> instead of starting
-            cold.
+            agent panes in your main window <strong>resume their sessions</strong>
+            instead of starting cold — a team window you reopen from the menu,
+            fresh.
           </p>
           <div class="actions" aria-label="Agent actions">
             <a class="button primary" href="agentteams.html">Run your first team</a>

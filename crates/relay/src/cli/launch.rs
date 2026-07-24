@@ -34,9 +34,10 @@ pub async fn launch(a: LaunchArgs) -> Result<()> {
             lead: a.lead,
             optimize: a.optimize,
             headless: a.background,
-            // Only a background worker skips permission prompts (it cannot
-            // answer them); a foreground agent keeps the interactive flow.
-            skip_perms: a.background,
+            // A background worker always skips permission prompts (it has no
+            // terminal to answer them in); a foreground agent keeps the
+            // interactive flow unless the caller says nobody is watching.
+            skip_perms: a.background || a.skip_permissions,
             strict_mcp: a.strict_mcp,
             extra_args: &a.agent_args,
             bin: a.bin.as_deref(),

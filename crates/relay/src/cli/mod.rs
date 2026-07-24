@@ -236,6 +236,14 @@ pub struct LaunchArgs {
     /// `--agent-arg --dangerously-skip-permissions`.
     #[arg(long = "agent-arg")]
     pub agent_args: Vec<String>,
+    /// Run unattended: bypass the agent's permission prompts with whatever flag
+    /// it uses (claude `--dangerously-skip-permissions`, codex
+    /// `approval_policy=never`, gemini `--yolo`). Resolved after the role picks
+    /// the agent, so it works without naming one. Implied by `--background`,
+    /// which has no terminal to prompt in. Use it for a pane nobody is
+    /// watching, such as a team member's split.
+    #[arg(long = "skip-permissions")]
+    pub skip_permissions: bool,
 }
 
 pub async fn run(cli: Cli) -> Result<()> {

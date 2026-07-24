@@ -265,6 +265,7 @@ impl WorkspaceView {
             cwd,
             None,
             None,
+            None,
             cx,
         );
     }

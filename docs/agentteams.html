@@ -55,8 +55,8 @@
         <h2>2. Open a team the fast way</h2>
         <p>
           The quickest start is a built-in team. In the <strong>AI</strong> menu, open
-          <strong>Teams ▸ web</strong>. Sinclair opens a fresh tab, tiles it into four panes,
-          and launches an agent in each:
+          <strong>Teams ▸ web</strong>. Sinclair opens a window for the team, tiles it into four
+          panes — drag any divider to resize — and launches an agent in each:
         </p>
         <div class="tablewrap">
           <table>
@@ -75,11 +75,29 @@
           joined its channel, and is now sitting in a single blocking <code>wait</code> call,
           burning no tokens until a message arrives.
         </p>
+        <p>
+          The team gets a <strong>window to itself</strong>, titled after the team. Every pane
+          in it is a member — no other tabs mixed in — each pane's tab carries that member's
+          name, and every divider drags to resize. The layout you were already working in is
+          untouched. Focus starts on the lead, so you can type straight away. Prefer the old
+          behavior? Set <code>relay-team-window</code> to <code>false</code> and teams open
+          into the focused pane instead.
+        </p>
+        <p>
+          Because a team fills every pane at once and you can only watch one, members launch
+          with their <strong>permission prompts skipped</strong> — otherwise a member that
+          stopped to ask would sit idle until you found its pane. Turn that off with
+          <code>relay-team-autonomy</code> if you'd rather approve each action yourself. One
+          caveat: this does <em>not</em> cover Claude Code's first-run
+          <em>folder trust</em> prompt, which is separate. The first time you run a team in a
+          directory Claude hasn't seen, answer that prompt once in each pane (or open the
+          folder in Claude Code first) and it won't come back.
+        </p>
 
         <h2>3. Give the supervisor a job</h2>
         <p>
-          Click the <strong>lead</strong> pane and type a task as you would to any coding
-          agent — but phrased as something to <em>delegate</em>:
+          The <strong>lead</strong> pane already has focus — type a task as you would to any
+          coding agent, but phrased as something to <em>delegate</em>:
         </p>
         <pre><code>Add a dark-mode toggle to the settings page. Have frontend build the UI and
 backend add the preference endpoint, then ask reviewer to check both.</code></pre>
@@ -135,6 +153,7 @@ lead      → reviewer     please review the frontend + backend changes</code></
 relay launch lead --role supervisor --lead     <span class="c"># interactive supervisor in this pane</span>
 relay launch fe   --role frontend --background <span class="c"># parked worker, monitored by the server</span>
 relay launch be   --role backend  --background
+relay launch qa   --role qa --skip-permissions  <span class="c"># unattended pane: no prompts</span>
 relay ps                            <span class="c"># registered agents + background workers</span>
 relay feed --follow                 <span class="c"># tail the bus</span>
 relay team list                     <span class="c"># available teams (project → user → built-in)</span></code></pre>

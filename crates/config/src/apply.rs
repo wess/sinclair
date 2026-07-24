@@ -517,6 +517,20 @@ pub fn apply(opts: &mut Options, d: &Options, key: &str, val: &str) -> Result<()
                 val.to_string()
             };
         }
+        "relay-team-autonomy" => {
+            opts.relay_team_autonomy = if empty {
+                d.relay_team_autonomy
+            } else {
+                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+            };
+        }
+        "relay-team-window" => {
+            opts.relay_team_window = if empty {
+                d.relay_team_window
+            } else {
+                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+            };
+        }
         "agent-claude" => {
             opts.agent_claude = if empty {
                 d.agent_claude

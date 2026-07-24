@@ -96,6 +96,13 @@ fn resolve_provider(opts: &config::Options, provider: &str) -> Resolved {
     }
 }
 
+/// The extra CLI flags configured for `provider`, already split into argv
+/// tokens. Empty for a provider with no flags field (ollama) and for a custom
+/// tool, whose command template carries its own.
+pub(crate) fn provider_args(opts: &config::Options, provider: &str) -> Vec<String> {
+    resolve_provider(opts, provider).args
+}
+
 /// Available role names (built-in + user + project), via the relay CLI.
 pub fn role_list() -> Vec<String> {
     let Ok(out) = std::process::Command::new(binary())

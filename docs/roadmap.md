@@ -355,3 +355,20 @@ Conventions (non-negotiable):
   before. Git worktrees: `worktree_create`/`open`/`list`/`remove` as keybind
   actions and MCP/IPC verbs that open a tab at the worktree, with new
   `worktree_created`/`worktree_removed` plugin triggers. See `docs/parity.md`.
+- 2026-07-24: unattended agent teams. Teams launch **unattended**: a new
+  `relay launch --skip-permissions` resolves each agent's own bypass *after* the
+  role picks it (`--dangerously-skip-permissions` for claude,
+  `approval_policy="never"` for codex, `--yolo` for gemini; a `--cmd` template
+  and the ollama bridge are left alone), and `relay-team-autonomy` passes it to
+  every member — nobody sits in each split to answer a prompt. Team members also
+  now inherit the per-provider flags (`agent-claude-args`, …) that only solo
+  launches used to get. Teams open in a **window of their own**
+  (`relay-team-window`): the lead is the window's first pane and the rest split
+  off it, one member per pane, each tab named after its member, focus on the
+  lead, and the layout you were working in untouched. A team window is excluded
+  from session save/restore — `session.json` holds one window (last writer wins),
+  so a roster must not overwrite your real work, and replaying every member's
+  `relay launch` would re-register a team the daemon may still be running.
+  Known gap: the permission bypass does not cover Claude Code's separate
+  first-run *folder trust* dialog, which still stops every pane the first time a
+  team runs in an unfamiliar directory.
