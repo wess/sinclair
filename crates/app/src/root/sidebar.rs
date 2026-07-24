@@ -15,6 +15,28 @@ const ATTENTION: theme::Rgb = theme::Rgb::new(255, 196, 0);
 const ACTIVITY_W: f32 = 44.0;
 const PANEL_W: f32 = 260.0;
 
+/// Vertical clearance reserved at the top of a drawer so the platform's window
+/// controls don't cover the activity-bar icons or the panel header. Matches the
+/// group's tab-bar height (see `build_group`) so the two line up.
+const TITLE_CLEARANCE: f32 = 34.0;
+
+/// The top inset for a drawer on `side`: non-zero only on the side the
+/// platform's window controls occupy — the macOS traffic lights sit top-left,
+/// the client-side controls elsewhere sit top-right — mirroring the group
+/// titlebar's leading/trailing reservation in `build_group`.
+fn drawer_top_inset(side: SidebarSide) -> f32 {
+    let on_controls_side = if cfg!(target_os = "macos") {
+        matches!(side, SidebarSide::Left)
+    } else {
+        matches!(side, SidebarSide::Right)
+    };
+    if on_controls_side {
+        TITLE_CLEARANCE
+    } else {
+        0.0
+    }
+}
+
 impl WorkspaceView {
     /// Render one side drawer: activity bar + the active panel. The activity bar
     /// sits on the window-edge side (far left for the left drawer, far right for
@@ -41,12 +63,16 @@ impl WorkspaceView {
             SidebarPanel::Plugin(_) => self.panel_plugin(panel, cx),
             SidebarPanel::Webview(_) => self.panel_webview(panel, cx),
         };
+        // Reserve top clearance on the window-controls side so the panel header
+        // isn't drawn under the traffic lights / caption buttons; the panel
+        // background still fills to the very top behind them.
         let content = div()
             .w(px(PANEL_W))
             .h_full()
             .flex()
             .flex_col()
             .min_h(px(0.0))
+            .pt(px(drawer_top_inset(side)))
             .bg(panelbg)
             .text_color(fg)
             .child(self.sidebar_header(&self.panel_label_of(panel), side, cx))
@@ -81,13 +107,18 @@ impl WorkspaceView {
             SidebarSide::Right => "right",
         };
 
+        // Drop the first icon below the window controls on the controls side
+        // (the bar's own background still fills up behind them); elsewhere keep
+        // the normal 4px top pad.
+        let top = drawer_top_inset(side);
         let mut bar = div()
             .w(px(ACTIVITY_W))
             .h_full()
             .flex()
             .flex_col()
             .items_center()
-            .py_1()
+            .pt(px(if top > 0.0 { top } else { 4.0 }))
+            .pb_1()
             .gap_1()
             .bg(barbg);
         for (i, panel) in self.panel_list().into_iter().enumerate() {
