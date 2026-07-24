@@ -17,9 +17,9 @@ exactly how you work.
 - **Yours.** A single readable config file, reloaded the instant you save —
   no restart. Rebind any key, set fonts, pick a theme, tune behavior.
 - **Capable.** Deep terminal support: hyperlinks, the clipboard protocol,
-  bracketed paste, mouse reporting, the kitty keyboard protocol, focus and
-  synchronized-output handling, and shell-integration prompt marking with
-  jump-to-prompt.
+  bracketed paste, mouse reporting, the kitty keyboard protocol, inline images
+  (sixel and kitty graphics), focus and synchronized-output handling, and
+  shell-integration prompt marking with jump-to-prompt.
 - **Searchable.** Find anything in your scrollback with a live, highlighted
   in-place search.
 

@@ -51,7 +51,7 @@
               <tr><td>Legacy key encoding</td><td>✓</td><td>modifiers, cursor/tilde/function keys, app cursor/keypad</td></tr>
               <tr><td>Mouse reporting</td><td>✓</td><td>X10/normal/button/any + SGR (1000/1002/1003/1006), alt-scroll</td></tr>
               <tr><td>Bracketed paste</td><td>✓</td><td></td></tr>
-              <tr><td>Kitty keyboard protocol</td><td>◑</td><td>negotiation + disambiguation encoding; <strong>press-only</strong> (no release/repeat events from the host, so event-type/alternate-key/associated-text flags are tracked but not encoded)</td></tr>
+              <tr><td>Kitty keyboard protocol</td><td>◑</td><td>negotiation + disambiguation encoding, super (cmd) reported on the CSI-u path (modified Enter/Tab/Backspace included, so shift+enter / cmd+enter are distinguishable); <strong>press/repeat/release</strong> event types encoded when <code>report_event_types</code> is set (gpui delivers key-up + <code>is_held</code>). Alternate-key and associated-text flags are still tracked but not encoded</td></tr>
             </tbody>
           </table>
         </div>
@@ -108,7 +108,7 @@
               <tr><td>Box-drawing / blocks</td><td>◑</td><td>light lines/junctions, blocks, shades, eighths drawn custom; heavy/double/dashed/rounded fall back to font</td></tr>
               <tr><td>Cursor styles (DECSCUSR)</td><td>✓</td><td>block/bar/underline, config default</td></tr>
               <tr><td>Images (sixel)</td><td>✓</td><td>sixel decoded (RGB/HLS palette, RLE, raster attrs) and GPU-composited, anchored to the grid so it scrolls with text</td></tr>
-              <tr><td>Images (kitty graphics)</td><td>✗</td><td>APC <code>_G</code> is not delivered by the pinned vte 0.13 (no APC callback); needs a vte bump/fork</td></tr>
+              <tr><td>Images (kitty graphics)</td><td>◑</td><td>common-case: a byte-level APC pre-parser (<code>term/apc.rs</code>) captures <code>ESC _G … ST</code> — which vte still discards — and decodes direct base64 payloads in RGB/RGBA (<code>f=24</code>/<code>32</code>) and PNG (<code>f=100</code>), zlib-compressed (<code>o=z</code>) and chunked (<code>m=1</code>), then transmit/display/delete/query with OK/error responses honoring the quiet level. Reuses the sixel placement + compositor. Deferred: file/shared-memory transmission, animation, unicode placeholders, z-index/cropping</td></tr>
             </tbody>
           </table>
         </div>
@@ -161,10 +161,10 @@
 
         <h2>Prioritized remaining gaps</h2>
         <ol>
-          <li><strong>Kitty graphics protocol</strong> — blocked on the pinned vte 0.13, whose <code>Perform</code> has no APC callback; needs a vte bump/fork to capture <code>ESC _ G … ST</code>. (Sixel already works.)</li>
+          <li><strong>Kitty graphics protocol (advanced)</strong> — the common case works (see the images row); still deferred are file / temp-file / shared-memory transmission, animation frames, unicode placeholders, and z-index/cropping/compositing.</li>
           <li><strong>Stacked combining marks</strong> — only the first combining mark per cell is kept; full grapheme clusters / ZWJ emoji need spillover storage.</li>
           <li><strong>Damage-clipped rendering</strong> — shape only dirty rows for big-throughput wins.</li>
-          <li><strong>Kitty release/repeat events</strong> — needs key-up delivery from the host layer.</li>
+          <li><strong>Kitty alternate-key / associated-text flags</strong> — press, repeat, and release event types are encoded; these two flags are still tracked but not reported.</li>
           <li><strong>Heavy/double/dashed/rounded box-drawing</strong> — extend <code>boxdraw</code> geometry.</li>
           <li><strong>macOS status-bar (tray) item</strong> — needs native NSStatusBar code.</li>
         </ol>

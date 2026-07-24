@@ -48,8 +48,9 @@ Conventions (non-negotiable):
   synchronized output ?2026 (with a 150ms stuck-sync safety timeout in the
   app), DA2, OSC 8 hyperlinks (vt model + cmd-click-to-open + underline),
   kitty keyboard protocol (vt negotiation + input disambiguation encoder),
-  XTGETTCAP. Kitty is press-only (no release/repeat events from the host,
-  so event-type/alternate-key/text flags are tracked but not encoded).
+  XTGETTCAP. Kitty encodes press/repeat/release event types when a client
+  sets `report_event_types`; alternate-key and associated-text flags are
+  tracked but not encoded.
 - [x] **8. Fonts** — font fallback chain (`font-family` repeats), emoji
   (via the fallback chain + system fallback), ligatures (contiguous-run
   shaping + `calt`), font-feature config (`+liga`/`-calt`/`ss01`/`cv01=2`
@@ -66,10 +67,11 @@ Conventions (non-negotiable):
 - [x] **10. Images & extras** — URL detection (`vt::url`, cmd-click opens a
   detected URL when there is no OSC 8 link), search in scrollback
   (`vt::search` engine + an in-app overlay: cmd+f, live highlight, n/N
-  navigation, jump-to-match). Image protocols: kitty graphics (APC) and
-  sixel (DCS) are consumed without corrupting the screen (vte swallows
-  them); actual image *rendering* — pixel decode + GPU compositing — is a
-  large deferred follow-up, not yet drawn.
+  navigation, jump-to-match). Image protocols: sixel (DCS) and the common
+  case of kitty graphics (APC) are decoded and GPU-composited into the grid,
+  anchored to the text they arrived with. Deferred for kitty: file /
+  shared-memory transmission, animation, unicode placeholders, and
+  z-index/cropping.
 - [x] **11. Performance & polish** — parser throughput benchmark
   (`vt/tests/throughput.rs`, ~103 MiB/s baseline on this machine), snapshot
   buffer pre-sizing, idle repaints already avoided (notify-driven render).
@@ -355,6 +357,20 @@ Conventions (non-negotiable):
   before. Git worktrees: `worktree_create`/`open`/`list`/`remove` as keybind
   actions and MCP/IPC verbs that open a tab at the worktree, with new
   `worktree_created`/`worktree_removed` plugin triggers. See `docs/parity.md`.
+- 2026-07-24: kitty graphics + keyboard event types (1.30.0). The pinned vte
+  has no APC callback, so `ESC _G … ST` never reached a Perform and the
+  graphics protocol was unimplementable. A byte-level APC pre-parser
+  (`vt/term/apc.rs`) now captures the block before vte discards it, and
+  `vt/graphics.rs` decodes the payload: direct base64 in RGB (`f=24`), RGBA
+  (`f=32`), or PNG (`f=100`), zlib-compressed (`o=z`) and chunked (`m=1`).
+  Transmit/display/delete/query are answered with OK/error responses honoring
+  the quiet level, and placement reuses the sixel compositor so images scroll
+  with the grid; decode is bounded by dimension, pixel-count, and
+  decompressed-size caps. File / shared-memory transmission, animation,
+  unicode placeholders, and z-index/cropping stay deferred. Keyboard: the
+  kitty protocol's press/repeat/release event types are encoded when a client
+  sets `report_event_types` (gpui delivers key-up and flags auto-repeat with
+  `is_held`). See `docs/parity.md`.
 - 2026-07-24: unattended agent teams. Teams launch **unattended**: a new
   `relay launch --skip-permissions` resolves each agent's own bypass *after* the
   role picks it (`--dangerously-skip-permissions` for claude,

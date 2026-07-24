@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Images in the terminal — Sinclair docs</title>
-    <meta name="description" content="Render images inline with sixel graphics: try it with img2sixel or chafa, let tools auto-detect support, preview files in your file manager, and plot from Python.">
+    <meta name="description" content="Render images inline with sixel and kitty graphics: try it with img2sixel or chafa, let tools auto-detect support, preview files in your file manager, and plot from Python.">
     <meta name="theme-color" content="#05070c">
     <link rel="icon" href="icon.png">
     <link rel="stylesheet" href="style.css">
@@ -17,12 +17,13 @@
         <p class="kicker">Tutorial</p>
         <h1>Images in the terminal</h1>
         <p class="lede">
-          Sinclair renders <strong>sixel</strong> graphics: programs print an escape sequence,
-          and an actual image appears in the grid — composited on the GPU, anchored to the
-          text it arrived with, scrolling away with the rest of your output. File previews,
-          plots, thumbnails, QR codes: if a tool can speak sixel, it draws right in your
-          terminal. This walkthrough renders your first image, explains how tools detect
-          support automatically, and wires up a couple of everyday uses.
+          Sinclair renders <strong>sixel</strong> and <strong>kitty graphics</strong>:
+          programs print an escape sequence, and an actual image appears in the grid —
+          composited on the GPU, anchored to the text it arrived with, scrolling away with
+          the rest of your output. File previews, plots, thumbnails, QR codes: if a tool can
+          speak either protocol, it draws right in your terminal. This walkthrough renders
+          your first image, explains how tools detect support automatically, and wires up a
+          couple of everyday uses.
         </p>
 
         <h2>1. Render your first image</h2>
@@ -55,10 +56,19 @@ chafa -f sixels photo.png</code></pre>
         </p>
         <div class="callout note">
           <span class="label">Note</span>
-          <p>Sinclair speaks <strong>sixel</strong>, not the kitty graphics protocol. Tools
-          that support several backends usually pick sixel automatically from DA1; if one
-          needs a hint, look for a <code>--format sixel</code> or similar flag. Images up to
-          10,000&nbsp;px per side (8&nbsp;megapixels total) are accepted.</p>
+          <p>Sinclair speaks <strong>sixel</strong> and the common case of the
+          <strong>kitty graphics protocol</strong>. Tools that support several backends
+          usually pick one automatically from DA1; if one needs a hint, look for a
+          <code>--format sixel</code> or similar flag. Sixel images up to 10,000&nbsp;px per
+          side (8&nbsp;megapixels total) are accepted.</p>
+          <p>For kitty graphics, the supported shape is direct transmission: base64 payloads
+          in RGB (<code>f=24</code>), RGBA (<code>f=32</code>), or PNG (<code>f=100</code>),
+          optionally zlib-compressed (<code>o=z</code>) and split across chunks
+          (<code>m=1</code>), with transmit, display, delete, and query all answered. Images
+          land in the grid through the same compositor as sixel, so they scroll with the text
+          they arrived with. Not yet supported: transmission by file path or shared memory,
+          animation frames, unicode placeholders, and z-index/cropping — a tool relying on
+          those should be pointed at sixel instead.</p>
         </div>
 
         <h2>3. Previews in your file manager</h2>
