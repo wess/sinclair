@@ -26,7 +26,7 @@ documented limits), **✗** not yet.
 | Legacy key encoding | ✓ | modifiers, cursor/tilde/function keys, app cursor/keypad |
 | Mouse reporting | ✓ | X10/normal/button/any + SGR (1000/1002/1003/1006), alt-scroll |
 | Bracketed paste | ✓ | |
-| Kitty keyboard protocol | ◑ | negotiation + disambiguation encoding, super (cmd) reported on the CSI-u path (modified Enter/Tab/Backspace included, so shift+enter / cmd+enter are distinguishable); **press-only** (no release/repeat events from the host, so event-type/alternate-key/associated-text flags are tracked but not encoded) |
+| Kitty keyboard protocol | ◑ | negotiation + disambiguation encoding, super (cmd) reported on the CSI-u path (modified Enter/Tab/Backspace included, so shift+enter / cmd+enter are distinguishable); **press/repeat/release** event types encoded when `report_event_types` is set (gpui delivers key-up + `is_held`). Alternate-key and associated-text flags are still tracked but not encoded |
 
 ## OSC / clipboard / links
 
@@ -66,7 +66,7 @@ documented limits), **✗** not yet.
 | Box-drawing / blocks | ◑ | light lines/junctions, blocks, shades, eighths drawn custom; heavy/double/dashed/rounded fall back to font |
 | Cursor styles (DECSCUSR) | ✓ | block/bar/underline, config default |
 | Images (sixel) | ✓ | sixel decoded (RGB/HLS palette, RLE, raster attrs) and GPU-composited, anchored to the grid so it scrolls with text; advertised via DA1 attribute 4 and XTSMGRAPHICS so clients auto-detect it |
-| Images (kitty graphics) | ✗ | APC `_G` is not delivered by the pinned vte 0.13 (no APC callback); needs a vte bump/fork |
+| Images (kitty graphics) | ◑ | common-case: a byte-level APC pre-parser (`term/apc.rs`) captures `ESC _G … ST` — which vte still discards — and decodes direct base64 payloads in RGB/RGBA (`f=24`/`32`) and PNG (`f=100`), zlib-compressed (`o=z`) and chunked (`m=1`), then transmit/display/delete/query with OK/error responses honoring the quiet level. Reuses the sixel placement + compositor. Deferred: file/shared-memory transmission, animation, unicode placeholders, z-index/cropping |
 
 ## UI / workspace
 
@@ -103,9 +103,9 @@ documented limits), **✗** not yet.
 - **Persistent, detachable sessions** — a live
   mux server you detach/reattach; a multi-week subsystem. Session *restore* on
   quit exists (agent panes resume their native sessions); a live server does not.
-- **Kitty graphics protocol** — blocked on the pinned vte 0.13 (its `Perform`
-  has no APC callback, so `ESC _ G … ST` can't be captured); needs a vte
-  bump/fork or a byte-level APC pre-parser. Sixel works.
+- **Kitty graphics protocol (advanced)** — the common-case works (see the
+  images row); still deferred are file / temp-file / shared-memory transmission,
+  animation frames, unicode placeholders, and z-index/cropping/compositing.
 - **SSH multiplexing domains, multiple cursors, serial** — out of current scope.
   Launch profiles cover opening an `ssh`/REPL/env tab; true remote multiplexing,
   the kitty multiple-cursor protocol, and serial connections do not exist yet.
@@ -128,12 +128,10 @@ documented limits), **✗** not yet.
 
 ## Prioritized remaining gaps
 
-1. **Kitty graphics protocol** — blocked on the pinned vte 0.13, whose `Perform`
-   has no APC callback; needs a vte bump/fork to capture `ESC _ G … ST`. (Sixel
-   already works.)
-2. **Stacked combining marks** — only the first combining mark per cell is kept;
+1. **Stacked combining marks** — only the first combining mark per cell is kept;
    full grapheme clusters / ZWJ emoji need spillover storage.
-3. **Damage-clipped rendering** — shape only dirty rows for big-throughput wins.
-4. **Kitty release/repeat events** — needs key-up delivery from the host layer.
-5. **Heavy/double/dashed/rounded box-drawing** — extend `boxdraw` geometry.
-6. **macOS status-bar (tray) item** — needs native NSStatusBar code.
+2. **Damage-clipped rendering** — shape only dirty rows for big-throughput wins.
+3. **Kitty graphics (advanced)** — file/shared-memory transmission, animation,
+   unicode placeholders, z-index/cropping (the common-case works).
+4. **Heavy/double/dashed/rounded box-drawing** — extend `boxdraw` geometry.
+5. **macOS status-bar (tray) item** — needs native NSStatusBar code.

@@ -48,7 +48,7 @@ fn option_off_drops_alt_and_keeps_composed_glyph() {
     assert!(!mods.alt);
     assert_eq!(text, None);
     assert_eq!(
-        input::encode_key("left", text.as_deref(), mods, STATE),
+        input::encode_key("left", text.as_deref(), mods, STATE, input::KeyEvent::Press),
         Some(b"\x1b[D".to_vec())
     );
 }
@@ -61,13 +61,13 @@ fn option_as_alt_meta_prefixes_base_key() {
     assert!(mods.alt);
     assert_eq!(text.as_deref(), Some("b"));
     assert_eq!(
-        input::encode_key("b", text.as_deref(), mods, STATE),
+        input::encode_key("b", text.as_deref(), mods, STATE, input::KeyEvent::Press),
         Some(b"\x1bb".to_vec())
     );
     // Arrow keeps alt -> `ESC[1;3D`.
     let (mods, text) = policy(config::OptionAsAlt::Left, true, "left", None);
     assert_eq!(
-        input::encode_key("left", text.as_deref(), mods, STATE),
+        input::encode_key("left", text.as_deref(), mods, STATE, input::KeyEvent::Press),
         Some(b"\x1b[1;3D".to_vec())
     );
 }

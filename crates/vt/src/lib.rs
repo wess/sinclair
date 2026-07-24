@@ -4,6 +4,7 @@ pub mod cell;
 pub mod charset;
 pub mod color;
 pub mod cursor;
+pub mod graphics;
 pub mod grid;
 pub mod hyperlink;
 pub mod kitty;

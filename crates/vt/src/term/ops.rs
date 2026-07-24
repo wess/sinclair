@@ -115,6 +115,7 @@ impl Inner {
             line: self.screen().cursor.row as isize,
             col: self.screen().cursor.col,
             image,
+            kitty_id: None,
         };
         let scr = self.screen_mut();
         let start = scr.cursor.row;
@@ -127,6 +128,38 @@ impl Inner {
         self.carriage_return();
         for _ in 0..rows {
             self.linefeed();
+        }
+    }
+
+    /// Anchor a decoded kitty-graphics image at the cursor. Mirrors
+    /// [`Self::place_sixel`] but tags the placement with its kitty image id (for
+    /// `a=d,d=i` deletes) and only advances the cursor below the image when the
+    /// command allows it (`C=1` suppresses the move).
+    pub(crate) fn place_image(&mut self, image: crate::sixel::Image, kitty_id: u32, move_cursor: bool) {
+        let cell_h = self.cell_px.1.max(1) as usize;
+        let rows = image.image_rows(cell_h);
+        let id = self.image_seq;
+        self.image_seq += 1;
+        let placement = crate::sixel::Placement {
+            id,
+            line: self.screen().cursor.row as isize,
+            col: self.screen().cursor.col,
+            image,
+            kitty_id: (kitty_id != 0).then_some(kitty_id),
+        };
+        let scr = self.screen_mut();
+        let start = scr.cursor.row;
+        let end = (start + rows).min(scr.grid.rows());
+        for r in start..end {
+            scr.grid.damage_row(r);
+        }
+        scr.images.push(placement);
+        enforce_image_budget(&mut scr.images);
+        if move_cursor {
+            self.carriage_return();
+            for _ in 0..rows {
+                self.linefeed();
+            }
         }
     }
 

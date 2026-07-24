@@ -36,19 +36,20 @@ OSC 52 clipboard. Differences show up at the edges:
 |---|---|---|---|---|---|
 | GPU rendering | yes (gpui) | yes | yes | yes | yes |
 | Sixel images | yes | no (own protocol) | no | no | yes |
-| Kitty graphics protocol | **not yet** | yes (origin) | no | yes | yes |
-| Kitty keyboard protocol | partial (press-only) | yes (origin) | partial | yes | yes |
+| Kitty graphics protocol | yes (common-case) | yes (origin) | no | yes | yes |
+| Kitty keyboard protocol | yes (press/repeat/release) | yes (origin) | partial | yes | yes |
 | Synchronized output | yes | yes | yes | yes | yes |
 | Shell integration (OSC 133) | yes, auto-injected | yes | no | yes, auto-injected | yes (sourced script) |
 | Reflow on resize | yes | yes | yes | yes | yes |
 
-Being specific about the gaps: Sinclair speaks sixel but not the kitty
-graphics protocol yet (blocked on a parser dependency; see
-[`parity.md`](parity.md)), and its kitty-keyboard support negotiates and
-disambiguates but doesn't encode key-release/repeat events. Stacked combining
-marks beyond the first per cell are dropped, so complex grapheme clusters
-aren't fully there yet. Heavy/double/dashed box-drawing characters fall back
-to the font instead of being drawn custom.
+Being specific about the gaps: Sinclair speaks sixel and the common-case kitty
+graphics protocol (direct RGB/RGBA/PNG transmit, zlib, chunking, display,
+delete — but not file/shared-memory transmission, animation, or unicode
+placeholders yet; see [`parity.md`](parity.md)), and its kitty-keyboard support
+now encodes press/repeat/release event types. Stacked combining marks beyond
+the first per cell are dropped, so complex grapheme clusters aren't fully there
+yet. Heavy/double/dashed box-drawing characters fall back to the font instead
+of being drawn custom.
 
 ## Workspace
 
@@ -116,9 +117,9 @@ yourself.
 
 Straight from [`parity.md`](parity.md) and the roadmap:
 
-- No kitty graphics protocol (sixel only).
+- Kitty graphics protocol covers the common case only — no file/shared-memory
+  transmission, animation, unicode placeholders, or z-index/cropping yet.
 - No detachable sessions / live multiplexing, no SSH domains.
-- Kitty keyboard protocol is press-only.
 - Grapheme clusters beyond one combining mark per cell.
 - Heavy/double/dashed/rounded box-drawing falls back to the font.
 - No macOS status-bar (tray) item.

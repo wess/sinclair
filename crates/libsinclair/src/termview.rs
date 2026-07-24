@@ -20,7 +20,7 @@ use futures::StreamExt;
 use gpui::prelude::*;
 use gpui::{
     div, px, App, ClipboardItem, Context, EventEmitter, FocusHandle, Focusable, Font,
-    FontFeatures, FontStyle, FontWeight, KeyDownEvent, Pixels, Subscription, Window,
+    FontFeatures, FontStyle, FontWeight, KeyDownEvent, KeyUpEvent, Pixels, Subscription, Window,
 };
 use terminal::{Event, Session, SessionOptions};
 
@@ -440,8 +440,48 @@ impl TermView {
             bracketed_paste: term.bracketed_paste(),
             kitty_flags: term.kitty_keyboard_flags(),
         });
-        if let Some(bytes) = input::encode_key(&keystroke.key, text, mods, state) {
+        // gpui re-fires key_down for auto-repeat with `is_held`; report those as
+        // kitty repeat events, everything else as a press.
+        let phase = if event.is_held {
+            input::KeyEvent::Repeat
+        } else {
+            input::KeyEvent::Press
+        };
+        if let Some(bytes) = input::encode_key(&keystroke.key, text, mods, state, phase) {
             self.scroll_to_bottom(cx);
+            let _ = self.session.write(&bytes);
+            cx.stop_propagation();
+        }
+    }
+
+    /// Key-release. Only the kitty keyboard protocol with event reporting turns
+    /// a key-up into bytes (`encode_key` returns `None` otherwise), so this is a
+    /// no-op in normal use.
+    fn key_up(&mut self, event: &KeyUpEvent, _window: &mut Window, cx: &mut Context<Self>) {
+        let keystroke = &event.keystroke;
+        let mut mods = input::Mods {
+            shift: keystroke.modifiers.shift,
+            alt: keystroke.modifiers.alt,
+            ctrl: keystroke.modifiers.control,
+            cmd: keystroke.modifiers.platform,
+        };
+        let mut text = keystroke.key_char.as_deref();
+        if cfg!(target_os = "macos") && keystroke.modifiers.alt && !keystroke.modifiers.platform {
+            if self.option_as_alt {
+                text = single_char(&keystroke.key);
+            } else {
+                mods.alt = false;
+            }
+        }
+        let state = self.session.with_term(|term| input::TermState {
+            cursor_keys_app: term.cursor_keys_app(),
+            keypad_app: term.keypad_app(),
+            bracketed_paste: term.bracketed_paste(),
+            kitty_flags: term.kitty_keyboard_flags(),
+        });
+        if let Some(bytes) =
+            input::encode_key(&keystroke.key, text, mods, state, input::KeyEvent::Release)
+        {
             let _ = self.session.write(&bytes);
             cx.stop_propagation();
         }
@@ -489,6 +529,7 @@ impl Render for TermView {
             .when(link_hover, |d| d.cursor_pointer())
             .capture_key_down(cx.listener(Self::capture_key))
             .on_key_down(cx.listener(Self::key_down))
+            .on_key_up(cx.listener(Self::key_up))
             .child(TerminalElement::new(
                 self.session.clone(),
                 self.colors.clone(),

@@ -23,6 +23,17 @@ pub mod kitty_flags {
     pub const REPORT_ASSOCIATED_TEXT: u8 = 0b1_0000;
 }
 
+/// Which phase of a keystroke this is. Only the kitty keyboard protocol's
+/// `report_event_types` mode encodes it; legacy encoding treats `Repeat` like
+/// `Press` and emits nothing for `Release`.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum KeyEvent {
+    #[default]
+    Press,
+    Repeat,
+    Release,
+}
+
 /// Modifier keys held during a keystroke.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct Mods {

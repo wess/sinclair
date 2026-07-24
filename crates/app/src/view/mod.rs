@@ -8,7 +8,8 @@ use std::time::{Duration, Instant};
 use gpui::prelude::*;
 use gpui::{
     anchored, deferred, div, px, AnyElement, App, ClipboardItem, Context, EventEmitter,
-    FocusHandle, Focusable, KeyDownEvent, MouseButton, MouseDownEvent, Pixels, Point, SharedString,
+    FocusHandle, Focusable, KeyDownEvent, KeyUpEvent, MouseButton, MouseDownEvent, Pixels, Point,
+    SharedString,
     Subscription, Window,
 };
 use config::{Action, SplitDirection};
@@ -854,6 +855,7 @@ impl Render for TerminalView {
             .track_focus(&self.focus)
             .capture_key_down(cx.listener(Self::capture_key))
             .on_key_down(cx.listener(Self::key_down))
+            .on_key_up(cx.listener(Self::key_up))
             .on_mouse_down(MouseButton::Right, cx.listener(Self::right_down))
             .child({
                 // Record the grid's bounds each frame for the context menu's

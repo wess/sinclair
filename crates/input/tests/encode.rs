@@ -49,7 +49,7 @@ const APP: TermState = TermState {
 };
 
 fn enc(key: &str, text: Option<&str>, mods: Mods, state: TermState) -> Option<Vec<u8>> {
-    encode_key(key, text, mods, state)
+    encode_key(key, text, mods, state, KeyEvent::Press)
 }
 
 #[test]

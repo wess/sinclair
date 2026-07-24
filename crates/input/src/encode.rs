@@ -2,20 +2,33 @@
 
 use crate::csi;
 use crate::kitty;
-use crate::{Mods, TermState};
+use crate::{KeyEvent, Mods, TermState};
 
 /// Encode a keystroke. `key` is the gpui keystroke name; `text` is the
-/// platform-resolved typed text for printable keys. Returns `None` when the
-/// key produces no pty bytes (cmd chords outside the kitty protocol,
-/// unknown non-printables).
-pub fn encode_key(key: &str, text: Option<&str>, mods: Mods, state: TermState) -> Option<Vec<u8>> {
+/// platform-resolved typed text for printable keys; `event` is the press/
+/// repeat/release phase (only the kitty protocol encodes it). Returns `None`
+/// when the key produces no pty bytes (cmd chords outside the kitty protocol,
+/// a release outside the protocol, unknown non-printables).
+pub fn encode_key(
+    key: &str,
+    text: Option<&str>,
+    mods: Mods,
+    state: TermState,
+    event: KeyEvent,
+) -> Option<Vec<u8>> {
     // Kitty first: it is the only encoding that can spell cmd (super)
     // chords, and a program that enabled the protocol asked for the
     // disambiguated forms. Only chords no app keybinding claimed get here.
     if state.kitty_flags != 0 {
-        if let Some(bytes) = kitty::encode(key, mods, state.kitty_flags) {
+        if let Some(bytes) = kitty::encode(key, mods, state.kitty_flags, event) {
             return Some(bytes);
         }
+    }
+    // A key-release has no legacy spelling — only the kitty protocol reports
+    // it — so nothing reaches the pty for one outside the protocol. A repeat
+    // falls through and encodes like a fresh press (the legacy default).
+    if event == KeyEvent::Release {
+        return None;
     }
     // Cmd chords have no legacy spelling; unclaimed ones die here rather
     // than degrading to their unmodified bytes.

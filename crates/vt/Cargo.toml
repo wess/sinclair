@@ -7,7 +7,12 @@ license.workspace = true
 
 [dependencies]
 bitflags = "2"
+# Pure-Rust zlib (kitty graphics `o=z`) and PNG (`f=100`) decoding — CPU only,
+# so the crate stays I/O-free.
+flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
 lz4_flex = "0.13"
+memchr = "2"
+png = "0.17"
 unicode-width = "0.2"
 vte = "0.15"
 

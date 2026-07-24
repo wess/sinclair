@@ -320,7 +320,9 @@ impl TerminalView {
             ctrl: false,
             cmd: false,
         };
-        if let Some(bytes) = input::encode_key(key, None, mods, self.term_state()) {
+        if let Some(bytes) =
+            input::encode_key(key, None, mods, self.term_state(), input::KeyEvent::Press)
+        {
             self.send_text(&bytes, cx);
         }
     }

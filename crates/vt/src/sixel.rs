@@ -30,6 +30,9 @@ pub struct Placement {
     pub line: isize,
     pub col: usize,
     pub image: Image,
+    /// The kitty graphics image id (`i=`) this placement came from, so an
+    /// `a=d,d=i` delete can target it. `None` for sixel placements.
+    pub kitty_id: Option<u32>,
 }
 
 #[derive(Clone, Copy)]

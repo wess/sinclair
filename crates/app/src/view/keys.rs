@@ -135,8 +135,52 @@ impl TerminalView {
         }
         let state = self.term_state();
         let (mods, text) = self.resolve_option(keystroke, mods);
-        if let Some(bytes) = input::encode_key(&keystroke.key, text, mods, state) {
+        // gpui re-fires key_down for auto-repeat with `is_held`; the kitty
+        // protocol reports those as repeat events, everything else as a press.
+        let phase = if event.is_held {
+            input::KeyEvent::Repeat
+        } else {
+            input::KeyEvent::Press
+        };
+        if let Some(bytes) = input::encode_key(&keystroke.key, text, mods, state, phase) {
             self.scroll_to_bottom(cx);
+            let _ = self.session.write(&bytes);
+            if cx
+                .try_global::<crate::root::Broadcast>()
+                .is_some_and(|b| b.0)
+            {
+                cx.emit(ViewEvent::Input(bytes));
+            }
+            cx.stop_propagation();
+        }
+    }
+
+    /// Key-release. Only the kitty keyboard protocol with event reporting turns
+    /// a key-up into bytes (`encode_key` returns `None` otherwise), so this is a
+    /// no-op in normal use. Overlays that own the keyboard suppress it, matching
+    /// [`Self::key_down`].
+    pub(crate) fn key_up(&mut self, event: &KeyUpEvent, _window: &mut Window, cx: &mut Context<Self>) {
+        if self.context_menu.is_some()
+            || self.copy_mode_active()
+            || self.hints_active()
+            || self.search.is_some()
+            || self.assist.is_some()
+            || self.read_only
+        {
+            return;
+        }
+        let keystroke = &event.keystroke;
+        let mods = input::Mods {
+            shift: keystroke.modifiers.shift,
+            alt: keystroke.modifiers.alt,
+            ctrl: keystroke.modifiers.control,
+            cmd: keystroke.modifiers.platform,
+        };
+        let state = self.term_state();
+        let (mods, text) = self.resolve_option(keystroke, mods);
+        if let Some(bytes) =
+            input::encode_key(&keystroke.key, text, mods, state, input::KeyEvent::Release)
+        {
             let _ = self.session.write(&bytes);
             if cx
                 .try_global::<crate::root::Broadcast>()

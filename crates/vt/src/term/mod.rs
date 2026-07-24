@@ -1,5 +1,6 @@
 //! The terminal: owns both screens, modes, and the escape-sequence parser.
 
+mod apc;
 mod csi;
 mod dcs;
 mod ops;
@@ -97,6 +98,13 @@ pub(crate) struct Inner {
     /// Cell size in pixels `(w, h)`, set by the host; sixel uses it to reserve
     /// rows. A sane default until the host reports real metrics.
     pub(crate) cell_px: (u16, u16),
+    /// Byte-level scanner state for the kitty graphics APC pre-parser.
+    pub(crate) apc: apc::Apc,
+    /// In-progress chunked graphics transfer (`m=1`): the first chunk's control
+    /// plus the base64-decoded bytes accumulated so far.
+    pub(crate) gfx_pending: Option<(crate::graphics::Control, Vec<u8>)>,
+    /// Transmitted-but-not-yet-displayed kitty images, keyed by `i=` image id.
+    pub(crate) gfx_store: std::collections::HashMap<u32, crate::sixel::Image>,
 }
 
 impl Inner {
@@ -161,14 +169,19 @@ impl Terminal {
                 dcs: dcs::Dcs::None,
                 image_seq: 0,
                 cell_px: (8, 16),
+                apc: apc::Apc::default(),
+                gfx_pending: None,
+                gfx_store: std::collections::HashMap::new(),
             },
         }
     }
 
-    /// Drive the parser with bytes read from the pty. vte batch-scans
-    /// plain-text runs, so this is not a per-byte state machine walk.
+    /// Drive the parser with bytes read from the pty. An APC pre-parser
+    /// (`apc::advance`) skims off kitty graphics `ESC _G … ST` blocks — which
+    /// vte discards — and forwards everything else to vte, which batch-scans
+    /// plain-text runs so this is not a per-byte state machine walk.
     pub fn feed(&mut self, bytes: &[u8]) {
-        self.parser.advance(&mut self.inner, bytes);
+        apc::advance(&mut self.parser, &mut self.inner, bytes);
     }
 
     /// Simple resize; clamps cursors, resets scroll regions, and drops any
