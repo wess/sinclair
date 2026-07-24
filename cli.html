@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CLI reference — Sinclair docs</title>
+    <meta name="description" content="The prompt command's process modes: launching the GUI, the MCP server, desktop notifications, recording export, and the quick-terminal toggle.">
+    <meta name="theme-color" content="#05070c">
+    <link rel="icon" href="icon.png">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="docs.css">
+  </head>
+  <body class="docs">
+    <a class="skip" href="#doc-main">Skip to content</a>
+    <main id="doc-main" class="doc-main">
+      <article class="doc-article" data-doc-page="cli">
+        <p class="kicker">Reference</p>
+        <h1>CLI reference</h1>
+        <p class="lede">
+          The shipped binary is <code>sinclair</code>. It dispatches on its arguments
+          before starting the GUI, so the same binary is the terminal, the MCP server,
+          a notifier, and a quick-terminal toggle.
+        </p>
+
+        <h2>Modes at a glance</h2>
+        <div class="tablewrap">
+          <table>
+            <thead>
+              <tr><th>Invocation</th><th>What it does</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>sinclair</code></td><td>Load config and launch the GUI (opens a default window).</td></tr>
+              <tr><td><code>sinclair mcp</code></td><td>Run the Model Context Protocol server over stdio, bridging tool calls into a running GUI instance.</td></tr>
+              <tr><td><code>sinclair notify [--title T] &lt;message&gt;</code></td><td>Post a desktop notification.</td></tr>
+              <tr><td><code>sinclair agent-status &lt;state&gt;</code></td><td>Report an agent's semantic state (working/blocked/done/idle) to the running window.</td></tr>
+              <tr><td><code>sinclair agent-hooks &lt;install|uninstall&gt; [--project]</code></td><td>Wire (or remove) the Claude Code lifecycle hooks that drive the status dots.</td></tr>
+              <tr><td><code>sinclair export &lt;in.cast&gt; &lt;out.gif|mp4|mov|webm&gt;</code></td><td>Render a session recording to a GIF or video file.</td></tr>
+              <tr><td><code>sinclair --toggle-quick</code></td><td>Tell a running instance to summon/hide the quick terminal, then exit.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h2>sinclair</h2>
+        <p>
+          With no arguments, <code>sinclair</code> reads your config
+          (<a href="configuration.html">Configuration</a>) and opens a window running
+          your login shell. Subsequent launches reuse the running app where appropriate.
+        </p>
+
+        <h2>sinclair mcp</h2>
+        <p>
+          Runs a Model Context Protocol server on stdio and forwards each tool call to
+          the live terminal over Sinclair's single-instance socket. Point an MCP client
+          (Claude Desktop, Claude Code, …) at this command to let it drive your
+          terminal. The full tool list and setup are on the
+          <a href="mcp.html">MCP &amp; automation</a> page.
+        </p>
+        <pre><code><span class="c"># what an MCP client runs under the hood</span>
+sinclair mcp</code></pre>
+
+        <h2>sinclair notify</h2>
+        <p>
+          Posts a native desktop notification. <code>--title</code> (or <code>-t</code>)
+          sets the title (default <code>Sinclair</code>); the remaining arguments form the
+          body. This is handy for agent and build hooks that can't emit an OSC 9/777/99
+          escape themselves.
+        </p>
+        <pre><code>sinclair notify "build finished"
+sinclair notify --title "CI" "tests passed ✓"</code></pre>
+        <div class="callout note">
+          <span class="label">Note</span>
+          <p>From inside a shell session you can also trigger notifications directly with
+          OSC escape sequences (OSC 9 / 777 / 99) — <code>sinclair notify</code> is the
+          out-of-band equivalent for tools that only have a shell command.</p>
+        </div>
+
+        <h2>sinclair agent-status</h2>
+        <p>
+          Reports the calling pane's semantic work state back to the running window,
+          which draws it as a colored dot on the tab and rolls it up in the
+          <a href="productivity.html">Activity</a> panel. The state is one of
+          <code>working</code>, <code>blocked</code> (waiting on you), <code>done</code>,
+          or <code>idle</code>. It travels over Sinclair's single-instance socket and is
+          addressed by the <code>SINCLAIR_PANE</code> token that every session gets, so it
+          lands on the right tab even from a background process. It's best-effort and
+          never blocks — if no window is listening, it simply exits.
+        </p>
+        <pre><code>sinclair agent-status working
+sinclair agent-status blocked
+sinclair agent-status done</code></pre>
+        <p>
+          Optional flags let a wrapper address a specific pane or carry a session id:
+          <code>--pane &lt;token&gt;</code>, <code>--name &lt;n&gt;</code>, and
+          <code>--session &lt;id&gt;</code>. You rarely call this by hand — the hooks below
+          wire it into Claude Code's lifecycle for you.
+        </p>
+
+        <h2>sinclair agent-hooks</h2>
+        <p>
+          Installs (or removes) the Claude Code lifecycle hooks that report status
+          automatically, so a Claude Code session running in a pane lights up its tab as
+          it works. It is idempotent — installing twice is a no-op — and the uninstall is
+          surgical, touching only the entries Sinclair added.
+        </p>
+        <pre><code>sinclair agent-hooks install              <span class="c"># wire hooks in ~/.claude/settings.json</span>
+sinclair agent-hooks install --project    <span class="c"># scope them to this repo's .claude/settings.json</span>
+sinclair agent-hooks uninstall            <span class="c"># remove Sinclair's entries again</span></code></pre>
+        <p>
+          The hooks map Claude Code's events onto states: session start → <code>idle</code>,
+          a submitted prompt → <code>working</code>, a notification (Claude is waiting on
+          you) → <code>blocked</code>, and stop → <code>done</code>. Each one shells out to
+          <code>sinclair agent-status</code>. See the
+          <a href="statushooks.html">Agent status at a glance</a> tutorial for the full
+          workflow.
+        </p>
+        <div class="callout tip">
+          <span class="label">Tip</span>
+          <p>Agents on the relay mesh don't need the hooks — they can report the same
+          states with the <code>report_status</code> tool. See the
+          <a href="agents.html">Agent mesh</a>.</p>
+        </div>
+
+        <h2>sinclair export</h2>
+        <p>
+          Renders a session recording — a <code>.cast</code> captured with
+          <code>toggle_recording</code> — to a shareable file. The output format is
+          chosen by the extension: <code>.gif</code> needs no external tools, while
+          <code>.mp4</code>, <code>.mov</code>, and <code>.webm</code> are encoded with
+          ffmpeg (which must be on <code>PATH</code>).
+        </p>
+        <pre><code>sinclair export session.cast demo.gif
+sinclair export session.cast demo.mp4 --fidelity --fps 30</code></pre>
+        <p>
+          Timing and layout are tunable: <code>--fps</code>, <code>--speed</code>,
+          <code>--idle-cap</code> (collapse long idle gaps, default 2s),
+          <code>--tail</code>, <code>--font-px</code>, <code>--cols</code>/<code>--rows</code>,
+          and <code>--theme</code>. On macOS, <code>--fidelity</code> renders through the
+          app's gpui text system for ligatures, exact fonts, and box-drawing geometry
+          (<code>--scale</code> sets the device-pixel scale); other platforms fall back to
+          the bundled software renderer.
+        </p>
+        <div class="callout tip">
+          <span class="label">Tip</span>
+          <p>Inside the app, <em>Export Recording</em> (in the File menu and the command
+          palette) runs this in the background on your most recent recording and posts a
+          notification when the file is ready.</p>
+        </div>
+
+        <h2>sinclair --toggle-quick</h2>
+        <p>
+          Signals a running instance to toggle the Quake-style quick terminal, then
+          exits. The app normally binds this to <kbd>⌘⌥T</kbd>
+          (<code>toggle_quick_terminal</code>); this flag exists so a Wayland compositor
+          (which can't deliver a global hotkey to the app directly) can bind a key to it:
+        </p>
+        <pre><code><span class="c"># example: a Sway/Hyprland-style global binding</span>
+bindsym $mod+grave exec sinclair --toggle-quick</code></pre>
+
+        <div class="callout tip">
+          <span class="label">Tip</span>
+          <p>Everything <code>sinclair</code> does beyond launching is also reachable from
+          inside the app — see <a href="productivity.html">Productivity</a> and
+          <a href="mcp.html">MCP &amp; automation</a>.</p>
+        </div>
+      </article>
+    </main>
+    <script type="module" src="docs.js"></script>
+  </body>
+</html>

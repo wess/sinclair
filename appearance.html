@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Themes, fonts &amp; appearance — Sinclair docs</title>
+    <meta name="description" content="A hands-on walkthrough for making Sinclair yours: pick a theme, follow the OS light/dark, override individual colors, tune fonts and ligatures, style the cursor, add transparency and a background image, and polish the padding — every setting live the moment you save.">
+    <meta name="theme-color" content="#05070c">
+    <link rel="icon" href="icon.png">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="docs.css">
+  </head>
+  <body class="docs">
+    <a class="skip" href="#doc-main">Skip to content</a>
+    <main id="doc-main" class="doc-main">
+      <article class="doc-article" data-doc-page="appearance">
+        <p class="kicker">Tutorial</p>
+        <h1>Make Sinclair yours: themes, fonts &amp; appearance</h1>
+        <p class="lede">
+          This is the fun part. Everything that shapes how Sinclair looks — the theme, the
+          colors, the typeface, the cursor, transparency, padding — is a plain line in your
+          config file, and <strong>every one of them applies live the moment you save</strong>.
+          No restart, no reload dance. Keep the file open in one pane, edit in another, and
+          watch the window repaint as you type your way to a terminal that feels like yours.
+        </p>
+
+        <div class="callout note">
+          <span class="label">Note</span>
+          <p>Settings live at <code>~/.config/sinclair/settings.json</code> (or
+          <code>$XDG_CONFIG_HOME/sinclair/settings.json</code>) — JSON with
+          <code>//</code> comments. It's watched live — save and the
+          change is on screen instantly. A bad line never aborts the load; it just becomes a
+          diagnostic while the rest applies.</p>
+        </div>
+
+        <h2>1. Pick a theme</h2>
+        <p>
+          Start with a base. The <code>theme</code> key takes any of Sinclair's <strong>22
+          hand-tuned built-ins</strong> — a big enough library that you'll almost certainly
+          find one you like before you touch a single color:
+        </p>
+        <pre><code>{ "theme": "tokyo night" }</code></pre>
+        <p>
+          Names are forgiving: they're case-insensitive and ignore spaces, dashes, and
+          underscores, so <code>tokyo night</code>, <code>tokyo-night</code>, and
+          <code>TokyoNight</code> all land on the same scheme. Prefer to point and click? The
+          GUI settings (<kbd>⌘,</kbd>) include a theme picker that writes this exact key for
+          you — same result, same live repaint. Here's the full set and the value to pass:
+        </p>
+        <div class="tablewrap">
+          <table>
+            <thead>
+              <tr><th>Theme</th><th>Config value</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Dark</td><td><code>dark</code></td></tr>
+              <tr><td>Light</td><td><code>light</code></td></tr>
+              <tr><td>Ayu Dark</td><td><code>ayu dark</code></td></tr>
+              <tr><td>Catppuccin Latte</td><td><code>catppuccin latte</code></td></tr>
+              <tr><td>Catppuccin Mocha</td><td><code>catppuccin mocha</code></td></tr>
+              <tr><td>Dracula</td><td><code>dracula</code></td></tr>
+              <tr><td>Everforest</td><td><code>everforest</code></td></tr>
+              <tr><td>GitHub Dark</td><td><code>github dark</code></td></tr>
+              <tr><td>GitHub Light</td><td><code>github light</code></td></tr>
+              <tr><td>Gruvbox Dark</td><td><code>gruvbox dark</code></td></tr>
+              <tr><td>Gruvbox Light</td><td><code>gruvbox light</code></td></tr>
+              <tr><td>Kanagawa</td><td><code>kanagawa</code></td></tr>
+              <tr><td>Material Dark</td><td><code>material dark</code></td></tr>
+              <tr><td>Monokai</td><td><code>monokai</code></td></tr>
+              <tr><td>Nord</td><td><code>nord</code></td></tr>
+              <tr><td>One Dark</td><td><code>one dark</code></td></tr>
+              <tr><td>Palenight</td><td><code>palenight</code></td></tr>
+              <tr><td>Rose Pine</td><td><code>rose pine</code></td></tr>
+              <tr><td>Solarized Dark</td><td><code>solarized dark</code></td></tr>
+              <tr><td>Solarized Light</td><td><code>solarized light</code></td></tr>
+              <tr><td>Tokyo Night</td><td><code>tokyo night</code></td></tr>
+              <tr><td>Zenburn</td><td><code>zenburn</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout tip">
+          <span class="label">Tip</span>
+          <p>Cycle through a handful with the picker open — because the change is live, you're
+          previewing the real thing in your real shell, not a swatch. When one clicks, its
+          name is already written to your config.</p>
+        </div>
+
+        <h2>2. Follow the OS light/dark automatically</h2>
+        <p>
+          If your desktop flips between light and dark through the day, Sinclair can follow it.
+          Set <code>theme-light</code> and <code>theme-dark</code> to a scheme each, and
+          Sinclair watches the OS appearance and rebuilds its colors live when it flips —
+          picking the matching one, no restart and no manual toggle:
+        </p>
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "theme-light": "github light",
+  "theme-dark": "github dark"
+}</code></pre>
+        <p>
+          Either key works on its own: whichever is set wins for that appearance, and plain
+          <code>theme</code> is the fallback for the other. Set all three and you get a bright
+          scheme by day, a dark one by night, and a safety net if neither matches.
+        </p>
+
+        <h2>3. Override individual colors</h2>
+        <p>
+          You don't have to take a theme as-is. These keys layer your own colors on top of
+          the selected scheme, so you can start from a base you like and tweak only the parts
+          that bug you:
+        </p>
+        <div class="tablewrap">
+          <table>
+            <thead>
+              <tr><th>Key</th><th>Overrides</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>background</code></td><td>Window/terminal background color.</td></tr>
+              <tr><td><code>foreground</code></td><td>Default text color.</td></tr>
+              <tr><td><code>cursor-color</code></td><td>Cursor fill color.</td></tr>
+              <tr><td><code>cursor-text</code></td><td>Color of text drawn under a block cursor.</td></tr>
+              <tr><td><code>selection-foreground</code></td><td>Text color inside a selection.</td></tr>
+              <tr><td><code>selection-background</code></td><td>Highlight color of a selection.</td></tr>
+              <tr><td><code>split-divider-color</code></td><td>Color of the dividers between splits.</td></tr>
+              <tr>
+                <td><code>palette</code></td>
+                <td>Repeatable. <code>N=#rrggbb</code> overrides a single ANSI index.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          The <code>palette</code> key is the powerful one: it recolors a single ANSI slot,
+          with <code>N</code> from 0–255 — 0–7 the standard colors, 8–15 the bright variants,
+          16–231 the 6×6×6 color cube, and 232–255 the grayscale ramp. Repeat it to remap as
+          many slots as you want:
+        </p>
+        <pre><code>{
+  <span class="c">// start from a base theme, then override</span>
+  "theme": "tokyo night",
+  "background": "#0b0e14",
+  "cursor-color": "#ffcc66",
+
+  <span class="c">// recolor ANSI red (index 1) and bright black (index 8)</span>
+  "palette": ["1=#ff5555", "8=#5c6370"]
+}</code></pre>
+
+        <h2>4. Fonts &amp; ligatures</h2>
+        <p>
+          The font keys control the typeface, its size, and its OpenType behavior. The trick
+          worth knowing: <code>font-family</code> is <strong>repeatable</strong>, and each
+          entry builds a fallback chain — the first is your primary face, later ones cover
+          glyphs it's missing (emoji, box-drawing, an odd symbol). List your favorite first,
+          a dependable face second:
+        </p>
+        <div class="tablewrap">
+          <table>
+            <thead>
+              <tr><th>Key</th><th>Meaning</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>font-family</code></td><td>Repeatable. Each entry builds a fallback chain — the first is the primary face, later ones cover missing glyphs. Default <code>Menlo</code>.</td></tr>
+              <tr><td><code>font-size</code></td><td>Point size. Default <code>13</code>.</td></tr>
+              <tr><td><code>font-style</code></td><td>One of <code>normal</code>, <code>bold</code>, <code>italic</code>, <code>bold-italic</code>.</td></tr>
+              <tr><td><code>font-feature</code></td><td>Repeatable OpenType feature codes like <code>+liga</code>, <code>-calt</code>, <code>ss01</code>, or <code>cv01=2</code>, for ligatures and stylistic sets.</td></tr>
+              <tr><td><code>adjust-cell-width</code></td><td>Nudge cell width in pixels. May be negative.</td></tr>
+              <tr><td><code>adjust-cell-height</code></td><td>Nudge cell height in pixels. May be negative.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <pre><code>{
+  "font-family": ["JetBrains Mono", "Menlo"],
+  "font-size": 14,
+  "font-style": "normal",
+  "font-feature": ["+liga", "cv01=2"],
+  "adjust-cell-height": 2
+}</code></pre>
+        <p>
+          <code>font-feature</code> is where a font's personality lives. Turn ligatures on
+          with <code>+liga</code> (or off with <code>-calt</code>), switch on a stylistic set
+          like <code>ss01</code>, or pick a character variant with <code>cv01=2</code> — one
+          feature per line, repeat as needed. If the cell metrics feel a touch tight or loose
+          for your face, <code>adjust-cell-width</code> and <code>adjust-cell-height</code>
+          nudge them by a pixel or two (either can go negative).
+        </p>
+        <div class="callout note">
+          <span class="label">Note</span>
+          <p>Emoji and programming ligatures are both supported — turn ligatures on (or off)
+          per font with <code>font-feature</code>.</p>
+        </div>
+
+        <h2>5. Cursor</h2>
+        <p>
+          Small detail, big difference in how the terminal feels to type in. Four keys shape
+          the cursor's shape, blink, and color:
+        </p>
+        <div class="tablewrap">
+          <table>
+            <thead>
+              <tr><th>Key</th><th>Meaning</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>cursor-style</code></td><td>One of <code>block</code>, <code>bar</code>, <code>underline</code>.</td></tr>
+              <tr><td><code>cursor-style-blink</code></td><td>Boolean. Whether the cursor blinks.</td></tr>
+              <tr><td><code>cursor-color</code></td><td>Cursor fill color.</td></tr>
+              <tr><td><code>cursor-text</code></td><td>Color of the character under a block cursor.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <pre><code>{
+  "cursor-style": "bar",
+  "cursor-style-blink": true,
+  "cursor-color": "#ffcc66",
+  "cursor-text": "#0b0e14"
+}</code></pre>
+        <p>
+          Go <code>block</code> for the classic terminal look, <code>bar</code> for an editor
+          feel, or <code>underline</code> for something quieter. If you pick a bold
+          <code>cursor-color</code> with a block cursor, set <code>cursor-text</code> to keep
+          the character it sits on readable against the fill.
+        </p>
+
+        <h2>6. Transparency, background image &amp; readability</h2>
+        <p>
+          A few keys shape the terminal surface itself. This is where a setup goes from
+          "nice theme" to "that's <em>my</em> terminal":
+        </p>
+        <ul>
+          <li><code>background-opacity</code> (0.2–1.0) makes the window translucent — the
+          terminal background lets the desktop through while colored cells stay opaque.</li>
+          <li><code>background-image</code> draws an image behind the terminal; combine it
+          with a lowered <code>background-opacity</code> so the image shows through.</li>
+          <li><code>minimum-contrast</code> (1–21) nudges each cell's foreground toward black
+          or white until it meets that WCAG contrast ratio against its background — a floor on
+          readability for low-contrast color schemes.</li>
+          <li><code>badge</code> paints a faint watermark in each pane's corner, with
+          <code>{cwd}</code> and <code>{host}</code> substituted per pane.</li>
+        </ul>
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "background-opacity": 0.85,
+  "background-image": "~/Pictures/wallpaper.png",
+  "minimum-contrast": 4.5,
+  "badge": "{host} · {cwd}"
+}</code></pre>
+        <div class="callout tip">
+          <span class="label">Tip</span>
+          <p>Transparency and a background image look great right up until text vanishes over
+          a bright patch. <code>minimum-contrast</code> is the fix — set it to <code>4.5</code>
+          and every cell is forced to stay legible no matter what's showing through behind it.</p>
+        </div>
+
+        <h2>7. Padding &amp; polish</h2>
+        <p>
+          Last, the finishing touches — the spacing and rendering options that make the whole
+          thing feel deliberate:
+        </p>
+        <div class="tablewrap">
+          <table>
+            <thead>
+              <tr><th>Key</th><th>Meaning</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>window-padding-x</code></td><td>Horizontal inner padding in pixels. Default <code>2</code>.</td></tr>
+              <tr><td><code>window-padding-y</code></td><td>Vertical inner padding in pixels. Default <code>2</code>.</td></tr>
+              <tr><td><code>unfocused-split-opacity</code></td><td>Opacity of splits that don't have focus, <code>0.15</code>–<code>1.0</code>. Default <code>0.7</code>.</td></tr>
+              <tr><td><code>bold-is-bright</code></td><td>Boolean. Render bold text using the bright color variant.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <pre><code>{
+  "window-padding-x": 8,
+  "window-padding-y": 6,
+  "unfocused-split-opacity": 0.6,
+  "bold-is-bright": true
+}</code></pre>
+        <p>
+          A little breathing room goes a long way — bump <code>window-padding-x</code> and
+          <code>window-padding-y</code> up from their default of <code>2</code> so text isn't
+          jammed against the window edge. Lower <code>unfocused-split-opacity</code> to make
+          the active pane pop harder when you're working in a grid of splits. And
+          <code>bold-is-bright</code> gives bold text extra punch by rendering it in the
+          bright color variant — a classic terminal look that reads well against most themes.
+        </p>
+
+        <h2>Where to next</h2>
+        <div class="cards">
+          <a href="quickstart.html"><strong>Your first 10 minutes</strong>The hands-on quickstart — splits, tabs, themes, and the two shortcuts that unlock everything else.</a>
+          <a href="configkeys.html"><strong>Configuration &amp; keybindings</strong>Every config key and every bindable action in one reference.</a>
+          <a href="designer.html"><strong>Prompt Designer</strong>Build and preview a look visually, then export it to your config.</a>
+        </div>
+      </article>
+    </main>
+    <script type="module" src="docs.js"></script>
+  </body>
+</html>

@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sinclair documentation</title>
+    <meta name="description" content="Documentation for Sinclair — a GPU-accelerated terminal for macOS and Linux: install, configuration, keybindings, themes, plugins, and the agent mesh.">
+    <meta name="theme-color" content="#05070c">
+    <link rel="icon" href="icon.png">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="docs.css">
+  </head>
+  <body class="docs">
+    <a class="skip" href="#doc-main">Skip to content</a>
+    <main id="doc-main" class="doc-main">
+      <article class="doc-article" data-doc-page="overview">
+        <p class="kicker">Documentation</p>
+        <h1>Sinclair documentation</h1>
+        <p class="lede">
+          Sinclair is a fast, GPU-accelerated terminal for macOS and Linux. It pairs a
+          meticulous VT core with tabs, recursive splits, live-reload config, built-in
+          themes, a plugin system, an MCP server, and a local relay for coordinating
+          agent teams. These docs cover all of it.
+        </p>
+
+        <div class="terminalbar" aria-label="Install command" style="margin-bottom:2rem">
+          <code>brew install --cask wess/packages/sinclair</code>
+        </div>
+
+        <h2>Start here</h2>
+        <div class="cards">
+          <a href="install.html"><strong>Install</strong>macOS (Homebrew), Linux (AppImage/deb/tarball), or build from source.</a>
+          <a href="configuration.html"><strong>Configuration</strong>The config file, every option, and live reload.</a>
+          <a href="keybindings.html"><strong>Keybindings</strong>The trigger syntax, the full default map, and the action catalog.</a>
+        </div>
+
+        <h2>Learn by doing</h2>
+        <p>There's a hands-on walkthrough for every part of Sinclair — from your first splits to running a whole team of agents in parallel. Follow one end to end, or browse the full set.</p>
+        <div class="cards">
+          <a href="quickstart.html"><strong>Your first 10 minutes</strong>Splits, tabs, themes, and the palette — the fastest path to feeling at home.</a>
+          <a href="workspacesetup.html"><strong>Organize your workspace</strong>Tabs, splits, layouts, sidebars, broadcast input, and session restore.</a>
+          <a href="agentteams.html"><strong>Run an agent team</strong>Launch a supervisor and workers that message each other over the local relay.</a>
+          <a href="tutorials.html"><strong>All tutorials →</strong>Appearance, config, navigation, clipboard, recording, worktrees, agent status, and more.</a>
+        </div>
+
+        <h2>Using Sinclair</h2>
+        <div class="cards">
+          <a href="workspace.html"><strong>Tabs, splits &amp; layouts</strong>The workspace model, directional navigation, and saved tile layouts.</a>
+          <a href="palette.html"><strong>Command palette &amp; quick open</strong>Launch anything with <kbd>⌘⇧P</kbd> and <kbd>⌘P</kbd>.</a>
+          <a href="productivity.html"><strong>Productivity</strong>Autosuggestions &amp; completion, hint &amp; copy mode, command blocks, fuzzy pickers (clipboard, snippets, profiles, emoji), triggers, redaction, timestamps, annotations, search, macros, recording, and more.</a>
+          <a href="themes.html"><strong>Themes &amp; appearance</strong>22 built-in themes, per-color overrides, fonts and cursor.</a>
+        </div>
+
+        <h2>Extending &amp; agents</h2>
+        <div class="cards">
+          <a href="plugins.html"><strong>Plugins</strong>Command plugins, live IPC panels, webview surfaces, event triggers, agent-callable tools (MCP), and the installable catalog.</a>
+          <a href="plugintutorial.html"><strong>Plugin tutorial</strong>Build four plugins step by step, plus the full protocol, host capabilities, and publishing.</a>
+          <a href="designer.html"><strong>Prompt Designer</strong>Design your shell prompt visually and apply it to your shell.</a>
+          <a href="mcp.html"><strong>MCP &amp; automation</strong>Drive the terminal from Claude and other MCP clients.</a>
+          <a href="agents.html"><strong>Agent mesh</strong>Run coordinated agent teams over the local relay.</a>
+        </div>
+
+        <h2>Reference</h2>
+        <div class="cards">
+          <a href="coverage.html"><strong>Terminal coverage</strong>What the VT core supports and known gaps.</a>
+          <a href="cli.html"><strong>CLI reference</strong>The <code>sinclair</code> subcommands and process modes.</a>
+        </div>
+
+        <div class="callout tip">
+          <span class="label">Tip</span>
+          <p>Every command — built-in or plugin-contributed — is reachable from the
+          command palette (<kbd>⌘⇧P</kbd>), so you can always find a feature even if you
+          don't remember its keybinding.</p>
+        </div>
+      </article>
+    </main>
+    <script type="module" src="docs.js"></script>
+  </body>
+</html>

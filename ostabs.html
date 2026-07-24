@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Run a throwaway Linux in a tab — Sinclair docs</title>
+    <meta name="description" content="Open a fresh Debian, Ubuntu, Alpine, Fedora, or Arch userland as a container-backed tab, keep the ones you need, attach to running containers, and add your own images as profiles.">
+    <meta name="theme-color" content="#05070c">
+    <link rel="icon" href="icon.png">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="docs.css">
+  </head>
+  <body class="docs">
+    <a class="skip" href="#doc-main">Skip to content</a>
+    <main id="doc-main" class="doc-main">
+      <article class="doc-article" data-doc-page="ostabs">
+        <p class="kicker">Tutorial</p>
+        <h1>Run a throwaway Linux in a tab</h1>
+        <p class="lede">
+          Sometimes you want a clean machine: try a package without polluting your host, check
+          a script against a distro you don't run, or poke at something sketchy in a room you
+          can burn down afterwards. Sinclair opens a fresh OS userland as a regular tab — a
+          container is the tab's backing process, so it scrolls, records, themes, and closes
+          like any other pane. This walkthrough opens one, makes one persistent, attaches to
+          containers you already have running, and adds your own images to the picker.
+        </p>
+
+        <div class="callout note">
+          <p>OS tabs need <strong>Docker or Podman</strong> installed. Sinclair detects
+          whichever is on your <code>PATH</code> (Docker preferred when both are present); pin
+          one explicitly with <code>"container-engine": "docker"</code> or
+          <code>"podman"</code> in your settings. On macOS, <kbd>⌘</kbd> is the modifier —
+          on Linux, read it as <kbd>⌃</kbd> (Ctrl).</p>
+        </div>
+
+        <h2>1. Open one</h2>
+        <p>
+          Press <kbd>⌘⇧T</kbd> (<code>new_os_tab</code>, also in the File menu as
+          <em>OS Tabs…</em>). A small picker window opens with the built-in profiles —
+          <strong>Debian, Ubuntu, Alpine, Fedora, and Arch Linux</strong>, each shown with the
+          image it runs — plus a text field. Pick one and you're dropped at a root shell
+          inside a brand-new container, in a brand-new tab.
+        </p>
+        <p>
+          The text field does three things: leave it empty and <kbd>enter</kbd> launches the
+          first profile; type a profile's name to pick it by label; or type <em>any</em> OCI
+          image reference — say <code>node:22-slim</code> — and Sinclair runs that image as a
+          one-off, no configuration required. The engine pulls an image the first time you use
+          it, so a first launch can take a moment; after that it's effectively instant.
+        </p>
+        <div class="callout tip">
+          <span class="label">Tip</span>
+          <p>Alpine ships without bash, so its profile drops you into <code>sh</code>. Every
+          other built-in runs <code>bash</code>.</p>
+        </div>
+
+        <h2>2. It's a real tab — and it's disposable</h2>
+        <p>
+          Under the hood the tab's process is simply
+          <code>docker run --rm -it &lt;image&gt; &lt;shell&gt;</code> on a pty — the same seam
+          every tab uses. Scrollback, search, copy mode, recording, themes: everything you know
+          works inside it. There's no special "container mode" to learn.
+        </p>
+        <p>
+          By default containers are <strong>ephemeral</strong>: that <code>--rm</code> means
+          exiting the shell or closing the tab removes the container and everything you did in
+          it. Install packages, make a mess, close the tab — gone. That's the point.
+        </p>
+
+        <h2>3. Keep one around</h2>
+        <p>
+          When you <em>do</em> want your changes to survive — a tools image you've set up just
+          right, a long-running experiment — flip the default lifecycle in
+          <code>~/.config/sinclair/settings.json</code>:
+        </p>
+        <pre><code>{
+  <span class="c">// keep containers when their tab closes (default: remove them)</span>
+  "container-persist": true
+}</code></pre>
+        <p>
+          Persistent containers are launched with a name, so they can be found and re-entered
+          later. You can also set the lifecycle per profile, which usually reads better than
+          flipping the global default — see step 5.
+        </p>
+
+        <h2>4. Attach to what's already running</h2>
+        <p>
+          Fresh containers aren't the only thing you can open in a tab — you can drop a shell
+          into a container that's <em>already</em> running: your compose stack's database, a
+          long-lived dev box, anything the engine reports. Press <kbd>⌘⇧C</kbd>
+          (<code>attach_container</code>, also in the File menu as <em>Attach to Container…</em>)
+          to open the <strong>Attach to Container</strong> picker. It lists every running
+          Docker/Podman container by name, image, and uptime — click one to attach a shell in a
+          new tab. The text field also takes a container name or id directly, for one that
+          isn't listed.
+        </p>
+        <p>
+          Prefer to browse? The <strong>Containers</strong> sidebar panel shows the same list.
+          Open it with <code>sidebar:left:containers</code> from the command palette
+          (<kbd>⌘⇧P</kbd>) or by clicking through the sidebar (<kbd>⌘B</kbd>), then
+          <strong>double-click a row</strong> to attach. Either way, if a tab is already
+          attached to a container Sinclair focuses that tab instead of opening a second one; a
+          refresh row at the bottom of the panel re-lists.
+        </p>
+        <div class="callout note">
+          <span class="label">Note</span>
+          <p>Attaching uses the engine's <code>exec</code>, so you get a fresh shell inside
+          the running container without disturbing its main process. With nothing running the
+          picker shows <em>No running containers</em>; with neither engine installed it shows
+          <em>No container engine found</em> — install Docker or Podman and reopen.</p>
+        </div>
+
+        <h2>5. Add your own images to the picker</h2>
+        <p>
+          Repeatable <code>container</code> entries add profiles to the picker. Each is
+          <code>label | image | command | lifecycle</code> — only the label and image are
+          required; the command defaults to <code>bash</code>, and the lifecycle
+          (<code>persist</code> or <code>ephemeral</code>) defaults to the global
+          <code>container-persist</code> setting:
+        </p>
+        <pre><code>{
+  "container": [
+    "Tools | ghcr.io/me/tools:latest | zsh | persist",
+    "Node  | node:22-slim | bash",
+    "Debian | debian:12 | bash"
+  ]
+}</code></pre>
+        <p>
+          A profile whose label matches a built-in (case-insensitively) <strong>replaces</strong>
+          it — the <code>Debian</code> entry above pins that picker row to
+          <code>debian:12</code> instead of <code>debian:latest</code>. Anything else is
+          appended below the built-ins. A malformed entry never breaks the picker: it's
+          skipped, and the settings diagnostics tell you what's wrong with it.
+        </p>
+
+        <h2>Where to next</h2>
+        <div class="cards">
+          <a href="workspacesetup.html"><strong>Organize your workspace</strong>Mix OS tabs with regular tabs, splits, and saved layouts.</a>
+          <a href="recording.html"><strong>Record &amp; share</strong>Record a session inside a throwaway OS — great for clean-room repro clips.</a>
+          <a href="configkeys.html"><strong>Configuration &amp; keybindings</strong>The settings file these <code>container</code> keys live in, and how to rebind <code>new_os_tab</code> or <code>attach_container</code>.</a>
+        </div>
+      </article>
+    </main>
+    <script type="module" src="docs.js"></script>
+  </body>
+</html>

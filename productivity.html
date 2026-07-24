@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Productivity — Sinclair docs</title>
+    <meta name="description" content="Search, hint mode, copy mode, command blocks, pickers (clipboard history, snippets, profiles, emoji), output triggers, secret redaction, timestamps, annotations, badges, and more in Sinclair.">
+    <meta name="theme-color" content="#05070c">
+    <link rel="icon" href="icon.png">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="docs.css">
+  </head>
+  <body class="docs">
+    <a class="skip" href="#doc-main">Skip to content</a>
+    <main id="doc-main" class="doc-main">
+      <article class="doc-article" data-doc-page="productivity">
+        <p class="kicker">Using Sinclair</p>
+        <h1>Productivity</h1>
+        <p class="lede">Beyond drawing a fast grid, Sinclair ships the features that make day-to-day terminal work quicker: searching scrollback and every tab at once, following links and selecting text from the keyboard, grabbing a command's output in one keystroke, fuzzy pickers for snippets/profiles/clipboard history/emoji, regex output triggers, secret redaction, per-line timestamps and annotations, recording and export, and a drop-down quick terminal always a keystroke away.</p>
+
+        <h2>Search</h2>
+        <p>Press <kbd>⌘F</kbd> (<code>toggle_search</code>) to open an in-place search overlay over the current pane's scrollback. As you type, every match is highlighted live and the view scrolls to the nearest hit. The query is fully editable — a caret tracks your position and the cursor keys move through it — and a case toggle switches between case-insensitive and case-sensitive matching. Use the next/previous controls to walk through matches in order; press <kbd>⎋</kbd> to dismiss the overlay and return to the buffer.</p>
+
+        <h2>Semantic search</h2>
+        <p><kbd>⌘⇧F</kbd> (<code>toggle_semantic_search</code>) searches at a higher level: instead of matching raw text lines, it searches across logical prompt/output blocks — each command you ran and the output it produced. This makes it easy to find "the command that printed this" rather than scrolling line by line.</p>
+        <div class="callout note"><span class="label">Note</span><p>Semantic search relies on knowing where commands begin and end, so it requires shell integration (below) to be active.</p></div>
+
+        <h2>Shell integration</h2>
+        <p>Shell integration is on by default (the <code>shell-integration</code> config key). Sinclair injects OSC 133 prompt marks and OSC 7 working-directory reporting into zsh, bash, and fish purely through environment variables — it never edits your <code>.zshrc</code>, <code>.bashrc</code>, or fish config. Those marks let Sinclair understand the structure of your session, which powers jump-to-prompt, working-directory inheritance for new tabs and splits, semantic search, and the pacing of macro replay.</p>
+        <div class="callout note"><span class="label">Note</span><p>The integration is transparent and reversible: it is just an environment injection, so nothing is written to your shell startup files and setting <code>shell-integration = false</code> turns it off completely.</p></div>
+
+        <h2>Autosuggestions &amp; completion</h2>
+        <p>As you type a command, Sinclair suggests how to finish it. The default is fish-style <strong>inline ghost text</strong>: a dimmed completion appears past the cursor, and <kbd>→</kbd> or <kbd>End</kbd> accepts it. Suggestions are drawn from your captured <strong>command history</strong>, a built-in list of <strong>common commands</strong>, and <strong>filesystem paths</strong> under the working directory, ranked by the local assist model. Nothing leaves your machine.</p>
+        <p>Three more behaviors are available, each toggled independently:</p>
+        <ul>
+          <li><strong>Completion popup</strong> — a dropdown of ranked candidates under the cursor; <kbd>↑</kbd>/<kbd>↓</kbd> to move, <kbd>Enter</kbd> to accept, <kbd>Esc</kbd> to dismiss.</li>
+          <li><strong>Tab-cycle</strong> — press <kbd>Tab</kbd> to cycle through inline completions instead of forwarding <kbd>Tab</kbd> to the shell.</li>
+          <li><strong>AI suggestions</strong> — when nothing local matches, ask Claude for the next command (requires AI enabled).</li>
+        </ul>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Config key</th><th>Default</th><th>What it does</th></tr></thead>
+            <tbody>
+              <tr><td><code>autosuggest-ghost</code></td><td><code>true</code></td><td>Inline ghost text; accept with <kbd>→</kbd>/<kbd>End</kbd></td></tr>
+              <tr><td><code>autosuggest-popup</code></td><td><code>false</code></td><td>Completion dropdown under the cursor</td></tr>
+              <tr><td><code>autosuggest-tab</code></td><td><code>false</code></td><td><kbd>Tab</kbd> cycles completions</td></tr>
+              <tr><td><code>autosuggest-ai</code></td><td><code>false</code></td><td>Claude fallback when nothing local matches</td></tr>
+              <tr><td><code>autosuggest-history</code></td><td><code>true</code></td><td>Suggest from command history</td></tr>
+              <tr><td><code>autosuggest-commands</code></td><td><code>true</code></td><td>Suggest from the common-command list</td></tr>
+              <tr><td><code>autosuggest-paths</code></td><td><code>true</code></td><td>Complete filesystem paths</td></tr>
+              <tr><td><code>autosuggest-assist</code></td><td><code>true</code></td><td>Rank with the local assist model</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout note"><span class="label">Note</span><p>Autosuggestions read the line you're typing from the shell-integration input mark, so they need <code>shell-integration</code> on (the default) with zsh or bash. Fish provides its own native autosuggestions.</p></div>
+
+        <h2>Jump to prompt</h2>
+        <p>With shell integration active, <kbd>⌘↑</kbd> and <kbd>⌘↓</kbd> (<code>jump_to_prompt:-1</code> and <code>jump_to_prompt:1</code>) move the viewport between shell prompts recorded in the scrollback. This is the fastest way to skip back over a long block of output to the command that produced it, or forward again to the latest prompt.</p>
+
+        <h2>Command blocks</h2>
+        <p>Because shell integration marks where each command's output begins and ends, Sinclair can treat the space between two prompts as a "block". <kbd>⌘⇧O</kbd> (<code>copy_command_output</code>) copies the output of the most recent finished command straight to the clipboard — the rows between the two newest prompt marks, or the last prompt to the bottom while a command is still running. No selecting or scrolling: run a command, then grab exactly what it printed.</p>
+
+        <h2>Hint mode</h2>
+        <p><kbd>⌘⇧U</kbd> (<code>hints</code>) labels every visible URL with a short home-row keystroke, Vimium-style. Type a label to open that link in your browser — bare <code>www.…</code> domains get an <code>https://</code> scheme automatically. Backspace corrects a mistyped label; <kbd>⎋</kbd> or any impossible prefix cancels. It's the fastest way to follow a link without reaching for the mouse.</p>
+
+        <h2>Copy mode</h2>
+        <p><kbd>⌘⇧Space</kbd> (<code>copy_mode</code>) drops a vi-style keyboard cursor onto the viewport and scrollback so you can select text without touching the mouse. Movement follows vi conventions:</p>
+        <ul>
+          <li><kbd>h</kbd> <kbd>j</kbd> <kbd>k</kbd> <kbd>l</kbd> or the arrow keys — move the cursor (it scrolls the view when it leaves the screen)</li>
+          <li><kbd>w</kbd> / <kbd>b</kbd> — step a column; <kbd>0</kbd> / <kbd>$</kbd> — line start / end; <kbd>g</kbd> / <kbd>G</kbd> — top / bottom</li>
+          <li><kbd>v</kbd> — begin a selection; move to extend it</li>
+          <li><kbd>y</kbd> or <kbd>Enter</kbd> — yank the selection (redacted, see below) and exit; <kbd>⎋</kbd> — exit</li>
+        </ul>
+
+        <h2>Smart selection</h2>
+        <p>Double-clicking selects the whole meaningful token under the pointer — a URL, an email address, a filesystem path, or a git-style hex hash — instead of a single whitespace-delimited word, falling back to word selection when there's no token there. It's on by default; set <code>smart-select = false</code> to restore plain word selection. Triple-click still selects the whole logical line.</p>
+
+        <h2>Global search across tabs</h2>
+        <p>Where <kbd>⌘F</kbd> searches the current pane, <kbd>⌘⌥F</kbd> (<code>search_all</code>) opens a fuzzy picker over recent output from <em>every</em> tab. Type to filter across all your sessions at once; each result is labelled with its tab number, and choosing one focuses that tab. Ideal for "which window did I run that in?"</p>
+
+        <h2>Macros</h2>
+        <p>A macro records a sequence of typed commands and replays them on demand. The <code>macro_record</code> action starts and stops capturing the commands you type; while recording, a floating pill shows the state with a red <code>● REC</code> indicator. Replay a saved macro with the <code>macro:NAME</code> action, bound to a key of your choosing.</p>
+        <p>Macros are stored as plain text under <code>~/.config/sinclair/macros/&lt;name&gt;.macro</code> — one command per line, with <code>#</code> comment lines — so you can edit them by hand or check them into version control. Replay paces itself off shell-integration prompt marks, waiting for each command's prompt before sending the next rather than blasting them all at once.</p>
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "keybind": [
+    "cmd+shift+m=macro_record",
+    "cmd+shift+1=macro:deploy"
+  ]
+}</code></pre>
+        <pre><code><span class="c"># ~/.config/sinclair/macros/deploy.macro</span>
+<span class="c"># one command per line</span>
+git pull --rebase
+cargo build --release
+./scripts/deploy.sh</code></pre>
+
+        <h2>Session recording</h2>
+        <p>Recording captures a pane to an asciinema v2 <code>.cast</code> file. Toggle it with <code>toggle_recording</code> (default <kbd>⌘⇧R</kbd>); a blue indicator shows while capture is running. Play the result back with <code>asciinema play &lt;file&gt;.cast</code> or embed it on a page.</p>
+        <div class="callout tip"><span class="label">Tip</span><p>Recording and macros are two distinct features. Recording produces a <code>.cast</code> screencast of everything that happened in a pane; macros replay a list of commands you typed. Use recording to show a session, macros to repeat one.</p></div>
+
+        <h2>Exporting a recording</h2>
+        <p>A <code>.cast</code> plays in asciinema, but for a README, a chat, or a pull request you usually want a GIF or a video. <em>Export Recording</em> — in the File menu and the command palette, as <code>export_recording</code> — renders your most recent recording in the background and posts a notification when the file is ready. GIF needs no external tools; MP4 needs ffmpeg on your <code>PATH</code>.</p>
+        <p>The same renderer is available from the command line as <code>sinclair export &lt;in.cast&gt; &lt;out.gif|mp4|mov|webm&gt;</code>, with controls for frame rate, playback speed, idle-gap collapsing, size, and theme. On macOS it can render through the app's own text system (<code>--fidelity</code>) so the exported frames carry the same ligatures, fonts, and crisp box-drawing you see in the terminal. See the <a href="cli.html">CLI</a> page for the full option list.</p>
+
+        <h2>Saving the buffer</h2>
+        <p><em>Save Buffer</em> — in the File menu and the command palette, as <code>save_buffer</code> (default <kbd>⌘S</kbd>) — writes the focused terminal's whole buffer to a plain text file. It captures every scrollback row plus the live screen, independent of what you have selected or scrolled to, so you get the full session rather than just the visible viewport. A native save dialog opens in the terminal's working directory with a filename suggested from the tab title; the file is written in the background and a notification confirms when it's saved.</p>
+
+        <h2>Notifications</h2>
+        <p>Commands can raise native desktop banners. A program can emit OSC 9, OSC 777, or OSC 99 escape sequences itself, or you can post a banner from the command line with <code>sinclair notify [--title T] &lt;message&gt;</code> — handy for agent hooks and scripts that cannot emit an escape sequence directly. See the <a href="cli.html">CLI</a> page for <code>sinclair notify</code>.</p>
+        <p>When a background tab posts a notification, it shows a yellow attention dot until you focus it, so you can see at a glance which session needs you.</p>
+
+        <h2>Quick terminal</h2>
+        <p>The quick terminal is a Quake-style drop-down pane that slides in over your screen and tucks away again. Toggle it with <kbd>⌘⌥T</kbd> (<code>toggle_quick_terminal</code>). On Wayland, where a global hotkey is owned by the compositor, you can summon it from a compositor keybind that runs <code>sinclair --toggle-quick</code> — this signals the running instance and exits. See the <a href="cli.html">CLI</a> page for that flag.</p>
+
+        <h2>Snippets &amp; workflows</h2>
+        <p>Save frequently-typed commands as snippets and recall them from a fuzzy picker. Each <code>snippet</code> config entry is <code>label | command</code>; <kbd>⌘⌥S</kbd> (<code>snippets</code>) opens the picker, and choosing one <em>inserts</em> the command into the focused pane so you can edit it before pressing Enter.</p>
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "snippet": [
+    "deploy | git push origin main",
+    "logs | kubectl logs -f deploy/api"
+  ]
+}</code></pre>
+
+        <h2>Launch profiles</h2>
+        <p>Profiles are named launch setups — an SSH host, a REPL, a project environment. Each <code>profile</code> entry is <code>label | command</code>; <kbd>⌘⌥P</kbd> (<code>profiles</code>) opens a picker, and choosing one opens a <em>new tab</em> running that command.</p>
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "profile": [
+    "prod | ssh prod.example.com",
+    "repl | python3"
+  ]
+}</code></pre>
+
+        <h2>Clipboard history</h2>
+        <p>Every copy is recorded in a ring of recent entries (after redaction, below). <kbd>⌘⇧Y</kbd> (<code>clipboard_history</code>) opens a fuzzy picker over them; choose one to paste it into the focused pane. Handy for pulling back something you copied three commands ago.</p>
+
+        <h2>Unicode &amp; emoji picker</h2>
+        <p><kbd>⌘⌥E</kbd> (<code>unicode_picker</code>) opens a searchable list of common emoji and symbols — arrows, math signs, box glyphs, and more — each named so you can fuzzy-find it. Pick one and Sinclair sends the glyph to the focused pane.</p>
+
+        <h2>Output triggers</h2>
+        <p>Triggers watch a pane's output and fire a desktop notification when a line matches a regular expression. Each <code>trigger</code> entry is a regex, optionally followed by <code>| Title</code> for a custom notification title. The matched line becomes the notification body. Useful for surfacing build failures or long-running jobs that finish while you're in another window.</p>
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "trigger": [
+    "error|Build failed",
+    "\\bDONE\\b | Job finished"
+  ]
+}</code></pre>
+
+        <h2>Secret redaction</h2>
+        <p>Keep API keys and tokens off your clipboard. Each <code>redact</code> entry is a regex; anything it matches is masked with bullets (<code>•</code>) before the text ever reaches the clipboard — on an explicit copy, copy-on-select, copy-command-output, or a copy-mode yank alike.</p>
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "redact": [
+    "sk-[A-Za-z0-9]{20,}",
+    "ghp_[A-Za-z0-9]{36}"
+  ]
+}</code></pre>
+
+        <h2>Line timestamps</h2>
+        <p>Set <code>"timestamps": true</code> to show a faint relative time (<code>5s</code>, <code>2m</code>, <code>1h</code>, <code>3d</code>) beside each scrollback row, so you can see how long ago a line was printed. Times are captured as rows scroll into history and travel with the content.</p>
+
+        <h2>Line annotations</h2>
+        <p><kbd>⌘⌥A</kbd> (<code>annotate</code>) pins a note to the current line: a small dialog takes the text, and it's drawn as a pill in that row's left gutter. Notes are keyed to a stable line sequence, so they scroll with the content and survive until the line falls off the scrollback — good for marking "the error is here" while you work.</p>
+
+        <h2>Pane badges</h2>
+        <p>A badge is a faint watermark drawn in each pane's corner. Set <code>badge</code> to any text; <code>{cwd}</code> and <code>{host}</code> are substituted per pane, so a badge like <code>{host} · {cwd}</code> keeps context visible at a glance.</p>
+
+        <h2>Activity dashboard</h2>
+        <p>The <strong>Activity</strong> sidebar panel (the ◉ icon on the activity bar) rolls every tab up to a status dot — who's blocked, working, done, or idle at a glance across your shell and agent panes. When an agent reports its state (see <em>Agent status</em> below) its dot follows that: 🔴 blocked, 🟡 working, 🔵 done, 🟢 idle. Otherwise the dot falls back to the terminal's own signals — 🔴 attention (a bell or an OSC 9 notification fired), 🟡 a foreground command is running, 🟢 idle. Click a row to focus that tab.</p>
+
+        <h2>Agent status</h2>
+        <p>Coding agents (Claude Code, Codex, and the rest) can report their state back to Sinclair so it shows up as a colored dot on the tab and in the Activity panel: <strong>working</strong>, <strong>blocked</strong> (waiting on you), <strong>done</strong>, or <strong>idle</strong>. Run <code>sinclair agent-hooks install</code> once to wire the Claude Code lifecycle hooks (add <code>--project</code> to scope it to the current repo); <code>sinclair agent-hooks uninstall</code> removes them again. Agents on the mesh can also call the <code>report_status</code> and <code>wait_status</code> tools to coordinate, and their state appears in the Relay panel. The <a href="statushooks.html">Agent status at a glance</a> tutorial walks through the whole setup.</p>
+
+        <h2>Clipboard</h2>
+        <p>Copy with <kbd>⌘C</kbd> and paste with <kbd>⌘V</kbd>. Enable <code>copy-on-select</code> to automatically copy any selection the moment you make it, and <code>middle-click-paste</code> to paste the current selection with a middle click (X-style). Remote programs can set your clipboard through OSC 52, and <code>clipboard-paste-protection</code> warns you before pasting content that looks risky — for example multi-line text or shell control characters. All copy paths honor secret redaction and feed clipboard history (both above).</p>
+      </article>
+    </main>
+    <script type="module" src="docs.js"></script>
+  </body>
+</html>

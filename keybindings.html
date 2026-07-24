@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Keybindings &amp; actions — Sinclair docs</title>
+    <meta name="description" content="Sinclair's keybinding syntax, the full default keymap, and the complete action catalog.">
+    <meta name="theme-color" content="#05070c">
+    <link rel="icon" href="icon.png">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="docs.css">
+  </head>
+  <body class="docs">
+    <a class="skip" href="#doc-main">Skip to content</a>
+    <main id="doc-main" class="doc-main">
+      <article class="doc-article" data-doc-page="keybindings">
+        <p class="kicker">Configuration</p>
+        <h1>Keybindings &amp; actions</h1>
+        <p class="lede">Every command in Sinclair is an <em>action</em>, and any action can be bound to any key combination from your config file. Sinclair ships with a sensible default keymap so it works the moment you launch it, but nothing is fixed: override a default, remove one you never use, or invent entirely new shortcuts — including chords and bindings that drive plugin commands. Changes take effect the instant you save the file.</p>
+
+        <h2>Syntax</h2>
+        <p>Keybindings live in your settings file (<code>$XDG_CONFIG_HOME/sinclair/settings.json</code> or <code>~/.config/sinclair/settings.json</code>). Each binding is one entry in the <code>keybind</code> array:</p>
+        <pre><code>"keybind": ["trigger=action"]   <span class="c">// optionally with a :param</span></code></pre>
+        <p>The <code>keybind</code> array takes as many entries as you like. A <code>trigger</code> is one or more modifiers and a key, joined with <code>+</code>:</p>
+        <ul>
+          <li><strong>Modifiers:</strong> <code>cmd</code>, <code>ctrl</code>, <code>alt</code>, <code>shift</code> (<code>super</code> is accepted as an alias for <code>cmd</code>).</li>
+          <li><strong>Keys:</strong> the alphanumerics (<code>a</code>–<code>z</code>, <code>0</code>–<code>9</code>); the named keys <code>enter</code>, <code>tab</code>, <code>escape</code>, <code>space</code>, <code>backspace</code>, <code>delete</code>, <code>insert</code>, <code>up</code>, <code>down</code>, <code>left</code>, <code>right</code>, <code>home</code>, <code>end</code>, <code>page_up</code>, <code>page_down</code>, <code>f1</code>–<code>f12</code>; and the punctuation names <code>plus</code>, <code>minus</code>, <code>equal</code>, <code>comma</code>, <code>period</code>, <code>slash</code>, <code>backslash</code>, <code>semicolon</code>, <code>apostrophe</code>, <code>grave_accent</code>, <code>bracket_left</code>, <code>bracket_right</code>.</li>
+        </ul>
+        <div class="callout note">
+          <span class="label">Note</span>
+          <p><strong>cmd is Command on macOS and Ctrl on Linux/Windows.</strong> Write your bindings with <code>cmd</code> and they map to the platform's primary modifier automatically.</p>
+        </div>
+        <p>Chain keys into a <strong>chord</strong> with <code>&gt;</code> — the binding fires only when the keys are pressed in sequence (for example <code>ctrl+a&gt;n</code> means "press <kbd>⌃</kbd><kbd>A</kbd>, then <kbd>N</kbd>").</p>
+        <pre><code>keybind = cmd+t=new_tab
+keybind = cmd+shift+d=new_split:down
+keybind = ctrl+a&gt;n=next_tab</code></pre>
+
+        <h2>Customizing</h2>
+        <p>Your bindings are merged on top of the defaults, so you only declare what you want to change:</p>
+        <ul>
+          <li><strong>Override a default</strong> by binding the same trigger to a different action.</li>
+          <li><strong>Remove a default</strong> by binding its trigger to <code>unbind</code>.</li>
+          <li><strong>Add new shortcuts</strong> freely — including chords and plugin commands.</li>
+        </ul>
+        <pre><code><span class="c"># Override: make Cmd+T open a split instead of a tab</span>
+keybind = cmd+t=new_split:right
+
+<span class="c"># Unbind: reclaim Cmd+K for the shell</span>
+keybind = cmd+k=unbind
+
+<span class="c"># Chord: leader key for jumping to the first tab</span>
+keybind = ctrl+b&gt;1=goto_tab:1
+
+<span class="c"># Bind a plugin command</span>
+keybind = cmd+shift+j=plugin_command:git/status</code></pre>
+        <div class="callout tip">
+          <span class="label">Tip</span>
+          <p>Sinclair watches your config file. Edits to your keybindings apply <strong>live the moment you save</strong> — no restart needed.</p>
+        </div>
+
+        <h2>Default keybindings</h2>
+        <p>These bindings are active out of the box. (<kbd>⌘</kbd> is Command on macOS and Ctrl on Linux/Windows.)</p>
+        <div class="tablewrap">
+          <table>
+            <thead>
+              <tr><th>Shortcut</th><th>Action</th><th>What it does</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><kbd>⌘</kbd><kbd>N</kbd></td><td><code>new_window</code></td><td>Open a new window</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>T</kbd></td><td><code>new_tab</code></td><td>Open a new tab</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>T</kbd></td><td><code>new_os_tab</code></td><td>Open the OS Tabs picker — run a fresh container-backed tab</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>C</kbd></td><td><code>attach_container</code></td><td>Open the Attach to Container picker — drop a shell into a running container</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>W</kbd></td><td><code>close_surface</code></td><td>Close the focused pane</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>⌥</kbd><kbd>W</kbd></td><td><code>close_tab</code></td><td>Close the tab and all its panes</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>W</kbd></td><td><code>close_window</code></td><td>Close the window</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>⌥</kbd><kbd>⇧</kbd><kbd>W</kbd></td><td><code>close_all_windows</code></td><td>Close every window</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>S</kbd></td><td><code>save_buffer</code></td><td>Save the focused terminal's buffer to a text file</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>D</kbd></td><td><code>new_split:right</code></td><td>Split the pane to the right</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>D</kbd></td><td><code>new_split:down</code></td><td>Split the pane downward</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>[</kbd></td><td><code>previous_tab</code></td><td>Switch to the previous tab</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>]</kbd></td><td><code>next_tab</code></td><td>Switch to the next tab</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>1</kbd>…<kbd>⌘</kbd><kbd>9</kbd></td><td><code>goto_tab:N</code></td><td>Jump to tab N (1-based)</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>⌥</kbd><kbd>↑</kbd></td><td><code>goto_split:up</code></td><td>Focus the pane above</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>⌥</kbd><kbd>↓</kbd></td><td><code>goto_split:down</code></td><td>Focus the pane below</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>⌥</kbd><kbd>←</kbd></td><td><code>goto_split:left</code></td><td>Focus the pane to the left</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>⌥</kbd><kbd>→</kbd></td><td><code>goto_split:right</code></td><td>Focus the pane to the right</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>C</kbd></td><td><code>copy_to_clipboard</code></td><td>Copy the selection</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>V</kbd></td><td><code>paste_from_clipboard</code></td><td>Paste from the clipboard</td></tr>
+              <tr><td><kbd>⇧</kbd> arrows</td><td><code>adjust_selection:&lt;dir&gt;</code></td><td>Extend the selection by a cell (falls through to the app when none)</td></tr>
+              <tr><td><kbd>⌥</kbd><kbd>⇧</kbd> + <kbd>←</kbd><kbd>→</kbd></td><td><code>adjust_selection:word_left</code> / <code>word_right</code></td><td>Extend the selection by a word (starts at the cursor)</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>⇧</kbd> + <kbd>←</kbd><kbd>→</kbd></td><td><code>adjust_selection:line_start</code> / <code>line_end</code></td><td>Extend the selection to the line start / end (starts at the cursor)</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>+</kbd></td><td><code>increase_font_size:1</code></td><td>Increase the font size</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>=</kbd></td><td><code>increase_font_size:1</code></td><td>Increase the font size</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>-</kbd></td><td><code>decrease_font_size:1</code></td><td>Decrease the font size</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>0</kbd></td><td><code>reset_font_size</code></td><td>Reset the font size</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>K</kbd></td><td><code>clear_screen</code></td><td>Clear the screen and scrollback</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>F</kbd></td><td><code>toggle_search</code></td><td>Toggle the search bar</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>F</kbd></td><td><code>toggle_semantic_search</code></td><td>Toggle semantic search</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>E</kbd></td><td><code>explain_output</code></td><td>Explain the output (AI)</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>G</kbd></td><td><code>compose_command</code></td><td>Compose a command (AI)</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>B</kbd></td><td><code>toggle_broadcast</code></td><td>Toggle input broadcast to all panes</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>P</kbd></td><td><code>command_palette</code></td><td>Open the command palette</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>P</kbd></td><td><code>quick_open</code></td><td>Quick open</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>R</kbd></td><td><code>toggle_recording</code></td><td>Toggle session recording</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>↑</kbd></td><td><code>jump_to_prompt:-1</code></td><td>Jump to the previous prompt</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>↓</kbd></td><td><code>jump_to_prompt:1</code></td><td>Jump to the next prompt</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>O</kbd></td><td><code>copy_command_output</code></td><td>Copy the last command's output (OSC 133 blocks)</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>U</kbd></td><td><code>hints</code></td><td>Hint mode: label visible URLs, type to open</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>Space</kbd></td><td><code>copy_mode</code></td><td>Copy mode: vi-style keyboard selection</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>Y</kbd></td><td><code>clipboard_history</code></td><td>Clipboard-history picker</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>⌥</kbd><kbd>F</kbd></td><td><code>search_all</code></td><td>Global search across all tabs</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>⌥</kbd><kbd>E</kbd></td><td><code>unicode_picker</code></td><td>Emoji / symbol insert picker</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>⌥</kbd><kbd>S</kbd></td><td><code>snippets</code></td><td>Snippet / workflow picker</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>⌥</kbd><kbd>P</kbd></td><td><code>profiles</code></td><td>Launch-profile picker (opens a command tab)</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>⌥</kbd><kbd>A</kbd></td><td><code>annotate</code></td><td>Annotate the current line with a note</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>⌥</kbd><kbd>N</kbd></td><td><code>notes</code></td><td>Open the Notes markdown-vault surface</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>B</kbd> / <kbd>⌘</kbd><kbd>⌥</kbd><kbd>B</kbd></td><td><code>sidebar:left</code> / <code>sidebar:right</code></td><td>Toggle the left / right sidebar</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>,</kbd></td><td><code>toggle_settings</code></td><td>Toggle the settings panel</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>⌥</kbd><kbd>T</kbd></td><td><code>toggle_quick_terminal</code></td><td>Toggle the quick terminal</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>A</kbd></td><td><code>relay_launch</code></td><td>Launch a relay agent</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>I</kbd></td><td><code>relay_feed</code></td><td>Open the relay feed</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>⇧</kbd><kbd>L</kbd></td><td><code>relay_log</code></td><td>Open the relay log</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>Q</kbd></td><td><code>quit</code></td><td>Quit Sinclair</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>macOS-only readline keys</h3>
+        <p>On macOS, Sinclair maps the familiar Cocoa text-navigation shortcuts to the control sequences a readline shell expects, so line editing feels native.</p>
+        <div class="tablewrap">
+          <table>
+            <thead>
+              <tr><th>Shortcut</th><th>Sends</th><th>What it does</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><kbd>⌘</kbd><kbd>←</kbd></td><td><code>0x01</code></td><td>Move to start of line</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>→</kbd></td><td><code>0x05</code></td><td>Move to end of line</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>⌫</kbd></td><td><code>0x15</code></td><td>Delete to start of line</td></tr>
+              <tr><td><kbd>⌥</kbd><kbd>←</kbd></td><td><code>ESC b</code></td><td>Move to previous word</td></tr>
+              <tr><td><kbd>⌥</kbd><kbd>→</kbd></td><td><code>ESC f</code></td><td>Move to next word</td></tr>
+              <tr><td><kbd>⌥</kbd><kbd>⌫</kbd></td><td><code>ESC DEL</code></td><td>Delete previous word</td></tr>
+              <tr><td><kbd>⌘</kbd><kbd>A</kbd></td><td><code>select_all</code></td><td>Select all terminal text</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h2>Action catalog</h2>
+        <p>Every action you can bind, with its config string and any parameters. Parameters follow the action after a colon (for example <code>new_split:right</code>). Where an action lists an alias, either name works in your config.</p>
+        <div class="tablewrap">
+          <table>
+            <thead>
+              <tr><th>Action (config string)</th><th>Params</th><th>Description</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>new_window</code></td><td>—</td><td>Open a new window</td></tr>
+              <tr><td><code>new_tab</code></td><td>—</td><td>Open a new tab</td></tr>
+              <tr><td><code>close_surface</code></td><td>—</td><td>Close the focused pane</td></tr>
+              <tr><td><code>close_tab</code></td><td>—</td><td>Close the tab and all its panes</td></tr>
+              <tr><td><code>close_window</code></td><td>—</td><td>Close the window</td></tr>
+              <tr><td><code>close_all_windows</code></td><td>—</td><td>Close every window</td></tr>
+              <tr><td><code>new_split</code></td><td><code>DIR</code>: <code>right</code> | <code>down</code> | <code>left</code> | <code>up</code></td><td>Split the focused pane in the given direction</td></tr>
+              <tr><td><code>goto_split</code></td><td><code>TARGET</code>: <code>up</code> | <code>down</code> | <code>left</code> | <code>right</code> | <code>next</code> | <code>previous</code></td><td>Move focus to an adjacent or sequential pane</td></tr>
+              <tr><td><code>zoom_split</code> <span class="c">(toggle_split_zoom)</span></td><td>—</td><td>Toggle zoom on the focused pane</td></tr>
+              <tr><td><code>equalize_splits</code></td><td>—</td><td>Reset all split ratios to equal</td></tr>
+              <tr><td><code>resize_split</code></td><td><code>DIR</code>: <code>up</code> | <code>down</code> | <code>left</code> | <code>right</code></td><td>Grow the focused pane in the given direction</td></tr>
+              <tr><td><code>goto_tab</code></td><td><code>N</code>: 1-based index; negative counts from the end</td><td>Switch to tab N</td></tr>
+              <tr><td><code>previous_tab</code></td><td>—</td><td>Switch to the previous tab</td></tr>
+              <tr><td><code>next_tab</code></td><td>—</td><td>Switch to the next tab</td></tr>
+              <tr><td><code>move_tab</code></td><td><code>DELTA</code>: signed integer</td><td>Move the current tab by DELTA positions</td></tr>
+              <tr><td><code>copy_to_clipboard</code> <span class="c">(copy)</span></td><td>—</td><td>Copy the selection</td></tr>
+              <tr><td><code>copy_command_output</code> <span class="c">(copy_last_output)</span></td><td>—</td><td>Copy the last command's output between OSC 133 prompt marks</td></tr>
+              <tr><td><code>hints</code> <span class="c">(open_url_hint)</span></td><td>—</td><td>Enter hint mode: label visible URLs, type a label to open</td></tr>
+              <tr><td><code>copy_mode</code> <span class="c">(toggle_copy_mode)</span></td><td>—</td><td>Toggle vi-style keyboard selection</td></tr>
+              <tr><td><code>clipboard_history</code> <span class="c">(paste_history)</span></td><td>—</td><td>Open the clipboard-history picker</td></tr>
+              <tr><td><code>search_all</code> <span class="c">(global_search)</span></td><td>—</td><td>Fuzzy search recent output across all tabs</td></tr>
+              <tr><td><code>unicode_picker</code> <span class="c">(insert_emoji)</span></td><td>—</td><td>Insert an emoji or symbol</td></tr>
+              <tr><td><code>snippets</code> <span class="c">(workflows)</span></td><td>—</td><td>Insert a saved snippet into the focused pane</td></tr>
+              <tr><td><code>profiles</code> <span class="c">(profile_picker)</span></td><td>—</td><td>Open a named launch profile in a new tab</td></tr>
+              <tr><td><code>annotate</code></td><td>—</td><td>Pin a note to the current line</td></tr>
+              <tr><td><code>notes</code></td><td>—</td><td>Open the Notes markdown-vault surface</td></tr>
+              <tr><td><code>paste_from_clipboard</code> <span class="c">(paste)</span></td><td>—</td><td>Paste from the clipboard</td></tr>
+              <tr><td><code>select_all</code></td><td>—</td><td>Select all terminal text</td></tr>
+              <tr><td><code>adjust_selection</code></td><td><code>left</code>, <code>right</code>, <code>up</code>, <code>down</code>, <code>home</code>, <code>end</code>, <code>page_up</code>, <code>page_down</code>, <code>word_left</code>, <code>word_right</code>, <code>line_start</code>, <code>line_end</code></td><td>Extend the selection's moving end (word_* / line_* start at the cursor)</td></tr>
+              <tr><td><code>text</code></td><td><code>BYTES</code>: C-escapes <code>\n \r \t \e \0 \\ \xNN</code></td><td>Send literal bytes to the terminal</td></tr>
+              <tr><td><code>esc</code></td><td><code>BYTES</code>: C-escapes <code>\n \r \t \e \0 \\ \xNN</code></td><td>Send an escape sequence (prefixed with ESC) to the terminal</td></tr>
+              <tr><td><code>increase_font_size</code></td><td><code>AMOUNT</code> (optional)</td><td>Increase the font size by AMOUNT (default 1)</td></tr>
+              <tr><td><code>decrease_font_size</code></td><td><code>AMOUNT</code> (optional)</td><td>Decrease the font size by AMOUNT (default 1)</td></tr>
+              <tr><td><code>reset_font_size</code></td><td>—</td><td>Reset the font size to the configured default</td></tr>
+              <tr><td><code>scroll_page_up</code></td><td>—</td><td>Scroll up one page</td></tr>
+              <tr><td><code>scroll_page_down</code></td><td>—</td><td>Scroll down one page</td></tr>
+              <tr><td><code>scroll_to_top</code></td><td>—</td><td>Scroll to the top of the scrollback</td></tr>
+              <tr><td><code>scroll_to_bottom</code></td><td>—</td><td>Scroll to the bottom (live output)</td></tr>
+              <tr><td><code>jump_to_prompt</code></td><td><code>DELTA</code>: signed integer</td><td>Jump to a prompt relative to the current one</td></tr>
+              <tr><td><code>clear_screen</code></td><td>—</td><td>Clear the screen and scrollback</td></tr>
+              <tr><td><code>toggle_search</code></td><td>—</td><td>Toggle the search bar</td></tr>
+              <tr><td><code>toggle_semantic_search</code></td><td>—</td><td>Toggle semantic search</td></tr>
+              <tr><td><code>explain_output</code></td><td>—</td><td>Explain the output (AI)</td></tr>
+              <tr><td><code>compose_command</code></td><td>—</td><td>Compose a command (AI)</td></tr>
+              <tr><td><code>plugin_command</code></td><td><code>PLUGIN/COMMAND</code></td><td>Run a command contributed by a plugin</td></tr>
+              <tr><td><code>macro_record</code></td><td>—</td><td>Start or stop recording a macro</td></tr>
+              <tr><td><code>macro</code></td><td><code>NAME</code></td><td>Replay the named macro</td></tr>
+              <tr><td><code>command_palette</code></td><td>—</td><td>Open the command palette</td></tr>
+              <tr><td><code>quick_open</code></td><td>—</td><td>Quick open</td></tr>
+              <tr><td><code>toggle_settings</code> <span class="c">(open_settings)</span></td><td>—</td><td>Toggle the settings panel</td></tr>
+              <tr><td><code>show_help</code> <span class="c">(help)</span></td><td>—</td><td>Show the help screen</td></tr>
+              <tr><td><code>toggle_fullscreen</code></td><td>—</td><td>Toggle fullscreen</td></tr>
+              <tr><td><code>minimize_window</code> <span class="c">(minimize)</span></td><td>—</td><td>Minimize the window</td></tr>
+              <tr><td><code>zoom_window</code></td><td>—</td><td>Zoom (maximize) the window</td></tr>
+              <tr><td><code>hide_all</code> <span class="c">(toggle_visibility)</span></td><td>—</td><td>Hide or show all windows</td></tr>
+              <tr><td><code>bring_all_to_front</code></td><td>—</td><td>Bring all windows to the front</td></tr>
+              <tr><td><code>return_to_default_size</code> <span class="c">(reset_window_size)</span></td><td>—</td><td>Restore the window to its default size</td></tr>
+              <tr><td><code>use_as_default</code></td><td>—</td><td>Save the current layout as the default</td></tr>
+              <tr><td><code>change_tab_title</code></td><td>—</td><td>Rename the current tab</td></tr>
+              <tr><td><code>change_terminal_title</code></td><td>—</td><td>Rename the current terminal</td></tr>
+              <tr><td><code>toggle_read_only</code></td><td>—</td><td>Toggle read-only mode for the pane</td></tr>
+              <tr><td><code>toggle_broadcast</code> <span class="c">(broadcast_input)</span></td><td>—</td><td>Toggle input broadcast to all panes</td></tr>
+              <tr><td><code>toggle_recording</code> <span class="c">(record_session)</span></td><td>—</td><td>Toggle session recording</td></tr>
+              <tr><td><code>export_recording</code> <span class="c">(export_recording:mp4)</span></td><td>—</td><td>Export the latest recording to a GIF (or MP4 with <code>:mp4</code>)</td></tr>
+              <tr><td><code>save_buffer</code></td><td>—</td><td>Save the focused terminal's buffer (scrollback + screen) to a text file</td></tr>
+              <tr><td><code>toggle_quick_terminal</code> <span class="c">(quick_terminal)</span></td><td>—</td><td>Toggle the quick terminal</td></tr>
+              <tr><td><code>relay_feed</code></td><td>—</td><td>Open the relay feed</td></tr>
+              <tr><td><code>relay_launch</code></td><td>—</td><td>Launch a relay agent</td></tr>
+              <tr><td><code>relay_log</code></td><td>—</td><td>Open the relay log</td></tr>
+              <tr><td><code>relay_start</code></td><td>—</td><td>Start the relay daemon</td></tr>
+              <tr><td><code>relay_stop</code></td><td>—</td><td>Stop the relay daemon</td></tr>
+              <tr><td><code>relay_restart</code></td><td>—</td><td>Restart the relay daemon</td></tr>
+              <tr><td><code>tile</code></td><td><code>LAYOUT_ID</code></td><td>Apply a saved tile layout</td></tr>
+              <tr><td><code>save_layout</code></td><td>—</td><td>Save the current layout</td></tr>
+              <tr><td><code>worktree_create</code> <span class="c">(worktree_new)</span></td><td><code>PATH</code>; append <code>@branch</code> to name the branch</td><td>Create a git worktree branched from HEAD and open it in a new tab</td></tr>
+              <tr><td><code>worktree_open</code></td><td><code>PATH</code></td><td>Open an existing git worktree in a new tab</td></tr>
+              <tr><td><code>worktree_remove</code></td><td><code>PATH</code></td><td>Remove a git worktree (<code>git worktree remove</code>)</td></tr>
+              <tr><td><code>sidebar</code></td><td><code>SIDE</code>: <code>left</code> | <code>right</code>; optional <code>:PANEL</code> id</td><td>Toggle a sidebar (optionally a specific panel)</td></tr>
+              <tr><td><code>open_team</code></td><td><code>NAME</code></td><td>Open the named team in its own window (one member per pane)</td></tr>
+              <tr><td><code>agent_def</code></td><td><code>NAME</code></td><td>Open the named agent definition</td></tr>
+              <tr><td><code>quit</code></td><td>—</td><td>Quit Sinclair</td></tr>
+              <tr><td><code>unbind</code></td><td>—</td><td>Remove a default binding for this trigger</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </main>
+    <script type="module" src="docs.js"></script>
+  </body>
+</html>

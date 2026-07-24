@@ -1,0 +1,1469 @@
+:root {
+  color-scheme: dark;
+  --ink: #f7f8ff;
+  --text: #c4cad9;
+  --muted: #80889c;
+  --void: #05070c;
+  --deep: #080d16;
+  --panel: #0d1420;
+  --paneltwo: #111a2a;
+  --termbg: #0b111d;
+  --line: rgb(255 255 255 / 0.12);
+  --linehard: rgb(255 255 255 / 0.22);
+  --blue: #6eb4ff;
+  --bluehard: #4f95f4;
+  --mint: #83ead4;
+  --amber: #ffbd73;
+  --rose: #f68ab5;
+  --radius: 10px;
+  --max: 1180px;
+  --shadow: 0 30px 100px rgb(0 0 0 / 0.5);
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  background: var(--void);
+  color: var(--text);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  overflow-x: hidden;
+  background:
+    radial-gradient(circle at 74% 8%, rgb(79 149 244 / 0.22), transparent 28rem),
+    radial-gradient(circle at 22% 18%, rgb(131 234 212 / 0.1), transparent 24rem),
+    linear-gradient(180deg, #070a12 0, #05070c 48rem, #070b12 100%);
+}
+
+body::before {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  content: "";
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgb(255 255 255 / 0.035) 1px, transparent 1px) 0 0 / 84px 84px,
+    linear-gradient(180deg, rgb(255 255 255 / 0.025) 1px, transparent 1px) 0 0 / 84px 84px;
+  mask-image: linear-gradient(to bottom, black, transparent 74%);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font: inherit;
+}
+
+code,
+pre,
+.kicker,
+.label,
+.terminalbar,
+.tabstrip,
+.tabactions,
+.agentrow,
+.rail,
+.node,
+.bus {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.skip {
+  position: fixed;
+  left: 1rem;
+  top: 1rem;
+  z-index: 20;
+  padding: 0.7rem 0.9rem;
+  transform: translateY(-150%);
+  border: 1px solid var(--linehard);
+  border-radius: var(--radius);
+  background: var(--ink);
+  color: var(--void);
+}
+
+.skip:focus {
+  transform: translateY(0);
+}
+
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 1rem;
+  width: min(calc(100% - 2rem), var(--max));
+  margin: 0 auto;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--line);
+  backdrop-filter: blur(18px);
+}
+
+.brand,
+.navlinks,
+.navstar {
+  display: flex;
+  align-items: center;
+}
+
+.brand {
+  gap: 0.65rem;
+  color: var(--ink);
+  font-weight: 760;
+  letter-spacing: -0.02em;
+}
+
+.brandmark {
+  display: block;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 9px;
+  box-shadow: 0 10px 32px rgb(79 149 244 / 0.28);
+}
+
+.navlinks {
+  gap: 1.35rem;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.navstar {
+  justify-self: end;
+  gap: 0.45rem;
+  min-height: 2.35rem;
+  padding: 0 0.82rem;
+  border: 1px solid var(--linehard);
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.12), rgb(255 255 255 / 0.05));
+  color: var(--ink);
+  font-size: 0.84rem;
+  font-weight: 720;
+  box-shadow: 0 12px 36px rgb(0 0 0 / 0.24);
+}
+
+.navlinks a:hover,
+.navlinks a:focus-visible,
+.footer a:hover,
+.footer a:focus-visible {
+  color: var(--ink);
+}
+
+.hero {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 0.88fr) minmax(420px, 1.12fr);
+  gap: clamp(2rem, 5vw, 5rem);
+  align-items: center;
+  width: min(calc(100% - 2rem), var(--max));
+  min-height: min(850px, calc(100svh - 5.5rem));
+  margin: 0 auto;
+  padding: clamp(3.5rem, 6vw, 6rem) 0 clamp(2rem, 4vw, 3.5rem);
+}
+
+.herobeams {
+  position: absolute;
+  inset: 2rem -10% auto 38%;
+  height: 38rem;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: 30px;
+  opacity: 0.82;
+  mask-image: linear-gradient(90deg, transparent, black 16%, black 76%, transparent);
+}
+
+.herobeams span {
+  position: absolute;
+  left: -12%;
+  width: 120%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgb(110 180 255 / 0.8), rgb(131 234 212 / 0.55), transparent);
+  transform-origin: left center;
+  animation: beamdrift 8s linear infinite;
+}
+
+.herobeams span:nth-child(1) {
+  top: 18%;
+  transform: rotate(-16deg);
+}
+
+.herobeams span:nth-child(2) {
+  top: 45%;
+  animation-delay: -2.8s;
+  transform: rotate(-7deg);
+}
+
+.herobeams span:nth-child(3) {
+  top: 70%;
+  animation-delay: -5.2s;
+  transform: rotate(9deg);
+}
+
+.herocopy {
+  position: relative;
+  z-index: 2;
+}
+
+.kicker,
+.label {
+  margin: 0 0 1rem;
+  color: var(--mint);
+  font-size: 0.76rem;
+  font-weight: 760;
+  letter-spacing: 0;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin-top: 0;
+}
+
+h1 {
+  max-width: 9.4ch;
+  margin-bottom: 1.1rem;
+  color: var(--ink);
+  font-size: clamp(4.1rem, 9vw, 6.85rem);
+  line-height: 0.86;
+  letter-spacing: -0.055em;
+  text-wrap: balance;
+}
+
+h2 {
+  max-width: 12ch;
+  margin-bottom: 1rem;
+  color: var(--ink);
+  font-size: clamp(2.45rem, 6vw, 5.25rem);
+  line-height: 0.92;
+  letter-spacing: -0.05em;
+  text-wrap: balance;
+}
+
+h3 {
+  margin-bottom: 0.65rem;
+  color: var(--ink);
+  font-size: clamp(1.15rem, 2vw, 1.45rem);
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+}
+
+.lede,
+.agentcopy p,
+.install p,
+.featureflow p,
+.detailgrid p {
+  max-width: 68ch;
+  color: var(--text);
+  font-size: 1.08rem;
+  line-height: 1.68;
+  text-wrap: pretty;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 1.8rem 0 1rem;
+}
+
+.button,
+.terminalbar button,
+.copywide {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.95rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-weight: 780;
+}
+
+.button {
+  padding: 0 1.05rem;
+  border: 1px solid var(--linehard);
+}
+
+.primary {
+  background: var(--ink);
+  color: var(--void);
+}
+
+.secondary {
+  background: rgb(255 255 255 / 0.06);
+  color: var(--ink);
+}
+
+.button:hover,
+.terminalbar button:hover,
+.copywide:hover {
+  transform: translateY(-1px);
+}
+
+.terminalbar {
+  display: flex;
+  align-items: stretch;
+  width: min(100%, 38rem);
+  overflow: hidden;
+  border: 1px solid var(--linehard);
+  border-radius: var(--radius);
+  background: rgb(3 5 9 / 0.72);
+  box-shadow: 0 16px 48px rgb(0 0 0 / 0.24);
+}
+
+.terminalbar code {
+  flex: 1;
+  min-width: 0;
+  padding: 1rem;
+  overflow-x: auto;
+  color: var(--mint);
+  font-size: 0.86rem;
+  white-space: nowrap;
+}
+
+.terminalbar button {
+  flex: 0 0 auto;
+  border: 0;
+  border-left: 1px solid var(--linehard);
+  padding: 0 1rem;
+  background: rgb(255 255 255 / 0.08);
+  color: var(--ink);
+}
+
+.productstage {
+  position: relative;
+  z-index: 2;
+  min-height: clamp(28rem, 48vw, 42rem);
+}
+
+.stageglow {
+  position: absolute;
+  inset: 4% 4% 8%;
+  background:
+    radial-gradient(circle at 70% 22%, rgb(110 180 255 / 0.34), transparent 15rem),
+    radial-gradient(circle at 35% 70%, rgb(131 234 212 / 0.18), transparent 17rem);
+  filter: blur(20px);
+}
+
+.workspacewindow {
+  position: absolute;
+  inset: 7% 0 auto;
+  min-height: 31rem;
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 0.18);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.1), transparent 14%),
+    linear-gradient(135deg, rgb(13 20 32 / 0.96), rgb(5 8 14 / 0.94));
+  box-shadow:
+    var(--shadow),
+    0 0 0 1px rgb(255 255 255 / 0.04) inset;
+}
+
+/* Titlebar strip: Sinclair folds the tab row directly into the window chrome,
+   a touch lighter than the terminal body, with the native traffic lights
+   inset to macOS spacing on the left. */
+.windowbar {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: stretch;
+  height: 2.6rem;
+  padding-left: 1.25rem;
+  background: rgb(255 255 255 / 0.05);
+}
+
+.traffic {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-right: 1.1rem;
+}
+
+.traffic span {
+  width: 0.72rem;
+  height: 0.72rem;
+  border-radius: 50%;
+}
+
+.traffic span:nth-child(1) { background: #ff5f57; }
+.traffic span:nth-child(2) { background: #febc2e; }
+.traffic span:nth-child(3) { background: #28c840; }
+
+/* The tab row. The active tab carries the terminal body color so it reads as
+   one continuous surface, exactly like the app. */
+.tabstrip {
+  display: flex;
+  align-items: stretch;
+  flex: 1;
+  min-width: 0;
+  gap: 1px;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  max-width: 13rem;
+  padding: 0 0.75rem;
+  border-bottom: 2px solid transparent;
+  color: rgb(255 255 255 / 0.55);
+  font-size: 0.76rem;
+  white-space: nowrap;
+}
+
+.tab span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tab.active {
+  background: var(--termbg);
+  color: var(--ink);
+}
+
+.tab.attention {
+  border-bottom-color: var(--amber);
+}
+
+.tabdot {
+  flex: none;
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: var(--amber);
+}
+
+.tabclose {
+  font-style: normal;
+  font-size: 0.92rem;
+  line-height: 1;
+  color: rgb(255 255 255 / 0.4);
+}
+
+/* Trailing button section: new (+) and split-into-column, pinned to the right
+   and fenced off from the tabs by a hairline, exactly like the app. */
+.tabactions {
+  display: flex;
+  align-items: stretch;
+  border-left: 1px solid rgb(255 255 255 / 0.18);
+}
+
+.tabbtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.1rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: rgb(255 255 255 / 0.5);
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.tabbtn + .tabbtn { border-left: 1px solid rgb(255 255 255 / 0.18); }
+
+.tabbtn:hover {
+  color: var(--ink);
+  background: rgb(255 255 255 / 0.1);
+}
+
+/* The body: a terminal split, two panes divided by a single hairline like a
+   real Sinclair split — no floating cards or per-pane chrome. */
+.workspacegrid {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 13rem;
+  background: var(--termbg);
+}
+
+.terminalpane {
+  min-height: 24rem;
+  overflow: hidden;
+}
+
+.agentpane {
+  min-height: 24rem;
+  padding: 0.6rem 0;
+  border-left: 1px solid var(--line);
+}
+
+.terminalpane pre {
+  margin: 0;
+  padding: 0.9rem 1.05rem;
+  color: #c8cddb;
+  font-size: clamp(0.78rem, 1.2vw, 0.95rem);
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.prompt {
+  color: var(--mint);
+  font-weight: 600;
+}
+
+.cmd { color: var(--ink); }
+
+.ok { color: var(--mint); }
+
+.cursor {
+  display: inline-block;
+  color: var(--blue);
+  animation: cursorblink 1s steps(1) infinite;
+}
+
+.agentrow {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.45rem 0.65rem;
+  align-items: center;
+  margin: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid rgb(255 255 255 / 0.1);
+  border-radius: 10px;
+  background: rgb(255 255 255 / 0.045);
+  animation: cardpulse 4.8s ease-in-out infinite;
+}
+
+.agentrow:nth-child(3) { animation-delay: -1.1s; }
+.agentrow:nth-child(4) { animation-delay: -2.2s; }
+.agentrow:nth-child(5) { animation-delay: -3.4s; }
+
+.agentrow span {
+  grid-row: span 2;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  background: var(--blue);
+  box-shadow: 0 0 22px currentColor;
+}
+
+.agentrow strong {
+  color: var(--ink);
+  font-size: 0.78rem;
+}
+
+.agentrow em {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-style: normal;
+}
+
+.frontend span { background: var(--mint); }
+.backend span { background: var(--amber); }
+.reviewer span { background: var(--rose); }
+
+.flowline {
+  position: absolute;
+  z-index: 3;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--blue), var(--mint), transparent);
+  opacity: 0.8;
+  animation: packet 4.4s linear infinite;
+}
+
+.flowline.one {
+  left: 7%;
+  right: 20%;
+  bottom: 24%;
+}
+
+.flowline.two {
+  left: 28%;
+  right: 6%;
+  bottom: 38%;
+  animation-delay: -1.4s;
+}
+
+.flowline.three {
+  left: 10%;
+  right: 32%;
+  bottom: 54%;
+  animation-delay: -2.8s;
+}
+
+.proof,
+.terminalsection,
+.agentsection,
+.details,
+.install {
+  width: min(calc(100% - 2rem), var(--max));
+  margin: 0 auto;
+}
+
+.proof {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--line);
+}
+
+.downloadhero {
+  margin-top: 1.7rem;
+  padding: 1.1rem 1.2rem 1.2rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgb(110 180 255 / 0.09), rgb(255 255 255 / 0.02));
+}
+
+.downloadhero[hidden] { display: none; }
+
+.dlhead {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin-bottom: 0.85rem;
+}
+
+.dlos { font-weight: 820; color: var(--ink); }
+.dlver { font-size: 0.82rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.dlbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 3rem;
+  font-weight: 800;
+}
+
+.dlalt {
+  margin: 0.75rem 0 0;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.installdownloads {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--line);
+}
+
+.installdownloads .dl {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem clamp(1rem, 3vw, 1.6rem);
+  border-bottom: 1px solid var(--line);
+  color: var(--text);
+  font-weight: 660;
+  font-size: 0.92rem;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.installdownloads .dl:last-child { border-bottom: 0; }
+
+.installdownloads .dl:hover {
+  background: rgb(255 255 255 / 0.05);
+  color: var(--ink);
+}
+
+.installdownloads .dl span { color: var(--muted); font-weight: 700; }
+.installdownloads .dl.ghost { color: var(--muted); font-weight: 600; }
+.installdownloads .dl.ghost:hover { color: var(--ink); }
+
+.trailer {
+  width: min(calc(100% - 2rem), var(--max));
+  margin: clamp(2.5rem, 5vw, 4.5rem) auto;
+}
+
+.trailer .sectionhead {
+  margin-bottom: 1.4rem;
+}
+
+.trailerframe {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  overflow: hidden;
+  background: #000;
+  aspect-ratio: 16 / 10;
+  box-shadow: var(--shadow);
+}
+
+.trailerframe::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: 16px;
+  box-shadow: inset 0 0 0 1px rgb(110 180 255 / 0.14);
+}
+
+.trailerframe video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #000;
+}
+
+.proof div {
+  min-height: 11rem;
+  padding: clamp(1.1rem, 3vw, 2rem);
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.07), rgb(255 255 255 / 0.035));
+}
+
+.proof strong,
+.proof span {
+  display: block;
+}
+
+.proof strong {
+  margin-bottom: 0.8rem;
+  color: var(--ink);
+  font-size: 1.08rem;
+}
+
+.proof span {
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.terminalsection,
+.details,
+.install {
+  padding: clamp(5rem, 10vw, 9rem) 0;
+}
+
+.sectionhead {
+  max-width: 58rem;
+  margin-bottom: clamp(2rem, 5vw, 4rem);
+}
+
+.featureflow {
+  display: grid;
+  grid-template-columns: 1.08fr 0.92fr;
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--line);
+  box-shadow: var(--shadow);
+}
+
+.featureflow article {
+  min-height: 18rem;
+  padding: clamp(1.25rem, 4vw, 2.25rem);
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.075), rgb(255 255 255 / 0.035));
+}
+
+.featureflow .featurewide {
+  grid-row: span 2;
+  min-height: 36rem;
+  background:
+    radial-gradient(circle at 70% 15%, rgb(110 180 255 / 0.18), transparent 16rem),
+    linear-gradient(180deg, rgb(255 255 255 / 0.09), rgb(255 255 255 / 0.035));
+}
+
+.agentsection {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(320px, 1.1fr);
+  gap: clamp(2rem, 6vw, 6rem);
+  align-items: center;
+  padding: clamp(5rem, 9vw, 8rem) 0;
+}
+
+.mesh {
+  position: relative;
+  min-height: 31rem;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 50% 46%, rgb(110 180 255 / 0.14), transparent 15rem),
+    linear-gradient(180deg, rgb(255 255 255 / 0.07), rgb(255 255 255 / 0.035));
+  box-shadow: var(--shadow);
+}
+
+.mesh svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.mesh path {
+  fill: none;
+  stroke: rgb(131 234 212 / 0.46);
+  stroke-width: 1.5;
+  stroke-dasharray: 8 12;
+  animation: flow 18s linear infinite;
+}
+
+.node,
+.bus {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--linehard);
+  border-radius: 12px;
+  background: rgb(5 7 12 / 0.76);
+  color: var(--ink);
+  font-size: 0.82rem;
+  box-shadow: 0 16px 40px rgb(0 0 0 / 0.28);
+}
+
+.node {
+  width: 7rem;
+  height: 5.2rem;
+}
+
+.lead { left: 9%; top: 15%; }
+.frontend { right: 11%; top: 16%; }
+.backend { left: 10%; bottom: 14%; }
+.reviewer { right: 9%; bottom: 13%; }
+
+.bus {
+  left: 50%;
+  top: 50%;
+  width: 10rem;
+  height: 7rem;
+  transform: translate(-50%, -50%);
+  background: linear-gradient(180deg, rgb(79 149 244 / 0.28), rgb(5 7 12 / 0.86));
+}
+
+.details {
+  display: grid;
+  grid-template-columns: 12rem 1fr;
+  gap: clamp(2rem, 6vw, 5rem);
+  align-items: start;
+}
+
+.rail {
+  position: sticky;
+  top: 6rem;
+  display: grid;
+  gap: 0.5rem;
+  color: var(--mint);
+  font-size: 0.78rem;
+}
+
+.rail span {
+  padding: 0.65rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.detailgrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(1.5rem, 4vw, 3rem);
+}
+
+.detailgrid article {
+  padding-bottom: 2rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.detailgrid code {
+  color: var(--mint);
+}
+
+.install {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(320px, 1.1fr);
+  gap: clamp(2rem, 6vw, 5rem);
+  align-items: start;
+}
+
+.installpanel {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.07), rgb(255 255 255 / 0.035));
+  box-shadow: var(--shadow);
+}
+
+.installtabs {
+  display: flex;
+  border-bottom: 1px solid var(--line);
+}
+
+.installtabs button {
+  flex: 1;
+  min-height: 3.1rem;
+  border: 0;
+  border-right: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-weight: 780;
+}
+
+.installtabs button:last-child {
+  border-right: 0;
+}
+
+.installtabs button.active {
+  background: var(--ink);
+  color: var(--void);
+}
+
+.installpanel pre {
+  margin: 0;
+  min-height: 12rem;
+  padding: clamp(1rem, 3vw, 1.6rem);
+  overflow-x: auto;
+  color: var(--mint);
+  font-size: clamp(0.86rem, 2vw, 1rem);
+  line-height: 1.7;
+}
+
+.copywide {
+  width: calc(100% - 2rem);
+  margin: 0 1rem 1rem;
+  border: 1px solid var(--linehard);
+  background: rgb(255 255 255 / 0.07);
+  color: var(--ink);
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: space-between;
+  width: min(calc(100% - 2rem), var(--max));
+  margin: 0 auto;
+  padding: 2rem 0 3rem;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 3px;
+}
+
+@keyframes beamdrift {
+  0% { translate: -14% 0; opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { translate: 18% 0; opacity: 0; }
+}
+
+@keyframes cursorblink {
+  50% { opacity: 0; }
+}
+
+@keyframes cardpulse {
+  50% {
+    border-color: rgb(131 234 212 / 0.28);
+    background: rgb(255 255 255 / 0.075);
+  }
+}
+
+@keyframes packet {
+  0% { clip-path: inset(0 100% 0 0); opacity: 0; }
+  12% { opacity: 1; }
+  55% { clip-path: inset(0 0 0 0); }
+  100% { clip-path: inset(0 0 0 100%); opacity: 0; }
+}
+
+@keyframes flow {
+  to {
+    stroke-dashoffset: -180;
+  }
+}
+
+@media (max-width: 980px) {
+  .nav {
+    grid-template-columns: 1fr auto;
+  }
+
+  .navlinks {
+    display: none;
+  }
+
+  .hero,
+  .agentsection,
+  .install,
+  .details {
+    grid-template-columns: 1fr;
+  }
+
+  .hero {
+    min-height: auto;
+    padding-top: 4rem;
+  }
+
+  .productstage {
+    min-height: 33rem;
+  }
+
+  .workspacewindow {
+    inset: 0;
+  }
+
+  .proof,
+  .featureflow,
+  .detailgrid {
+    grid-template-columns: 1fr;
+  }
+
+  .featureflow .featurewide {
+    grid-row: auto;
+    min-height: 24rem;
+  }
+
+  .rail {
+    position: static;
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .rail span {
+    border-bottom: 0;
+  }
+}
+
+@media (max-width: 680px) {
+  .nav {
+    width: min(calc(100% - 1rem), var(--max));
+  }
+
+  h1 {
+    max-width: 10ch;
+    margin-bottom: 0.9rem;
+    font-size: clamp(3.2rem, 16vw, 4.25rem);
+    line-height: 0.9;
+  }
+
+  .lede,
+  .agentcopy p,
+  .install p,
+  .featureflow p,
+  .detailgrid p {
+    font-size: 1rem;
+    line-height: 1.62;
+  }
+
+  .actions {
+    margin-top: 1.35rem;
+  }
+
+  .terminalbar {
+    display: block;
+  }
+
+  .terminalbar button {
+    width: 100%;
+    border-left: 0;
+    border-top: 1px solid var(--linehard);
+  }
+
+  .productstage {
+    min-height: 39rem;
+  }
+
+  .workspacegrid {
+    grid-template-columns: 1fr;
+  }
+
+  .agentpane {
+    min-height: auto;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+
+  .agentrow {
+    grid-template-columns: auto 1fr auto;
+  }
+
+  .agentrow span {
+    grid-row: auto;
+  }
+
+  .agentrow em {
+    text-align: right;
+  }
+
+  .mesh {
+    min-height: 25rem;
+  }
+
+  .node {
+    width: 5.6rem;
+    height: 4.2rem;
+    font-size: 0.7rem;
+  }
+
+  .bus {
+    width: 8rem;
+    height: 5.8rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Plugin tutorial / docs article page
+   Reuses the landing tokens (--ink, --mint, --line, --radius, etc.) and the
+   shared .kicker/.label/.button classes. Only adds what readable doc prose
+   needs: a centered article column, tables, code cards, and ordered steps. */
+.doc {
+  width: min(calc(100% - 2rem), var(--max));
+  margin: 0 auto;
+  padding: clamp(2.5rem, 6vw, 4.5rem) 0 clamp(4rem, 8vw, 6rem);
+}
+
+.article {
+  max-width: 60rem;
+}
+
+.dochead {
+  margin-bottom: clamp(2.5rem, 6vw, 4rem);
+}
+
+.dochead h1 {
+  max-width: 16ch;
+  margin-bottom: 1.1rem;
+  font-size: clamp(2.6rem, 7vw, 4.4rem);
+  line-height: 0.92;
+}
+
+.doc .lede {
+  margin-bottom: 1.75rem;
+}
+
+.doc code {
+  padding: 0.1em 0.4em;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgb(255 255 255 / 0.05);
+  color: var(--mint);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.86em;
+}
+
+/* table-of-contents chips under the page title */
+.doctoc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.doctoc a {
+  padding: 0.45rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgb(255 255 255 / 0.04);
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+}
+
+.doctoc a:hover,
+.doctoc a:focus-visible {
+  color: var(--ink);
+  border-color: var(--linehard);
+}
+
+.docsection {
+  padding: clamp(2rem, 5vw, 3.25rem) 0;
+  border-top: 1px solid var(--line);
+}
+
+.docsection h2 {
+  max-width: 22ch;
+  margin-bottom: 1.1rem;
+  font-size: clamp(1.9rem, 4vw, 2.9rem);
+  line-height: 0.96;
+}
+
+.docsection h3 {
+  margin-top: 2rem;
+  margin-bottom: 0.85rem;
+}
+
+.docsection p {
+  max-width: 68ch;
+  color: var(--text);
+  font-size: 1.05rem;
+  line-height: 1.68;
+  text-wrap: pretty;
+}
+
+.docsection .actions {
+  margin-top: 2rem;
+}
+
+/* bulleted lists for prose */
+.doclist {
+  max-width: 68ch;
+  margin: 0 0 1.1rem;
+  padding-left: 1.2rem;
+  color: var(--text);
+  line-height: 1.7;
+}
+
+.doclist li {
+  margin-bottom: 0.5rem;
+}
+
+/* code cards: the same surface treatment as the install panel */
+.codecard {
+  margin: 1.25rem 0;
+  overflow: hidden;
+  border: 1px solid var(--linehard);
+  border-radius: var(--radius);
+  background: rgb(3 5 9 / 0.72);
+  box-shadow: 0 16px 48px rgb(0 0 0 / 0.24);
+}
+
+.codecard pre {
+  margin: 0;
+  padding: clamp(0.9rem, 2.5vw, 1.3rem);
+  overflow-x: auto;
+  color: var(--mint);
+  font-size: 0.86rem;
+  line-height: 1.7;
+}
+
+.codecard pre .c {
+  color: var(--muted);
+}
+
+/* doc tables */
+.tablewrap {
+  margin: 1.25rem 0;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.doctable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+.doctable th,
+.doctable td {
+  padding: 0.7rem 0.9rem;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--line);
+}
+
+.doctable thead th {
+  color: var(--ink);
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+  background: rgb(255 255 255 / 0.05);
+}
+
+.doctable tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.doctable td {
+  color: var(--text);
+  line-height: 1.55;
+}
+
+.badge {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.05rem 0.45rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgb(131 234 212 / 0.12);
+  color: var(--mint);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.68rem;
+}
+
+/* numbered tutorial steps */
+.steps,
+.checklist {
+  max-width: 68ch;
+  margin: 1.5rem 0 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+}
+
+.steps > li {
+  position: relative;
+  margin-bottom: 1.75rem;
+  padding-left: 3rem;
+}
+
+.steps > li::before {
+  counter-increment: step;
+  content: counter(step);
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--linehard);
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.05);
+  color: var(--mint);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.86rem;
+  font-weight: 720;
+}
+
+.steps > li h3 {
+  margin-top: 0.15rem;
+  margin-bottom: 0.5rem;
+}
+
+.checklist {
+  counter-reset: check;
+}
+
+.checklist li {
+  position: relative;
+  margin-bottom: 0.7rem;
+  padding-left: 1.9rem;
+  color: var(--text);
+  line-height: 1.6;
+}
+
+.checklist li::before {
+  counter-increment: check;
+  content: counter(check);
+  position: absolute;
+  left: 0;
+  top: 0.05rem;
+  display: grid;
+  place-items: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgb(255 255 255 / 0.04);
+  color: var(--mint);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.72rem;
+}
+
+.docsection a:not(.button) {
+  color: var(--blue);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.docsection a:not(.button):hover {
+  color: var(--ink);
+}
+
+/* idea grid */
+.ideagrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  max-width: 68ch;
+  margin: 1.25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ideagrid li {
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgb(255 255 255 / 0.035);
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+@media (max-width: 980px) {
+  .ideagrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Plugins section on the landing page */
+.pluginsection {
+  width: min(calc(100% - 2rem), var(--max));
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(320px, 1.1fr);
+  gap: clamp(2rem, 6vw, 5rem);
+  align-items: center;
+  padding: clamp(5rem, 9vw, 8rem) 0;
+}
+
+.pluginsection .lede {
+  margin-bottom: 1.5rem;
+}
+
+.plugincard {
+  overflow: hidden;
+  border: 1px solid var(--linehard);
+  border-radius: 18px;
+  background: rgb(3 5 9 / 0.72);
+  box-shadow: var(--shadow);
+}
+
+.plugincard .cardlabel {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 1.1rem;
+  border-bottom: 1px solid var(--line);
+  background: rgb(255 255 255 / 0.05);
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+}
+
+.plugincard pre {
+  margin: 0;
+  padding: clamp(1rem, 3vw, 1.5rem);
+  overflow-x: auto;
+  color: var(--mint);
+  font-size: 0.86rem;
+  line-height: 1.7;
+}
+
+.plugincard pre .c {
+  color: var(--muted);
+}
+
+@media (max-width: 980px) {
+  .pluginsection {
+    grid-template-columns: 1fr;
+  }
+
+  .steps > li {
+    padding-left: 2.6rem;
+  }
+}

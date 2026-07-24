@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sinclair - GPU terminal for builders and agent teams</title>
+    <meta
+      name="description"
+      content="Sinclair is a fast GPU-accelerated terminal for macOS and Linux with splits, themes, MCP, and a local agent mesh."
+    >
+    <meta property="og:title" content="Sinclair - a terminal for builders and agent teams">
+    <meta
+      property="og:description"
+      content="GPU rendering, meticulous VT support, live config, MCP, and a local relay for agent teams."
+    >
+    <meta property="og:type" content="website">
+    <meta name="theme-color" content="#05070c">
+    <link rel="icon" href="icon.png">
+    <link rel="apple-touch-icon" href="icon.png">
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <header class="nav" aria-label="Primary navigation">
+      <a class="brand" href="#top" aria-label="Sinclair home">
+        <img class="brandmark" src="icon.png" alt="" width="36" height="36">
+        <span>Sinclair</span>
+      </a>
+      <nav class="navlinks" aria-label="Site">
+        <a href="#terminal">Terminal</a>
+        <a href="#agents">Agents</a>
+        <a href="#plugins">Plugins</a>
+        <a href="tutorials.html">Tutorials</a>
+        <a href="docs.html">Docs</a>
+        <a href="#install">Install</a>
+      </nav>
+      <a class="navstar" href="https://github.com/wess/sinclair" data-star-link>
+        <span aria-hidden="true">star</span>
+        <strong data-star-count>GitHub</strong>
+      </a>
+    </header>
+
+    <main id="main">
+      <section class="hero" id="top">
+        <div class="herobeams" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+        <div class="herocopy">
+          <p class="kicker">GPU terminal for command-line work that moves.</p>
+          <h1>The terminal that can keep up with your build.</h1>
+          <p class="lede">
+            Sinclair is a fast, standards-focused terminal for macOS and Linux.
+            It pairs a meticulous VT core with tabs, splits, live config, MCP,
+            and a local relay for coordinating agent teams.
+          </p>
+          <div class="actions" aria-label="Primary actions">
+            <a class="button primary" href="#install">Install Sinclair</a>
+            <a class="button secondary" href="#watch">Watch the trailer</a>
+            <a class="button secondary" href="https://github.com/wess/sinclair" data-star-link>Star on GitHub</a>
+          </div>
+          <div class="terminalbar" aria-label="Install command">
+            <code>brew install --cask wess/packages/sinclair</code>
+            <button type="button" data-copy="brew install --cask wess/packages/sinclair">Copy</button>
+          </div>
+        </div>
+        <div class="productstage" aria-label="Sinclair terminal workspace preview">
+          <div class="stageglow" aria-hidden="true"></div>
+          <div class="workspacewindow">
+            <div class="windowbar">
+              <div class="traffic" aria-hidden="true"><span></span><span></span><span></span></div>
+              <div class="tabstrip" role="tablist" aria-label="Open tabs">
+                <div class="tab active" role="tab" aria-selected="true">
+                  <span>~/dev/sinclair</span>
+                  <i class="tabclose" aria-hidden="true">×</i>
+                </div>
+                <div class="tab attention" role="tab" aria-selected="false">
+                  <i class="tabdot" aria-hidden="true"></i>
+                  <span>relay · web</span>
+                  <i class="tabclose" aria-hidden="true">×</i>
+                </div>
+              </div>
+              <div class="tabactions" aria-label="Tab actions">
+                <button class="tabbtn" type="button" aria-label="New">+</button>
+                <button class="tabbtn" type="button" aria-label="Split into column">◫</button>
+              </div>
+            </div>
+            <div class="workspacegrid">
+              <section class="terminalpane" aria-label="Terminal session preview">
+                <pre><code><span class="prompt">~/dev/sinclair</span> <span class="cmd">prompt open team web</span>
+<span class="ok">opened window “web” with 4 agent panes</span>
+
+<span class="prompt">~/dev/sinclair</span> <span class="cmd">cargo test -p vt screen</span>
+running 583 tests
+<span class="ok">test result: ok. 583 passed</span>
+
+<span class="prompt">~/dev/sinclair</span> <span class="cmd">sinclair notify "review ready"</span>
+<span class="cursor">█</span></code></pre>
+              </section>
+              <aside class="agentpane" aria-label="Agent relay activity">
+                <div class="agentrow lead"><span></span><strong>lead</strong><em>delegating</em></div>
+                <div class="agentrow frontend"><span></span><strong>frontend</strong><em>working</em></div>
+                <div class="agentrow backend"><span></span><strong>backend</strong><em>waiting</em></div>
+                <div class="agentrow reviewer"><span></span><strong>reviewer</strong><em>ready</em></div>
+              </aside>
+            </div>
+            <div class="flowline one" aria-hidden="true"></div>
+            <div class="flowline two" aria-hidden="true"></div>
+            <div class="flowline three" aria-hidden="true"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="trailer" id="watch" aria-label="Sinclair trailer">
+        <div class="sectionhead">
+          <p class="kicker">See it in motion.</p>
+          <h2>Sinclair, in twenty-eight seconds.</h2>
+        </div>
+        <div class="trailerframe">
+          <video controls preload="none" playsinline poster="trailerposter.jpg">
+            <source src="trailer.mp4" type="video/mp4">
+            Your browser can’t play embedded video.
+            <a href="trailer.mp4">Download the trailer</a>.
+          </video>
+        </div>
+      </section>
+
+      <section class="proof" aria-label="Product proof points">
+        <div>
+          <strong>GPU rendered</strong>
+          <span>Built on gpui with crisp text, box drawing, emoji, ligatures, and smooth scrollback.</span>
+        </div>
+        <div>
+          <strong>Terminal deep</strong>
+          <span>OSC 8 links, OSC 52 clipboard, kitty keyboard, mouse reporting, synchronized output, sixel + kitty graphics.</span>
+        </div>
+        <div>
+          <strong>Agent ready</strong>
+          <span>MCP bridge, live status dots, per-agent git worktrees, resumable sessions, and a local SQLite relay bus.</span>
+        </div>
+      </section>
+
+      <section class="terminalsection" id="terminal">
+        <div class="sectionhead">
+          <p class="kicker">Built for the work, not the demo.</p>
+          <h2>A terminal core that respects the weird parts.</h2>
+        </div>
+        <div class="featureflow">
+          <article class="featurewide">
+            <p class="label">VT coverage</p>
+            <h3>Modern CLI apps behave like they should.</h3>
+            <p>
+              True color, wide characters, scroll regions, alt screen,
+              hyperlinks, palette queries, focus events, bracketed paste, URL
+              detection, and search all land in the core before the UI paints.
+            </p>
+          </article>
+          <article>
+            <p class="label">Workspace</p>
+            <h3>Tabs, recursive splits, and focus that follows your intent.</h3>
+            <p>Each pane is its own shell. Split any direction, drag dividers, restore sessions, and keep the working directory moving with you.</p>
+          </article>
+          <article>
+            <p class="label">Config</p>
+            <h3>Plain text settings, live the moment you save.</h3>
+            <p>Fonts, keybindings, shell, themes, padding, cursor, and behavior stay editable in a readable config file or the settings UI.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="agentsection" id="agents">
+        <div class="agentcopy">
+          <p class="kicker">For people running more than one brain at once.</p>
+          <h2>Launch agent teams into real terminal panes.</h2>
+          <p>
+            Sinclair includes a bundled relay sidecar. Agents register, join
+            channels, send messages, wait without burning cycles, and show up
+            where command-line work already happens: in tabs and splits you can
+            see. Quick-launch Claude Code or Codex from the menu, or design a
+            whole team — by hand or with an AI-guided builder — and open it into
+            a window of its own, one member per pane, resizable dividers between
+            them, your existing layout untouched.
+          </p>
+          <p>
+            Every pane reports what it's doing as a <strong>colored status
+            dot</strong> — working, blocked, done, idle — so you can read a whole
+            team at a glance. Give each agent its own <strong>git worktree</strong>
+            so they never clobber each other's files, and when you reopen Sinclair,
+            agent panes in your main window <strong>resume their sessions</strong>
+            instead of starting cold — a team window you reopen from the menu,
+            fresh.
+          </p>
+          <div class="actions" aria-label="Agent actions">
+            <a class="button primary" href="agentteams.html">Run your first team</a>
+            <a class="button secondary" href="agents.html">Read the mesh docs</a>
+          </div>
+        </div>
+        <div class="mesh" aria-label="Relay mesh diagram">
+          <div class="node lead">lead</div>
+          <div class="node frontend">frontend</div>
+          <div class="node backend">backend</div>
+          <div class="node reviewer">reviewer</div>
+          <div class="bus">relay bus</div>
+          <svg viewBox="0 0 640 360" role="img" aria-label="Agents connected through a local relay bus">
+            <path d="M154 100 C240 42 392 42 486 108"></path>
+            <path d="M120 235 C250 182 394 182 530 238"></path>
+            <path d="M320 82 L320 176"></path>
+            <path d="M320 216 L320 292"></path>
+            <path d="M190 176 C238 152 278 150 320 176 C366 206 420 198 466 176"></path>
+          </svg>
+        </div>
+      </section>
+
+      <section class="pluginsection" id="plugins">
+        <div class="plugincopy">
+          <p class="kicker">Make the terminal yours — and your agents'.</p>
+          <h2>Extend Sinclair with plugins.</h2>
+          <p class="lede">
+            A plugin is a small folder with a <code>plugin.toml</code>. Contribute
+            shell commands, live panels, webview surfaces, or event hooks — and
+            <strong>tools your AI agents can call</strong>. A plugin's
+            <code>[[tool]]</code> joins Sinclair's MCP server, so the same agent that
+            drives your terminal can query your database or read host stats through
+            whatever you've installed. The terminal's extensions and its AI are one
+            surface.
+          </p>
+          <p>
+            Share yours by opening a PR that adds
+            <code>plugins/&lt;your-plugin-name&gt;/plugin.toml</code> to the
+            community catalog at
+            <a href="https://github.com/wess/sinclair">github.com/wess/sinclair</a>.
+          </p>
+          <div class="actions" aria-label="Plugin actions">
+            <a class="button primary" href="plugins.html">Read the plugin guide</a>
+            <a class="button secondary" href="https://github.com/wess/sinclair/tree/main/plugins">Browse the catalog</a>
+          </div>
+        </div>
+        <div class="plugincard" aria-label="Example plugin.toml">
+          <div class="cardlabel"><span aria-hidden="true">›</span> plugin.toml</div>
+          <pre><code>id = "tools"
+name = "Dev Tools"
+
+[[command]]
+id = "logs"
+title = "Tail app logs"
+run = "tail -f ./log/dev.log"
+mode = "split-down"
+keybind = "cmd+ctrl+l"</code></pre>
+        </div>
+      </section>
+
+      <section class="details" aria-label="Sinclair features">
+        <div class="rail">
+          <span>ship faster</span>
+          <span>stay local</span>
+          <span>own the loop</span>
+        </div>
+        <div class="detailgrid">
+          <article>
+            <h3>Suggests as you type</h3>
+            <p>Fish-style inline autosuggestions complete your command from history, common commands, and paths — accept with <kbd>→</kbd>. Add a completion popup, Tab-cycling, or an AI fallback, each toggled on its own.</p>
+          </article>
+          <article>
+            <h3>Readable automation</h3>
+            <p>Record typed command macros as plain text and replay them with keybindings, paced by shell prompt marks when available.</p>
+          </article>
+          <article>
+            <h3>Share your sessions</h3>
+            <p>Record a pane, then export it to a GIF or MP4 — carrying the same ligatures, fonts, and box-drawing you see on screen. Or save the whole buffer straight to a text file with ⌘S.</p>
+          </article>
+          <article>
+            <h3>Terminal-aware notifications</h3>
+            <p>OSC notifications and <code>sinclair notify</code> raise native banners and light up background tabs until you look.</p>
+          </article>
+          <article>
+            <h3>Theme without ceremony</h3>
+            <p>Start with 22 built-in schemes, follow the OS light/dark setting live, and override exactly the colors you care about — plus transparency, a background image, and a readability contrast floor.</p>
+          </article>
+          <article>
+            <h3>Keyboard everything</h3>
+            <p>Hint mode opens links by keystroke, copy mode selects with vi keys, and one shortcut grabs the last command's output. Fuzzy pickers for clipboard history, snippets, launch profiles, and emoji.</p>
+          </article>
+          <article>
+            <h3>A clean machine in a tab</h3>
+            <p>Open a fresh Debian, Ubuntu, Alpine, Fedora, or Arch userland — or any OCI image — as a container-backed tab with ⌘⇧T, disposable by default. Or attach a shell to a container you already have running with ⌘⇧C. It scrolls, themes, and records like any other pane.</p>
+          </article>
+          <article>
+            <h3>Guardrails &amp; glance</h3>
+            <p>Redact secrets from every copy, fire notifications on regex output triggers, timestamp and annotate lines, and read who's working, blocked, done, or idle across every tab from the Activity panel's status dots.</p>
+          </article>
+          <article>
+            <h3>A worktree per agent</h3>
+            <p>Spin up a git worktree in a new tab with one action — or let an agent create its own over MCP — so several agents work the same repo on isolated branches without colliding. New worktrees fire plugin triggers, so setup runs itself.</p>
+          </article>
+          <article>
+            <h3>Resume where you left off</h3>
+            <p>Turn on session restore and Sinclair reopens your tabs, splits, and directories — and relaunches agent panes <em>resumed</em>, reloading their own session instead of starting cold.</p>
+          </article>
+          <article>
+            <h3>Scriptable by design</h3>
+            <p><code>sinclair mcp</code> exposes tabs, panes, screen reads, input, macros, splits, git worktrees, agent status, and notifications to local tools — plus every tool your plugins add.</p>
+          </article>
+          <article>
+            <h3>Keeps itself current</h3>
+            <p>Sinclair checks GitHub for new releases and offers to update — running <code>brew</code>/<code>apt</code> for package installs, or swapping a manual <code>.dmg</code>/AppImage in place and relaunching.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="install" id="install">
+        <div>
+          <p class="kicker">Open source. macOS, Linux, and Windows.</p>
+          <h2>Install it, star it, and help shape the terminal.</h2>
+          <p>
+            Sinclair ships from GitHub releases — a Homebrew cask and universal
+            <code>.dmg</code> for macOS, AppImage, deb, and tarball packages for
+            Linux on x86_64 and aarch64, and a beta MSI/Scoop build for Windows.
+          </p>
+          <div class="downloadhero" data-download-hero hidden>
+            <div class="dlhead">
+              <span class="dlos" data-dl-os>Detecting your platform…</span>
+              <span class="dlver" data-dl-ver></span>
+            </div>
+            <a class="button primary dlbtn" data-dl-primary href="https://github.com/wess/sinclair/releases/latest">Download</a>
+            <p class="dlalt" data-dl-alt></p>
+          </div>
+        </div>
+        <div class="installpanel">
+          <div class="installtabs" role="tablist" aria-label="Install options">
+            <button class="active" type="button" data-install-tab="mac">macOS</button>
+            <button type="button" data-install-tab="linux">Linux</button>
+            <button type="button" data-install-tab="windows">Windows</button>
+            <button type="button" data-install-tab="source">Source</button>
+          </div>
+          <pre aria-live="polite"><code data-install-code>brew install --cask wess/packages/sinclair</code></pre>
+          <button class="copywide" type="button" data-copy="brew install --cask wess/packages/sinclair">Copy command</button>
+          <div class="installdownloads" data-install-downloads aria-label="Direct downloads"></div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span>Sinclair</span>
+      <a href="https://github.com/wess/sinclair">GitHub</a><a href="https://github.com/sponsors/wess">♥ Sponsor</a>
+      <a href="docs.html">Documentation</a>
+      <a href="tutorials.html">Tutorials</a>
+      <a href="plugins.html">Plugin guide</a>
+      <a href="https://github.com/wess/sinclair/releases">Releases</a>
+      <a href="coverage.html">Feature coverage</a>
+    </footer>
+
+    <script type="module" src="script.js"></script>
+  </body>
+</html>

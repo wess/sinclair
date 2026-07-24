@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Tutorials — Sinclair docs</title>
+    <meta name="description" content="Hands-on walkthroughs for every Sinclair feature: workspace, appearance, configuration, navigation, clipboard, awareness, recording, and the full agent workflow.">
+    <meta name="theme-color" content="#05070c">
+    <link rel="icon" href="icon.png">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="docs.css">
+  </head>
+  <body class="docs">
+    <a class="skip" href="#doc-main">Skip to content</a>
+    <main id="doc-main" class="doc-main">
+      <article class="doc-article" data-doc-page="tutorials">
+        <p class="kicker">Tutorials</p>
+        <h1>Tutorials</h1>
+        <p class="lede">
+          The reference pages tell you what every option does. These tutorials show you
+          how the pieces fit together — each one is a start-to-finish walkthrough you can
+          type along with. There's a hands-on guide for every part of Sinclair: start at the
+          top if you're new, or jump straight to the track you need.
+        </p>
+
+        <h2>Start here</h2>
+        <div class="cards">
+          <a href="quickstart.html"><strong>Your first 10 minutes</strong>Install, open a split, switch themes live, and learn the two shortcuts that unlock everything else.</a>
+        </div>
+
+        <h2>Master the terminal</h2>
+        <p>Ten guides that cover every day-to-day feature — the workspace, how it looks, how you configure it, and the power features that make the difference.</p>
+        <div class="cards">
+          <a href="workspacesetup.html"><strong>Organize your workspace</strong>Tabs, recursive splits, tile layouts, sidebars, broadcast input, session restore, and the quick terminal.</a>
+          <a href="appearance.html"><strong>Themes, fonts &amp; appearance</strong>Pick from 22 themes, follow OS light/dark, override colors, tune fonts and ligatures, and add transparency.</a>
+          <a href="configkeys.html"><strong>Configuration &amp; keybindings</strong>The live-reloading config file, the settings UI, and rebinding any action to the keys you want.</a>
+          <a href="navigate.html"><strong>Navigate &amp; select</strong>Search, semantic search, jump-to-prompt, hint mode, copy mode, and grabbing a command's output in one keystroke.</a>
+          <a href="clipboard.html"><strong>Clipboard, snippets &amp; pickers</strong>Clipboard history, secret redaction, snippets, launch profiles, and the emoji picker.</a>
+          <a href="awareness.html"><strong>Triggers &amp; notifications</strong>Regex output triggers, desktop notifications, line timestamps, annotations, badges, and the Activity dashboard.</a>
+          <a href="recording.html"><strong>Record &amp; share</strong>Capture a pane, export it to a GIF or video with your exact fonts, and save the whole buffer to a file.</a>
+          <a href="ostabs.html"><strong>Run a throwaway Linux in a tab</strong>Open a fresh Debian, Ubuntu, Alpine, Fedora, or Arch userland as a tab, keep the ones you need, and attach to running containers.</a>
+          <a href="images.html"><strong>Images in the terminal</strong>Render pictures inline with sixel — file previews, plots, and thumbnails that scroll with your output.</a>
+          <a href="assist.html"><strong>Assist: type less, understand more</strong>Ghost-text completions, one-key explanations of output, and composing commands from a description — all local and offline.</a>
+        </div>
+
+        <h2>Run agents like a team</h2>
+        <p>
+          Sinclair's headline feature is coordinating <em>more than one</em> coding agent at
+          once — in real terminal panes you can see, over a local bus, each one reporting
+          what it's doing. These build on each other.
+        </p>
+        <div class="cards">
+          <a href="agentteams.html"><strong>Run your first agent team</strong>Launch a supervisor and two workers that message each other and park for free between tasks.</a>
+          <a href="worktreeagents.html"><strong>Parallel agents in git worktrees</strong>Give every agent an isolated checkout so they never clobber each other's files — the flagship workflow.</a>
+          <a href="statushooks.html"><strong>Agent status at a glance</strong>Wire lifecycle hooks so every tab shows a live dot: working, blocked, done, or idle.</a>
+        </div>
+
+        <h2>Automate &amp; extend</h2>
+        <div class="cards">
+          <a href="automation.html"><strong>Automate your terminal with MCP</strong>Let an MCP client drive your live window, record macros, and react to events with triggers.</a>
+          <a href="plugintutorial.html"><strong>Build a plugin</strong>Four plugins step by step — a command, a live panel, a webview, and an agent-callable tool.</a>
+          <a href="designer.html"><strong>Design your shell prompt</strong>Compose a prompt visually and apply it to zsh or bash.</a>
+        </div>
+
+        <div class="callout tip">
+          <span class="label">Tip</span>
+          <p>Every action a tutorial mentions is reachable from the command palette
+          (<kbd>⌘⇧P</kbd>), so you can always find a feature by name even before you've
+          learned its keybinding.</p>
+        </div>
+      </article>
+    </main>
+    <script type="module" src="docs.js"></script>
+  </body>
+</html>
