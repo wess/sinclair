@@ -158,3 +158,61 @@ fn display_unknown_id_errors() {
     assert!(t.images().is_empty());
     assert_eq!(t.take_output(), b"\x1b_Gi=404;ENOENT\x1b\\");
 }
+
+/// An APC block is captured here and never handed to vte, so a run forwarded to
+/// vte must not end on a dangling ESC — vte would park mid-escape and eat the
+/// first byte *after* the block as that escape's final byte. `ESC ESC _…ST H`
+/// used to print "G" and silently lose the "H" to an `ESC H` (HTS).
+#[test]
+fn dangling_esc_before_apc_does_not_eat_the_next_byte() {
+    let mut t = Terminal::new(20, 3, 0);
+    t.feed(b"G\x1b\x1b_Xz\x1b\\H");
+    assert_eq!(t.row_text(0).trim_end(), "GH");
+}
+
+/// Same shape with a real graphics APC rather than an ignored one.
+#[test]
+fn dangling_esc_before_graphics_apc_does_not_eat_the_next_byte() {
+    let mut t = Terminal::new(20, 3, 0);
+    t.feed(b"S\x1b\x1b_Gf=100,a=q;AAAA\x1b\\T");
+    assert_eq!(t.row_text(0).trim_end(), "ST");
+}
+
+/// Any number of superseded ESCs must be dropped, not just one.
+#[test]
+fn several_dangling_escs_before_apc_are_all_dropped() {
+    let mut t = Terminal::new(20, 3, 0);
+    t.feed(b"A\x1b\x1b\x1b\x1b_Xz\x1b\\B");
+    assert_eq!(t.row_text(0).trim_end(), "AB");
+}
+
+/// The same hazard across a feed boundary: an ESC held from the previous read,
+/// resolved against a following ESC that turns out to start the APC.
+#[test]
+fn dangling_esc_held_across_feeds_does_not_eat_the_next_byte() {
+    let mut t = Terminal::new(20, 3, 0);
+    t.feed(b"C\x1b"); // read ends on a bare ESC
+    t.feed(b"\x1b_Xz\x1b\\D");
+    assert_eq!(t.row_text(0).trim_end(), "CD");
+}
+
+/// A *complete* escape before an APC must still reach vte — the trim may only
+/// drop ESCs, never a finished sequence.
+#[test]
+fn completed_escape_before_apc_is_still_applied() {
+    let mut t = Terminal::new(20, 3, 0);
+    // ESC [ 7 m sets reverse video; it must survive and apply to the "L".
+    t.feed(b"K\x1b[7m\x1b_Xz\x1b\\L");
+    assert_eq!(t.row_text(0).trim_end(), "KL");
+    assert!(t.cell(0, 1).flags.contains(crate::cell::CellFlags::INVERSE));
+}
+
+/// A held ESC that introduces something ordinary is still forwarded intact.
+#[test]
+fn held_esc_introducing_a_normal_sequence_still_works() {
+    let mut t = Terminal::new(20, 3, 0);
+    t.feed(b"M\x1b");
+    t.feed(b"[7mN");
+    assert_eq!(t.row_text(0).trim_end(), "MN");
+    assert!(t.cell(0, 1).flags.contains(crate::cell::CellFlags::INVERSE));
+}

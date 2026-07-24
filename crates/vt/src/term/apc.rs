@@ -70,6 +70,14 @@ pub(crate) fn advance(parser: &mut vte::Parser, inner: &mut Inner, bytes: &[u8])
                 i = 1;
                 run_start = 1;
             }
+            Some(&ESC) => {
+                // A second ESC supersedes the held one — vte discards a restarted
+                // escape too — and this one may itself introduce an APC. Handing
+                // the held ESC to vte here would leave it mid-escape with the APC
+                // body withheld, so it would eat the byte after the block (see
+                // `trim_dangling_esc`). Drop it and rescan from Ground.
+                inner.apc.state = State::Ground;
+            }
             Some(_) => {
                 // The held ESC introduced something else; forward it on its own,
                 // then scan `bytes` from Ground (the byte is re-read below).
@@ -96,8 +104,9 @@ pub(crate) fn advance(parser: &mut vte::Parser, inner: &mut Inner, bytes: &[u8])
                     // APC begins. Forward the run up to (not including) the ESC
                     // first, so the image anchors after any preceding text.
                     let esc = i - 1;
-                    if run_start < esc {
-                        parser.advance(inner, &bytes[run_start..esc]);
+                    let end = trim_dangling_esc(bytes, run_start, esc);
+                    if run_start < end {
+                        parser.advance(inner, &bytes[run_start..end]);
                     }
                     inner.apc.buf.clear();
                     inner.apc.state = State::Body;
@@ -146,6 +155,24 @@ pub(crate) fn advance(parser: &mut vte::Parser, inner: &mut Inner, bytes: &[u8])
     if run_start < end {
         parser.advance(inner, &bytes[run_start..end]);
     }
+}
+
+/// End of the run to forward before an APC that starts at `esc`, with any
+/// trailing ESCs dropped.
+///
+/// vte only ever resolves an ESC by reading the byte after it — and the APC's
+/// bytes are captured here, never forwarded. So handing vte a run ending in ESC
+/// parks it mid-escape, and the next byte it sees (the first one *after* the
+/// APC block) is consumed as that escape's final byte: `…ESC ESC _X…ST H`
+/// silently loses the `H` to an `ESC H`. Those ESCs are superseded by the APC's
+/// own ESC, which vte discards anyway, so dropping them matches what vte would
+/// have done had it seen the whole stream.
+fn trim_dangling_esc(bytes: &[u8], run_start: usize, esc: usize) -> usize {
+    let mut end = esc;
+    while end > run_start && bytes[end - 1] == ESC {
+        end -= 1;
+    }
+    end
 }
 
 fn push_body(inner: &mut Inner, b: u8) {
