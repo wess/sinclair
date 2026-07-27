@@ -19,6 +19,7 @@ mod persist;
 mod pluginpanel;
 mod quickopen;
 mod render;
+pub(crate) mod sandbox;
 mod savebuffer;
 mod sidebar;
 mod triggers;
@@ -431,6 +432,22 @@ pub struct WorkspaceView {
     /// — `container-persist = false` — are tracked here; persistent ones are
     /// left running.
     kill_on_close: HashMap<ItemId, String>,
+    /// This project's shared sandbox, once it has been brought up. One
+    /// container serves every pane and every agent, so it is resolved once per
+    /// window and cached here.
+    sandbox: Option<crate::sandbox::Ready>,
+    /// Panes currently attached to the sandbox. The container outlives any one
+    /// of them; the count is what decides when it may be retired.
+    sandbox_panes: HashSet<ItemId>,
+    /// Live progress or the last failure, shown in the AI menu and the
+    /// Containers panel. `None` when the sandbox is simply idle.
+    sandbox_status: Option<String>,
+    /// Advisories from the last resolve (a devcontainer that stops on close, a
+    /// mount that did not parse), surfaced in the Containers panel.
+    sandbox_notes: Vec<String>,
+    /// True while a resolve is in flight, so a second click does not start a
+    /// second build.
+    sandbox_busy: bool,
     /// Configured font size, restored by `reset_font_size`.
     base_font_size: gpui::Pixels,
     /// Config-file watcher; kept alive so live reload keeps working.
@@ -546,6 +563,11 @@ impl WorkspaceView {
             spawn_error: None,
             container_tabs: HashMap::new(),
             kill_on_close: HashMap::new(),
+            sandbox: None,
+            sandbox_panes: HashSet::new(),
+            sandbox_status: None,
+            sandbox_notes: Vec::new(),
+            sandbox_busy: false,
             _watch: None,
             verified_agents: None,
             dark: is_dark(window.appearance()),
@@ -789,7 +811,7 @@ impl WorkspaceView {
             self.close_window(window, cx);
             return;
         }
-        self.on_item_closed(item);
+        self.on_item_closed(item, cx);
         // Dropping the Item drops the TerminalView (and its pty/subscription).
         self.items.borrow_mut().remove(&item);
         self.group.update(cx, |g, cx| g.close_item(item, cx));

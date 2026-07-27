@@ -305,6 +305,39 @@ no one there to answer a prompt.
 In **Settings → AI → Agent tools**, each tool has an enable toggle and a **Test**
 button that checks it's reachable (CLI `--version`, or the Ollama API port).
 
+## The shared sandbox
+
+A team working in your checkout is a team working on your real machine, with
+your real credentials, and — with `relay-team-autonomy` on — with their
+permission prompts bypassed. Turning on **File ▸ Sandbox ▸ Use Sandbox for This
+Project** puts the project and its whole roster inside one container instead:
+one filesystem, one toolchain, one blast radius.
+
+Relay itself stays on the host. `build::worker` resolves the role, renders the
+harness, and writes the MCP config exactly as it does for a host launch; only
+the final exec changes, so a wedged container can never take the mesh down.
+
+```
+relay launch alice --role frontend \
+  --sandbox sinclair-sbx-api-9f3c1a20 --sandbox-engine docker \
+  --sandbox-workdir /Users/you/code/api
+```
+
+Two things are restated from inside the container: the bus URL (a loopback
+endpoint becomes the engine's gateway host — `host.docker.internal`, or
+`host.containers.internal` under Podman) and the MCP config path (written to the
+host state dir as always, handed to the agent as `/sandbox/relay/<name>.mcp.json`
+where the sandbox mounts it read-only).
+
+Opening a team brings the container up *first*, so no member is launched onto
+the host while the rest of its team is inside. One exception, worth knowing: a
+worker started with the MCP `spawn` tool runs on the **host** — the daemon is
+not told which container a session belongs to. Because the sandbox
+identity-mounts the project, it still sees the same files; its toolchain is the
+host's.
+
+See [`docs/sandbox.md`](sandbox.md) for the full design and settings.
+
 ## Notes & limits
 
 - **Authentication.** Every request to `/mcp` and `/control/*` must carry the
@@ -375,6 +408,8 @@ button that checks it's reachable (CLI `--version`, or the Ollama API port).
   restart, so its work continues rather than starting cold. Foreground
   (human-driven) agents restart fresh. See `docs/pauseresume.md`.
 - **Codex/Gemini MCP** wiring is unverified — see above.
+- **Sandbox.** A team can share one container instead of running on the host;
+  see [The shared sandbox](#the-shared-sandbox) above and `docs/sandbox.md`.
 
 ## Internals
 

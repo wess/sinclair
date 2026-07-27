@@ -208,12 +208,14 @@ impl AgentPickerView {
             role: role.clone(),
             task: task.clone(),
         });
+        let sandbox = crate::root::sandbox::active_ref(cx);
         let cmd = crate::relay::launch_agent_command(
             &self.opts,
             &provider,
             &name,
             role.as_deref(),
             task.as_deref(),
+            sandbox.as_ref(),
         );
         create(cx, cmd, window);
     }

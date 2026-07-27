@@ -343,6 +343,43 @@ impl WorkspaceView {
                 .into_any_element();
         };
 
+        body = body.child(self.sidebar_section("Project sandbox"));
+        body = body.child(self.sidebar_note(&self.sandbox_summary()));
+        if self.opts.sandbox_enabled {
+            let label = if self.sandbox.is_some() {
+                "\u{25b8} Open shell in sandbox"
+            } else {
+                "\u{25b8} Start sandbox"
+            };
+            body = body.child(
+                self.sidebar_row(("sb-sbx-open", 0usize), label.into(), false, false, false)
+                    .on_click(cx.listener(|this, _: &gpui::ClickEvent, window, cx| {
+                        this.open_sandbox_shell(window, cx);
+                    })),
+            );
+            if self.sandbox.is_some() {
+                body = body.child(
+                    self.sidebar_row(("sb-sbx-stop", 0usize), "\u{25a0} Stop sandbox".into(), false, false, false)
+                        .on_click(cx.listener(|this, _: &gpui::ClickEvent, _w, cx| {
+                            this.sandbox_stop(cx);
+                        })),
+                );
+            }
+            // Advisories from the last resolve: a devcontainer that stops when
+            // the editor closes, a mount that did not parse. Worth seeing
+            // before a team starts working in here.
+            for note in &self.sandbox_notes {
+                body = body.child(self.sidebar_note(note));
+            }
+        } else {
+            body = body.child(
+                self.sidebar_row(("sb-sbx-on", 0usize), "\u{25b8} Use a sandbox here".into(), false, false, false)
+                    .on_click(cx.listener(|this, _: &gpui::ClickEvent, window, cx| {
+                        this.toggle_sandbox(window, cx);
+                    })),
+            );
+        }
+
         body = body.child(self.sidebar_section(&format!("Running \u{00b7} {}", engine.label())));
         if self.containers.is_empty() {
             body = body.child(self.sidebar_note("No running containers."));
@@ -524,7 +561,12 @@ impl WorkspaceView {
                     .on_click(cx.listener(move |this, _: &gpui::ClickEvent, window, cx| {
                         let name = name.clone();
                         this.with_relay_running(window, cx, move |this, window, cx| {
-                            if let Some(cmd) = crate::relay::launch_saved_command(&this.opts, &name)
+                            let sandbox = this.sandbox_ref();
+                            if let Some(cmd) = crate::relay::launch_saved_command(
+                                &this.opts,
+                                &name,
+                                sandbox.as_ref(),
+                            )
                             {
                                 this.splitcommand(&cmd, SplitAxis::Horizontal, false, window, cx);
                             }

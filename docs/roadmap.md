@@ -388,3 +388,25 @@ Conventions (non-negotiable):
   Known gap: the permission bypass does not cover Claude Code's separate
   first-run *folder trust* dialog, which still stops every pane the first time a
   team runs in an unfamiliar directory.
+- 2026-07-27: the shared project sandbox. A project's panes and its whole agent
+  team can now run inside **one container** instead of on the host, turning
+  `relay-team-autonomy`'s permission bypass from a promise into a boundary.
+  Self-contained: `docker` or `podman` is the only dependency — no VS Code, no
+  `devcontainer` CLI, no Sinclair image to pull. The `container` crate grew
+  `Sandbox` (a detached, keepalive-backed container with mounts, env, user,
+  network, and resource ceilings), `Recipe` (a generated Dockerfile that layers
+  the agent CLIs onto a configurable base, tagged by recipe hash so a rebuild
+  only happens when the recipe changes), `Mount`, `adopt` (label discovery plus
+  ownership, so a container VS Code created is entered and never removed), and
+  a `devcontainer.json` reader on `config`'s JSONC parser. The project is
+  **identity-mounted** — the same absolute path inside and out — which is what
+  keeps git worktrees valid from both sides and removes any need for a path
+  translation layer. Relay stays on the host: `relay launch --sandbox` changes
+  only the final exec, rewriting the bus URL to the engine's gateway host and
+  handing the agent its MCP config at the path the container mounts it. Opening
+  a team brings the container up first. UI: a Sandbox submenu under both File
+  and AI with a live status line, a Sandbox section in the Containers panel,
+  fourteen `sandbox-*` settings in Settings → AI, and six bindable actions.
+  Known gap: a worker started with the MCP `spawn` tool runs on the host — the
+  daemon is not told which container a session belongs to. See
+  `docs/sandbox.md`.

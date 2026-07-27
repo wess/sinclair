@@ -76,6 +76,16 @@ The workspace is layered bottom-up; each crate depends only on those below it.
 - **`cast`** — asciinema v2 `.cast` recording: a `Recorder` writes a header line
   plus timestamped output events as bytes arrive (output only; UTF-8 split
   across reads is carried over). Used by `terminal` for session capture.
+- **`container`** — container-backed terminals, pure argv construction with no
+  I/O beyond a `$PATH` probe: Docker/Podman detection, the OS profiles behind
+  "OS Tabs", and the project **sandbox** — one long-lived container a human and
+  a whole agent team share. The sandbox identity-mounts the project (a path
+  means the same thing inside and out, so git worktrees stay valid from both
+  sides), generates the image `Recipe` that installs the agent CLIs, and
+  discovers containers a project already has by label so an editor's
+  devcontainer is entered rather than duplicated. `app` drives it; `relay` uses
+  the same builders so a `docker exec` assembled on either side cannot drift.
+  See `docs/sandbox.md`.
 - **`input`** — keyboard/mouse encoding to terminal byte sequences (CSI, kitty
   keyboard protocol, mouse reporting, bracketed paste).
 - **`config`** — layered settings: compiled-in defaults overridden by the
@@ -215,5 +225,7 @@ Keep the vt/terminal layers free of gpui types — the boundary is the bridge.
 - `docs/guise.md` — the guise component-library migration: how `vendor/guise` is
   wired (the single-gpui patch), the theme bridge, and the surface-by-surface
   port status.
+- `docs/sandbox.md` — the shared project sandbox: one container for a human and
+  a whole agent team, the identity mount, the generated image, and adoption.
 - `docs/relay.md` — the agent mesh: roles, teams/tiles, the `relay` CLI, and the
   MCP coordination tools.

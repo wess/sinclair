@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Share one container with your agents — Sinclair docs</title>
+    <meta name="description" content="Put a project's panes and its whole agent team inside one Docker or Podman container: a shared filesystem, one toolchain, and a real boundary around unattended agents.">
+    <meta name="theme-color" content="#05070c">
+    <link rel="icon" href="icon.png">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="docs.css">
+  </head>
+  <body class="docs">
+    <a class="skip" href="#doc-main">Skip to content</a>
+    <main id="doc-main" class="doc-main">
+      <article class="doc-article" data-doc-page="sandbox">
+        <p class="kicker">Tutorial</p>
+        <h1>Share one container with your agents</h1>
+        <p class="lede">
+          A team of agents working in your checkout is a team working on your real machine,
+          with your real credentials, usually with their permission prompts turned off. The
+          sandbox puts the whole project — your panes and every agent on the team — inside a
+          single container instead. One filesystem, one toolchain, one blast radius. This
+          walkthrough turns it on, opens a shell in it, sends a team into it, and shows what
+          it does and does not protect.
+        </p>
+
+        <div class="callout note">
+          <p>The sandbox needs <strong>Docker or Podman</strong> — nothing else. No VS Code,
+          no <code>devcontainer</code> CLI, no image to pull from a registry Sinclair
+          publishes. If your project happens to have a <code>devcontainer.json</code>, it is
+          read; if it does not, nothing about this is different. On macOS, <kbd>⌘</kbd> is the
+          modifier — on Linux, read it as <kbd>⌃</kbd> (Ctrl).</p>
+        </div>
+
+        <h2>1. Turn it on</h2>
+        <p>
+          Open <strong>File ▸ Sandbox</strong> (it is also under <strong>AI ▸ Sandbox</strong>
+          once AI is enabled) and pick <em>Use Sandbox for This Project</em>. The first row of
+          that menu is a live status line, so it is always the place to look when you want to
+          know what the sandbox is doing.
+        </p>
+        <p>
+          The toggle writes a real setting, so it survives a restart:
+        </p>
+<pre><code class="language-jsonc">// ~/.config/sinclair/settings.json
+{
+  "sandbox-enabled": true
+}</code></pre>
+        <p>
+          "This project" means the <strong>repository</strong> the focused pane is in —
+          found by walking up to the nearest <code>.git</code>, so every pane in a checkout
+          lands in the same container instead of a pane three directories down getting one of
+          its own. Each project gets its own container, named after the path, so two checkouts
+          called <code>api</code> in different places never share one, and reopening either
+          finds the container it already had rather than starting a second.
+        </p>
+        <div class="callout warn">
+          <span class="label">Careful</span>
+          <p>Paths too broad to mount are refused: <code>/</code>, anything one level down
+          (<code>/Users</code>, <code>/home</code>), and your home directory. A sandbox mounts
+          what it is given, and mounting <code>$HOME</code> would hand an agent with its
+          prompts turned off your whole machine. Open a pane inside a repository first.</p>
+        </div>
+
+        <h2>2. Open a shell in it</h2>
+        <p>
+          <strong>Sandbox ▸ Open Shell in Sandbox</strong> gives you a normal tab whose shell
+          is inside the container. Scrollback, search, copy mode, recording, themes: all of it
+          works, because the pane is an ordinary pty like every other.
+        </p>
+        <p>
+          The first time, this takes a few minutes. Sinclair generates a small Dockerfile,
+          layers your agent CLI onto a Debian base, and builds it locally — there is no image
+          to download from us. The menu status line names the step it is on
+          (<em>Building the sandbox image…</em>) the whole time. Afterwards the image is
+          cached and opening a shell is instant.
+        </p>
+        <div class="callout tip">
+          <span class="label">Tip</span>
+          <p>The <strong>Containers</strong> panel in the sidebar (<kbd>⌘</kbd> the activity
+          bar's ❖ icon) has the same controls plus anything Sinclair wants to warn you about,
+          and it is the one place that shows how many panes are currently inside.</p>
+        </div>
+
+        <h2>3. Your paths still mean what they meant</h2>
+        <p>
+          The project is mounted at <em>its own path</em>. If your repo is
+          <code>/Users/you/code/api</code> on the host, it is
+          <code>/Users/you/code/api</code> inside the container too — not
+          <code>/workspaces/api</code>.
+        </p>
+        <p>
+          That is not a cosmetic choice. Git records <strong>absolute</strong> paths when it
+          creates a worktree: the main repo's <code>.git/worktrees/&lt;name&gt;/gitdir</code>
+          and the worktree's own <code>.git</code> file point at each other. Under any other
+          mapping, a worktree made inside the container is broken on the host and vice versa.
+          With the paths equal, the <a href="worktreeagents.html">worktree workflow</a> keeps
+          working unchanged from both sides — which matters, because giving each agent its own
+          worktree is exactly how you keep a team from editing over each other <em>inside</em>
+          the shared container.
+        </p>
+        <div class="callout warn">
+          <span class="label">Careful</span>
+          <p>Create worktrees <em>under</em> the project, not beside it. The tutorial's
+          <code>../wt/thing</code> convention puts them outside the mount, where no agent can
+          see them. <code>.worktrees/thing</code> is inside, and works.</p>
+        </div>
+
+        <h2>4. Send a team in</h2>
+        <p>
+          With the sandbox on, <strong>AI ▸ Teams ▸</strong> any team brings the container up
+          <em>first</em>, then opens the roster. Every member is exec'd into that same
+          container, so the whole team shares a filesystem, a build cache, and one toolchain.
+          A quick-launched agent (<strong>AI ▸ Agents ▸ Launch …</strong>) and a saved agent
+          definition go to the same place.
+        </p>
+        <p>
+          Relay itself stays on the host. Only the agent process runs inside, which is why a
+          crash in the container can never take the mesh — or your terminal — down with it.
+          The bus is still reachable: Sinclair points each agent at the engine's gateway host
+          (<code>host.docker.internal</code>, or <code>host.containers.internal</code> under
+          Podman) instead of a loopback address that would mean the container itself.
+        </p>
+        <p>Standalone, the same thing from the CLI:</p>
+<pre><code class="language-sh">relay launch alice --role frontend \
+  --sandbox sinclair-sbx-api-9f3c1a20 \
+  --sandbox-engine docker \
+  --sandbox-workdir /Users/you/code/api</code></pre>
+
+        <h2>5. Signing in, once</h2>
+        <p>
+          An agent inside a Linux container cannot read a credential your macOS keychain is
+          holding, so the first agent you launch there will ask you to sign in. It only
+          happens once: the agent's home directory is a named volume, so the login — along
+          with folder-trust answers and shell history — survives rebuilding the image and
+          recreating the container.
+        </p>
+
+        <h2>6. What it actually protects</h2>
+        <p>
+          Sinclair launches unattended team members with their permission prompts bypassed,
+          because a member sitting on a dialog in a split nobody is watching is a member doing
+          nothing. That trade is very different depending on where it happens:
+        </p>
+        <ul>
+          <li><strong>Only the project is mounted.</strong> The rest of your home directory is
+          not there to delete.</li>
+          <li><strong>Only the credentials you mount are present.</strong> Nothing reaches
+          your keychain, your other repos, or your cloud config unless you put it in
+          <code>sandbox-mount</code> yourself.</li>
+          <li><strong>Resources are capped.</strong> A supervisor can spawn up to eight
+          workers into one container; a pid ceiling is always set, and
+          <code>sandbox-memory</code> / <code>sandbox-cpus</code> bound the rest.</li>
+        </ul>
+        <div class="callout warn">
+          <span class="label">Careful</span>
+          <p>Never mount <code>/var/run/docker.sock</code> into the sandbox. It is a common
+          devcontainer convenience and it is a one-line container escape: it hands an agent
+          running with prompts bypassed root on your host, which is the whole thing you were
+          trying to prevent.</p>
+        </div>
+
+        <h2>7. Make it your environment</h2>
+        <p>
+          The generated image is deliberately thin. Point it somewhere better, or add to it:
+        </p>
+<pre><code class="language-jsonc">{
+  "sandbox-enabled": true,
+
+  // Use an image you already maintain, as-is. Sinclair builds nothing —
+  // it trusts this image to carry the agent CLI.
+  // "sandbox-image": "ghcr.io/you/dev:latest",
+
+  // Or keep the generated layer and change what it is built on / with.
+  "sandbox-base": "debian:bookworm-slim",
+  "sandbox-packages": ["ripgrep", "build-essential"],
+  "sandbox-setup": ["curl -sSf https://sh.rustup.rs | sh -s -- -y"],
+
+  // Extra mounts: source:target[:ro]. A bare path mounts at itself.
+  "sandbox-mount": ["~/.gitconfig:/sandbox/home/.gitconfig:ro"],
+  "sandbox-env": ["DATABASE_URL=postgres://host.docker.internal/dev"],
+
+  // Ceilings for everything in the container, together.
+  "sandbox-memory": "8g",
+  "sandbox-cpus": "4"
+}</code></pre>
+        <div class="callout note">
+          <p>The generated layer uses <code>apt-get</code>, so it wants a Debian or Ubuntu
+          base. For anything else — Alpine, a language-specific image, your company's build
+          image — set <code>sandbox-image</code> and install the agent CLI in that image
+          yourself.</p>
+        </div>
+
+        <h2>8. If the project has a devcontainer.json</h2>
+        <p>
+          It is read, and used where it helps. The image it names becomes the base Sinclair
+          layers the agent CLI onto, so your agents land in the toolchain your team already
+          agreed on. Its <code>containerEnv</code> and <code>remoteEnv</code> reach the
+          container, with your own <code>sandbox-env</code> winning on conflicts.
+        </p>
+        <p>
+          If an editor already has a container up for this folder, Sinclair enters
+          <em>that one</em> instead of building a parallel one — and will never stop or remove
+          it, because your editor session is very likely attached to it. The Containers panel
+          says so when that happens.
+        </p>
+        <div class="callout tip">
+          <span class="label">Tip</span>
+          <p>Two lines in your <code>devcontainer.json</code> make it behave much better with
+          agents: <code>"shutdownAction": "none"</code> so closing your editor does not stop a
+          container with a team working in it, and the identity mount below so worktrees stay
+          valid on both sides.</p>
+        </div>
+<pre><code class="language-jsonc">// .devcontainer/devcontainer.json
+{
+  "workspaceMount": "source=${localWorkspaceFolder},target=${localWorkspaceFolder},type=bind",
+  "workspaceFolder": "${localWorkspaceFolder}",
+  "shutdownAction": "none"
+}</code></pre>
+        <p>
+          Turn the whole behaviour off with <code>"sandbox-devcontainer": false</code> if you
+          would rather Sinclair ignored the file.
+        </p>
+
+        <h2>9. Cleaning up</h2>
+        <p>
+          The container outlives any single pane — several panes and every agent are inside
+          it, so closing one tab must not take the others down. By default it also outlives
+          the last one: rebuilding a toolchain every session is slow and an idle container
+          costs nothing. Set <code>"sandbox-persist": false</code> to have it stop when the
+          last pane leaves.
+        </p>
+        <ul>
+          <li><strong>Stop Sandbox</strong> — stops the container now. Panes inside it end
+          with it.</li>
+          <li><strong>Rebuild Sandbox</strong> — removes the container and brings a fresh one
+          up from your current settings. Anything written outside the mounted project is
+          gone, which is the point.</li>
+        </ul>
+        <p>
+          Neither ever touches a container Sinclair did not create.
+        </p>
+
+        <h2>Known limits</h2>
+        <ul>
+          <li>A worker a supervisor starts with the MCP <code>spawn</code> tool runs on the
+          <em>host</em>, not in the sandbox: the relay daemon is not told which container a
+          session belongs to. Thanks to the identity mount it sees the same files; its
+          toolchain is the host's.</li>
+          <li>The generated image assumes an <code>apt-get</code> base. Use
+          <code>sandbox-image</code> otherwise.</li>
+          <li>A <code>devcontainer.json</code> that builds from a Dockerfile is not built for
+          you — set <code>sandbox-image</code> to the image it produces.</li>
+        </ul>
+
+        <h2>Where next</h2>
+        <ul>
+          <li><a href="agentteams.html">Run an agent team</a> — the roster the sandbox holds.</li>
+          <li><a href="worktreeagents.html">Parallel agents in worktrees</a> — how members stay
+          out of each other's way inside one container.</li>
+          <li><a href="ostabs.html">Linux in a tab</a> — throwaway containers, the sandbox's
+          disposable sibling.</li>
+        </ul>
+      </article>
+    </main>
+    <script src="docs.js"></script>
+  </body>
+</html>

@@ -224,6 +224,12 @@ keybind = cmd+shift+j=plugin_command:git/status</code></pre>
               <tr><td><code>relay_start</code></td><td>—</td><td>Start the relay daemon</td></tr>
               <tr><td><code>relay_stop</code></td><td>—</td><td>Stop the relay daemon</td></tr>
               <tr><td><code>relay_restart</code></td><td>—</td><td>Restart the relay daemon</td></tr>
+              <tr><td><code>sandbox_shell</code></td><td>—</td><td>Open a shell in this project's shared sandbox, starting or building it first</td></tr>
+              <tr><td><code>toggle_sandbox</code></td><td>—</td><td>Turn the shared sandbox on or off for this project (writes <code>sandbox-enabled</code>)</td></tr>
+              <tr><td><code>sandbox_start</code></td><td>—</td><td>Bring the sandbox container up without opening a pane</td></tr>
+              <tr><td><code>sandbox_stop</code></td><td>—</td><td>Stop the sandbox container; panes inside it end with it</td></tr>
+              <tr><td><code>sandbox_rebuild</code></td><td>—</td><td>Recreate the sandbox from current settings, discarding anything outside the project</td></tr>
+              <tr><td><code>sandbox_status</code></td><td>—</td><td>Show the sandbox in the Containers panel</td></tr>
               <tr><td><code>tile</code></td><td><code>LAYOUT_ID</code></td><td>Apply a saved tile layout</td></tr>
               <tr><td><code>save_layout</code></td><td>—</td><td>Save the current layout</td></tr>
               <tr><td><code>worktree_create</code> <span class="c">(worktree_new)</span></td><td><code>PATH</code>; append <code>@branch</code> to name the branch</td><td>Create a git worktree branched from HEAD and open it in a new tab</td></tr>

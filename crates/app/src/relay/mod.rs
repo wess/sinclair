@@ -70,7 +70,11 @@ pub fn save_agent_def(def: AgentDef) {
 }
 
 /// Build the launch command for a previously-saved agent.
-pub fn launch_saved_command(opts: &config::Options, name: &str) -> Option<String> {
+pub fn launch_saved_command(
+    opts: &config::Options,
+    name: &str,
+    sandbox: Option<&SandboxRef>,
+) -> Option<String> {
     let def = list_agent_defs().into_iter().find(|d| d.name == name)?;
     Some(launch_agent_command(
         opts,
@@ -78,6 +82,7 @@ pub fn launch_saved_command(opts: &config::Options, name: &str) -> Option<String
         &def.name,
         def.role.as_deref(),
         def.task.as_deref(),
+        sandbox,
     ))
 }
 
@@ -97,7 +102,7 @@ pub(crate) fn binary() -> String {
 
 /// Fixed state directory for the mesh, beside the config file, so every relay
 /// call shares one mesh regardless of the calling pane's working directory.
-fn home() -> PathBuf {
+pub(crate) fn home() -> PathBuf {
     config::default_path()
         .and_then(|p| p.parent().map(|d| d.join("relay")))
         .unwrap_or_else(|| PathBuf::from(".relay"))

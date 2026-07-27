@@ -78,6 +78,14 @@ impl WorkspaceView {
             Action::NewTab => self.newtab(window, cx),
             Action::NewContainerTab => crate::ospicker::open(window, cx),
             Action::AttachContainer => crate::attachpicker::open(window, cx),
+            Action::SandboxShell => self.open_sandbox_shell(window, cx),
+            Action::ToggleSandbox => self.toggle_sandbox(window, cx),
+            Action::SandboxStart => self.sandbox_start(window, cx),
+            Action::SandboxStop => self.sandbox_stop(cx),
+            Action::SandboxRebuild => self.sandbox_rebuild(window, cx),
+            // Everything worth knowing about the sandbox is in the Containers
+            // panel, so "status" opens it rather than inventing another surface.
+            Action::SandboxStatus => self.toggle_sidebar("left:containers", cx),
             Action::CloseSurface | Action::CloseTab => {
                 let item = self.active_item(cx);
                 self.close_item(item, window, cx);
@@ -226,14 +234,19 @@ impl WorkspaceView {
             Action::CheckUpdates => crate::updateui::check_now(cx),
             Action::AgentDef(name) => {
                 self.with_relay_running(window, cx, move |this, window, cx| {
-                    if let Some(cmd) = crate::relay::launch_saved_command(&this.opts, &name) {
+                    let sandbox = this.sandbox_ref();
+                    if let Some(cmd) =
+                        crate::relay::launch_saved_command(&this.opts, &name, sandbox.as_ref())
+                    {
                         this.splitcommand(&cmd, SplitAxis::Horizontal, false, window, cx);
                     }
                 });
             }
             Action::LaunchAgent(provider) => {
                 self.with_relay_running(window, cx, move |this, window, cx| {
-                    let cmd = crate::relay::quick_launch_command(&this.opts, &provider);
+                    let sandbox = this.sandbox_ref();
+                    let cmd =
+                        crate::relay::quick_launch_command(&this.opts, &provider, sandbox.as_ref());
                     this.splitcommand(&cmd, SplitAxis::Horizontal, false, window, cx);
                 });
             }

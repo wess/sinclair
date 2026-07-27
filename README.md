@@ -183,6 +183,7 @@ is migrated automatically on first launch.)
   "relay-default-agent": "claude",
   "relay-team-window": true,           // a team gets its own window
   "relay-team-autonomy": true,         // team members skip permission prompts
+  "sandbox-enabled": false,            // run this project + its agents in one container
 
   // Keybindings — trigger=action[:param]; use =unbind to remove a default
   "keybind": [
@@ -312,6 +313,12 @@ and optionally start it on launch. An **AI** menu then appears:
   the layout you were working in left alone. Members run unattended (their
   permission prompts skipped), since nobody is sitting in each pane to answer
   one. Both are settings — `relay-team-window` and `relay-team-autonomy`.
+- **Sandbox ▸** — put this project and its whole team inside **one container**
+  instead of running on the host: a shared filesystem, one toolchain, and a real
+  boundary around agents whose prompts you just turned off. Needs Docker or
+  Podman and nothing else — no VS Code, no `devcontainer` CLI, no image to pull.
+  The project is mounted at its own path, so git worktrees stay valid on both
+  sides. See [`docs/sandbox.md`](docs/sandbox.md).
 
 The same `relay` binary works on its own (`relay start`, `relay launch <name>`,
 `relay feed --follow`, `relay ps`, `relay stop`). **Claude** and **Codex** join

@@ -204,7 +204,12 @@ pub struct TeamPanes {
 /// Resolve a roster into panes. The first member is the lead — it takes the
 /// window's first pane and stays interactive for the human, and the rest split
 /// off it.
-pub fn team_layout(opts: &config::Options, shape: &str, members: &[TeamMember]) -> TeamPanes {
+pub fn team_layout(
+    opts: &config::Options,
+    shape: &str,
+    members: &[TeamMember],
+    sandbox: Option<&SandboxRef>,
+) -> TeamPanes {
     TeamPanes {
         layout: crate::tiles::generate(shape, members.len()),
         names: members.iter().map(|(m, _, _)| m.clone()).collect(),
@@ -212,7 +217,15 @@ pub fn team_layout(opts: &config::Options, shape: &str, members: &[TeamMember]) 
             .iter()
             .enumerate()
             .map(|(i, (m, role, agent))| {
-                Some(launch_member(opts, m, role, agent, i == 0, opts.ai_optimize_tokens))
+                Some(launch_member(
+                    opts,
+                    m,
+                    role,
+                    agent,
+                    i == 0,
+                    opts.ai_optimize_tokens,
+                    sandbox,
+                ))
             })
             .collect(),
     }
@@ -235,6 +248,7 @@ pub fn launch_member(
     agent: &str,
     lead: bool,
     optimize: bool,
+    sandbox: Option<&SandboxRef>,
 ) -> String {
     let flag = if lead { " --lead" } else { "" };
     let opt = if optimize { " --optimize" } else { "" };
@@ -256,6 +270,11 @@ pub fn launch_member(
         for arg in provider_args(opts, agent) {
             cmd.push_str(&format!(" --agent-arg {}", sh_quote(&arg)));
         }
+    }
+    // Every member of a team lands in the same container, which is what makes
+    // it a *team*: one filesystem, one toolchain, one set of worktrees.
+    if let Some(sandbox) = sandbox {
+        cmd.push_str(&sandbox.flags());
     }
     keep_open(cmd)
 }

@@ -33,6 +33,7 @@ const MANIFEST = [
     pages: [
       { slug: "agentteams", title: "Run an agent team", href: "agentteams.html" },
       { slug: "worktreeagents", title: "Parallel agents in worktrees", href: "worktreeagents.html" },
+      { slug: "sandbox", title: "Share one container", href: "sandbox.html" },
       { slug: "statushooks", title: "Agent status at a glance", href: "statushooks.html" },
       { slug: "automation", title: "Automate with MCP", href: "automation.html" },
     ],

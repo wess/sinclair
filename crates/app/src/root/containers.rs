@@ -16,7 +16,11 @@ impl WorkspaceView {
     /// container (if it was an ephemeral run-fresh tab) and drop any attach
     /// mapping pointing at it. Runs `docker rm -f <name>` detached, so a closing
     /// tab does not block on the engine.
-    pub(crate) fn on_item_closed(&mut self, item: ItemId) {
+    pub(crate) fn on_item_closed(&mut self, item: ItemId, cx: &mut Context<Self>) {
+        // The shared sandbox is refcounted, not tied to one tab: several panes
+        // and every agent on a team are inside the same container, so it is
+        // only retired when the last of them leaves.
+        self.sandbox_detach(item, cx);
         if let Some(name) = self.kill_on_close.remove(&item) {
             if let Some(engine) = self.container_engine() {
                 let _ = std::process::Command::new(engine.binary())

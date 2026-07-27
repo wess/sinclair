@@ -24,7 +24,7 @@
 
         <h2>Format</h2>
         <p>The file is JSON with comments: one object, one member per setting. <code>//</code> comment lines are allowed and ignored.</p>
-        <p>Most keys take a single scalar value. A handful of keys are <em>lists</em> and take a JSON array, one entry per value. The list keys are <code>font-family</code>, <code>font-feature</code>, <code>keybind</code>, <code>palette</code>, <code>plugin</code>, <code>container</code>, <code>agent-custom</code>, <code>redact</code>, <code>trigger</code>, <code>snippet</code>, and <code>profile</code>.</p>
+        <p>Most keys take a single scalar value. A handful of keys are <em>lists</em> and take a JSON array, one entry per value. The list keys are <code>font-family</code>, <code>font-feature</code>, <code>keybind</code>, <code>palette</code>, <code>plugin</code>, <code>container</code>, <code>sandbox-mount</code>, <code>sandbox-env</code>, <code>sandbox-packages</code>, <code>sandbox-setup</code>, <code>sandbox-agents</code>, <code>agent-custom</code>, <code>redact</code>, <code>trigger</code>, <code>snippet</code>, and <code>profile</code>.</p>
         <p>Bad lines never abort the load. An unknown key, a malformed value, or a typo becomes a friendly diagnostic surfaced on startup, and the rest of the file is applied normally.</p>
         <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
 {
@@ -186,6 +186,28 @@
             <tr><td><code>relay-default-agent</code></td><td>string</td><td><code>claude</code></td><td>Default agent launched into a relay split.</td></tr>
             <tr><td><code>relay-team-autonomy</code></td><td>bool</td><td><code>true</code></td><td>Launch team members with permission prompts skipped, since nobody is sitting in each split to answer one. Turn it off to approve every action yourself.</td></tr>
             <tr><td><code>relay-team-window</code></td><td>bool</td><td><code>true</code></td><td>Open a team in its own window — one member per pane, resizable dividers — instead of folding it into the layout you're working in.</td></tr>
+          </tbody>
+        </table></div>
+
+        <h3>Shared sandbox</h3>
+        <p>One container per project, shared by your panes and every agent on a team. Needs Docker or Podman and nothing else. See <a href="sandbox.html">Share one container with your agents</a>.</p>
+        <div class="tablewrap"><table>
+          <thead><tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>sandbox-enabled</code></td><td>bool</td><td><code>false</code></td><td>Run this project's panes and agents inside one shared container.</td></tr>
+            <tr><td><code>sandbox-image</code></td><td>string</td><td>none</td><td>Ready-made image, used as-is. Nothing is built; the image must carry the agent CLI.</td></tr>
+            <tr><td><code>sandbox-base</code></td><td>string</td><td><code>debian:bookworm-slim</code></td><td>Base image the generated sandbox image layers on. The generated layer uses <code>apt-get</code>.</td></tr>
+            <tr><td><code>sandbox-packages</code></td><td>string (repeatable)</td><td>none</td><td>Extra apt packages baked into the generated image.</td></tr>
+            <tr><td><code>sandbox-setup</code></td><td>string (repeatable)</td><td>none</td><td>Extra commands baked into the generated image, one layer each.</td></tr>
+            <tr><td><code>sandbox-agents</code></td><td>string (repeatable)</td><td>the default agent</td><td>Agent CLIs to install into the image: <code>claude</code>, <code>codex</code>, <code>gemini</code>.</td></tr>
+            <tr><td><code>sandbox-mount</code></td><td>string (repeatable)</td><td>none</td><td>Extra mounts, <code>source:target[:ro]</code>. A bare path mounts at itself.</td></tr>
+            <tr><td><code>sandbox-env</code></td><td>string (repeatable)</td><td>none</td><td>Extra environment inside the sandbox, <code>KEY=VALUE</code>.</td></tr>
+            <tr><td><code>sandbox-user</code></td><td>string</td><td>host uid on Linux</td><td>User the container runs as. <code>host</code> is your own <code>uid:gid</code>, which keeps a Linux bind mount from filling with root-owned files.</td></tr>
+            <tr><td><code>sandbox-network</code></td><td>string</td><td><code>bridge</code></td><td><code>bridge</code>, <code>host</code>, or <code>none</code>. <code>none</code> cuts agents off from the relay bus.</td></tr>
+            <tr><td><code>sandbox-memory</code></td><td>string</td><td>unlimited</td><td><code>--memory</code> ceiling for the whole sandbox, e.g. <code>8g</code>.</td></tr>
+            <tr><td><code>sandbox-cpus</code></td><td>string</td><td>unlimited</td><td><code>--cpus</code> ceiling for the whole sandbox, e.g. <code>4</code>.</td></tr>
+            <tr><td><code>sandbox-persist</code></td><td>bool</td><td><code>true</code></td><td>Keep the container running when the last pane using it closes.</td></tr>
+            <tr><td><code>sandbox-devcontainer</code></td><td>bool</td><td><code>true</code></td><td>Read a project's <code>devcontainer.json</code>, and enter a container an editor already started for it.</td></tr>
           </tbody>
         </table></div>
 

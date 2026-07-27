@@ -42,6 +42,7 @@ mod reload;
 mod rename;
 mod resume;
 mod root;
+mod sandbox;
 mod session;
 mod sessionstate;
 mod sidecar;

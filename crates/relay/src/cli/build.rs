@@ -42,6 +42,11 @@ pub struct Options<'a> {
     pub bin: Option<&'a str>,
     /// Custom launch template ({prompt} {mcp} {url} {name}).
     pub custom: Option<&'a str>,
+    /// Directory the MCP config is visible at from the agent's side. Set when
+    /// the agent runs in a sandbox: the file is written to the host state dir
+    /// as always, but the path handed to the agent is where the container has
+    /// it mounted. `None` means the agent shares the host filesystem.
+    pub mcp_dir_as_seen: Option<&'a str>,
 }
 
 /// A fully resolved worker command.
@@ -89,6 +94,10 @@ pub fn worker(endpoint: &str, token: &str, o: &Options) -> Result<Built> {
     let interactive = !o.headless && (o.lead || role.as_ref().is_some_and(|r| r.driver));
 
     let mcp = paths::write_mcp_config(endpoint, o.name, token)?;
+    let mcp = match o.mcp_dir_as_seen {
+        Some(dir) => format!("{}/{}.mcp.json", dir.trim_end_matches('/'), o.name),
+        None => mcp,
+    };
     let prompt = agent::harness_prompt(
         o.name,
         o.role,
