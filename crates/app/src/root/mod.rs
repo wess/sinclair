@@ -23,6 +23,7 @@ pub(crate) mod sandbox;
 mod savebuffer;
 mod sidebar;
 mod triggers;
+mod tabmenu;
 mod tabs;
 mod worktrees;
 
@@ -185,6 +186,16 @@ impl PaneContent {
         match self {
             PaneContent::Terminal(v) => v.read(cx).title().to_string(),
             PaneContent::Webview(v) => v.read(cx).title(),
+        }
+    }
+
+    /// True when the title was typed by the user rather than set by the
+    /// program in the pane. An explicit name is never rewritten.
+    fn has_title_override(&self, cx: &App) -> bool {
+        match self {
+            PaneContent::Terminal(v) => v.read(cx).has_title_override(),
+            // A webview's title is its own; nothing shell-shaped to strip.
+            PaneContent::Webview(_) => true,
         }
     }
 
@@ -403,6 +414,12 @@ pub struct WorkspaceView {
     catalog_loading: bool,
     /// The guise Spotlight quick-open overlay (cmd+P), rebuilt each open.
     spotlight: Option<Entity<guise::Spotlight>>,
+    /// Live `tab-title-show-host`, shared with the pane group's tab-label
+    /// closure so a config reload reaches it without rebuilding the group.
+    show_host: Rc<std::cell::Cell<bool>>,
+    /// The open tab context menu (right-click on a tab). Rebuilt per open, so
+    /// its entries can close over the tab that was clicked.
+    tab_menu: Option<Entity<guise::ContextMenu>>,
     /// The active in-window dialog (rename), as a guise Modal
     /// overlay. `None` when no dialog is open.
     modal: Option<gpui::AnyView>,
@@ -525,7 +542,8 @@ impl WorkspaceView {
         // throwaway group over a placeholder id, assemble `this`, spawn the real
         // first terminal, then rebuild the group around it below.
         let placeholder = item_ids.next();
-        let group = Self::build_group(placeholder, items.clone(), cx);
+        let show_host = Rc::new(std::cell::Cell::new(opts.tab_title_show_host));
+        let group = Self::build_group(placeholder, items.clone(), show_host.clone(), cx);
         let group_sub = cx.subscribe_in(&group, window, |this, _g, ev: &PaneGroupEvent, window, cx| {
             this.on_group_event(ev.clone(), window, cx);
         });
@@ -554,6 +572,8 @@ impl WorkspaceView {
             catalog_status: None,
             catalog_loading: false,
             spotlight: None,
+            show_host,
+            tab_menu: None,
             modal: None,
             containers: Vec::new(),
             engine: None,
@@ -621,7 +641,8 @@ impl WorkspaceView {
             }
         };
         // Rebuild the group around the real first item (the placeholder held none).
-        this.group = Self::build_group(first, this.items.clone(), cx);
+        this.group =
+            Self::build_group(first, this.items.clone(), this.show_host.clone(), cx);
         this._group_sub = cx.subscribe_in(&this.group, window, |this, _g, ev: &PaneGroupEvent, window, cx| {
             this.on_group_event(ev.clone(), window, cx);
         });
@@ -671,6 +692,7 @@ impl WorkspaceView {
     fn build_group(
         first: ItemId,
         items: Rc<RefCell<Items>>,
+        show_host: Rc<std::cell::Cell<bool>>,
         cx: &mut Context<Self>,
     ) -> Entity<PaneGroup> {
         // The group doubles as the window titlebar: reserve the top-left inset
@@ -697,12 +719,20 @@ impl WorkspaceView {
                 })
                 .on_item_title({
                     let items = items.clone();
+                    let show_host = show_host.clone();
                     move |id, cx| {
-                        items
-                            .borrow()
-                            .get(&id)
-                            .map(|it| SharedString::from(it.content.title(cx)))
-                            .unwrap_or_default()
+                        let items = items.borrow();
+                        let Some(item) = items.get(&id) else {
+                            return SharedString::default();
+                        };
+                        let title = item.content.title(cx);
+                        // Shells write `user@host:path`; most people want the
+                        // path. A title the user typed is left exactly as typed.
+                        if show_host.get() || item.content.has_title_override(cx) {
+                            SharedString::from(title)
+                        } else {
+                            SharedString::from(crate::tabbar::strip_host(&title).to_string())
+                        }
                     }
                 })
                 .on_item_dot({
@@ -734,6 +764,9 @@ impl WorkspaceView {
                 cx.notify();
             }
             PaneGroupEvent::TearOff(item) => self.tear_off_to_window(item, window, cx),
+            PaneGroupEvent::ContextMenu { item, position } => {
+                self.open_tab_menu(item, position, window, cx)
+            }
         }
     }
 
@@ -916,6 +949,7 @@ impl WorkspaceView {
         };
         self.base_font_size = px(opts.font_size.max(1.0));
         self.opts = opts;
+        self.show_host.set(self.opts.tab_title_show_host);
         if plugins_changed {
             self.plugins = loadplugins(&self.opts);
             self.rebuild_webview_hosts(cx);

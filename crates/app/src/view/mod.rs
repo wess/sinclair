@@ -534,6 +534,12 @@ impl TerminalView {
         }
     }
 
+    /// True when the title was set by hand rather than by the program running
+    /// in the pane. An explicit name is never rewritten.
+    pub fn has_title_override(&self) -> bool {
+        self.override_title.is_some()
+    }
+
     /// Override the pane title (empty string clears it back to the vt title).
     pub fn set_title_override(&mut self, title: &str, cx: &mut Context<Self>) {
         self.override_title = (!title.trim().is_empty()).then(|| title.trim().to_string());
