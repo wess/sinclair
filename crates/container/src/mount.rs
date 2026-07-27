@@ -85,6 +85,36 @@ impl Mount {
         }
     }
 
+    /// Parse a `devcontainer.json` `mounts` entry, which uses the engine's
+    /// `--mount` syntax (`type=bind,source=…,target=…`) rather than the
+    /// `-v` shorthand [`Self::parse`] takes. Keys may appear in any order;
+    /// anything else in the entry (`consistency`, `type`) is ignored, since it
+    /// does not change where the mount lands.
+    pub fn parse_mount_spec(raw: &str) -> Result<Self, String> {
+        let (mut source, mut target, mut readonly) = (None, None, false);
+        for field in raw.split(',') {
+            let field = field.trim();
+            if field.eq_ignore_ascii_case("readonly") || field.eq_ignore_ascii_case("ro") {
+                readonly = true;
+                continue;
+            }
+            let Some((key, value)) = field.split_once('=') else {
+                continue;
+            };
+            match key.trim().to_ascii_lowercase().as_str() {
+                "source" | "src" => source = Some(value.trim()),
+                "target" | "destination" | "dst" => target = Some(value.trim()),
+                "readonly" | "ro" => readonly = !matches!(value.trim(), "false" | "0"),
+                _ => {}
+            }
+        }
+        match (source, target) {
+            (Some(s), Some(t)) => Self::checked(s, t, readonly),
+            (None, _) => Err(format!("`{raw}` has no source")),
+            (_, None) => Err(format!("`{raw}` has no target")),
+        }
+    }
+
     fn checked(source: &str, target: &str, readonly: bool) -> Result<Self, String> {
         if source.is_empty() {
             return Err("mount is missing a source".to_string());

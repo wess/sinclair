@@ -150,7 +150,7 @@
             <tr><td><code>autosuggest-paths</code></td><td>bool</td><td><code>true</code></td><td>Complete filesystem paths from the working directory.</td></tr>
             <tr><td><code>autosuggest-assist</code></td><td>bool</td><td><code>true</code></td><td>Rank suggestions with the local assist model rather than plain recency.</td></tr>
             <tr><td><code>session-restore</code></td><td>bool</td><td><code>false</code></td><td>Restore windows and splits from the previous run.</td></tr>
-            <tr><td><code>tab-title-show-host</code></td><td>bool</td><td><code>false</code></td><td>Show the hostname in tab titles.</td></tr>
+            <tr><td><code>tab-title-show-host</code></td><td>bool</td><td><code>false</code></td><td>Keep the <code>user@host:</code> prefix shells write into their title. Off by default, so tabs show just the path. A label you set by hand is never rewritten.</td></tr>
           </tbody>
         </table></div>
 
@@ -189,8 +189,8 @@
           </tbody>
         </table></div>
 
-        <h3>Shared sandbox</h3>
-        <p>One container per project, shared by your panes and every agent on a team. Needs Docker or Podman and nothing else. See <a href="sandbox.html">Share one container with your agents</a>.</p>
+        <h3 id="sandbox">Shared sandbox</h3>
+        <p>One container per project, shared by your panes and every agent on a team. Needs Docker or Podman and nothing else. See <a href="sandbox.html">Share one container with your agents</a> and <a href="devcontainers.html">Work in your project's dev container</a>.</p>
         <div class="tablewrap"><table>
           <thead><tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
           <tbody>

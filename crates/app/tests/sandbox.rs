@@ -230,3 +230,43 @@ fn repo_root_walks_up_from_a_subdirectory() {
 fn no_repo_above_a_path_is_none() {
     assert!(repo_root(std::path::Path::new("/")).is_none());
 }
+
+#[test]
+fn devcontainer_mounts_reach_the_sandbox() {
+    let dc = DevContainer {
+        mounts: vec!["type=bind,source=/host/cache,target=/work/.cache".to_string()],
+        ..DevContainer::default()
+    };
+    let s = build(&opts(), &env(Some(&dc)));
+    assert!(s.sandbox.mounts.iter().any(|m| m.target == "/work/.cache"));
+}
+
+#[test]
+fn a_malformed_devcontainer_mount_is_a_note_not_a_failure() {
+    let dc = DevContainer {
+        mounts: vec!["type=bind,target=/nope".to_string()],
+        ..DevContainer::default()
+    };
+    let s = build(&opts(), &env(Some(&dc)));
+    assert!(s.notes.iter().any(|n| n.contains("devcontainer.json mounts")));
+}
+
+#[test]
+fn remote_user_is_followed_when_settings_do_not_override() {
+    let dc = DevContainer {
+        remote_user: Some("node".to_string()),
+        ..DevContainer::default()
+    };
+    assert_eq!(build(&opts(), &env(Some(&dc))).sandbox.user.as_deref(), Some("node"));
+}
+
+#[test]
+fn an_explicit_sandbox_user_beats_remote_user() {
+    let dc = DevContainer {
+        remote_user: Some("node".to_string()),
+        ..DevContainer::default()
+    };
+    let mut o = opts();
+    o.sandbox_user = Some("1000:1000".to_string());
+    assert_eq!(build(&o, &env(Some(&dc))).sandbox.user.as_deref(), Some("1000:1000"));
+}

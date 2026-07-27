@@ -291,7 +291,7 @@ keybind = "cmd+ctrl+l"</code></pre>
           </article>
           <article>
             <h3>One container, whole team</h3>
-            <p>Put a project and its entire agent team inside one shared sandbox container: a single filesystem, a single toolchain, and a real boundary around agents whose permission prompts you just turned off. Docker or Podman is the only thing you need — the project is mounted at its own path, so git worktrees stay valid on both sides.</p>
+            <p>Put a project and its entire agent team inside one shared sandbox container: a single filesystem, a single toolchain, and a real boundary around agents whose permission prompts you just turned off. Docker or Podman is the only thing you need — and if your repo has a <code>devcontainer.json</code>, that is the environment they land in.</p>
           </article>
           <article>
             <h3>A worktree per agent</h3>

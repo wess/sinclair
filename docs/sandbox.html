@@ -200,6 +200,11 @@
           container, with your own <code>sandbox-env</code> winning on conflicts.
         </p>
         <p>
+          Mounts and <code>remoteUser</code> from the file are applied too. The full list
+          of what is and is not read is in
+          <a href="devcontainers.html">Work in your project's dev container</a>.
+        </p>
+        <p>
           If an editor already has a container up for this folder, Sinclair enters
           <em>that one</em> instead of building a parallel one — and will never stop or remove
           it, because your editor session is very likely attached to it. The Containers panel
@@ -259,6 +264,8 @@
           <li><a href="agentteams.html">Run an agent team</a> — the roster the sandbox holds.</li>
           <li><a href="worktreeagents.html">Parallel agents in worktrees</a> — how members stay
           out of each other's way inside one container.</li>
+          <li><a href="devcontainers.html">Work in your project's dev container</a> — using
+          the environment your repo already defines.</li>
           <li><a href="ostabs.html">Linux in a tab</a> — throwaway containers, the sandbox's
           disposable sibling.</li>
         </ul>

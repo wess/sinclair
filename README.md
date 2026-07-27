@@ -174,7 +174,7 @@ is migrated automatically on first launch.)
   "confirm-quit": true,                // warn if a process is still running
   "shell-integration": true,           // OSC 133/7 prompt-jump + cwd hooks
   "session-restore": false,            // reopen tabs/splits on launch
-  "tab-title-show-host": false,        // keep user@host: in tab titles
+  "tab-title-show-host": false,        // keep user@host: in tab titles (off: just the path)
 
   // AI — opt-in (also editable in Settings → AI); see docs/relay.md
   "ai-enabled": true,

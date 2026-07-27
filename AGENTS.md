@@ -227,6 +227,7 @@ Keep the vt/terminal layers free of gpui types — the boundary is the bridge.
   wired (the single-gpui patch), the theme bridge, and the surface-by-surface
   port status.
 - `docs/sandbox.md` — the shared project sandbox: one container for a human and
-  a whole agent team, the identity mount, the generated image, and adoption.
+  a whole agent team, the identity mount, the generated image, adoption, and
+  which `devcontainer.json` fields are honoured.
 - `docs/relay.md` — the agent mesh: roles, teams/tiles, the `relay` CLI, and the
   MCP coordination tools.

@@ -46,6 +46,16 @@ pub fn build(opts: &config::Options, env: &Env) -> Spec {
         sandbox = sandbox.with_relay_dir(dir);
     }
 
+    // A project's devcontainer mounts come first, so an explicit
+    // `sandbox-mount` for the same target is the one that wins.
+    if let Some(dc) = env.devcontainer {
+        for raw in &dc.mounts {
+            match Mount::parse_mount_spec(raw) {
+                Ok(m) => sandbox.mounts.push(m),
+                Err(e) => notes.push(format!("devcontainer.json mounts `{raw}`: {e}")),
+            }
+        }
+    }
     for raw in &opts.sandbox_mount {
         match Mount::parse(raw) {
             Ok(m) => sandbox.mounts.push(m),
@@ -156,6 +166,15 @@ fn user_for(opts: &config::Options, env: &Env, notes: &mut Vec<String>) -> Optio
     let raw = opts.sandbox_user.as_deref().map(str::trim).unwrap_or("");
     match raw {
         "" => {
+            // A project that names a `remoteUser` has decided who its tooling
+            // runs as; follow it rather than guessing.
+            if let Some(user) = env
+                .devcontainer
+                .and_then(|dc| dc.remote_user.clone())
+                .filter(|u| !u.trim().is_empty())
+            {
+                return Some(user);
+            }
             if cfg!(target_os = "linux") && env.host_user.is_some() {
                 env.host_user.clone()
             } else {

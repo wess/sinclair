@@ -141,10 +141,24 @@ cases, and `Owner::may_remove` is checked before every stop and remove.
 
 ### What is read from `devcontainer.json`
 
-`image` (becomes the recipe's base, so agents get the project's toolchain *plus*
-the agent CLI), `containerEnv`/`remoteEnv` (settings win on conflicts),
-`workspaceFolder`/`workspaceMount` (to detect identity mapping),
-`remoteUser`, `mounts`, `runArgs`, `shutdownAction`, `postCreateCommand`.
+Applied:
+
+| field | effect |
+|-------|--------|
+| `image` | becomes the recipe's base, so agents get the project's toolchain *plus* the agent CLI |
+| `containerEnv`, `remoteEnv` | merged into the container env; `sandbox-env` wins on conflicts |
+| `mounts` | applied, in the engine's `type=bind,source=…,target=…` form; an entry that does not parse becomes a note |
+| `remoteUser` / `containerUser` | the user the container runs as, unless `sandbox-user` overrides |
+
+Read but not applied: `workspaceFolder`/`workspaceMount` (only to detect
+identity mapping), `shutdownAction` (an advisory, below).
+
+Ignored: `features`, `customizations`, `forwardPorts`, `postCreateCommand`, and
+`runArgs` — the last deliberately, rather than passing arbitrary engine flags
+through. A `build.dockerfile` is not built; point `sandbox-image` at the image
+it produces.
+
+User guide: [`docs/devcontainers.html`](devcontainers.html).
 
 A `shutdownAction` other than `none` is reported as an advisory: closing the
 editor would stop a container with a team working in it. Two lines make a
