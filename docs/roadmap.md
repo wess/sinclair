@@ -388,3 +388,45 @@ Conventions (non-negotiable):
   Known gap: the permission bypass does not cover Claude Code's separate
   first-run *folder trust* dialog, which still stops every pane the first time a
   team runs in an unfamiliar directory.
+- 2026-07-27: the shared project sandbox. A project's panes and its whole agent
+  team can now run inside **one container** instead of on the host, turning
+  `relay-team-autonomy`'s permission bypass from a promise into a boundary.
+  Self-contained: `docker` or `podman` is the only dependency — no VS Code, no
+  `devcontainer` CLI, no Sinclair image to pull. The `container` crate grew
+  `Sandbox` (a detached, keepalive-backed container with mounts, env, user,
+  network, and resource ceilings), `Recipe` (a generated Dockerfile that layers
+  the agent CLIs onto a configurable base, tagged by recipe hash so a rebuild
+  only happens when the recipe changes), `Mount`, `adopt` (label discovery plus
+  ownership, so a container VS Code created is entered and never removed), and
+  a `devcontainer.json` reader on `config`'s JSONC parser. The project is
+  **identity-mounted** — the same absolute path inside and out — which is what
+  keeps git worktrees valid from both sides and removes any need for a path
+  translation layer. Relay stays on the host: `relay launch --sandbox` changes
+  only the final exec, rewriting the bus URL to the engine's gateway host and
+  handing the agent its MCP config at the path the container mounts it. Opening
+  a team brings the container up first. UI: a Sandbox submenu under both File
+  and AI with a live status line, a Sandbox section in the Containers panel,
+  fourteen `sandbox-*` settings in Settings → AI, and six bindable actions.
+  Known gap: a worker started with the MCP `spawn` tool runs on the host — the
+  daemon is not told which container a session belongs to. See
+  `docs/sandbox.md`.
+- 2026-07-27: tab renaming, tab context menu, and window dragging (issue #15).
+  Renaming a tab was already an action, a View-menu item, a palette entry, and a
+  documented keybinding — and the dialog **never painted**: its host element had
+  no size, so the modal's absolutely-positioned backdrop, drawn in the deferred
+  pass, had nothing to resolve against. The dialog was created and re-rendered
+  every frame, off screen; the feature looked missing because it was invisible.
+  `tab-title-show-host` was dead in the same way — parsed, written to
+  `settings.json`, a toggle in Settings and a promise in the help text, and no
+  consumer. Tab labels now honour it, with a strip that only fires on something
+  genuinely shaped like `user@host:` (so `https://example.com:8080` and
+  `nvim: main.rs` survive) and never rewrites a label the user typed; the flag
+  rides in a cell the reload path updates, so toggling needs no restart.
+  Right-clicking a tab now opens a menu — rename, split, close, close others —
+  built by the host from a new `PaneGroupEvent::ContextMenu`; its handlers defer
+  their action, since dispatching straight into the same window re-enters an
+  update in progress. Window dragging: every tab bar along the layout's top edge
+  now drags, not just the top-right one, and the space reserved for the window
+  controls drags rather than being dead padding. Dev containers: `mounts` and
+  `remoteUser` from a project's `devcontainer.json` are now applied, not just
+  parsed. See `docs/devcontainers.html`.

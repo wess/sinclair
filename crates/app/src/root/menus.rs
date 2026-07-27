@@ -118,10 +118,12 @@ impl WorkspaceView {
     // Only built when AI is enabled (see `setmenus`), so the server is available
     // on demand — no need to gate the contents on the persistent-mesh setting.
     fn ai_menu(&self, a: &mut Vec<Action>, cx: &App) -> Menu {
-        let mut items: Vec<Option<MenuItem>> = Vec::new();
-        items.push(Some(MenuItem::submenu(self.agents_submenu(a))));
-        items.push(Some(MenuItem::submenu(self.relay_submenu(a, cx))));
-        items.push(self.pick(a, "Open Feed", Action::RelayFeed));
+        let mut items: Vec<Option<MenuItem>> = vec![
+            Some(MenuItem::submenu(self.agents_submenu(a))),
+            Some(MenuItem::submenu(self.relay_submenu(a, cx))),
+            Some(MenuItem::submenu(self.sandbox_submenu(a))),
+            self.pick(a, "Open Feed", Action::RelayFeed),
+        ];
         let mut t: Vec<Option<MenuItem>> = vec![self.pick(a, "Build Team\u{2026}", Action::BuildTeam)];
         if !self.menu_teams.is_empty() {
             t.push(Some(MenuItem::separator()));
@@ -220,6 +222,35 @@ impl WorkspaceView {
         )
     }
 
+    /// Sandbox controls (AI → Sandbox). The shared container is a per-project
+    /// setting, so the toggle here writes `sandbox-enabled` rather than
+    /// flipping something that lasts only for this session. The first row is a
+    /// live status line — during a first run it names the step in progress,
+    /// because building an image takes minutes and a frozen menu explains
+    /// nothing.
+    fn sandbox_submenu(&self, a: &mut Vec<Action>) -> Menu {
+        let on = self.opts.sandbox_enabled;
+        let up = self.sandbox.is_some();
+        let mut items: Vec<Option<MenuItem>> = vec![
+            Some(Self::status_item(&self.sandbox_summary())),
+            Some(MenuItem::separator()),
+            Some(self.pick_checked(a, "Use Sandbox for This Project", Action::ToggleSandbox, on)),
+        ];
+        if on {
+            items.push(Some(MenuItem::separator()));
+            items.push(self.pick(a, "Open Shell in Sandbox", Action::SandboxShell));
+            if up {
+                items.push(self.pick(a, "Stop Sandbox", Action::SandboxStop));
+            } else {
+                items.push(self.pick(a, "Start Sandbox", Action::SandboxStart));
+            }
+            items.push(self.pick(a, "Rebuild Sandbox", Action::SandboxRebuild));
+            items.push(Some(MenuItem::separator()));
+            items.push(self.pick(a, "Show in Containers Panel", Action::SandboxStatus));
+        }
+        Self::menu("Sandbox", items)
+    }
+
     /// Top-level Plugins menu: each installed plugin (click opens its primary
     /// surface — a webview, else a panel, else its first command), then a
     /// "Manage Plugins…" item that opens the Plugins drawer (browse + install).
@@ -304,6 +335,10 @@ impl WorkspaceView {
                 self.pick(a, "New Tab", Action::NewTab),
                 self.pick(a, "OS Tabs\u{2026}", Action::NewContainerTab),
                 self.pick(a, "Attach to Container\u{2026}", Action::AttachContainer),
+                // Also under AI: the sandbox is where a team works, but it is
+                // just as useful to a person alone, and the AI menu only
+                // appears once AI is enabled.
+                Some(MenuItem::submenu(self.sandbox_submenu(a))),
                 Some(MenuItem::separator()),
                 self.pick(a, "Notes", Action::Notes),
                 Some(MenuItem::separator()),

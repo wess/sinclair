@@ -17,6 +17,11 @@ pub enum ListKind {
     Snippet,
     Profile,
     Container,
+    SandboxMount,
+    SandboxEnv,
+    SandboxPackages,
+    SandboxSetup,
+    SandboxAgents,
 }
 
 impl ListKind {
@@ -34,6 +39,11 @@ impl ListKind {
             ListKind::Snippet => "snippet",
             ListKind::Profile => "profile",
             ListKind::Container => "container",
+            ListKind::SandboxMount => "sandbox-mount",
+            ListKind::SandboxEnv => "sandbox-env",
+            ListKind::SandboxPackages => "sandbox-packages",
+            ListKind::SandboxSetup => "sandbox-setup",
+            ListKind::SandboxAgents => "sandbox-agents",
         }
     }
 
@@ -50,6 +60,11 @@ impl ListKind {
             ListKind::Snippet => "Snippets",
             ListKind::Profile => "Profiles",
             ListKind::Container => "OS profiles",
+            ListKind::SandboxMount => "Sandbox mounts",
+            ListKind::SandboxEnv => "Sandbox environment",
+            ListKind::SandboxPackages => "Sandbox packages",
+            ListKind::SandboxSetup => "Sandbox setup commands",
+            ListKind::SandboxAgents => "Sandbox agent CLIs",
         }
     }
 
@@ -66,6 +81,11 @@ impl ListKind {
             ListKind::Snippet => "Add snippet",
             ListKind::Profile => "Add profile",
             ListKind::Container => "Add profile",
+            ListKind::SandboxMount => "Add mount",
+            ListKind::SandboxEnv => "Add variable",
+            ListKind::SandboxPackages => "Add package",
+            ListKind::SandboxSetup => "Add command",
+            ListKind::SandboxAgents => "Add agent",
         }
     }
 
@@ -82,6 +102,11 @@ impl ListKind {
             ListKind::Snippet => "deploy | git push origin main",
             ListKind::Profile => "prod | ssh prod.example.com",
             ListKind::Container => "ubuntu | ubuntu:24.04 | bash",
+            ListKind::SandboxMount => "~/.ssh:/sandbox/home/.ssh:ro",
+            ListKind::SandboxEnv => "DATABASE_URL=postgres://localhost/dev",
+            ListKind::SandboxPackages => "ripgrep",
+            ListKind::SandboxSetup => "cargo install just",
+            ListKind::SandboxAgents => "claude",
         }
     }
 
@@ -106,6 +131,11 @@ impl ListKind {
             ListKind::Snippet => o.snippet.clone(),
             ListKind::Profile => o.profile.clone(),
             ListKind::Container => o.container.clone(),
+            ListKind::SandboxMount => o.sandbox_mount.clone(),
+            ListKind::SandboxEnv => o.sandbox_env.clone(),
+            ListKind::SandboxPackages => o.sandbox_packages.clone(),
+            ListKind::SandboxSetup => o.sandbox_setup.clone(),
+            ListKind::SandboxAgents => o.sandbox_agents.clone(),
         }
     }
 

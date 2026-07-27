@@ -81,6 +81,7 @@ fn launch_member_quotes_hostile_values() {
         "$(whoami)",
         true,
         false,
+        None,
     );
     // Every interpolated value stays a single quoted shell token.
     assert!(cmd.contains(" launch 'x'\\''; rm -rf /;'\\'''"), "member not quoted: {cmd}");
@@ -91,7 +92,7 @@ fn launch_member_quotes_hostile_values() {
 
 #[test]
 fn launch_member_omits_empty_agent_flag() {
-    let cmd = launch_member(&config::Options::default(), "lead", "supervisor", "  ", false, true);
+    let cmd = launch_member(&config::Options::default(), "lead", "supervisor", "  ", false, true, None);
     assert!(!cmd.contains("--agent "));
     assert!(cmd.contains("--optimize"));
     assert!(cmd.contains(" launch 'lead' --role 'supervisor'"));
@@ -105,10 +106,10 @@ fn launch_member_omits_empty_agent_flag() {
 fn team_members_launch_unattended_by_default() {
     let opts = config::Options::default();
     assert!(opts.relay_team_autonomy);
-    let cmd = launch_member(&opts, "backend", "backend", "", false, false);
+    let cmd = launch_member(&opts, "backend", "backend", "", false, false, None);
     assert!(cmd.contains(" --skip-permissions"), "no bypass: {cmd}");
     // Including the lead, so the whole team behaves the same way.
-    let lead = launch_member(&opts, "lead", "supervisor", "", true, false);
+    let lead = launch_member(&opts, "lead", "supervisor", "", true, false, None);
     assert!(lead.contains(" --skip-permissions"), "lead differs: {lead}");
 }
 
@@ -118,7 +119,7 @@ fn team_autonomy_off_keeps_the_prompts() {
         relay_team_autonomy: false,
         ..config::Options::default()
     };
-    let cmd = launch_member(&opts, "backend", "backend", "claude", false, false);
+    let cmd = launch_member(&opts, "backend", "backend", "claude", false, false, None);
     assert!(!cmd.contains("--skip-permissions"), "bypassed anyway: {cmd}");
 }
 
@@ -130,12 +131,12 @@ fn launch_member_forwards_configured_provider_flags() {
         agent_claude_args: Some("--append-system-prompt \"be terse\"".into()),
         ..config::Options::default()
     };
-    let cmd = launch_member(&opts, "backend", "backend", "claude", false, false);
+    let cmd = launch_member(&opts, "backend", "backend", "claude", false, false, None);
     assert!(cmd.contains("--agent-arg '--append-system-prompt'"), "{cmd}");
     assert!(cmd.contains("--agent-arg 'be terse'"), "{cmd}");
     // A member inheriting its role's agent has no provider to look flags up
     // under, so it gets none — the permission bypass covers it instead.
-    let inherited = launch_member(&opts, "backend", "backend", "", false, false);
+    let inherited = launch_member(&opts, "backend", "backend", "", false, false, None);
     assert!(!inherited.contains("--agent-arg"), "{inherited}");
 }
 
@@ -149,7 +150,7 @@ fn team_layout_gives_every_member_a_pane() {
         .iter()
         .map(|n| (n.to_string(), "worker".to_string(), String::new()))
         .collect();
-    let panes = team_layout(&opts, "columns", &members);
+    let panes = team_layout(&opts, "columns", &members, None);
     assert_eq!(panes.layout.leaves(), members.len(), "a member with no pane can't launch");
     assert_eq!(panes.commands.len(), members.len());
     assert!(panes.commands.iter().all(Option::is_some));
@@ -169,7 +170,7 @@ fn team_layout_gives_every_member_a_pane() {
 #[test]
 fn team_layout_handles_a_lone_member() {
     let members = vec![("solo".to_string(), "supervisor".to_string(), String::new())];
-    let panes = team_layout(&config::Options::default(), "grid", &members);
+    let panes = team_layout(&config::Options::default(), "grid", &members, None);
     assert_eq!(panes.layout.leaves(), 1);
     assert_eq!(panes.commands.len(), 1);
     assert_eq!(panes.names, vec!["solo"]);

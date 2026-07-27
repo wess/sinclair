@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Work in your project's dev container — Sinclair docs</title>
+    <meta name="description" content="Open a terminal inside the dev container your project already defines, share the one your editor started, and make a devcontainer.json that works for people and agents alike.">
+    <meta name="theme-color" content="#05070c">
+    <link rel="icon" href="icon.png">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="docs.css">
+  </head>
+  <body class="docs">
+    <a class="skip" href="#doc-main">Skip to content</a>
+    <main id="doc-main" class="doc-main">
+      <article class="doc-article" data-doc-page="devcontainers">
+        <p class="kicker">Tutorial</p>
+        <h1>Work in your project's dev container</h1>
+        <p class="lede">
+          A lot of repositories already say what they need to be built in — a
+          <code>devcontainer.json</code> naming an image, a user, some mounts. Sinclair
+          reads it, so a terminal in that project can be a terminal <em>inside</em> that
+          environment rather than one beside it. This walkthrough opens a shell in a
+          project's dev container, shares the container your editor already has running,
+          and writes a <code>devcontainer.json</code> that works for people and coding
+          agents alike.
+        </p>
+
+        <div class="callout note">
+          <p>Sinclair needs <strong>Docker or Podman</strong> and nothing else. It does
+          <em>not</em> need VS Code or the <code>devcontainer</code> CLI installed, and it
+          never requires a project to have a <code>devcontainer.json</code> — without one
+          it builds its own environment. The file is an input, not a dependency. See
+          <a href="sandbox.html">Share one container with your agents</a> for the
+          no-devcontainer path.</p>
+        </div>
+
+        <h2>1. Open a shell inside it</h2>
+        <p>
+          From a pane in the project, open <strong>File ▸ Sandbox</strong> and pick
+          <em>Use Sandbox for This Project</em>, then <em>Open Shell in Sandbox</em>.
+          Sinclair reads the project's <code>devcontainer.json</code>, brings a container
+          up from it, and gives you an ordinary tab whose shell is inside.
+        </p>
+        <p>Config files are looked for in the order the Dev Containers tooling uses:</p>
+<pre><code class="language-text">.devcontainer/devcontainer.json
+.devcontainer.json
+.devcontainer/devcontainer.jsonc</code></pre>
+        <p>
+          Comments and trailing commas are fine — the file is parsed as JSONC, the same
+          way Sinclair parses its own settings.
+        </p>
+
+        <h2>2. What Sinclair takes from the file</h2>
+        <p>
+          Only the fields that change how a container is created or entered. Anything
+          else in your <code>devcontainer.json</code> is ignored rather than guessed at.
+        </p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Field</th><th>What it does here</th></tr></thead>
+            <tbody>
+              <tr><td><code>image</code></td><td>Becomes the <strong>base</strong> of the image Sinclair builds, so your agents get the project's toolchain <em>plus</em> the agent CLI on top.</td></tr>
+              <tr><td><code>containerEnv</code>, <code>remoteEnv</code></td><td>Merged into the container's environment. Your own <code>sandbox-env</code> wins on conflicts.</td></tr>
+              <tr><td><code>mounts</code></td><td>Applied, in the engine's <code>type=bind,source=…,target=…</code> form. An entry that doesn't parse becomes a note, not a failure.</td></tr>
+              <tr><td><code>remoteUser</code> / <code>containerUser</code></td><td>The user the container runs as, unless <code>sandbox-user</code> says otherwise.</td></tr>
+              <tr><td><code>shutdownAction</code></td><td>Read to warn you — see step 4.</td></tr>
+              <tr><td><code>workspaceFolder</code>, <code>workspaceMount</code></td><td>Read only to detect whether the project is mounted at its own path — see step 3.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          The <code>${localWorkspaceFolder}</code>,
+          <code>${localWorkspaceFolderBasename}</code>,
+          <code>${containerWorkspaceFolder}</code>, and
+          <code>${containerWorkspaceFolderBasename}</code> variables all resolve.
+        </p>
+        <div class="callout note">
+          <p><strong>Not used:</strong> <code>features</code>,
+          <code>customizations</code>, <code>forwardPorts</code>, and
+          <code>postCreateCommand</code> belong to the Dev Containers tooling, and
+          <code>runArgs</code> is left alone rather than passing arbitrary engine flags
+          through. A <code>build.dockerfile</code> is <em>not</em> built for you — point
+          <code>sandbox-image</code> at the image it produces and Sinclair uses it
+          as-is.</p>
+        </div>
+
+        <h2>3. One thing worth changing: mount at your own path</h2>
+        <p>
+          By default the Dev Containers convention mounts your repo at
+          <code>/workspaces/&lt;name&gt;</code>. That is fine for a person, and awkward for
+          a coding agent: git records <strong>absolute</strong> paths when it creates a
+          worktree, so a worktree made inside the container has a <code>.git</code>
+          pointer that resolves nowhere on the host, and one made on the host resolves
+          nowhere inside.
+        </p>
+        <p>
+          Two spec-legal lines make the container path equal the host path, and the whole
+          problem disappears:
+        </p>
+<pre><code class="language-jsonc">// .devcontainer/devcontainer.json
+{
+  "workspaceMount": "source=${localWorkspaceFolder},target=${localWorkspaceFolder},type=bind",
+  "workspaceFolder": "${localWorkspaceFolder}"
+}</code></pre>
+        <p>
+          When Sinclair creates the container itself it does this anyway. The lines matter
+          for the container <em>your editor</em> creates, so both tools agree.
+        </p>
+
+        <h2>4. Don't let closing the editor kill a working team</h2>
+        <p>
+          <code>shutdownAction</code> defaults to <code>stopContainer</code>: close your
+          editor window and the container stops. If a team of agents is working in that
+          container, they stop with it, mid-task.
+        </p>
+<pre><code class="language-jsonc">{
+  "shutdownAction": "none"
+}</code></pre>
+        <p>
+          Sinclair reads this field and says so in the <strong>Containers</strong> panel
+          when it isn't <code>none</code>, so you find out before it costs you a run
+          rather than after.
+        </p>
+
+        <h2>5. Sharing one container with your editor</h2>
+        <p>
+          Sinclair looks before it creates. If a container is already running for this
+          folder — one VS Code's Dev Containers extension built, or one
+          <code>devcontainer up</code> started — Sinclair <strong>enters that one</strong>
+          instead of building a parallel environment beside it.
+        </p>
+        <p>
+          It also never stops or removes a container it did not create. Your editor is very
+          likely attached to it, and <em>Stop Sandbox</em> pulling the floor out from under
+          your editor session would be a bad surprise. The Containers panel tells you when
+          the sandbox is one Sinclair adopted.
+        </p>
+        <p>
+          Discovery keys on the label the Dev Containers tooling stamps with the host
+          workspace path:
+        </p>
+<pre><code class="language-sh">docker ps -a --filter label=devcontainer.local_folder=$PWD</code></pre>
+        <p>
+          Sinclair stamps that same label on the containers it creates, so it works in both
+          directions: open the project in VS Code afterwards and <em>Reopen in Container</em>
+          finds the one already running rather than building a second.
+        </p>
+
+        <h2>6. If the project has no devcontainer.json</h2>
+        <p>
+          Nothing degrades. Sinclair generates a small image itself — a Debian base plus
+          git, node, and your agent CLI — and builds it locally on first use. If you'd
+          rather write a dev container the whole team shares, this is a reasonable
+          starting point that works for people and agents:
+        </p>
+<pre><code class="language-jsonc">// .devcontainer/devcontainer.json
+{
+  "name": "api",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:22",
+
+  // Same path inside and out, so git worktrees stay valid on both sides.
+  "workspaceMount": "source=${localWorkspaceFolder},target=${localWorkspaceFolder},type=bind",
+  "workspaceFolder": "${localWorkspaceFolder}",
+
+  // Closing your editor shouldn't stop a container with agents working in it.
+  "shutdownAction": "none",
+
+  "remoteUser": "node",
+  "containerEnv": { "DATABASE_URL": "postgres://host.docker.internal/dev" },
+  "mounts": ["type=volume,source=api-node-modules,target=${containerWorkspaceFolder}/node_modules"]
+}</code></pre>
+        <p>
+          Sinclair layers the agent CLI onto that image, so you do not need to install
+          <code>claude</code> in it yourself.
+        </p>
+        <div class="callout warn">
+          <span class="label">Careful</span>
+          <p>Don't mount <code>/var/run/docker.sock</code>. It's a common dev container
+          convenience and a one-line container escape — it hands anything in the container
+          root on your host, which matters a great deal once agents are running there with
+          their permission prompts turned off.</p>
+        </div>
+
+        <h2>7. Turning it off</h2>
+        <p>
+          To ignore a project's <code>devcontainer.json</code> and let Sinclair build its
+          own environment:
+        </p>
+<pre><code class="language-jsonc">{
+  "sandbox-devcontainer": false
+}</code></pre>
+        <p>
+          The rest of the sandbox — mounts, environment, resource ceilings, the image —
+          is configured the same way either way. Every key is in
+          <a href="configuration.html#sandbox">the settings reference</a>.
+        </p>
+
+        <h2>Where next</h2>
+        <ul>
+          <li><a href="sandbox.html">Share one container with your agents</a> — the same
+          container, with a whole team inside it.</li>
+          <li><a href="worktreeagents.html">Parallel agents in worktrees</a> — how agents
+          stay out of each other's way inside one container.</li>
+          <li><a href="ostabs.html">Linux in a tab</a> — throwaway containers, no config
+          at all.</li>
+        </ul>
+      </article>
+    </main>
+    <script src="docs.js"></script>
+  </body>
+</html>

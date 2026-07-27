@@ -126,6 +126,11 @@ impl Render for WorkspaceView {
         }
 
         // The active in-window dialog (rename), if any.
+        // The context menu renders nothing while closed, so it can stay in the
+        // tree until the next open replaces it.
+        if let Some(menu) = self.tab_menu.as_ref() {
+            base = base.child(menu.clone());
+        }
         if let Some(modal) = self.modal.as_ref() {
             base = base.child(modal.clone());
         }

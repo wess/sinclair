@@ -130,6 +130,7 @@ pub fn launch_agent_command(
     name: &str,
     role: Option<&str>,
     task: Option<&str>,
+    sandbox: Option<&SandboxRef>,
 ) -> String {
     let r = resolve_provider(opts, provider);
     let mut s = format!(
@@ -162,6 +163,9 @@ pub fn launch_agent_command(
     for arg in &r.args {
         s.push_str(&format!(" --agent-arg {}", sh_quote(arg)));
     }
+    if let Some(sandbox) = sandbox {
+        s.push_str(&sandbox.flags());
+    }
     keep_open(s)
 }
 
@@ -169,9 +173,13 @@ pub fn launch_agent_command(
 /// agent — the quick-launch menu entries. Reuses [`launch_agent_command`] (so the
 /// token-optimization threading applies) with a generated unique name, the
 /// default `worker` role, and no standing task.
-pub fn quick_launch_command(opts: &config::Options, provider: &str) -> String {
+pub fn quick_launch_command(
+    opts: &config::Options,
+    provider: &str,
+    sandbox: Option<&SandboxRef>,
+) -> String {
     let name = unique_agent_name(provider);
-    launch_agent_command(opts, provider, &name, None, None)
+    launch_agent_command(opts, provider, &name, None, None, sandbox)
 }
 
 /// A friendly display name for a provider, for menus. Built-ins get their brand
@@ -269,4 +277,42 @@ pub(crate) fn keep_open(cmd: String) -> String {
     format!(
         "{cmd} || {{ echo; echo '[relay] launch failed — check Settings → AI (is the server running?)'; exec \"${{SHELL:-/bin/sh}}\"; }}"
     )
+}
+
+/// Where an agent should run: inside the project's shared sandbox, so it lands
+/// in the same filesystem and toolchain as every other pane on the team.
+///
+/// Relay stays on the host either way — only the agent itself is exec'd inside
+/// the container — so this is a set of flags on the `relay launch` command
+/// rather than a different command.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SandboxRef {
+    pub engine: String,
+    pub name: String,
+    /// Working directory inside the container. With the identity mount the
+    /// sandbox uses, this is the project's own path.
+    pub workdir: String,
+}
+
+impl SandboxRef {
+    /// The `--sandbox …` flags to append to a `relay launch` command line.
+    pub fn flags(&self) -> String {
+        format!(
+            " --sandbox {} --sandbox-engine {} --sandbox-workdir {} --sandbox-relay-dir {}",
+            sh_quote(&self.name),
+            sh_quote(&self.engine),
+            sh_quote(&self.workdir),
+            sh_quote(container::RELAY_DIR),
+        )
+    }
+}
+
+/// `SandboxRef` for a resolved sandbox, or `None` when the agent runs on the
+/// host.
+pub fn sandbox_ref(sandbox: Option<&container::Sandbox>) -> Option<SandboxRef> {
+    sandbox.map(|s| SandboxRef {
+        engine: s.engine.binary().to_string(),
+        name: s.name.clone(),
+        workdir: s.workdir.clone(),
+    })
 }

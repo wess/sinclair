@@ -167,6 +167,20 @@ pub enum Action {
     /// Open the picker listing already-running containers to attach a tab to
     /// one of them (an interactive shell via `exec`). See the `container` crate.
     AttachContainer,
+    /// Open a shell in this project's shared sandbox, starting (or building)
+    /// the container first if it is not already up.
+    SandboxShell,
+    /// Turn the sandbox on or off for this project, writing `sandbox-enabled`.
+    ToggleSandbox,
+    /// Bring the sandbox container up without opening a pane.
+    SandboxStart,
+    /// Stop the sandbox container. Panes inside it end with it.
+    SandboxStop,
+    /// Rebuild the sandbox image and recreate the container from it. Anything
+    /// written outside the mounted project is lost, which is the point.
+    SandboxRebuild,
+    /// Show what the sandbox is doing right now: image, state, attached panes.
+    SandboxStatus,
     CloseSurface,
     /// Close the current tab and all its panes.
     CloseTab,
@@ -348,6 +362,12 @@ impl Action {
             "attach_container" | "attach_to_container" => {
                 only(Self::AttachContainer, &name, param)
             }
+            "sandbox_shell" => only(Self::SandboxShell, &name, param),
+            "toggle_sandbox" => only(Self::ToggleSandbox, &name, param),
+            "sandbox_start" => only(Self::SandboxStart, &name, param),
+            "sandbox_stop" => only(Self::SandboxStop, &name, param),
+            "sandbox_rebuild" => only(Self::SandboxRebuild, &name, param),
+            "sandbox_status" => only(Self::SandboxStatus, &name, param),
             "close_surface" => only(Self::CloseSurface, &name, param),
             "close_tab" => only(Self::CloseTab, &name, param),
             "close_window" => only(Self::CloseWindow, &name, param),
@@ -501,6 +521,12 @@ impl Action {
             Self::NewTab => "new_tab".into(),
             Self::NewContainerTab => "new_container_tab".into(),
             Self::AttachContainer => "attach_container".into(),
+            Self::SandboxShell => "sandbox_shell".into(),
+            Self::ToggleSandbox => "toggle_sandbox".into(),
+            Self::SandboxStart => "sandbox_start".into(),
+            Self::SandboxStop => "sandbox_stop".into(),
+            Self::SandboxRebuild => "sandbox_rebuild".into(),
+            Self::SandboxStatus => "sandbox_status".into(),
             Self::CloseSurface => "close_surface".into(),
             Self::CloseTab => "close_tab".into(),
             Self::CloseWindow => "close_window".into(),

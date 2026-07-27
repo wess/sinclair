@@ -199,6 +199,15 @@ role = "frontend"</code></pre>
 }</code></pre>
         <p>The most common use is running Claude Code with <code>--dangerously-skip-permissions</code> so it doesn't stop to ask. Values with spaces can be quoted; Ollama has no flags field (it is driven by relay's own bridge, not a CLI).</p>
 
+        <h2 id="sandbox">The shared sandbox</h2>
+        <p>A team working in your checkout is a team working on your real machine, with your real credentials, and — with <code>relay-team-autonomy</code> on — with their permission prompts bypassed. Turning on <strong>File ▸ Sandbox ▸ Use Sandbox for This Project</strong> puts the project and its whole roster inside one container instead: one filesystem, one toolchain, one blast radius. It needs Docker or Podman and nothing else.</p>
+        <p>Relay itself stays on the host. Role resolution, the harness prompt, and the MCP config are built exactly as they are for a host launch; only the final exec changes, so a wedged container can never take the mesh down. Opening a team brings the container up <em>first</em>, so no member is launched onto the host while the rest of its team is inside.</p>
+<pre><code class="language-sh">relay launch alice --role frontend \
+  --sandbox sinclair-sbx-api-9f3c1a20 --sandbox-engine docker \
+  --sandbox-workdir /Users/you/code/api</code></pre>
+        <p>Two things are restated from inside the container: the bus URL (a loopback endpoint becomes the engine's gateway host — <code>host.docker.internal</code>, or <code>host.containers.internal</code> under Podman) and the MCP config path (written to the host state dir as always, handed to the agent as <code>/sandbox/relay/&lt;name&gt;.mcp.json</code>, where the sandbox mounts it read-only).</p>
+        <p>Full walkthrough: <a href="sandbox.html">Share one container with your agents</a>.</p>
+
         <h2>Notes &amp; limits</h2>
         <ul>
           <li><strong>Authentication.</strong> Every request to <code>/mcp</code> and <code>/control/*</code> must carry the server's bearer token (<code>Authorization: Bearer …</code>); only <code>/health</code> is open. The token is generated at startup and stored in <code>server.json</code>, which — along with the bus DB and logs — is written owner-only (0600) inside a 0700 state dir, so only the same user can read it. The CLI, the app, and launched agents pick it up automatically (the latter via the generated <code>*.mcp.json</code>).</li>
@@ -206,6 +215,7 @@ role = "frontend"</code></pre>
           <li><strong>Ordering.</strong> A new agent only sees messages sent after it registers. Start workers before dispatching, or re-register (the same name keeps its read cursor).</li>
           <li><strong>Context.</strong> A long-running agent holds one growing context for its whole shift; restart it for a fresh one. A background <code>claude</code> worker is the exception — it carries a fixed session id and relaunches with <code>--resume</code>, so pausing the mesh (or restarting Sinclair with <code>session-restore</code> on) brings it back with its transcript intact rather than cold. Other providers keep fresh context until they expose an equivalent.</li>
           <li><strong>Codex/Gemini MCP</strong> wiring is unverified — see the tiers above.</li>
+          <li><strong>Sandboxed spawns.</strong> A worker a supervisor starts with the MCP <code>spawn</code> tool runs on the <em>host</em>, not in the project sandbox: the daemon is not told which container a session belongs to. Because the sandbox identity-mounts the project, it still sees the same files; its toolchain is the host's.</li>
         </ul>
 
         <h2>Internals</h2>

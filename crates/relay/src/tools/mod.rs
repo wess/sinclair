@@ -366,6 +366,11 @@ async fn dispatch(app: &App, me: &str, name: &str, args: &Value) -> Value {
                     extra_args: &[],
                     bin: None,
                     custom: None,
+                    // A worker spawned over MCP runs on the host, not in the
+                    // project sandbox: the daemon is not told which container
+                    // a session belongs to. With the sandbox's identity mount
+                    // both see the same files; the toolchain is the host's.
+                    mcp_dir_as_seen: None,
                 },
             ) {
                 Ok(b) => b,

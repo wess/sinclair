@@ -52,9 +52,20 @@
           repository, the current branch is shown alongside it. A background tab
           that posts a notification grows a small yellow attention dot so you
           can see at a glance which session wants you. Set a fixed label for the
-          active tab with <code>change_tab_title</code>, and add the
-          <code>tab-title-show-host</code> config option to keep the
-          <code>user@host</code> prefix in the title (handy over SSH).
+          active tab with <code>change_tab_title</code>. Shells write their
+          title as <code>user@host:path</code>; Sinclair shows just the path, so
+          a tab reads <code>~/code/api</code> rather than
+          <code>you@laptop:~/code/api</code>. Set
+          <code>"tab-title-show-host": true</code> to keep the prefix (handy
+          over SSH, where knowing which machine a pane is on matters). A label
+          you type yourself is never rewritten.
+        </p>
+        <p>
+          <strong>Right-click a tab</strong> for the things you want with your
+          hand already on it: <em>Rename Tab…</em>, <em>Split Right</em>,
+          <em>Split Down</em>, <em>Close Other Tabs</em>, and <em>Close Tab</em>.
+          The same actions are in the View menu and the command palette
+          (<kbd>⌘P</kbd>).
         </p>
 
         <div class="tablewrap">
@@ -66,11 +77,18 @@
               <tr><td><code>new_tab</code></td><td><kbd>⌘T</kbd></td><td>Open a new tab</td></tr>
               <tr><td><code>goto_tab:N</code></td><td><kbd>⌘1</kbd>–<kbd>⌘9</kbd></td><td>Jump to tab N</td></tr>
               <tr><td><code>move_tab:DELTA</code></td><td>—</td><td>Reorder the active tab</td></tr>
-              <tr><td><code>change_tab_title</code></td><td>—</td><td>Set a custom tab label</td></tr>
+              <tr><td><code>change_tab_title</code></td><td>—</td><td>Set a custom tab label (also on the tab's right-click menu)</td></tr>
               <tr><td><code>close_tab</code></td><td><kbd>⌘⌥W</kbd></td><td>Close the current tab</td></tr>
             </tbody>
           </table>
         </div>
+        <p>
+          <strong>Drag the window by its tab bar.</strong> The tab strip doubles
+          as the titlebar, so dragging any empty part of it — beside the tabs, or
+          the space reserved for the window controls — moves the window. In a
+          split, every pane whose tab bar sits along the top edge does this, not
+          just the one in the corner.
+        </p>
         <p>
           <strong>Tear a tab off into its own window.</strong> Drag a tab out of
           the tab bar and release it outside the window, and Sinclair re-homes that

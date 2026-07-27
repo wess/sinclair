@@ -232,6 +232,47 @@ pub struct Options {
     /// When false (default) a fresh container is removed on tab close; when
     /// true it is kept. Per-profile `persist`/`ephemeral` overrides this.
     pub container_persist: bool,
+    /// File key: `sandbox-enabled` - run this project's panes and agents inside
+    /// one shared container. Off by default; nothing about the terminal changes
+    /// until it is turned on.
+    pub sandbox_enabled: bool,
+    /// File key: `sandbox-image` - a ready-made image to use as-is. When set,
+    /// Sinclair builds nothing and trusts the image to carry the agent CLIs.
+    pub sandbox_image: Option<String>,
+    /// File key: `sandbox-base` - base image the generated sandbox image layers
+    /// on. `None` means the built-in default (a Debian slim). The generated
+    /// layer is `apt-get`-shaped, so a non-Debian base needs `sandbox-image`.
+    pub sandbox_base: Option<String>,
+    /// File key: `sandbox-packages` - extra apt packages for the built image.
+    pub sandbox_packages: Vec<String>,
+    /// File key: `sandbox-setup` - extra shell commands baked into the image,
+    /// one `RUN` layer each.
+    pub sandbox_setup: Vec<String>,
+    /// File key: `sandbox-mount` - extra mounts, `source:target[:ro]`. A bare
+    /// path is mounted at itself.
+    pub sandbox_mount: Vec<String>,
+    /// File key: `sandbox-env` - extra environment, `KEY=VALUE` entries.
+    pub sandbox_env: Vec<String>,
+    /// File key: `sandbox-agents` - agent CLIs to install into the image.
+    /// Empty means just the configured default agent.
+    pub sandbox_agents: Vec<String>,
+    /// File key: `sandbox-user` - the `--user` the container runs as. `host`
+    /// resolves to the current uid:gid, which is what keeps a Linux bind mount
+    /// from filling with root-owned files. Empty runs as the image's user.
+    pub sandbox_user: Option<String>,
+    /// File key: `sandbox-network` - `bridge` (default), `host`, or `none`.
+    pub sandbox_network: Option<String>,
+    /// File key: `sandbox-memory` - `--memory` ceiling, e.g. `8g`.
+    pub sandbox_memory: Option<String>,
+    /// File key: `sandbox-cpus` - `--cpus` ceiling, e.g. `4`.
+    pub sandbox_cpus: Option<String>,
+    /// File key: `sandbox-persist` - keep the container when the last pane
+    /// using it closes. On by default: rebuilding a toolchain per session is
+    /// slow, and the container costs nothing while idle.
+    pub sandbox_persist: bool,
+    /// File key: `sandbox-devcontainer` - honour a project's
+    /// `.devcontainer/devcontainer.json` when one exists. On by default.
+    pub sandbox_devcontainer: bool,
     /// File key: `keybind`, raw strings (accumulated, parsed later).
     pub keybind: Vec<String>,
     /// File key: `ai-enabled` - master switch for all AI features.
@@ -422,6 +463,20 @@ impl Default for Options {
             container: Vec::new(),
             container_engine: None,
             container_persist: false,
+            sandbox_enabled: false,
+            sandbox_image: None,
+            sandbox_base: None,
+            sandbox_packages: Vec::new(),
+            sandbox_setup: Vec::new(),
+            sandbox_mount: Vec::new(),
+            sandbox_env: Vec::new(),
+            sandbox_agents: Vec::new(),
+            sandbox_user: None,
+            sandbox_network: None,
+            sandbox_memory: None,
+            sandbox_cpus: None,
+            sandbox_persist: true,
+            sandbox_devcontainer: true,
             keybind: Vec::new(),
             ai_enabled: false,
             ai_optimize_tokens: false,

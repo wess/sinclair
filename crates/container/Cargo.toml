@@ -6,3 +6,6 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+# For the JSONC reader only: `devcontainer.json` allows comments and trailing
+# commas, which is exactly what config's settings parser already handles.
+config = { path = "../config" }

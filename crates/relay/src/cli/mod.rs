@@ -8,6 +8,7 @@ pub mod layered;
 pub mod paths;
 pub mod ps;
 pub mod role;
+pub mod sandbox;
 pub mod server;
 pub mod team;
 pub mod watch;
@@ -244,6 +245,23 @@ pub struct LaunchArgs {
     /// watching, such as a team member's split.
     #[arg(long = "skip-permissions")]
     pub skip_permissions: bool,
+    /// Run the agent inside this container instead of on the host — the
+    /// project's shared sandbox, so the whole team works in one filesystem and
+    /// one toolchain. Relay itself stays on the host: only the agent is
+    /// exec'd inside.
+    #[arg(long)]
+    pub sandbox: Option<String>,
+    /// Container engine for `--sandbox`: docker (default) or podman.
+    #[arg(long = "sandbox-engine")]
+    pub sandbox_engine: Option<String>,
+    /// Working directory inside the sandbox. With the identity mount Sinclair
+    /// uses, this is the project's own path.
+    #[arg(long = "sandbox-workdir")]
+    pub sandbox_workdir: Option<String>,
+    /// Directory the sandbox mounts the generated MCP configs at, so the agent
+    /// is handed the path as *it* sees it rather than the host's.
+    #[arg(long = "sandbox-relay-dir")]
+    pub sandbox_relay_dir: Option<String>,
 }
 
 pub async fn run(cli: Cli) -> Result<()> {

@@ -461,6 +461,82 @@ pub fn apply(opts: &mut Options, d: &Options, key: &str, val: &str) -> Result<()
                 value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
             };
         }
+        "sandbox-enabled" => {
+            opts.sandbox_enabled = if empty {
+                d.sandbox_enabled
+            } else {
+                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+            };
+        }
+        "sandbox-persist" => {
+            opts.sandbox_persist = if empty {
+                d.sandbox_persist
+            } else {
+                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+            };
+        }
+        "sandbox-devcontainer" => {
+            opts.sandbox_devcontainer = if empty {
+                d.sandbox_devcontainer
+            } else {
+                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+            };
+        }
+        "sandbox-image" => {
+            opts.sandbox_image = if empty { d.sandbox_image.clone() } else { Some(val.to_string()) };
+        }
+        "sandbox-base" => {
+            opts.sandbox_base = if empty { d.sandbox_base.clone() } else { Some(val.to_string()) };
+        }
+        "sandbox-user" => {
+            opts.sandbox_user = if empty { d.sandbox_user.clone() } else { Some(val.to_string()) };
+        }
+        "sandbox-network" => {
+            opts.sandbox_network =
+                if empty { d.sandbox_network.clone() } else { Some(val.to_string()) };
+        }
+        "sandbox-memory" => {
+            opts.sandbox_memory =
+                if empty { d.sandbox_memory.clone() } else { Some(val.to_string()) };
+        }
+        "sandbox-cpus" => {
+            opts.sandbox_cpus = if empty { d.sandbox_cpus.clone() } else { Some(val.to_string()) };
+        }
+        "sandbox-packages" => {
+            if empty {
+                opts.sandbox_packages = d.sandbox_packages.clone();
+            } else {
+                opts.sandbox_packages.push(val.to_string());
+            }
+        }
+        "sandbox-setup" => {
+            if empty {
+                opts.sandbox_setup = d.sandbox_setup.clone();
+            } else {
+                opts.sandbox_setup.push(val.to_string());
+            }
+        }
+        "sandbox-mount" => {
+            if empty {
+                opts.sandbox_mount = d.sandbox_mount.clone();
+            } else {
+                opts.sandbox_mount.push(val.to_string());
+            }
+        }
+        "sandbox-env" => {
+            if empty {
+                opts.sandbox_env = d.sandbox_env.clone();
+            } else {
+                opts.sandbox_env.push(val.to_string());
+            }
+        }
+        "sandbox-agents" => {
+            if empty {
+                opts.sandbox_agents = d.sandbox_agents.clone();
+            } else {
+                opts.sandbox_agents.push(val.to_string());
+            }
+        }
         "keybind" => {
             if empty {
                 opts.keybind = d.keybind.clone();

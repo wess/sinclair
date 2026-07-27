@@ -19,9 +19,11 @@ mod persist;
 mod pluginpanel;
 mod quickopen;
 mod render;
+pub(crate) mod sandbox;
 mod savebuffer;
 mod sidebar;
 mod triggers;
+mod tabmenu;
 mod tabs;
 mod worktrees;
 
@@ -184,6 +186,16 @@ impl PaneContent {
         match self {
             PaneContent::Terminal(v) => v.read(cx).title().to_string(),
             PaneContent::Webview(v) => v.read(cx).title(),
+        }
+    }
+
+    /// True when the title was typed by the user rather than set by the
+    /// program in the pane. An explicit name is never rewritten.
+    fn has_title_override(&self, cx: &App) -> bool {
+        match self {
+            PaneContent::Terminal(v) => v.read(cx).has_title_override(),
+            // A webview's title is its own; nothing shell-shaped to strip.
+            PaneContent::Webview(_) => true,
         }
     }
 
@@ -402,6 +414,12 @@ pub struct WorkspaceView {
     catalog_loading: bool,
     /// The guise Spotlight quick-open overlay (cmd+P), rebuilt each open.
     spotlight: Option<Entity<guise::Spotlight>>,
+    /// Live `tab-title-show-host`, shared with the pane group's tab-label
+    /// closure so a config reload reaches it without rebuilding the group.
+    show_host: Rc<std::cell::Cell<bool>>,
+    /// The open tab context menu (right-click on a tab). Rebuilt per open, so
+    /// its entries can close over the tab that was clicked.
+    tab_menu: Option<Entity<guise::ContextMenu>>,
     /// The active in-window dialog (rename), as a guise Modal
     /// overlay. `None` when no dialog is open.
     modal: Option<gpui::AnyView>,
@@ -431,6 +449,22 @@ pub struct WorkspaceView {
     /// — `container-persist = false` — are tracked here; persistent ones are
     /// left running.
     kill_on_close: HashMap<ItemId, String>,
+    /// This project's shared sandbox, once it has been brought up. One
+    /// container serves every pane and every agent, so it is resolved once per
+    /// window and cached here.
+    sandbox: Option<crate::sandbox::Ready>,
+    /// Panes currently attached to the sandbox. The container outlives any one
+    /// of them; the count is what decides when it may be retired.
+    sandbox_panes: HashSet<ItemId>,
+    /// Live progress or the last failure, shown in the AI menu and the
+    /// Containers panel. `None` when the sandbox is simply idle.
+    sandbox_status: Option<String>,
+    /// Advisories from the last resolve (a devcontainer that stops on close, a
+    /// mount that did not parse), surfaced in the Containers panel.
+    sandbox_notes: Vec<String>,
+    /// True while a resolve is in flight, so a second click does not start a
+    /// second build.
+    sandbox_busy: bool,
     /// Configured font size, restored by `reset_font_size`.
     base_font_size: gpui::Pixels,
     /// Config-file watcher; kept alive so live reload keeps working.
@@ -508,7 +542,8 @@ impl WorkspaceView {
         // throwaway group over a placeholder id, assemble `this`, spawn the real
         // first terminal, then rebuild the group around it below.
         let placeholder = item_ids.next();
-        let group = Self::build_group(placeholder, items.clone(), cx);
+        let show_host = Rc::new(std::cell::Cell::new(opts.tab_title_show_host));
+        let group = Self::build_group(placeholder, items.clone(), show_host.clone(), cx);
         let group_sub = cx.subscribe_in(&group, window, |this, _g, ev: &PaneGroupEvent, window, cx| {
             this.on_group_event(ev.clone(), window, cx);
         });
@@ -537,6 +572,8 @@ impl WorkspaceView {
             catalog_status: None,
             catalog_loading: false,
             spotlight: None,
+            show_host,
+            tab_menu: None,
             modal: None,
             containers: Vec::new(),
             engine: None,
@@ -546,6 +583,11 @@ impl WorkspaceView {
             spawn_error: None,
             container_tabs: HashMap::new(),
             kill_on_close: HashMap::new(),
+            sandbox: None,
+            sandbox_panes: HashSet::new(),
+            sandbox_status: None,
+            sandbox_notes: Vec::new(),
+            sandbox_busy: false,
             _watch: None,
             verified_agents: None,
             dark: is_dark(window.appearance()),
@@ -599,7 +641,8 @@ impl WorkspaceView {
             }
         };
         // Rebuild the group around the real first item (the placeholder held none).
-        this.group = Self::build_group(first, this.items.clone(), cx);
+        this.group =
+            Self::build_group(first, this.items.clone(), this.show_host.clone(), cx);
         this._group_sub = cx.subscribe_in(&this.group, window, |this, _g, ev: &PaneGroupEvent, window, cx| {
             this.on_group_event(ev.clone(), window, cx);
         });
@@ -649,6 +692,7 @@ impl WorkspaceView {
     fn build_group(
         first: ItemId,
         items: Rc<RefCell<Items>>,
+        show_host: Rc<std::cell::Cell<bool>>,
         cx: &mut Context<Self>,
     ) -> Entity<PaneGroup> {
         // The group doubles as the window titlebar: reserve the top-left inset
@@ -675,12 +719,20 @@ impl WorkspaceView {
                 })
                 .on_item_title({
                     let items = items.clone();
+                    let show_host = show_host.clone();
                     move |id, cx| {
-                        items
-                            .borrow()
-                            .get(&id)
-                            .map(|it| SharedString::from(it.content.title(cx)))
-                            .unwrap_or_default()
+                        let items = items.borrow();
+                        let Some(item) = items.get(&id) else {
+                            return SharedString::default();
+                        };
+                        let title = item.content.title(cx);
+                        // Shells write `user@host:path`; most people want the
+                        // path. A title the user typed is left exactly as typed.
+                        if show_host.get() || item.content.has_title_override(cx) {
+                            SharedString::from(title)
+                        } else {
+                            SharedString::from(crate::tabbar::strip_host(&title).to_string())
+                        }
                     }
                 })
                 .on_item_dot({
@@ -712,6 +764,9 @@ impl WorkspaceView {
                 cx.notify();
             }
             PaneGroupEvent::TearOff(item) => self.tear_off_to_window(item, window, cx),
+            PaneGroupEvent::ContextMenu { item, position } => {
+                self.open_tab_menu(item, position, window, cx)
+            }
         }
     }
 
@@ -789,7 +844,7 @@ impl WorkspaceView {
             self.close_window(window, cx);
             return;
         }
-        self.on_item_closed(item);
+        self.on_item_closed(item, cx);
         // Dropping the Item drops the TerminalView (and its pty/subscription).
         self.items.borrow_mut().remove(&item);
         self.group.update(cx, |g, cx| g.close_item(item, cx));
@@ -894,6 +949,7 @@ impl WorkspaceView {
         };
         self.base_font_size = px(opts.font_size.max(1.0));
         self.opts = opts;
+        self.show_host.set(self.opts.tab_title_show_host);
         if plugins_changed {
             self.plugins = loadplugins(&self.opts);
             self.rebuild_webview_hosts(cx);

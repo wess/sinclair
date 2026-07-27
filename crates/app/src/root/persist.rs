@@ -330,9 +330,26 @@ impl WorkspaceView {
     }
 
     /// Open a Relay team: a tile of agents, each pane launched into the mesh.
-    /// The daemon start and the `team info` subprocess both block, so they run
-    /// on the background executor; the splits open in the completion callback.
+    ///
+    /// When the project uses a sandbox, it is brought up *first*: every member
+    /// has to land in the same container, and a member launched before it
+    /// exists would end up on the host, working in a different toolchain from
+    /// the rest of its team.
     pub(crate) fn open_team(&mut self, name: &str, window: &mut Window, cx: &mut Context<Self>) {
+        if self.opts.sandbox_enabled && self.sandbox.is_none() {
+            let name = name.to_string();
+            self.with_sandbox(window, cx, move |this, _sandbox, window, cx| {
+                this.open_team_panes(&name, window, cx);
+            });
+            return;
+        }
+        self.open_team_panes(name, window, cx);
+    }
+
+    /// The team open itself. The daemon start and the `team info` subprocess
+    /// both block, so they run on the background executor; the splits open in
+    /// the completion callback.
+    fn open_team_panes(&mut self, name: &str, window: &mut Window, cx: &mut Context<Self>) {
         let Some(handle) = window.window_handle().downcast::<Self>() else {
             return;
         };
@@ -355,7 +372,9 @@ impl WorkspaceView {
                 if members.is_empty() {
                     return;
                 }
-                let panes = crate::relay::team_layout(&view.opts, &shape, &members);
+                let sandbox = view.sandbox_ref();
+                let panes =
+                    crate::relay::team_layout(&view.opts, &shape, &members, sandbox.as_ref());
                 if view.opts.relay_team_window {
                     // The team gets a window of its own: every pane in it is a
                     // member, the dividers between them resize, and the layout

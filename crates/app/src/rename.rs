@@ -96,7 +96,14 @@ impl RenameDialog {
 impl Render for RenameDialog {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let root = self.root.clone();
+        // The modal's backdrop positions itself absolutely and is painted in
+        // the deferred pass; a zero-sized host leaves it with nothing to
+        // resolve against, so the dialog never appears. Fill the window.
         div()
+            .absolute()
+            .top_0()
+            .left_0()
+            .size_full()
             .on_key_down(cx.listener(|this, ev: &KeyDownEvent, window, cx| {
                 let ks = &ev.keystroke;
                 if ks.key == "escape" || (ks.modifiers.platform && ks.key == "w") {

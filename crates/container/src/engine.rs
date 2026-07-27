@@ -27,6 +27,21 @@ impl Engine {
         }
     }
 
+    /// The hostname a container uses to reach a service on the host.
+    ///
+    /// Each engine ships its own name for this, and getting it wrong is the
+    /// difference between an agent reaching the relay bus and every one of its
+    /// `wait` calls failing. On a bridged network the name still needs an
+    /// `--add-host …:host-gateway` entry to resolve (see
+    /// [`crate::Sandbox::gateway`]); Docker Desktop provides it already, but
+    /// adding it is harmless there and required on Linux.
+    pub fn gateway_host(self) -> &'static str {
+        match self {
+            Self::Docker => "host.docker.internal",
+            Self::Podman => "host.containers.internal",
+        }
+    }
+
     /// Parse an explicit engine preference (config `container-engine`).
     /// `auto` (or empty) yields `None`, meaning "detect".
     pub fn parse(s: &str) -> Option<Self> {

@@ -45,9 +45,13 @@
           Each tab titles itself after the focused pane's working directory, and when
           that directory is a git repository the current branch is shown alongside it —
           so a glance at the tab bar tells you which project and which branch you're on.
-          Pin a fixed label to the active tab with <code>change_tab_title</code>, and add
-          the <code>tab-title-show-host</code> config option to keep the
-          <code>user@host</code> prefix in the title (handy over SSH).
+          Pin a fixed label to the active tab with <code>change_tab_title</code> — or
+          just <strong>right-click the tab</strong> and pick <em>Rename Tab…</em>, which
+          is also where <em>Split Right</em>, <em>Close Other Tabs</em>, and
+          <em>Close Tab</em> live. Shells write their title as
+          <code>user@host:path</code> and Sinclair shows only the path; set
+          <code>"tab-title-show-host": true</code> to keep the prefix (handy over SSH).
+          A label you type is never rewritten.
         </p>
         <div class="tablewrap">
           <table>

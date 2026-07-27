@@ -24,6 +24,7 @@ const MANIFEST = [
       { slug: "awareness", title: "Triggers & notifications", href: "awareness.html" },
       { slug: "recording", title: "Record & share", href: "recording.html" },
       { slug: "ostabs", title: "Linux in a tab", href: "ostabs.html" },
+      { slug: "devcontainers", title: "Dev containers", href: "devcontainers.html" },
       { slug: "images", title: "Images in the terminal", href: "images.html" },
       { slug: "assist", title: "Assist: type less", href: "assist.html" },
     ],
@@ -33,6 +34,7 @@ const MANIFEST = [
     pages: [
       { slug: "agentteams", title: "Run an agent team", href: "agentteams.html" },
       { slug: "worktreeagents", title: "Parallel agents in worktrees", href: "worktreeagents.html" },
+      { slug: "sandbox", title: "Share one container", href: "sandbox.html" },
       { slug: "statushooks", title: "Agent status at a glance", href: "statushooks.html" },
       { slug: "automation", title: "Automate with MCP", href: "automation.html" },
     ],
