@@ -139,6 +139,10 @@ impl WorkspaceView {
         }
         self.sandbox_busy = true;
         self.sandbox_status = Some(crate::sandbox::Stage::Looking.label().to_string());
+        // Bringing a sandbox up the first time builds an image: minutes, not
+        // milliseconds. Put the live status on screen rather than leaving it in
+        // a menu the user would have to know to open.
+        self.show_sandbox_panel(cx);
         cx.notify();
 
         let spec = self.sandbox_spec(&project);
@@ -198,13 +202,29 @@ impl WorkspaceView {
         .detach();
     }
 
-    /// Record a failure where the user can see it: the menu status line, the
-    /// sidebar, and stderr.
+    /// Record a failure where the user can see it. An action invoked from a
+    /// menu that then does nothing visible is indistinguishable from a broken
+    /// build, so this opens the panel holding the reason as well as writing it
+    /// to the status line and stderr.
     fn sandbox_fail(&mut self, message: &str, cx: &mut Context<Self>) {
         eprintln!("sinclair: sandbox: {message}");
         self.sandbox_busy = false;
         self.sandbox_status = Some(message.to_string());
+        self.show_sandbox_panel(cx);
         self.setmenus(cx);
+        cx.notify();
+    }
+
+    /// Show the Containers drawer, where the sandbox status and its advisories
+    /// live. Unlike the sidebar toggle this never collapses an open panel — it
+    /// is called to reveal something, never to hide it.
+    fn show_sandbox_panel(&mut self, cx: &mut Context<Self>) {
+        if self.left_panel != Some(SidebarPanel::Containers)
+            && self.right_panel != Some(SidebarPanel::Containers)
+        {
+            self.left_panel = Some(SidebarPanel::Containers);
+        }
+        self.refresh_containers();
         cx.notify();
     }
 
