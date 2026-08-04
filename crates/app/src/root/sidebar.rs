@@ -93,9 +93,9 @@ impl WorkspaceView {
         row.into_any_element()
     }
 
-    /// The dock's own thin strip: the side's name and an `×` that closes the
-    /// whole dock. Section titles live on the sections themselves now, so this
-    /// only has to identify the column and offer the close.
+    /// The dock's own thin strip: just the `×` that closes the whole dock.
+    /// Naming the side is redundant — which column you're looking at is not
+    /// something you need told — so the strip carries only the control.
     fn dock_titlebar(&self, side: SidebarSide, cx: &mut Context<Self>) -> impl IntoElement {
         let fg = colors::hsla(self.colors.fg);
         let mut dim = fg;
@@ -106,22 +106,18 @@ impl WorkspaceView {
         hover.a = 0.12;
         // A bare side token tells `toggle_sidebar` to close the dock.
         let close_payload = side.token();
-        let label = match side {
-            SidebarSide::Left => "Left",
-            SidebarSide::Right => "Right",
-        };
         div()
             .flex_none()
             .flex()
             .flex_row()
             .items_center()
+            .justify_end()
             .px_3()
             .py_1()
             .border_b_1()
             .border_color(border)
             .text_size(px(10.0))
             .text_color(dim)
-            .child(div().flex_1().child(SharedString::from(label.to_uppercase())))
             .child(
                 div()
                     .id(("sb-close", side.index()))

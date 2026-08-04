@@ -3,6 +3,14 @@ use gpui::prelude::*;
 
 impl Render for WorkspaceView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        // Note where the window is, for the session. Every variant carries the
+        // *restore* bounds, so a maximized or full-screen window still records
+        // the size it would return to — which is what we want to reopen at.
+        self.last_bounds = Some(match window.window_bounds() {
+            gpui::WindowBounds::Windowed(b)
+            | gpui::WindowBounds::Maximized(b)
+            | gpui::WindowBounds::Fullscreen(b) => b,
+        });
         // Sync the platform window's opacity to the setting. At opacity 1.0 the
         // window is marked opaque so the compositor ignores the framebuffer's
         // alpha entirely (a residual-alpha frame from a prior translucent state

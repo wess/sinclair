@@ -374,3 +374,109 @@ fn every_builtin_has_an_uppercase_label() {
         );
     }
 }
+
+/// Build a saved-session dock pair from `(token, expanded)` lists.
+fn saved(
+    left: (bool, f32, &[(&str, bool)]),
+    right: (bool, f32, &[(&str, bool)]),
+) -> [SavedDock; 2] {
+    let mk = |(open, width, sections): (bool, f32, &[(&str, bool)])| SavedDock {
+        open,
+        width,
+        sections: sections
+            .iter()
+            .map(|(t, e)| ((*t).to_string(), *e))
+            .collect(),
+    };
+    [mk(left), mk(right)]
+}
+
+#[test]
+fn a_saved_session_restores_open_width_and_expansion() {
+    let mut docks = docks_of(&[SidebarPanel::Terminals, SidebarPanel::Layouts], &[]);
+    apply_saved(
+        &mut docks,
+        &saved(
+            (true, 420.0, &[("terminals", false), ("layouts", true)]),
+            (false, 0.0, &[]),
+        ),
+        tokenizer(NONE),
+    );
+    assert!(docks[0].open);
+    assert_eq!(docks[0].width, 420.0);
+    assert!(!docks[0].sections[0].expanded, "terminals should have restored collapsed");
+    assert!(docks[0].sections[1].expanded);
+}
+
+/// The reason state is keyed by token: installing a plugin shifts every
+/// `Plugin(i)` after it, so a positional match would move the saved expansion
+/// onto the wrong section.
+#[test]
+fn saved_state_follows_a_section_when_a_plugin_is_installed() {
+    // `git` was the only plugin when the session was saved.
+    let after: &'static [&'static str] = &["docker", "git"];
+    let state = saved(
+        (
+            true,
+            300.0,
+            &[("terminals", true), ("plugin:git", false)],
+        ),
+        (false, 260.0, &[]),
+    );
+
+    // `docker` installs ahead of `git`, so git is now Plugin(1).
+    let mut next = docks_of(
+        &[
+            SidebarPanel::Terminals,
+            SidebarPanel::Plugin(0),
+            SidebarPanel::Plugin(1),
+        ],
+        &[],
+    );
+    apply_saved(&mut next, &state, tokenizer(after));
+
+    let git = next[0]
+        .sections
+        .iter()
+        .find(|s| tokenizer(after)(s.panel) == "plugin:git")
+        .expect("git section");
+    assert!(!git.expanded, "the saved collapse followed the wrong section");
+    let docker = next[0]
+        .sections
+        .iter()
+        .find(|s| tokenizer(after)(s.panel) == "plugin:docker")
+        .expect("docker section");
+    assert!(docker.expanded, "a newly installed section should keep its default");
+}
+
+/// A token for a section that no longer exists is simply dropped — the same
+/// tolerance the config path has for an uninstalled plugin.
+#[test]
+fn saved_state_ignores_an_unknown_token() {
+    let mut docks = docks_of(&[SidebarPanel::Terminals], &[]);
+    apply_saved(
+        &mut docks,
+        &saved(
+            (true, 300.0, &[("plugin:gone", false), ("terminals", false)]),
+            (false, 260.0, &[]),
+        ),
+        tokenizer(NONE),
+    );
+    assert!(!docks[0].sections[0].expanded);
+    assert_eq!(docks[0].sections.len(), 1);
+}
+
+/// A session from before widths were recorded (or a corrupt one) must not
+/// collapse the dock to nothing.
+#[test]
+fn a_zero_width_keeps_the_configured_one() {
+    let mut docks = docks_of(&[SidebarPanel::Terminals], &[]);
+    let configured = docks[0].width;
+    apply_saved(
+        &mut docks,
+        &saved((true, 0.0, &[]), (false, -5.0, &[])),
+        tokenizer(NONE),
+    );
+    assert_eq!(docks[0].width, configured);
+    assert_eq!(docks[1].width, configured);
+}

@@ -323,6 +323,11 @@ pub struct WorkspaceView {
     /// `sidebar-right`, so the sides are genuinely different columns rather
     /// than the same panel list twice.
     docks: Docks,
+    /// The window's last windowed bounds, refreshed on every frame. gpui has no
+    /// bounds observer, but a move or resize calls `bounds_changed`, which
+    /// refreshes — so render is where this can be seen. Saved into the session
+    /// so the window reopens where you left it.
+    last_bounds: Option<gpui::Bounds<gpui::Pixels>>,
     /// Worktrees of the current repo, cached when that section expands. `None`
     /// until first resolved; the outer/inner options separate "not looked yet"
     /// from "looked and this isn't a repo".
@@ -498,6 +503,7 @@ impl WorkspaceView {
             macros: loadmacros(),
             menu_actions: Vec::new(),
             docks,
+            last_bounds: None,
             worktrees: None,
             notes_recent: Vec::new(),
             plugin_panels: HashMap::new(),

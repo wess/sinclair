@@ -12,6 +12,8 @@
 //! loaded or removed, so persisting one would quietly rebind a saved slot to a
 //! different plugin the next time the set changed.
 
+use crate::sessionstate::DockState as SavedDock;
+
 /// Which side a dock lives on.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum SidebarSide {
@@ -462,6 +464,53 @@ pub fn collapsed_tokens(docks: &Docks, token_of: impl Fn(SidebarPanel) -> String
         .filter(|s| !s.expanded)
         .map(|s| token_of(s.panel))
         .collect()
+}
+
+/// Every section actually on screen: in an open dock, and expanded. A collapsed
+/// section paints nothing but its header, so it is not "shown" and must not
+/// trigger the work `on_section_shown` does.
+pub fn visible(docks: &Docks) -> Vec<SidebarPanel> {
+    docks
+        .iter()
+        .filter(|d| d.open)
+        .flat_map(|d| d.sections.iter())
+        .filter(|s| s.expanded)
+        .map(|s| s.panel)
+        .collect()
+}
+
+/// Lay a saved session's dock state over a freshly composed pair.
+///
+/// Config decides *what* is in each dock and in what order; the session decides
+/// how it stood when the user left. The two are kept apart on purpose: dragging
+/// a dock open should not rewrite `settings.json`, and clearing the session
+/// should return you to the configured defaults.
+///
+/// Sections are matched by **token**, never position, for the same reason the
+/// config is: a plugin appearing or disappearing shifts every index after it,
+/// so a positional match would silently reattach a saved state to a different
+/// section. A token with no matching section is dropped, and a section with no
+/// saved entry keeps the default `compose` gave it — so installing a plugin
+/// leaves every other section exactly as it was.
+pub fn apply_saved(
+    docks: &mut Docks,
+    saved: &[SavedDock; 2],
+    token_of: impl Fn(SidebarPanel) -> String,
+) {
+    for (dock, state) in docks.iter_mut().zip(saved.iter()) {
+        dock.open = state.open;
+        // A zero or negative width is a corrupt or pre-width session; keep the
+        // configured one rather than collapsing the dock to nothing.
+        if state.width > 0.0 {
+            dock.width = state.width;
+        }
+        for section in dock.sections.iter_mut() {
+            let token = token_of(section.panel);
+            if let Some((_, expanded)) = state.sections.iter().find(|(t, _)| *t == token) {
+                section.expanded = *expanded;
+            }
+        }
+    }
 }
 
 #[cfg(test)]

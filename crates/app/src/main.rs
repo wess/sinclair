@@ -210,8 +210,23 @@ fn open_default_window(opts: config::Options, cx: &mut App) {
         x: opts.window_padding_x as f32,
         y: opts.window_padding_y as f32,
     };
+    // Reopen where the window was left, when a session recorded it. Config's
+    // `window-width`/`window-height` remain the default for a first run or a
+    // cleared session — see `sessionstate`.
+    let place = opts
+        .session_restore
+        .then(crate::sessionstate::load)
+        .flatten()
+        .and_then(|s| s.window)
+        .filter(|w| w.usable())
+        .map(|w| {
+            Bounds::new(
+                point(px(w.x), px(w.y)),
+                size(px(w.width), px(w.height)),
+            )
+        });
     open_window(
-        opts, colors, font, font_size, cell, pad, None, None, None, None, cx,
+        opts, colors, font, font_size, cell, pad, None, None, place, None, cx,
     );
 }
 

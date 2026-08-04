@@ -145,6 +145,17 @@ impl WorkspaceView {
         let Some(state) = crate::sessionstate::load() else {
             return;
         };
+        // Dock state restores even when there are no tabs to rebuild — how the
+        // sidebar stood is worth keeping on its own.
+        if let Some(docks) = state.docks.as_ref() {
+            self.apply_dock_state(docks);
+            // A section that comes back visible has never been shown this run,
+            // so nothing has filled it: without this it renders its "Loading…"
+            // placeholder until the user collapses and reopens it.
+            for panel in dock::visible(&self.docks) {
+                self.on_section_shown(panel, cx);
+            }
+        }
         if state.tabs.is_empty() {
             return;
         }
@@ -254,7 +265,45 @@ impl WorkspaceView {
             commands,
             sessions,
         }];
-        crate::sessionstate::save(&crate::sessionstate::SessionState { tabs, active: 0 });
+        crate::sessionstate::save(&crate::sessionstate::SessionState {
+            tabs,
+            active: 0,
+            window: self.last_bounds.map(|b| crate::sessionstate::WindowState {
+                x: b.origin.x.into(),
+                y: b.origin.y.into(),
+                width: b.size.width.into(),
+                height: b.size.height.into(),
+            }),
+            docks: Some(self.dock_state()),
+        });
+    }
+
+    /// The docks as they stand, for the session. Sections are keyed by token so
+    /// a stored entry follows its section when the plugin set changes the
+    /// ordering — the same rule the dock config itself follows.
+    fn dock_state(&self) -> [crate::sessionstate::DockState; 2] {
+        std::array::from_fn(|i| {
+            let dock = &self.docks[i];
+            crate::sessionstate::DockState {
+                open: dock.open,
+                width: dock.width,
+                sections: dock
+                    .sections
+                    .iter()
+                    .map(|s| (self.panel_token_of(s.panel), s.expanded))
+                    .collect(),
+            }
+        })
+    }
+
+    /// Apply a saved session's dock state over the configured composition.
+    /// The merge itself lives in [`dock::apply_saved`], which is gpui-free and
+    /// unit-tested; this only supplies the token mapping.
+    pub(crate) fn apply_dock_state(&mut self, saved: &[crate::sessionstate::DockState; 2]) {
+        let plugins = self.plugins.clone();
+        dock::apply_saved(&mut self.docks, saved, |p| {
+            crate::root::token_of(&plugins, p)
+        });
     }
 
     /// Split `host` along `axis` at `ratio`, putting `item` in the new (second)
