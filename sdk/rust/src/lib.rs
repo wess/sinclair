@@ -5,8 +5,13 @@
 //! Your plugin's *world* imports only the host interfaces it uses — that is what
 //! makes capability gating precise (a plugin that never imports `host-net` can't
 //! be granted network by accident). This template uses `core + screen`; add
-//! `host-commands`, `host-net`, etc. to the world and declare the matching
-//! `capabilities` in `plugin.toml` to use more.
+//! `host-commands`, `host-net`, `host-process`, etc. to the world and declare
+//! the matching `capabilities` in `plugin.toml` to use more.
+//!
+//! To shell out — `git status`, `docker ps` — import `host-process` and declare
+//! `capabilities = ["process"]`. The host runs the program and returns its
+//! output; the plugin never holds the privilege to spawn anything itself. See
+//! the `inspector` world in `crates/pluginrt/wit/plugin.wit`.
 
 wit_bindgen::generate!({
     world: "screentools", // core + screen; define your own world for other caps

@@ -9,7 +9,8 @@ wit_bindgen::generate!({
 
 use crate::exports::prompt::plugin::guest::Guest;
 use crate::prompt::plugin::host_commands::run_command;
-use crate::prompt::plugin::types::CommandTarget;
+use crate::prompt::plugin::host_process::exec;
+use crate::prompt::plugin::types::{CommandTarget, ExecRequest};
 
 struct Example;
 
@@ -23,6 +24,19 @@ impl Guest for Example {
             // Uses the gated `host-commands` interface — only reachable when the
             // plugin was granted the `commands` capability.
             "run" => run_command("echo hi", CommandTarget::Pane).map(|()| "{\"ran\":true}".to_string()),
+            // Uses the gated `host-process` interface: the host runs the program
+            // and hands back its output.
+            "exec" => {
+                let out = exec(&ExecRequest {
+                    program: "git".to_string(),
+                    args: vec!["status".to_string(), "--porcelain".to_string()],
+                    cwd: None,
+                })?;
+                Ok(format!(
+                    "{{\"status\":{},\"stdout\":{:?}}}",
+                    out.status, out.stdout
+                ))
+            }
             // Runs forever — exercises the host's fuel bound (traps, not hangs).
             "spin" => {
                 let mut n: u64 = 0;

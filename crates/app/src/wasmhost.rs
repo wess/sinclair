@@ -7,7 +7,12 @@
 //! This is the Stage-2 tool path (invoked from `mcpbridge`). Panels, triggers,
 //! and webviews get their own GUI-side runner in later stages.
 
-use pluginrt::{AppHost, CommandTarget, HttpRequest, HttpResponse, LogLevel, Runtime};
+use std::process::{Command, Stdio};
+use std::time::Duration;
+
+use pluginrt::{
+    AppHost, CommandTarget, ExecOutput, ExecRequest, HttpRequest, HttpResponse, LogLevel, Runtime,
+};
 use serde_json::{json, Value};
 
 /// Wraps [`pluginrt::Runtime`] with the app's host and plugin-loading, so the
@@ -99,6 +104,131 @@ pub(crate) fn scoped(root: &std::path::Path, path: &str) -> Result<std::path::Pa
     Ok(root.join(p))
 }
 
+/// Kill a program that outruns this. A plugin's `exec` is driven synchronously
+/// from a panel render or a tool call, so an unbounded child would pin the
+/// caller; the guest's fuel budget can't help here because the guest is parked
+/// in a host call, not executing instructions.
+const EXEC_TIMEOUT: Duration = Duration::from_secs(15);
+const EXEC_POLL: Duration = Duration::from_millis(50);
+
+/// Cap on what a program can hand back, so a plugin can't be fed a gigabyte by
+/// `cat`-ing the wrong file and take the app's memory with it.
+const EXEC_MAX_OUTPUT: usize = 4 * 1024 * 1024;
+
+/// Run a program and capture its output — the `process` capability's one host
+/// call, shared by both hosts. `default_cwd` applies when the plugin named none.
+///
+/// This deliberately spawns the program directly rather than through a shell:
+/// the guest supplies `program` and `args` as separate values, so nothing it
+/// passes can be reinterpreted as shell syntax.
+pub(crate) fn exec(
+    request: ExecRequest,
+    default_cwd: Option<std::path::PathBuf>,
+) -> Result<ExecOutput, String> {
+    if request.program.trim().is_empty() {
+        return Err("exec: no program".into());
+    }
+    let mut cmd = Command::new(&request.program);
+    cmd.args(&request.args)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    if let Some(dir) = request.cwd.as_deref().map(std::path::PathBuf::from).or(default_cwd) {
+        cmd.current_dir(dir);
+    }
+    // Own session, so a timeout kill takes the whole tree rather than leaving
+    // orphaned grandchildren behind (mirrors the pty spawn).
+    #[cfg(unix)]
+    unsafe {
+        use std::os::unix::process::CommandExt;
+        cmd.pre_exec(|| {
+            libc::setsid();
+            Ok(())
+        });
+    }
+    let child = cmd.spawn().map_err(|e| {
+        format!(
+            "exec `{}`: {e}. Is it installed and on your PATH?",
+            request.program
+        )
+    })?;
+
+    // Watchdog: kill the child if it overruns. `done` stops us killing after a
+    // normal exit, when the pid may already have been reused.
+    let pid = child.id();
+    let done = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let flag = done.clone();
+    let watchdog = std::thread::spawn(move || {
+        let mut waited = Duration::ZERO;
+        while waited < EXEC_TIMEOUT {
+            if flag.load(std::sync::atomic::Ordering::Relaxed) {
+                return;
+            }
+            std::thread::sleep(EXEC_POLL);
+            waited += EXEC_POLL;
+        }
+        if !flag.load(std::sync::atomic::Ordering::Relaxed) {
+            kill_tree(pid);
+        }
+    });
+
+    let out = child.wait_with_output();
+    done.store(true, std::sync::atomic::Ordering::Relaxed);
+    let _ = watchdog.join();
+    let out = out.map_err(|e| format!("exec wait: {e}"))?;
+
+    Ok(ExecOutput {
+        // `code()` is None when a signal killed it — including our own timeout.
+        status: out.status.code().unwrap_or(-1),
+        stdout: clamp(&out.stdout),
+        stderr: clamp(&out.stderr),
+    })
+}
+
+/// Lossy UTF-8, truncated at [`EXEC_MAX_OUTPUT`] bytes.
+fn clamp(bytes: &[u8]) -> String {
+    let end = bytes.len().min(EXEC_MAX_OUTPUT);
+    // Trim to a char boundary so the lossy conversion doesn't append a
+    // replacement char for a codepoint we simply cut in half.
+    let mut end = end;
+    while end > 0 && end < bytes.len() && (bytes[end] & 0xC0) == 0x80 {
+        end -= 1;
+    }
+    String::from_utf8_lossy(&bytes[..end]).into_owned()
+}
+
+/// SIGKILL a process group (see the `setsid` above).
+fn kill_tree(pid: u32) {
+    #[cfg(unix)]
+    unsafe {
+        libc::kill(-(pid as i32), libc::SIGKILL);
+    }
+    #[cfg(windows)]
+    {
+        let _ = Command::new("taskkill")
+            .args(["/PID", &pid.to_string(), "/F", "/T"])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+    }
+}
+
+/// The focused pane's working directory, asked of the running GUI over the
+/// socket. Used by the CLI-side host, which has no window of its own.
+fn focused_cwd_over_ipc() -> Option<std::path::PathBuf> {
+    let reply = crate::ipc::request("list_panes", &json!({})).ok()?;
+    let panes = reply.get("panes")?.as_array()?;
+    let pane = panes
+        .iter()
+        .find(|p| p.get("focused").and_then(Value::as_bool).unwrap_or(false))?;
+    let items = pane.get("items")?.as_array()?;
+    let item = items
+        .iter()
+        .find(|i| i.get("active").and_then(Value::as_bool).unwrap_or(false))
+        .or_else(|| items.first())?;
+    Some(item.get("cwd")?.as_str()?.into())
+}
+
 /// Map a WIT command target to the `run_command` op's `target` token.
 pub(crate) fn target_token(target: CommandTarget) -> &'static str {
     match target {
@@ -183,7 +313,17 @@ impl AppHost for SocketHost {
     fn notify(&mut self, title: String, body: String) {
         let _ = crate::ipc::request("notify", &json!({ "title": title, "message": body }));
     }
+
+    fn exec(&mut self, request: ExecRequest) -> Result<ExecOutput, String> {
+        // With no cwd of its own, fall back to the pane the user is looking at,
+        // so `git status` reports on the repo they're in.
+        exec(request, focused_cwd_over_ipc())
+    }
 }
+
+#[cfg(test)]
+#[path = "../tests/wasmhost.rs"]
+mod tests;
 
 /// A key coerced to a safe single filename.
 fn sanitize(key: &str) -> String {

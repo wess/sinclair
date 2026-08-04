@@ -6,7 +6,9 @@
 
 use std::sync::{Arc, Mutex};
 
-use pluginrt::{AppHost, CommandTarget, HttpRequest, HttpResponse, LogLevel, Runtime};
+use pluginrt::{
+    AppHost, CommandTarget, ExecOutput, ExecRequest, HttpRequest, HttpResponse, LogLevel, Runtime,
+};
 
 /// A command a wasm panel asked to run, dispatched after the call returns.
 pub struct QueuedCommand {
@@ -17,6 +19,10 @@ pub struct QueuedCommand {
 #[derive(Default)]
 struct Shared {
     commands: Vec<QueuedCommand>,
+    /// The focused pane's directory, refreshed by the workspace before each
+    /// call. The host runs off the gpui context, so it can't look this up
+    /// itself — the caller, which has the context, deposits it here.
+    cwd: Option<std::path::PathBuf>,
 }
 
 /// Resident wasm panel instances plus the shared host channel.
@@ -36,6 +42,12 @@ impl GuiWasm {
     /// Drain the commands the last call queued, to dispatch on the UI thread.
     pub fn take_commands(&self) -> Vec<QueuedCommand> {
         std::mem::take(&mut lock(&self.shared).commands)
+    }
+
+    /// Point the next call's `exec` at the focused pane's directory, so a panel
+    /// reports on the repo the user is actually in.
+    pub fn set_cwd(&self, cwd: Option<std::path::PathBuf>) {
+        lock(&self.shared).cwd = cwd;
     }
 
     /// Render a wasm plugin's panel to a node-tree JSON (same shape the block-tree
@@ -138,5 +150,9 @@ impl AppHost for GuiHost {
         // driven synchronously from `render_wasm_panel`), and the macOS backend
         // can block for as long as the system authorization dialog is up.
         crate::view::post_os_notification(&title, &body);
+    }
+    fn exec(&mut self, request: ExecRequest) -> Result<ExecOutput, String> {
+        let cwd = lock(&self.shared).cwd.clone();
+        crate::wasmhost::exec(request, cwd)
     }
 }

@@ -340,8 +340,12 @@ impl WorkspaceView {
 
     /// Render a wasm plugin's panel synchronously into the panel cache.
     fn render_wasm_panel(&mut self, plugin: &plugin::Plugin, panel_id: &str, cx: &mut Context<Self>) {
+        let cwd = self.focused_cwd(cx);
         let rendered = match self.ensure_gui_wasm() {
-            Some(gw) => gw.render(plugin),
+            Some(gw) => {
+                gw.set_cwd(cwd);
+                gw.render(plugin)
+            }
             None => Err("wasm runtime unavailable".to_string()),
         };
         let response = match rendered {
@@ -364,8 +368,12 @@ impl WorkspaceView {
         cx: &mut Context<Self>,
     ) {
         let event = json!({ "id": action }).to_string();
+        let cwd = self.focused_cwd(cx);
         let result = match self.ensure_gui_wasm() {
-            Some(gw) => gw.on_ui_event(plugin, &event),
+            Some(gw) => {
+                gw.set_cwd(cwd);
+                gw.on_ui_event(plugin, &event)
+            }
             None => Err("wasm runtime unavailable".to_string()),
         };
         let commands = self.gui_wasm.as_ref().map(|gw| gw.take_commands()).unwrap_or_default();

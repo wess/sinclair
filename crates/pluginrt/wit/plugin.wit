@@ -24,6 +24,21 @@ interface types {
     headers: list<tuple<string, string>>,
     body: list<u8>,
   }
+
+  // A program to run, and what it produced.
+  record exec-request {
+    program: string,
+    args: list<string>,
+    // Working directory; the focused pane's cwd when absent.
+    cwd: option<string>,
+  }
+
+  record exec-output {
+    // The process exit code, or -1 if it was killed by a signal.
+    status: s32,
+    stdout: string,
+    stderr: string,
+  }
 }
 
 // ── Host imports, split per capability ───────────────────────────────────────
@@ -76,6 +91,18 @@ interface host-notify {
   notify: func(title: string, body: string);
 }
 
+// cap: process
+//
+// Run a program and capture what it wrote. This is the interface that lets a
+// sandboxed plugin do the work the old subprocess tier existed for — reading
+// `git status`, `docker ps`, `df` — without the plugin itself holding the
+// privilege to spawn anything: the host spawns, bounds the runtime, and hands
+// back only the output.
+interface host-process {
+  use types.{exec-request, exec-output};
+  exec: func(request: exec-request) -> result<exec-output, string>;
+}
+
 // ── Guest exports ────────────────────────────────────────────────────────────
 // Tools are the spine (Stage 1). Panels (render / on-ui-event), webview
 // messages (on-message), and event hooks (on-event) are added in later stages
@@ -105,6 +132,7 @@ world plugin {
   import host-fs;
   import host-clipboard;
   import host-notify;
+  import host-process;
   export guest;
 }
 
@@ -115,6 +143,7 @@ world plugin {
 world example {
   import host-core;
   import host-commands;
+  import host-process;
   export guest;
 }
 
@@ -122,6 +151,15 @@ world example {
 world screentools {
   import host-core;
   import host-screen;
+  export guest;
+}
+
+// Plugins whose whole job is to run a program and shape its output into a panel
+// or a tool result — git, docker, sysinfo.
+world inspector {
+  import host-core;
+  import host-process;
+  import host-commands;
   export guest;
 }
 

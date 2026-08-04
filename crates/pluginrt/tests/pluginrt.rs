@@ -6,6 +6,18 @@ use std::sync::{Arc, Mutex};
 struct MockHost {
     commands: Arc<Mutex<Vec<String>>>,
     screen: String,
+    /// Programs `exec` was asked to run, as `program arg arg`.
+    execs: Arc<Mutex<Vec<String>>>,
+}
+
+impl MockHost {
+    fn new(screen: &str) -> Self {
+        Self {
+            commands: Arc::new(Mutex::new(Vec::new())),
+            screen: screen.to_string(),
+            execs: Arc::new(Mutex::new(Vec::new())),
+        }
+    }
 }
 
 impl AppHost for MockHost {
@@ -43,6 +55,19 @@ impl AppHost for MockHost {
         Ok(())
     }
     fn notify(&mut self, _title: String, _body: String) {}
+    fn exec(&mut self, request: ExecRequest) -> Result<ExecOutput, String> {
+        let mut line = request.program.clone();
+        for a in &request.args {
+            line.push(' ');
+            line.push_str(a);
+        }
+        self.execs.lock().unwrap().push(line);
+        Ok(ExecOutput {
+            status: 0,
+            stdout: "ok\n".to_string(),
+            stderr: String::new(),
+        })
+    }
 }
 
 fn fixture() -> Vec<u8> {
@@ -58,10 +83,11 @@ fn builds_a_component_engine() {
 #[test]
 fn tool_call_and_gated_host_call() {
     let eng = engine().unwrap();
-    let commands = Arc::new(Mutex::new(Vec::new()));
-    let host = Box::new(MockHost { commands: commands.clone(), screen: String::new() });
-    let mut plugin = PluginInstance::new(&eng, &fixture(), &["commands".to_string()], host)
-        .expect("instantiate with the commands capability");
+    let host = MockHost::new("");
+    let commands = host.commands.clone();
+    let execs = host.execs.clone();
+    let mut plugin = PluginInstance::new(&eng, &fixture(), &granted(), Box::new(host))
+        .expect("instantiate with the declared capabilities");
 
     // A pure tool round-trips its params.
     let echoed = plugin.call_tool("echo", "{\"a\":1}").unwrap().unwrap();
@@ -72,23 +98,49 @@ fn tool_call_and_gated_host_call() {
     assert_eq!(ran, "{\"ran\":true}");
     assert_eq!(commands.lock().unwrap().as_slice(), &["echo hi".to_string()]);
 
+    // A tool that calls the gated `host-process` interface reaches the host, and
+    // the host's output comes back through.
+    let ran = plugin.call_tool("exec", "{}").unwrap().unwrap();
+    assert!(ran.contains("\"status\":0"), "{ran}");
+    assert!(ran.contains("ok"), "{ran}");
+    assert_eq!(
+        execs.lock().unwrap().as_slice(),
+        &["git status --porcelain".to_string()]
+    );
+
     // An unknown tool returns the guest's error, not a trap.
     let err = plugin.call_tool("nope", "{}").unwrap().unwrap_err();
     assert!(err.contains("unknown tool"), "{err}");
 }
 
+/// Every capability the test fixture's world imports.
+fn granted() -> Vec<String> {
+    vec!["commands".to_string(), "process".to_string()]
+}
+
 #[test]
 fn missing_capability_blocks_instantiation() {
     let eng = engine().unwrap();
-    let host = Box::new(MockHost {
-        commands: Arc::new(Mutex::new(Vec::new())),
-        screen: String::new(),
-    });
+    let host = Box::new(MockHost::new(""));
     // The guest imports host-commands; without the `commands` capability the host
     // doesn't link it, so the component can't instantiate. That is the enforced
     // capability boundary — not an advisory flag.
     let result = PluginInstance::new(&eng, &fixture(), &[], host);
     assert!(result.is_err(), "instantiation must fail without the commands capability");
+}
+
+/// `process` is gated on its own, not carried in by another capability: the same
+/// guest that instantiates with `commands` + `process` is refused when only
+/// `commands` is granted.
+#[test]
+fn process_capability_is_gated_independently() {
+    let eng = engine().unwrap();
+    let host = Box::new(MockHost::new(""));
+    let result = PluginInstance::new(&eng, &fixture(), &["commands".to_string()], host);
+    assert!(
+        result.is_err(),
+        "a guest importing host-process must not instantiate without the process capability"
+    );
 }
 
 /// The JS SDK's component (built via componentize-js) loads and runs the same
@@ -104,10 +156,7 @@ fn js_component_loads_and_runs_if_built() {
     }
     let wasm = std::fs::read(path).unwrap();
     let eng = engine().unwrap();
-    let host = Box::new(MockHost {
-        commands: Arc::new(Mutex::new(Vec::new())),
-        screen: "one two three\n".to_string(),
-    });
+    let host = Box::new(MockHost::new("one two three\n"));
     let mut plugin = PluginInstance::new(&eng, &wasm, &["screen".to_string()], host)
         .expect("instantiate the JS component");
     let out = plugin.call_tool("wordcount", "{}").unwrap().unwrap();
@@ -119,12 +168,9 @@ fn js_component_loads_and_runs_if_built() {
 #[test]
 fn runaway_guest_is_fuel_bounded() {
     let eng = engine().unwrap();
-    let host = Box::new(MockHost {
-        commands: Arc::new(Mutex::new(Vec::new())),
-        screen: String::new(),
-    });
+    let host = Box::new(MockHost::new(""));
     let mut plugin =
-        PluginInstance::new(&eng, &fixture(), &["commands".to_string()], host).unwrap();
+        PluginInstance::new(&eng, &fixture(), &granted(), host).unwrap();
     plugin.set_fuel_budget(50_000_000); // small budget so the test is fast
     let result = plugin.call_tool("spin", "{}");
     assert!(result.is_err(), "an infinite-loop tool must trap, not hang");
@@ -138,10 +184,7 @@ fn bundled_screentools_greps_the_screen() {
         .join("../../plugins/screentools/plugin.wasm");
     let wasm = std::fs::read(path).expect("screentools plugin.wasm");
     let eng = engine().unwrap();
-    let host = Box::new(MockHost {
-        commands: Arc::new(Mutex::new(Vec::new())),
-        screen: "alpha\nbeta error\ngamma\ndelta error\n".to_string(),
-    });
+    let host = Box::new(MockHost::new("alpha\nbeta error\ngamma\ndelta error\n"));
     let mut plugin = PluginInstance::new(&eng, &wasm, &["screen".to_string()], host)
         .expect("instantiate screentools");
     let out = plugin.call_tool("grep", "{\"query\":\"error\"}").unwrap().unwrap();

@@ -21,7 +21,9 @@ mod bindings {
 
 use bindings::prompt::plugin::types;
 /// Wire types shared with the app (mirrors the WIT `types` interface).
-pub use bindings::prompt::plugin::types::{CommandTarget, HttpRequest, HttpResponse, LogLevel};
+pub use bindings::prompt::plugin::types::{
+    CommandTarget, ExecOutput, ExecRequest, HttpRequest, HttpResponse, LogLevel,
+};
 
 /// The host operations a plugin can call, implemented by the app. Each method
 /// mirrors a WIT `host-*` interface function; a gated one is only reachable by a
@@ -41,6 +43,7 @@ pub trait AppHost: Send {
     fn clipboard_read(&mut self) -> Result<String, String>;
     fn clipboard_write(&mut self, text: String) -> Result<(), String>;
     fn notify(&mut self, title: String, body: String);
+    fn exec(&mut self, request: ExecRequest) -> Result<ExecOutput, String>;
 }
 
 /// Store data for one plugin instance: the app host it delegates to, plus a
@@ -124,6 +127,12 @@ impl bindings::prompt::plugin::host_notify::Host for State {
     }
 }
 
+impl bindings::prompt::plugin::host_process::Host for State {
+    fn exec(&mut self, request: ExecRequest) -> Result<ExecOutput, String> {
+        self.host.exec(request)
+    }
+}
+
 /// Fuel granted per guest call. Roughly one unit per wasm instruction, so this
 /// allows a lot of real work but bounds a runaway loop — a guest that exhausts
 /// it traps instead of freezing the caller (the analogue of the process
@@ -183,6 +192,9 @@ impl PluginInstance {
         }
         if caps.contains("notify") {
             bindings::prompt::plugin::host_notify::add_to_linker(&mut linker, |s: &mut State| s)?;
+        }
+        if caps.contains("process") {
+            bindings::prompt::plugin::host_process::add_to_linker(&mut linker, |s: &mut State| s)?;
         }
 
         let wasi = WasiCtxBuilder::new().build();

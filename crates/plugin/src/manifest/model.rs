@@ -48,6 +48,7 @@ pub const CAPABILITIES: &[&str] = &[
     "filesystem", // read or write files
     "clipboard",  // read or write the clipboard
     "notify",     // post desktop notifications
+    "process",    // run a program and read its output (exec)
 ];
 
 /// `[[tool]]` — a tool a plugin exposes to AI agents over MCP. When an agent
