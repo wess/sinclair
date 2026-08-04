@@ -3,8 +3,8 @@
 # windows-latest runner; run locally with PowerShell 7+ (pwsh).
 #
 # The binary is the `sinclairdev` bin from crates/app, installed as `sinclair.exe`;
-# the Notes sidecar (`notes.exe`) and first-party plugins ship beside it. The
-# version is read from the workspace Cargo.toml. Builds natively for the host
+# the Notes sidecar (`notes.exe`) ships beside it. The version is read from the
+# workspace Cargo.toml. Builds natively for the host
 # architecture — pass x86_64 or aarch64 only to label artifacts and pick the
 # target triple.
 #
@@ -49,10 +49,6 @@ $stage = Join-Path $out $stem
 New-Item -ItemType Directory -Force -Path $stage | Out-Null
 Copy-Item $bin (Join-Path $stage "sinclair.exe")
 Copy-Item $notesBin (Join-Path $stage "notes.exe")
-# First-party bundled plugins, discovered beside the executable.
-$pluginDst = Join-Path $stage "plugins\notes"
-New-Item -ItemType Directory -Force -Path $pluginDst | Out-Null
-Copy-Item -Recurse -Force "plugins\notes\*" $pluginDst
 Copy-Item LICENSE, README.md $stage -ErrorAction SilentlyContinue
 
 # --- .zip ------------------------------------------------------------------

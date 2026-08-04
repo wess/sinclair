@@ -230,7 +230,15 @@ jobs:
   update-homebrew:
     runs-on: ubuntu-latest
     needs: [check-version, publish]
-    if: needs.check-version.outputs.changed == 'true'
+    # `!cancelled()` for the same reason `publish` has it, and for the reason
+    # `publish` exists: Windows is beta and its failure must not hold back the
+    # macOS release. Without this the job inherits the failed `build-windows`
+    # through `publish`'s dependency graph and is skipped, leaving the cask
+    # pointing at the previous version while the release itself is published.
+    if: |
+      !cancelled()
+      && needs.check-version.outputs.changed == 'true'
+      && needs.publish.result == 'success'
     steps:
       - name: Download DMG and compute SHA
         id: shas

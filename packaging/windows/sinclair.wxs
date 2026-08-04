@@ -20,11 +20,7 @@
     <MediaTemplate EmbedCab="yes" />
 
     <StandardDirectory Id="ProgramFiles64Folder">
-      <Directory Id="INSTALLFOLDER" Name="Sinclair">
-        <Directory Id="PluginsDir" Name="plugins">
-          <Directory Id="NotesPluginDir" Name="notes" />
-        </Directory>
-      </Directory>
+      <Directory Id="INSTALLFOLDER" Name="Sinclair" />
     </StandardDirectory>
     <StandardDirectory Id="ProgramMenuFolder">
       <Directory Id="AppShortcutDir" Name="Sinclair" />
@@ -42,9 +38,6 @@
       </Component>
       <Component Directory="INSTALLFOLDER">
         <File Source="$(StageDir)\README.md" />
-      </Component>
-      <Component Directory="NotesPluginDir">
-        <File Source="$(StageDir)\plugins\notes\plugin.toml" />
       </Component>
     </ComponentGroup>
 
