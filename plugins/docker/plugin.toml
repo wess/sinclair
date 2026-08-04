@@ -1,13 +1,20 @@
 id = "docker"
 name = "Docker"
-version = "0.1.0"
+version = "0.2.0"
 description = "A live panel listing running containers, with a stats shortcut"
-capabilities = ["commands"]
+
+# `process` runs the docker CLI; `commands` opens `docker stats` in a tab.
+capabilities = ["process", "commands"]
 
 [runtime]
-command = "bun run plugin.ts"
+type = "wasm"
+wasm = "plugin.wasm"
 
 [panel]
 id = "docker"
 title = "Docker"
 icon = "❑"
+
+[[tool]]
+id = "containers"
+description = "Every container with its name, image, status, and whether it is running. Returns structured JSON."

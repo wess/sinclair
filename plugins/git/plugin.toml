@@ -1,13 +1,31 @@
 id = "git"
 name = "Git"
-version = "0.1.0"
+version = "0.2.0"
 description = "A live git panel: branch, changes, and one-click actions"
-capabilities = ["commands", "filesystem"]
+
+# `process` runs git; `commands` hands the log to the terminal. No filesystem —
+# it reads the repo through git, not by touching files itself.
+capabilities = ["process", "commands"]
 
 [runtime]
-command = "bun run plugin.ts"
+type = "wasm"
+wasm = "plugin.wasm"
 
 [panel]
 id = "git"
 title = "Git"
 icon = "⎇"
+
+[[tool]]
+id = "status"
+description = "The current branch and every changed path, as JSON."
+
+[[tool]]
+id = "blame"
+description = "Blame a file and return one entry per line with its author."
+
+[[tool.param]]
+name = "path"
+type = "string"
+description = "File to blame, relative to the repository root."
+required = true

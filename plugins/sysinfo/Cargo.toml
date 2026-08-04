@@ -1,0 +1,19 @@
+# Its own workspace so the wasm32-wasip2 build stays independent of the host tree.
+[workspace]
+
+[package]
+name = "sysinfo-panel"
+version = "0.2.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wit-bindgen = "0.34"
+serde_json = "1"
+
+[profile.release]
+lto = true
+opt-level = "s"

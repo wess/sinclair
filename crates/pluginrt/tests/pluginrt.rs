@@ -1,13 +1,20 @@
 use super::*;
+use serde_json::Value;
 use std::sync::{Arc, Mutex};
 
-/// A mock app host that records the commands a plugin runs and serves a canned
-/// screen to `read_screen`.
+/// A mock app host: records what a plugin asked for, serves a canned screen to
+/// `read_screen`, and answers `exec` from a lookup table — enough to drive a
+/// whole process-backed plugin without a real git or docker on the machine.
 struct MockHost {
     commands: Arc<Mutex<Vec<String>>>,
     screen: String,
-    /// Programs `exec` was asked to run, as `program arg arg`.
+    /// Command lines `exec` was asked to run, as `program arg arg`.
     execs: Arc<Mutex<Vec<String>>>,
+    /// Full command line ("git status --porcelain") -> stdout. An unlisted
+    /// command *fails*, the way a missing binary or a down daemon would — so a
+    /// test that forgets to stub something sees the failure path, not a
+    /// silently-empty success.
+    replies: Vec<(&'static str, &'static str)>,
 }
 
 impl MockHost {
@@ -16,7 +23,13 @@ impl MockHost {
             commands: Arc::new(Mutex::new(Vec::new())),
             screen: screen.to_string(),
             execs: Arc::new(Mutex::new(Vec::new())),
+            replies: Vec::new(),
         }
+    }
+
+    fn replying(mut self, replies: &[(&'static str, &'static str)]) -> Self {
+        self.replies = replies.to_vec();
+        self
     }
 }
 
@@ -56,17 +69,25 @@ impl AppHost for MockHost {
     }
     fn notify(&mut self, _title: String, _body: String) {}
     fn exec(&mut self, request: ExecRequest) -> Result<ExecOutput, String> {
+        let args = request.args.join(" ");
         let mut line = request.program.clone();
-        for a in &request.args {
+        if !args.is_empty() {
             line.push(' ');
-            line.push_str(a);
+            line.push_str(&args);
         }
-        self.execs.lock().unwrap().push(line);
-        Ok(ExecOutput {
-            status: 0,
-            stdout: "ok\n".to_string(),
-            stderr: String::new(),
-        })
+        self.execs.lock().unwrap().push(line.clone());
+        match self.replies.iter().find(|(k, _)| *k == line) {
+            Some((_, stdout)) => Ok(ExecOutput {
+                status: 0,
+                stdout: stdout.to_string(),
+                stderr: String::new(),
+            }),
+            None => Ok(ExecOutput {
+                status: 1,
+                stdout: String::new(),
+                stderr: format!("{line}: not stubbed"),
+            }),
+        }
     }
 }
 
@@ -83,7 +104,7 @@ fn builds_a_component_engine() {
 #[test]
 fn tool_call_and_gated_host_call() {
     let eng = engine().unwrap();
-    let host = MockHost::new("");
+    let host = MockHost::new("").replying(&[("git status --porcelain", "ok\n")]);
     let commands = host.commands.clone();
     let execs = host.execs.clone();
     let mut plugin = PluginInstance::new(&eng, &fixture(), &granted(), Box::new(host))
@@ -174,6 +195,172 @@ fn runaway_guest_is_fuel_bounded() {
     plugin.set_fuel_budget(50_000_000); // small budget so the test is fast
     let result = plugin.call_tool("spin", "{}");
     assert!(result.is_err(), "an infinite-loop tool must trap, not hang");
+}
+
+/// The `git` plugin, ported off the subprocess tier: it reaches git only through
+/// the gated `host-process` interface, so a mock host that answers `exec` is
+/// enough to drive its panel and its tools.
+#[test]
+fn git_plugin_runs_entirely_through_host_process() {
+    let path =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../plugins/git/plugin.wasm");
+    let wasm = std::fs::read(path).expect("git plugin.wasm");
+    let eng = engine().unwrap();
+
+    // Answers like a repo on `main` with three changed paths. Note the leading
+    // space on the second status entry: unstaged, and the column must survive
+    // untrimmed or the path shifts by one.
+    let host = MockHost::new("").replying(&[
+        ("git rev-parse --is-inside-work-tree", "true\n"),
+        ("git rev-parse --abbrev-ref HEAD", "main\n"),
+        ("git rev-list --left-right --count @{u}...HEAD", "2\t5\n"),
+        ("git status --porcelain", "M  src/a.rs\n M src/b.rs\n?? new.txt\n"),
+    ]);
+    let execs = host.execs.clone();
+    let commands = host.commands.clone();
+    let host = Box::new(host);
+    let mut plugin = PluginInstance::new(
+        &eng,
+        &wasm,
+        &["process".to_string(), "commands".to_string()],
+        host,
+    )
+    .expect("instantiate git");
+
+    // The panel reports the branch, the ahead/behind split, and every change.
+    let tree = plugin.render("{}").unwrap();
+    let node: Value = serde_json::from_str(&tree).unwrap();
+    assert_eq!(node["title"], "Git \u{b7} main");
+    let blocks = node["blocks"].as_array().unwrap();
+    let text = tree.as_str();
+    assert!(blocks.iter().any(|b| b["value"] == "main"), "{tree}");
+    assert!(blocks.iter().any(|b| b["value"] == "5 / 2"), "{tree}");
+    assert!(text.contains("Changes (3)"), "{tree}");
+    // The untrimmed status column: " M src/b.rs" must yield the path, not "M".
+    assert!(text.contains("src/b.rs"), "{tree}");
+    assert!(text.contains("new.txt"), "{tree}");
+
+    // A button that mutates the repo goes through exec...
+    plugin.on_ui_event("{\"id\":\"stage_all\"}").unwrap();
+    assert!(
+        execs.lock().unwrap().iter().any(|e| e == "git add -A"),
+        "{:?}",
+        execs.lock().unwrap()
+    );
+    // ...and one that belongs in the terminal goes through run-command.
+    plugin.on_ui_event("{\"id\":\"log\"}").unwrap();
+    assert_eq!(commands.lock().unwrap().len(), 1);
+    assert!(commands.lock().unwrap()[0].starts_with("git log"));
+
+    // The status tool returns the same state as structured data.
+    let out = plugin.call_tool("status", "{}").unwrap().unwrap();
+    let value: Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(value["branch"], "main");
+    assert_eq!(value["changes"].as_array().unwrap().len(), 3);
+    assert_eq!(value["changes"][2]["path"], "new.txt");
+    assert_eq!(value["changes"][2]["code"], "??");
+}
+
+/// Load a ported bundled plugin against a host that answers `exec` from a table.
+fn ported(name: &str, replies: &[(&'static str, &'static str)]) -> (PluginInstance, MockHost) {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join(format!("../../plugins/{name}/plugin.wasm"));
+    let wasm = std::fs::read(&path).unwrap_or_else(|_| panic!("{name} plugin.wasm"));
+    let eng = engine().unwrap();
+    let host = MockHost::new("").replying(replies);
+    let handle = MockHost {
+        commands: host.commands.clone(),
+        screen: String::new(),
+        execs: host.execs.clone(),
+        replies: Vec::new(),
+    };
+    let plugin = PluginInstance::new(
+        &eng,
+        &wasm,
+        &["process".to_string(), "commands".to_string()],
+        Box::new(host),
+    )
+    .unwrap_or_else(|e| panic!("instantiate {name}: {e}"));
+    (plugin, handle)
+}
+
+#[test]
+fn docker_plugin_lists_containers_through_host_process() {
+    let (mut plugin, handle) = ported(
+        "docker",
+        &[
+            ("docker version --format {{.Server.Version}}", "27.0.3\n"),
+            (
+                "docker ps -a --format {{.Names}}\t{{.Status}}\t{{.Image}}",
+                "web\tUp 3 hours\tnginx\ndb\tExited (0) 2 days ago\tpostgres\n",
+            ),
+        ],
+    );
+
+    let tree = plugin.render("{}").unwrap();
+    assert!(tree.contains("Containers (2)"), "{tree}");
+    // A running container badges up, a stopped one off.
+    assert!(tree.contains("\"up\""), "{tree}");
+    assert!(tree.contains("\"off\""), "{tree}");
+    assert!(tree.contains("web"), "{tree}");
+
+    // The live view belongs in a tab, not the panel.
+    plugin.on_ui_event("{\"id\":\"stats\"}").unwrap();
+    assert_eq!(
+        handle.commands.lock().unwrap().as_slice(),
+        &["docker stats".to_string()]
+    );
+
+    let out = plugin.call_tool("containers", "{}").unwrap().unwrap();
+    let value: Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(value["containers"][0]["name"], "web");
+    assert_eq!(value["containers"][0]["running"], true);
+    assert_eq!(value["containers"][1]["running"], false);
+}
+
+/// With no docker daemon answering, the panel says so rather than rendering an
+/// empty container list as though everything were fine.
+#[test]
+fn docker_plugin_reports_a_missing_daemon() {
+    let (mut plugin, _) = ported("docker", &[]);
+    let tree = plugin.render("{}").unwrap();
+    assert!(tree.contains("not available or not running"), "{tree}");
+}
+
+#[test]
+fn sysinfo_plugin_reads_host_stats_through_host_process() {
+    // macOS phrases it "load averages:", Linux "load average:" — the plugin
+    // matches the stem, so both must land.
+    for uptime in [
+        "12:01  up 3 days, 22:15, 4 users, load averages: 2.31 2.10 1.98",
+        " 12:01:00 up 3 days, 22:15,  4 users,  load average: 2.31, 2.10, 1.98",
+    ] {
+        let (mut plugin, _) = ported(
+            "sysinfo",
+            &[
+                ("uptime", uptime),
+                ("hostname", "studio.local\n"),
+                ("df -h .", "Filesystem Size Used Avail Capacity\n/dev/disk3s5 926Gi 412Gi 500Gi 46%\n"),
+            ],
+        );
+        let out = plugin.call_tool("stats", "{}").unwrap().unwrap();
+        let value: Value = serde_json::from_str(&out).unwrap();
+        assert_eq!(value["disk"]["size"], "926Gi", "{out}");
+        assert_eq!(value["disk"]["avail"], "500Gi", "{out}");
+        assert!(
+            value["load"].as_str().unwrap_or_default().starts_with("2.31"),
+            "{out}"
+        );
+    }
+}
+
+#[test]
+fn sysinfo_plugin_opens_the_monitor_in_a_split() {
+    let (mut plugin, handle) = ported("sysinfo", &[]);
+    plugin.on_ui_event("{\"id\":\"monitor\"}").unwrap();
+    let commands = handle.commands.lock().unwrap();
+    assert_eq!(commands.len(), 1);
+    assert!(commands[0].contains("btop"), "{commands:?}");
 }
 
 /// The shipped bundled `screentools` plugin actually loads and runs: it reads the

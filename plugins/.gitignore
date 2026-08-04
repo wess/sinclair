@@ -1,0 +1,3 @@
+# Per-plugin wasm build output. The built `plugin.wasm` is committed at the
+# plugin root; these are the intermediates that produced it.
+*/target/

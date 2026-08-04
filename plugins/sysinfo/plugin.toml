@@ -1,11 +1,15 @@
 id = "sysinfo"
 name = "System"
-version = "0.1.0"
+version = "0.2.0"
 description = "A live panel with host load and disk, plus a monitor shortcut"
-capabilities = ["commands", "filesystem"]
+
+# `process` runs hostname/uptime/df; `commands` opens the monitor in a split.
+# No filesystem grant: disk usage comes from `df`, not from reading paths.
+capabilities = ["process", "commands"]
 
 [runtime]
-command = "bun run plugin.ts"
+type = "wasm"
+wasm = "plugin.wasm"
 
 [panel]
 id = "sysinfo"
@@ -14,11 +18,8 @@ icon = "❖"
 
 # A tool the plugin exposes to AI agents over MCP (appears as `sysinfo_stats`
 # in `sinclair mcp`). Agents can read host stats without a shell round-trip.
+# It reports on the focused pane's directory, which the host supplies — so
+# there is no `cwd` parameter to get wrong.
 [[tool]]
 id = "stats"
-description = "Read host system stats: hostname, load averages, and disk usage for the given directory. Returns structured JSON."
-
-[[tool.param]]
-name = "cwd"
-type = "string"
-description = "Directory to report disk usage for (defaults to the process cwd)"
+description = "Read host system stats: hostname, load averages, and disk usage for the focused pane's directory. Returns structured JSON."
