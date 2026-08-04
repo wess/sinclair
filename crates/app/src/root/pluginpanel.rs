@@ -524,10 +524,27 @@ impl WorkspaceView {
                 .pb_1()
                 .child(Title::new(title.clone()).order(6))
                 .into_any_element(),
-            Block::Text { text, dimmed } => {
+            Block::Text {
+                text,
+                dimmed,
+                color,
+                mono,
+            } => {
                 let t = Text::new(text.clone()).size(Size::Sm);
-                let t = if *dimmed { t.dimmed() } else { t };
-                div().px_2().child(t).into_any_element()
+                let t = match text_color(color, cx) {
+                    // An explicit color wins over `dimmed`; asking for both is
+                    // contradictory and the color is the more specific request.
+                    Some(c) => t.color(c),
+                    None if *dimmed => t.dimmed(),
+                    None => t,
+                };
+                let wrapper = div().px_2();
+                let wrapper = if *mono {
+                    wrapper.font_family(self.font.family.clone())
+                } else {
+                    wrapper
+                };
+                wrapper.child(t).into_any_element()
             }
             Block::Divider => div().px_2().py_1().child(Divider::new()).into_any_element(),
             Block::Kv { key, value } => div()
@@ -591,10 +608,21 @@ fn error_response(msg: &str) -> Response {
         blocks: vec![Block::Text {
             text: format!("Plugin error: {msg}"),
             dimmed: true,
+            color: None,
+            mono: false,
         }],
         run: Vec::new(),
         result: None,
     }
+}
+
+/// Resolve a block's `color` name to a themed text color. Shade 4 reads on both
+/// the light and dark surfaces; the palette's mid shades are tuned for fills,
+/// not for type on a panel.
+fn text_color(color: &Option<String>, cx: &App) -> Option<guise::theme::Color> {
+    let name = color.as_ref()?;
+    let named = badge_color(&Some(name.clone()));
+    Some(guise::theme::theme(cx).palette.get(named, 4))
 }
 
 fn badge_color(color: &Option<String>) -> ColorName {

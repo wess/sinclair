@@ -163,3 +163,12 @@ world inspector {
   export guest;
 }
 
+// Plugins that keep their own state and drive the terminal, but read nothing
+// from the machine — promptdesigner. Storage comes from host-core, which is
+// ungated, so this world needs only the `commands` capability.
+world designer {
+  import host-core;
+  import host-commands;
+  export guest;
+}
+

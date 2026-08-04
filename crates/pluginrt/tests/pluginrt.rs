@@ -363,6 +363,117 @@ fn sysinfo_plugin_opens_the_monitor_in_a_split() {
     assert!(commands[0].contains("btop"), "{commands:?}");
 }
 
+/// promptdesigner keeps its design in the ungated per-plugin storage and drives
+/// the shell through `run-command`, so it needs no filesystem grant at all.
+#[test]
+fn promptdesigner_persists_its_design_and_applies_visibly() {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../plugins/promptdesigner/plugin.wasm");
+    let wasm = std::fs::read(path).expect("promptdesigner plugin.wasm");
+    let eng = engine().unwrap();
+
+    // A host with a real key/value store, so state survives across calls the way
+    // it does in the app.
+    struct StoreHost {
+        store: Arc<Mutex<std::collections::HashMap<String, String>>>,
+        commands: Arc<Mutex<Vec<String>>>,
+    }
+    impl AppHost for StoreHost {
+        fn log(&mut self, _level: LogLevel, _message: String) {}
+        fn storage_get(&mut self, key: String) -> Option<String> {
+            self.store.lock().unwrap().get(&key).cloned()
+        }
+        fn storage_set(&mut self, key: String, value: String) {
+            self.store.lock().unwrap().insert(key, value);
+        }
+        fn run_command(&mut self, text: String, _target: CommandTarget) -> Result<(), String> {
+            self.commands.lock().unwrap().push(text);
+            Ok(())
+        }
+        fn send_input(&mut self, _bytes: Vec<u8>) -> Result<(), String> {
+            Ok(())
+        }
+        fn read_screen(&mut self, _lines: u32) -> Result<String, String> {
+            Err("no screen".into())
+        }
+        fn selection(&mut self) -> Option<String> {
+            None
+        }
+        fn fetch(&mut self, _r: HttpRequest) -> Result<HttpResponse, String> {
+            Err("no network".into())
+        }
+        fn read_file(&mut self, _p: String) -> Result<Vec<u8>, String> {
+            Err("no fs".into())
+        }
+        fn write_file(&mut self, _p: String, _d: Vec<u8>) -> Result<(), String> {
+            Err("no fs".into())
+        }
+        fn clipboard_read(&mut self) -> Result<String, String> {
+            Err("no clipboard".into())
+        }
+        fn clipboard_write(&mut self, _t: String) -> Result<(), String> {
+            Ok(())
+        }
+        fn notify(&mut self, _t: String, _b: String) {}
+        fn exec(&mut self, _r: ExecRequest) -> Result<ExecOutput, String> {
+            panic!("promptdesigner must not need host-process");
+        }
+    }
+
+    let store = Arc::new(Mutex::new(std::collections::HashMap::new()));
+    let commands = Arc::new(Mutex::new(Vec::new()));
+    let host = Box::new(StoreHost {
+        store: store.clone(),
+        commands: commands.clone(),
+    });
+    // `commands` alone — no filesystem, no process.
+    let mut plugin = PluginInstance::new(&eng, &wasm, &["commands".to_string()], host)
+        .expect("instantiate promptdesigner");
+
+    // The preview paints one coloured, monospaced segment per part.
+    let tree = plugin.render("{}").unwrap();
+    let node: Value = serde_json::from_str(&tree).unwrap();
+    assert_eq!(node["title"], "Prompt Designer");
+    let preview = &node["blocks"][1]["children"];
+    assert!(preview[0]["mono"].as_bool().unwrap(), "{tree}");
+    assert_eq!(preview[0]["color"], "cyan");
+    // The git segment is yellow regardless of the chosen colour, matching the
+    // snippet it generates.
+    assert!(
+        preview.as_array().unwrap().iter().any(|s| s["color"] == "yellow"),
+        "{tree}"
+    );
+
+    // A toggle persists: the label flips and stays flipped on the next render.
+    assert!(tree.contains("directory: on"));
+    plugin.on_ui_event("{\"id\":\"toggle:cwd\"}").unwrap();
+    assert!(plugin.render("{}").unwrap().contains("directory: off"));
+    assert!(store.lock().unwrap().contains_key("design"));
+
+    // A colour choice reaches both the preview and the generated snippet.
+    plugin.on_ui_event("{\"id\":\"color:green\"}").unwrap();
+    let out = plugin.call_tool("snippet", "{\"shell\":\"zsh\"}").unwrap().unwrap();
+    let value: Value = serde_json::from_str(&out).unwrap();
+    assert!(value["snippet"].as_str().unwrap().contains("%F{green}"), "{out}");
+
+    // Applying runs a visible command rather than writing files itself.
+    plugin.on_ui_event("{\"id\":\"apply:zsh\"}").unwrap();
+    let ran = commands.lock().unwrap();
+    assert_eq!(ran.len(), 1);
+    assert!(ran[0].contains(".zshrc"), "{ran:?}");
+    assert!(ran[0].contains("prompt-designer"), "{ran:?}");
+
+    // A stored design naming a symbol outside the allowlist must not reach the
+    // snippet — storage is not a trust boundary.
+    store.lock().unwrap().insert(
+        "design".to_string(),
+        "{\"symbol\":\"; rm -rf /\",\"color\":\"$(id)\"}".to_string(),
+    );
+    let out = plugin.call_tool("snippet", "{}").unwrap().unwrap();
+    assert!(!out.contains("rm -rf"), "{out}");
+    assert!(!out.contains("$(id)"), "{out}");
+}
+
 /// The shipped bundled `screentools` plugin actually loads and runs: it reads the
 /// screen through the gated host-screen interface and greps it.
 #[test]

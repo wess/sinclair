@@ -76,11 +76,18 @@ pub struct Run {
 pub enum Block {
     /// A dimmed sub-header.
     Section { title: String },
-    /// A line of text.
+    /// A line of text. `color` names a palette entry (as `badge` does); with a
+    /// `color` set, `dimmed` is ignored. `mono` renders in the terminal font,
+    /// for text that is a literal piece of terminal output — a prompt, a path,
+    /// a command.
     Text {
         text: String,
         #[serde(default)]
         dimmed: bool,
+        #[serde(default)]
+        color: Option<String>,
+        #[serde(default)]
+        mono: bool,
     },
     /// A horizontal rule.
     Divider,

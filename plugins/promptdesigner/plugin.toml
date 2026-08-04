@@ -1,12 +1,27 @@
 id = "promptdesigner"
 name = "Prompt Designer"
-version = "0.1.0"
+version = "0.2.0"
 description = "Design your shell prompt visually and apply it to your shell"
 
+# `commands` only. The design lives in the per-plugin storage (ungated), and
+# applying it runs a visible command in your terminal rather than editing your
+# rc file behind your back — so this needs no filesystem grant at all.
+capabilities = ["commands"]
+
 [runtime]
-command = "bun run plugin.ts"
+type = "wasm"
+wasm = "plugin.wasm"
 
 [panel]
 id = "promptdesigner"
 title = "Prompt Designer"
 icon = "✎"
+
+[[tool]]
+id = "snippet"
+description = "The shell snippet for the current design, so an agent can install or inspect it."
+
+[[tool.param]]
+name = "shell"
+type = "string"
+description = "`zsh` (default) or `bash`."
