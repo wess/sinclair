@@ -11,7 +11,8 @@ id = "git"
 name = "Git"
 
 [runtime]
-command = "bun run plugin.ts"
+type = "wasm"
+wasm = "plugin.wasm"
 
 [panel]
 id = "git"
@@ -22,7 +23,7 @@ icon = "G"
         assert!(diags.is_empty(), "{diags:?}");
         let plugin = plugin.unwrap();
         let runtime = plugin.runtime.expect("runtime");
-        assert_eq!(runtime.command, "bun run plugin.ts");
+        assert_eq!(runtime.wasm, "plugin.wasm");
         let panel = plugin.panel.expect("panel");
         assert_eq!(panel.id, "git");
         assert_eq!(panel.title, "Git");
@@ -36,7 +37,7 @@ id = "todos"
 name = "Todos"
 
 [runtime]
-command = "./todos"
+wasm = "plugin.wasm"
 
 [panel]
 "#;
@@ -212,7 +213,7 @@ invoke = "onBell"
             r#"
 id = "db"
 [runtime]
-command = "bun run plugin.ts"
+wasm = "plugin.wasm"
 [[tool]]
 id = "query"
 description = "Run a SQL query."
@@ -252,7 +253,7 @@ description = "List tables."
             r#"
 id = "db"
 [runtime]
-command = "./db"
+wasm = "plugin.wasm"
 [[tool]]
 id = "query"
 description = "Run a query."
@@ -275,8 +276,34 @@ param = ["sql | string | The SQL | required", "limit | integer | Max rows"]
         );
         assert!(diags.is_empty(), "{diags:?}");
         let rt = plugin.unwrap().runtime.unwrap();
-        assert_eq!(rt.kind, RuntimeKind::Wasm);
-        assert_eq!(rt.wasm.as_deref(), Some("plugin.wasm"));
+        assert_eq!(rt.wasm, "plugin.wasm");
+    }
+
+    /// `type` may be omitted — there is only one runtime — but a manifest
+    /// written against the retired subprocess tier must say *why* it stopped
+    /// working rather than failing later with a confusing "no wasm module".
+    #[test]
+    fn wasm_type_is_optional_and_a_process_runtime_is_diagnosed() {
+        let (plugin, diags) = parse(path(), "id = \"w\"\n[runtime]\nwasm = \"plugin.wasm\"\n");
+        assert!(diags.is_empty(), "{diags:?}");
+        assert_eq!(plugin.unwrap().runtime.unwrap().wasm, "plugin.wasm");
+
+        let (plugin, diags) = parse(
+            path(),
+            "id = \"w\"\n[runtime]\ntype = \"process\"\ncommand = \"bun run plugin.ts\"\n",
+        );
+        assert!(plugin.unwrap().runtime.is_none());
+        assert!(diags.iter().any(|d| d.message.contains("removed")), "{diags:?}");
+
+        let (plugin, diags) = parse(
+            path(),
+            "id = \"w\"\n[runtime]\ncommand = \"bun run plugin.ts\"\n",
+        );
+        assert!(plugin.unwrap().runtime.is_none());
+        assert!(
+            diags.iter().any(|d| d.message.contains("no longer supported")),
+            "{diags:?}"
+        );
     }
 
     #[test]
@@ -301,13 +328,7 @@ param = ["sql | string | The SQL | required", "limit | integer | Max rows"]
         let (plugin, diags) =
             parse(path(), "id = \"w\"\n[runtime]\ntype = \"wasm\"\nwasm = \"dist/plugin.wasm\"\n");
         assert!(diags.is_empty(), "{diags:?}");
-        assert_eq!(plugin.unwrap().runtime.unwrap().wasm.as_deref(), Some("dist/plugin.wasm"));
-    }
-
-    #[test]
-    fn process_runtime_is_the_default() {
-        let (plugin, _) = parse(path(), "id = \"p\"\n[runtime]\ncommand = \"bun run x.ts\"\n");
-        assert_eq!(plugin.unwrap().runtime.unwrap().kind, RuntimeKind::Process);
+        assert_eq!(plugin.unwrap().runtime.unwrap().wasm, "dist/plugin.wasm");
     }
 
     #[test]

@@ -139,19 +139,21 @@ You can always run any command from the command palette regardless of keybind.
 - [ ] No secrets, tokens, or credentials baked into `run`.
 - [ ] No destructive or irreversible commands.
 
-## IPC plugins (live panels)
+## Panel plugins (live panels)
 
-Beyond the declarative command model, a plugin can be an **IPC plugin**: it
-contributes a side-drawer panel rendered from a block tree. Sinclair invokes the
-plugin's `[runtime]` once per event (serverless-style), passing a JSON request
-on stdin and reading a JSON response on stdout:
+Beyond the declarative command model, a plugin can contribute a **side-drawer
+panel** rendered from a block tree. A panel plugin is a WASM component — one
+runtime, no `bun`/`node`, and the instance stays resident so a render or a click
+costs microseconds:
 
 ```toml
 id = "git"
 name = "Git"
+capabilities = ["process", "commands"]
 
 [runtime]
-command = "bun run plugin.ts"   # any language; reads stdin, writes stdout
+type = "wasm"
+wasm = "plugin.wasm"
 
 [panel]
 id = "git"
@@ -159,68 +161,20 @@ title = "Git"
 icon = "⎇"                       # activity-bar glyph
 ```
 
-Request: `{ "kind": "render" | "action", "panel", "action"?, "cwd"? }`.
-Response: `{ "title"?, "blocks": [...], "run"?: [{ "text", "target"? }] }`.
+Your component exports `render()`, which returns the panel as a JSON node tree,
+and `on_ui_event()`, which receives button clicks by `id` (the host re-renders
+afterwards).
 
-Block types: `section`, `text` (`dimmed?`), `divider`, `kv`, `badge` (`color?`),
-`button` (`id`, `variant?`), and `row` (`children`). A `button` click sends an
-`action` request with its `id`; `run` directives are executed in the focused
-terminal (`pane` | `tab` | `split_right` | `split_down`). See
-[`git/plugin.ts`](./git/plugin.ts) for a complete example.
+Block types: `section`, `text` (`dimmed?`, `color?`, `mono?`), `divider`, `kv`,
+`badge` (`color?`), `button` (`id`, `variant?`), and `row` (`children`). An
+unrecognized block renders an inline notice rather than blanking the panel.
 
-## Webview plugins (HTML/JS surfaces)
-
-For a full custom UI, a plugin can contribute a **web view** — a native OS web
-view (WKWebView / WebView2 / WebKitGTK) hosting arbitrary HTML/JS. Add a
-`[webview]` section:
-
-```toml
-[webview]
-id = "dashboard"
-title = "Dashboard"
-icon = "◱"                 # activity-bar / tab glyph
-placement = "panel"        # panel | window | tab
-entry = "index.html"       # a file in the plugin dir (file://) …
-# url = "https://…"        # … or a URL instead of `entry` (exactly one)
-# boot = true              # with a [runtime]: invoke boot for the URL (see below)
-```
-
-Open it from the command palette ("Open <title>"), the right sidebar (for
-`placement = "panel"`), the **Plugins menu**, or bind the `open_webview:<id>`
-action. All three placements are real — `tab` opens a proper editor-style tab.
-
-**`boot` — serve your own app.** With `boot = true` and a `[runtime]`, the app
-invokes the runtime's `boot` method (from Rust, not the JS bridge) *before*
-loading, and navigates to the address it returns — `{ "url": … }`, or
-`{ "port": N }` substituted into the manifest url's `{port}` placeholder
-(`url = "http://127.0.0.1:{port}/"`). Use this to start a local server and load
-the page from a real `http` origin. The [`notes`](./notes/) plugin does exactly
-this.
-
-> **`entry` is served, not `file://`.** An `entry` page is served from the plugin
-> directory over an internal `guise://` origin — a real origin, so the
-> `window.Sinclair` bridge, ES modules, and `fetch` all work. (Loading a page over
-> `file://` directly — e.g. a literal `url = "file://…"` — would break the bridge,
-> since messages from a `file://` frame are silently dropped; use `entry` or a
-> served `url` instead.)
-
-**The `window.Sinclair` bridge.** The page talks to Sinclair through an injected
-global:
-
-- `Sinclair.runCommand(text, target?)` — run a command in the focused terminal.
-- `Sinclair.readScreen(lines?)` — read the visible screen; resolves `{ text }`.
-- `Sinclair.invoke(method, params?)` — returns a Promise. Built-in methods (the
-  same capabilities as `run` directives: `run_command`, `read_screen`,
-  `send_input`, `new_tab`, `split`, `list_panes`, `list_tabs`, `focus_tab`,
-  `run_macro`, …) are handled by the app; any other method is forwarded to the
-  plugin's `[runtime]` as a `message` request, and its `result` resolves the
-  promise.
-- `Sinclair.postMessage(data)` — fire-and-forget message to the runtime.
-- `Sinclair.onMessage(cb)` — receive pushes from the host.
-
-A `message` request is `{ "kind": "message", "panel", "method", "params"?,
-"cwd"? }`; reply with `{ "result": … }`. See [`dashboard/`](./dashboard/) for a
-complete example (HTML + runtime).
+To have the terminal do something, call the `run-command` host function; it is
+queued during your call and dispatched when you return. To read a program's
+output, declare `capabilities = ["process"]` and call `exec` — the host spawns
+it (never through a shell, in the focused pane's directory, bounded by a
+timeout) and hands you the output. See [`git/src/lib.rs`](./git/src/lib.rs) for
+a complete example, and `docs/pluginauthoring.md` for the full guide.
 
 ## Trigger plugins (event hooks)
 
@@ -248,8 +202,9 @@ enabled (OSC 133 / OSC 7).
 - `notify = "…"` — a desktop notification.
 - `run = "…"` with optional `target` — `background` (default, detached), `pane`,
   `tab`, `split_right`, or `split_down`. Runs with the focused pane's cwd.
-- `invoke = "method"` — call the plugin's `[runtime]` with the event payload
-  (`{ event, … }`); any `run` directives it returns are executed.
+- `invoke = "tool"` — call the plugin's `[[tool]]` of that name with the event
+  payload (`{ event, … }`) as its parameters. One handler serves the palette,
+  agents and triggers alike.
 
 See [`alert/`](./alert/) for a complete example.
 
@@ -262,28 +217,27 @@ See [`alert/`](./alert/) for a complete example.
 
 ## Example plugins in this catalog
 
-IPC panel plugins (live side-drawer panels):
+Panel plugins (live side-drawer panels):
 
-| Plugin                              | What it does                                        | Requires        |
-| ----------------------------------- | --------------------------------------------------- | --------------- |
-| [git](./git/)                       | Live branch/changes panel with stage/fetch/log      | `bun`, `git`    |
-| [sysinfo](./sysinfo/)               | Host load + disk panel with a monitor shortcut      | `bun`           |
-| [docker](./docker/)                 | Running-containers panel with stats/prune actions   | `bun`, `docker` |
-| [promptdesigner](./promptdesigner/) | Design your shell prompt and apply it to your shell | `bun`           |
+| Plugin                              | What it does                                        | Requires |
+| ----------------------------------- | --------------------------------------------------- | -------- |
+| [git](./git/)                       | Live branch/changes panel with stage/fetch/log      | `git`    |
+| [sysinfo](./sysinfo/)               | Host load + disk panel with a monitor shortcut      | —        |
+| [docker](./docker/)                 | Running-containers panel with stats/prune actions   | `docker` |
+| [promptdesigner](./promptdesigner/) | Design your shell prompt and apply it to your shell | —        |
 
-Webview plugins (HTML/JS surfaces):
+Tool plugins (no UI, callable from the palette and by agents):
 
-| Plugin                    | What it does                                          | Requires |
-| ------------------------- | ---------------------------------------------------- | -------- |
-| [notes](./notes/)         | A lightweight Obsidian: a markdown vault + editor tab | `bun`    |
-| [dashboard](./dashboard/) | HTML panel that runs commands + calls the runtime    | `bun`    |
+| Plugin                        | What it does                          | Requires |
+| ----------------------------- | ------------------------------------- | -------- |
+| [screentools](./screentools/) | Grep the visible terminal screen      | —        |
 
 Trigger plugins (event hooks, no UI):
 
-| Plugin                | What it does                                              | Requires |
-| --------------------- | -------------------------------------------------------- | -------- |
-| [alert](./alert/)     | Desktop-notify when a command exits non-zero             | —        |
+| Plugin            | What it does                                  | Requires |
+| ----------------- | --------------------------------------------- | -------- |
+| [alert](./alert/) | Desktop-notify when a command exits non-zero  | —        |
 
-Every example plugin here is "involved" — a live panel, a web view, or an event
-hook. The declarative command model still exists (see the schema above); it's
-just not something worth shipping as a catalog example on its own.
+None of these need a language runtime installed: a plugin ships as a single
+`plugin.wasm`. The "Requires" column is the program the plugin asks the host to
+run on its behalf.

@@ -1,8 +1,13 @@
-//! GUI-side WASM plugin runtime for panels: renders a wasm plugin's panel and
-//! delivers its UI events, keeping the instance resident. Its host queues
-//! terminal writes (the workspace drains and dispatches them after the call, on
-//! the UI thread) and serves a screen snapshot to reads — so the resident
-//! instance never has to capture the live gpui context.
+//! The in-window plugin runtime: renders a plugin's panel, delivers its UI
+//! events, and calls its tools for `[[trigger]] do = { invoke }`, keeping the
+//! instance resident.
+//!
+//! A host call runs while the guest is on the stack, so this host can't hold the
+//! gpui context. Anything needing it is handed across in two directions instead:
+//! the workspace deposits the focused cwd and the clipboard before the call, and
+//! drains queued terminal commands and clipboard writes after it returns.
+//! Context-free operations delegate to [`crate::wasmhost`], shared with the
+//! CLI-side host.
 
 use std::sync::{Arc, Mutex};
 
@@ -99,8 +104,8 @@ impl GuiWasm {
             let rel = plugin
                 .runtime
                 .as_ref()
-                .and_then(|r| r.wasm.as_deref())
-                .ok_or("plugin has no wasm module")?;
+                .map(|r| r.wasm.as_str())
+                .ok_or("plugin has no [runtime]")?;
             let wasm = std::fs::read(plugin.path.join(rel)).map_err(|e| e.to_string())?;
             let host = Box::new(GuiHost {
                 shared: self.shared.clone(),

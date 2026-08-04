@@ -326,8 +326,20 @@ Conventions (non-negotiable):
   foundation — manifest `[runtime] type = "wasm"` + `wasm = "…"` parses and
   validates; invoking one returns a clear not-yet-executable error; the full
   engine design (WIT host world, capability-gated imports, guest toolchain,
-  migration) is in docs/plugins-wasm.md. Phases 2 and 4 ship; phase 3's engine is
+  migration) is in docs/plugins.md. Phases 2 and 4 ship; phase 3's engine is
   the scoped next build.
+- 2026-08-04: Plugin system down to one runtime. Three runtimes served the
+  plugins (spawn-per-event subprocess, warm stdio server, WASM) and the
+  expensive one carried a single plugin while five still shelled out to `bun`.
+  A new capability-gated `exec` host function - the host spawns, never through
+  a shell, and hands back the output - let git/docker/sysinfo move into the
+  sandbox, and promptdesigner followed using per-plugin storage plus a visible
+  apply command instead of silently rewriting the user's rc file. Both
+  subprocess tiers deleted; `bun`/`node` gone from the plugin path entirely.
+  Trigger `invoke` now calls a plugin's tool, so a wasm plugin can finally
+  receive events. `fetch` and `clipboard` stopped being stubs. Plugin-contributed
+  web views retired with their JS bridge; Notes went back to being a first-party
+  surface over the bundled sidecar. See docs/plugins.md.
 - 2026-07-04: AI + input polish, shipped across 1.17–1.21. AI: an "Optimize
   tokens" setting compacts prompts sent to agents; quick-launch menu items for
   each configured provider (with reachability auto-verify); per-provider CLI

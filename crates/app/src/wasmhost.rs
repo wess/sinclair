@@ -1,11 +1,15 @@
-//! WASM plugin runtime for the app: instantiates a plugin's component through
-//! [`pluginrt`], keeps it resident, and calls its tools. The [`AppHost`] the
-//! plugin sees ([`SocketHost`]) routes terminal operations to the running GUI
-//! over the single-instance socket ([`crate::ipc`]) — the same path built-in
-//! MCP tools use — and implements storage / logging / filesystem directly.
+//! The plugin runtime for `sinclair mcp`, which serves plugin tools to agents
+//! from a process with no window of its own. Instantiates a plugin's component
+//! through [`pluginrt`], keeps it resident, and calls its tools.
 //!
-//! This is the Stage-2 tool path (invoked from `mcpbridge`). Panels, triggers,
-//! and webviews get their own GUI-side runner in later stages.
+//! The [`AppHost`] the plugin sees ([`SocketHost`]) routes terminal operations
+//! to the running GUI over the single-instance socket ([`crate::ipc`]) — the
+//! same path built-in MCP tools use — and handles storage, logging and the
+//! filesystem itself.
+//!
+//! The context-free host functions live here (`exec`, `fetch`, storage, path
+//! scoping) and are shared with the in-window host, [`crate::guiwasm`], which
+//! implements the same trait against a workspace instead of a socket.
 
 use std::process::{Command, Stdio};
 use std::time::Duration;
@@ -40,8 +44,8 @@ impl WasmRuntime {
             let wasm_rel = plugin
                 .runtime
                 .as_ref()
-                .and_then(|r| r.wasm.as_deref())
-                .ok_or("plugin has no wasm module")?;
+                .map(|r| r.wasm.as_str())
+                .ok_or("plugin has no [runtime]")?;
             let wasm_path = plugin.path.join(wasm_rel);
             let wasm = std::fs::read(&wasm_path)
                 .map_err(|e| format!("read {}: {e}", wasm_path.display()))?;

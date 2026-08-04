@@ -11,7 +11,7 @@ mod manifest;
 pub use install::{Entry, Installed};
 pub use load::{defaultdir, load};
 pub use manifest::{
-    parse, Command, CommandMode, Diagnostic, Panel, Plugin, Runtime, RuntimeKind, Tool,
+    parse, Command, CommandMode, Diagnostic, Panel, Plugin, Runtime, Tool,
     ToolParam, Trigger, TriggerAction, TriggerTarget, CAPABILITIES,
     TRIGGER_EVENTS,
 };

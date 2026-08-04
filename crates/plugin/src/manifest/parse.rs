@@ -34,10 +34,10 @@ struct RawManifest {
 struct RawRuntime {
     #[serde(rename = "type")]
     kind: Option<String>,
+    /// Retired. Still deserialized so a manifest carrying it gets a diagnostic
+    /// naming the removal rather than a confusing downstream error.
     command: Option<String>,
     wasm: Option<String>,
-    #[serde(default)]
-    persistent: bool,
 }
 
 #[derive(Deserialize)]
@@ -174,47 +174,40 @@ fn build_capabilities(raw: Vec<String>, path: &Path, diags: &mut Vec<Diagnostic>
 }
 
 fn build_runtime(raw: RawRuntime, path: &Path, diags: &mut Vec<Diagnostic>) -> Option<Runtime> {
-    let kind = match raw.kind.as_deref() {
-        None => RuntimeKind::Process,
-        Some(k) => match RuntimeKind::parse(k) {
-            Some(k) => k,
-            None => {
-                diags.push(diag(path, "runtime type must be `process` or `wasm`"));
-                return None;
-            }
-        },
-    };
-    let command = raw.command.filter(nonblank);
-    let wasm = raw.wasm.filter(nonblank);
-    match kind {
-        RuntimeKind::Process => match command {
-            Some(command) => Some(Runtime { kind, command, wasm: None, persistent: raw.persistent }),
-            None => {
-                diags.push(diag(path, "[runtime] requires a `command`"));
-                None
-            }
-        },
-        RuntimeKind::Wasm => match wasm {
-            Some(wasm) if !contained(&wasm) => {
-                diags.push(diag(
-                    path,
-                    "the `wasm` module path must stay inside the plugin folder \
-                     (no absolute paths or `..`)",
-                ));
-                None
-            }
-            Some(wasm) => Some(Runtime {
-                kind,
-                command: command.unwrap_or_default(),
-                wasm: Some(wasm),
-                persistent: false,
-            }),
-            None => {
-                diags.push(diag(path, "a `wasm` runtime requires a `wasm` module path"));
-                None
-            }
-        },
+    // `type` is now always wasm. Name the removal rather than ignoring the key,
+    // so a manifest written against the old subprocess runtime says why it
+    // stopped working instead of failing later with "no wasm module".
+    if let Some(kind) = raw.kind.as_deref().filter(|k| !k.is_empty()) {
+        if !matches!(kind, "wasm" | "wasm32" | "webassembly") {
+            diags.push(diag(
+                path,
+                "`[runtime] type` must be `wasm` — subprocess plugin runtimes were \
+                 removed; see docs/pluginauthoring.md for porting",
+            ));
+            return None;
+        }
     }
+    if raw.command.as_deref().is_some_and(|c| !c.trim().is_empty()) {
+        diags.push(diag(
+            path,
+            "`[runtime] command` is no longer supported — a plugin is a WASM \
+             component; set `wasm = \"plugin.wasm\"` instead",
+        ));
+        return None;
+    }
+    let Some(wasm) = raw.wasm.filter(nonblank) else {
+        diags.push(diag(path, "[runtime] requires a `wasm` module path"));
+        return None;
+    };
+    if !contained(&wasm) {
+        diags.push(diag(
+            path,
+            "the `wasm` module path must stay inside the plugin folder \
+             (no absolute paths or `..`)",
+        ));
+        return None;
+    }
+    Some(Runtime { wasm })
 }
 
 fn build_panel(raw: RawPanel, id: &str, name: &str, path: &Path, diags: &mut Vec<Diagnostic>) -> Panel {

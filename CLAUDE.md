@@ -98,16 +98,20 @@ The workspace is layered bottom-up; each crate depends only on those below it.
   is still parsed for one-time migration (`app`'s `confwrite::migrate`).
 - **`theme`** — 22 built-in color schemes (`builtin/`) plus per-color overrides.
 - **`plugin`** — parses `plugin.toml` manifests contributing: `[[command]]`
-  actions (+ default keybindings), `[runtime]`/`[panel]` IPC block-tree panels,
-  `[webview]` HTML/JS surfaces (panel/window/tab), `[[trigger]]` event hooks,
-  and `[[tool]]` MCP tools exposed to agents (`mcpbridge` merges them into
-  `sinclair mcp`'s tool list, routing calls to the runtime). Plugins declare
-  `capability = "…"` (advisory under the process runtime; the vocabulary the
-  WASM runtime enforces) and a `[runtime] type` of `process` (default) or `wasm`
-  (declaration + design only so far — see `docs/plugins-wasm.md`). Pure
-  parsing/validation; the host (`app`) drives the runtime, renders
-  panels/webviews (via the `WebviewSurface`-based `PluginWebView`, shared with
-  built-ins like Notes), and dispatches triggers.
+  actions (+ default keybindings), a `[panel]` block-tree drawer, `[[trigger]]`
+  event hooks, and `[[tool]]` MCP tools exposed to agents (`mcpbridge` merges
+  them into `sinclair mcp`'s tool list). Also owns install state
+  (`installed.toml`: version, source, enabled flag, granted capabilities) and
+  bundled-plugin discovery. Pure parsing/validation; the host (`app`) drives the
+  runtime, renders panels, and dispatches triggers.
+- **`pluginrt`** — the one plugin runtime: a `wasmtime` component-model host.
+  Owns the WIT world (`wit/plugin.wit`), the capability-gated linker, and one
+  resident instance per plugin. Capabilities are enforced at link time — the
+  host adds a host interface only if the plugin declared it *and* the user
+  granted it, so a component importing something ungranted fails to
+  instantiate. Fuel bounds a runaway guest. Defines the `AppHost` trait `app`
+  implements, keeping `wasmtime` out of `app`'s dependency surface. See
+  `docs/plugins.md`.
 - **`macros`** — record/replay of typed command sequences, stored as plain text.
 - **`mcp`** — a minimal Model Context Protocol server (JSON-RPC over stdio).
   Transport/framing only; the caller supplies the tool list and handler. Knows

@@ -74,44 +74,13 @@ pub struct ToolParam {
     pub required: bool,
 }
 
-/// `[runtime]` — how to launch the plugin's function host.
+/// `[runtime]` — the plugin's WASM component. Every plugin runs on the one
+/// runtime; the block exists to name the module and to mark a manifest as
+/// contributing executable behaviour at all (a plugin may be commands-only).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Runtime {
-    /// Which host runs the plugin.
-    pub kind: RuntimeKind,
-    /// For a `process` runtime: the command to spawn (split on whitespace).
-    pub command: String,
-    /// For a `wasm` runtime: the `.wasm` module path, relative to the plugin.
-    pub wasm: Option<String>,
-    /// A `process` runtime that is a long-lived stdio server (reads newline JSON
-    /// requests, writes newline JSON responses in a loop) rather than one-shot.
-    /// The host keeps it warm instead of spawning per event. Ignored for `wasm`
-    /// (always resident).
-    pub persistent: bool,
-}
-
-/// The kind of `[runtime]` host.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum RuntimeKind {
-    /// A subprocess spoken to over JSON on stdin/stdout. Full user privileges;
-    /// needs whatever interpreter its `command` names (bun, node, …).
-    #[default]
-    Process,
-    /// A WebAssembly module run in-process. No runtime dependency; sandboxed to
-    /// its declared [`capabilities`](Plugin::capabilities). The execution engine
-    /// is in progress — see `docs/plugins-wasm.md`; declaring it is supported so
-    /// plugins and the host can adopt the surface incrementally.
-    Wasm,
-}
-
-impl RuntimeKind {
-    pub(crate) fn parse(value: &str) -> Option<Self> {
-        match value {
-            "process" | "" => Some(Self::Process),
-            "wasm" | "wasm32" | "webassembly" => Some(Self::Wasm),
-            _ => None,
-        }
-    }
+    /// The `.wasm` module path, relative to the plugin directory.
+    pub wasm: String,
 }
 
 /// `[panel]` — a contributed side-drawer panel rendered from the plugin's

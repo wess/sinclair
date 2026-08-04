@@ -42,9 +42,10 @@ exactly how you work.
 - **Search** — ⌘F opens an incremental search across scrollback with live
   match highlighting and next/previous navigation.
 - **Themes** — 22 built-in schemes with full per-color overrides.
-- **Plugins** — `plugin.toml` manifests that add command actions, live
-  side-drawer panels, HTML/JS webview surfaces, and event triggers that react to
-  terminal events. No build step; install from a shared catalog. See the
+- **Plugins** — sandboxed WASM components that add command actions, live
+  side-drawer panels, tools your agents can call, and event triggers. A plugin
+  reaches only what its declared capabilities grant, enforced by the runtime;
+  it needs no language runtime installed. Install from a shared catalog. See the
   [plugin tutorial](https://wess.io/sinclair/plugintutorial.html).
 - **Macros** — record the commands you type, name them, and replay them with a
   keybinding; replay paces itself off shell-integration prompt marks.

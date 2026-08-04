@@ -1,15 +1,17 @@
 # Authoring a WASM plugin
 
-A WASM plugin is a sandboxed capability module: it can expose tools to the user
-and to agents, react to events, and own a panel — reaching only the host
-functions its declared capabilities grant. It has no runtime dependency (no
-`bun`/`node`) and runs in-process.
+Every plugin is a WASM component: a sandboxed capability module that can expose
+tools to the user and to agents, react to events, and own a panel — reaching
+only the host functions its declared capabilities grant. There is one runtime
+and no runtime dependency (no `bun`/`node`); a plugin's instance stays resident,
+so a call costs microseconds rather than a process spawn.
 
-Use the WASM tier for anything that works through the host functions (read the
-screen, drive the terminal, fetch, scoped files, computed tools). Use the
-**native tier** (`[runtime] type = "native"`, a subprocess) for plugins that must
-spawn processes and read their output — `git`, `docker`, `sysinfo` are native by
-nature. See `docs/pluginsv2.md`.
+A plugin that needs to read a program's output — `git status`, `docker ps`,
+`df` — declares the `process` capability and calls `exec`. The **host** does the
+spawning and hands back the output, so the plugin never holds the privilege to
+run anything itself, and the host is the one enforcing the timeout and the
+output cap. The bundled `git`, `docker` and `sysinfo` plugins are built this
+way; read them for a working example.
 
 ## Rust (recommended)
 
@@ -44,9 +46,16 @@ own copy) and declare the matching `capability` in the manifest:
 | `host-fs` | `filesystem` | read/write files (scoped to the plugin dir) |
 | `host-clipboard` | `clipboard` | read/write the clipboard |
 | `host-notify` | `notify` | desktop notification |
+| `host-process` | `process` | run a program and read its output (`exec`) |
 
 A plugin that imports an interface it was not granted **fails to instantiate** —
 the boundary is enforced by the runtime, not by convention.
+
+Ask for the narrowest capability that does the job. `network` exists so a plugin
+that only reads a URL doesn't have to take `process` (which would let it run
+anything); `process` exists so a plugin that shells out doesn't need a broad
+filesystem grant. The pre-built worlds in `crates/pluginrt/wit/plugin.wit` —
+`screentools`, `inspector`, `designer` — are the common combinations.
 
 ## Manifest
 
@@ -71,6 +80,25 @@ type = "string"
 id = "screentools"
 title = "Screen Tools"
 ```
+
+## Panels
+
+`render()` returns a JSON node tree the host paints with guise components:
+`section`, `text`, `divider`, `kv`, `badge`, `button`, and `row` to group them.
+A `text` node takes an optional palette `color` and a `mono` flag for content
+that is literally terminal output (a prompt, a path, a command). An unrecognized
+node renders an inline notice rather than blanking the panel, so a newer block
+type degrades instead of failing.
+
+A button click arrives at `on_ui_event` with the button's `id`; update your state
+and the host re-renders. To have the terminal do something — open a monitor,
+show a log — call `run-command` rather than describing it: the call is queued
+during your event and dispatched once you return.
+
+State persists in the ungated per-plugin key/value store (`storage-get` /
+`storage-set`), which is what makes a resident panel able to remember anything
+between a render and a click. Treat what comes back out of it as untrusted —
+re-validate before interpolating it anywhere.
 
 ## JavaScript
 
