@@ -24,8 +24,6 @@ pub struct Plugin {
     pub runtime: Option<Runtime>,
     /// `[panel]`: a side-drawer panel this plugin contributes.
     pub panel: Option<Panel>,
-    /// `[webview]`: a native web-view surface this plugin contributes.
-    pub webview: Option<Webview>,
     /// `[[trigger]]`: event hooks that run an action when something happens.
     pub triggers: Vec<Trigger>,
     /// `[[tool]]`: tools this plugin exposes to MCP clients (AI agents). Each is
@@ -126,74 +124,6 @@ pub struct Panel {
     pub title: String,
     /// Single-glyph activity-bar icon.
     pub icon: String,
-}
-
-/// `[webview]` — a native web-view surface a plugin contributes. It hosts an
-/// arbitrary HTML/JS UI that talks to the app over the webview message bridge.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Webview {
-    /// Stable id used in open requests and the activity-bar/tab token.
-    pub id: String,
-    /// Header/tab/title shown for the surface.
-    pub title: String,
-    /// Single-glyph activity-bar / tab icon.
-    pub icon: String,
-    /// Where the surface is shown.
-    pub placement: Placement,
-    /// Where the page content comes from.
-    pub source: WebviewSource,
-    /// When true (and the plugin has a `[runtime]`), the app invokes the
-    /// runtime's `boot` method before loading, and navigates to the URL it
-    /// returns (`{ port }` or `{ url }`). Lets a plugin start a local server and
-    /// hand back its address — the page then loads from a real `http` origin.
-    pub boot: bool,
-}
-
-/// Where a `[webview]` surface is shown. `tab` is parsed now but hosted in a
-/// later phase; until then the host falls back to a window.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum Placement {
-    /// A side-drawer panel (default).
-    #[default]
-    Panel,
-    /// A tab / split pane.
-    Tab,
-    /// A standalone window.
-    Window,
-}
-
-impl Placement {
-    pub(crate) fn parse(value: &str) -> Option<Self> {
-        match value {
-            "panel" => Some(Self::Panel),
-            "tab" => Some(Self::Tab),
-            "window" => Some(Self::Window),
-            _ => None,
-        }
-    }
-
-    /// The config token, round-tripping through [`Placement::parse`].
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Panel => "panel",
-            Self::Tab => "tab",
-            Self::Window => "window",
-        }
-    }
-}
-
-/// Where a `[webview]` loads its content from.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum WebviewSource {
-    /// A remote or absolute URL, loaded as-is.
-    Url(String),
-    /// A path relative to the plugin directory, served over the internal origin.
-    Entry(String),
-    /// A host-managed sidecar: the host runs this command as a local server
-    /// (allocating a port + token, health-checking, reaping on close) and loads
-    /// the page from its `http` origin. Generalizes the built-in Notes server so
-    /// any plugin — including Notes itself, now a plugin — can ship a backend.
-    Service(String),
 }
 
 /// The event names a `[[trigger]]` may hook. Kept in one place so the manifest

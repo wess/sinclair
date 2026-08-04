@@ -71,6 +71,21 @@ impl GuiWasm {
         self.rt.render(&plugin.id, "{}").map_err(|e| e.to_string())
     }
 
+    /// Call one of a wasm plugin's tools. Used by `[[trigger]] do = { invoke }`,
+    /// which delivers a terminal event to the tool of that name.
+    pub fn call_tool(
+        &mut self,
+        plugin: &plugin::Plugin,
+        tool: &str,
+        params_json: &str,
+    ) -> Result<String, String> {
+        self.ensure(plugin)?;
+        match self.rt.call_tool(&plugin.id, tool, params_json) {
+            Ok(inner) => inner,
+            Err(trap) => Err(format!("plugin trapped: {trap}")),
+        }
+    }
+
     /// Deliver a UI event (button click) to a wasm plugin's panel.
     pub fn on_ui_event(&mut self, plugin: &plugin::Plugin, event_json: &str) -> Result<(), String> {
         self.ensure(plugin)?;

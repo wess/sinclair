@@ -8,7 +8,7 @@
 //! module decides.
 //!
 //! Sections are addressed by **token**, never by index. `SidebarPanel::Plugin`
-//! and `Webview` carry an index into a list that shifts whenever plugins are
+//! carries an index into a list that shifts whenever plugins are
 //! loaded or removed, so persisting one would quietly rebind a saved slot to a
 //! different plugin the next time the set changed.
 
@@ -76,9 +76,6 @@ pub enum SidebarPanel {
     Notes,
     /// A plugin-contributed panel, by index into `plugin_panel_defs`.
     Plugin(usize),
-    /// A plugin-contributed webview panel, by index into
-    /// `plugin_webview_panel_defs`.
-    Webview(usize),
 }
 
 impl SidebarPanel {
@@ -111,7 +108,6 @@ impl SidebarPanel {
             SidebarPanel::Worktrees => "worktrees",
             SidebarPanel::Notes => "notes",
             SidebarPanel::Plugin(_) => "plugin",
-            SidebarPanel::Webview(_) => "webview",
         }
     }
 
@@ -132,7 +128,6 @@ impl SidebarPanel {
             SidebarPanel::Worktrees => "Worktrees",
             SidebarPanel::Notes => "Notes",
             SidebarPanel::Plugin(_) => "Plugin",
-            SidebarPanel::Webview(_) => "Webview",
         }
     }
 
@@ -155,7 +150,7 @@ impl SidebarPanel {
             SidebarPanel::Notes => "NOTES",
             // Plugin titles come from a manifest (or a live response), so they
             // are the one case that has to be uppercased at render time.
-            SidebarPanel::Plugin(_) | SidebarPanel::Webview(_) => "",
+            SidebarPanel::Plugin(_) => "",
         }
     }
 
@@ -172,7 +167,6 @@ impl SidebarPanel {
             SidebarPanel::Worktrees => "\u{2442}",  // ⑂ branches
             SidebarPanel::Notes => "\u{25a5}",      // ▥ pages
             SidebarPanel::Plugin(_) => "\u{25c9}",  // ◉ plugin
-            SidebarPanel::Webview(_) => "\u{25f1}", // ◱ webview
         }
     }
 }

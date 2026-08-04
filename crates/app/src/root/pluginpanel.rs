@@ -1,15 +1,19 @@
-//! IPC plugin side-drawer panels. A plugin with a `[panel]` contributes an
-//! activity-bar icon and a drawer rendered from the block tree its `[runtime]`
-//! returns. Opening the panel (or clicking a button in it) invokes the plugin
-//! over [`crate::pluginhost`]; the reply's blocks are rendered with guise and
-//! its `run` directives are executed in the terminal via the MCP dispatch.
+//! Plugin side-drawer panels. A plugin with a `[panel]` contributes an
+//! activity-bar icon and a drawer rendered from the block tree its `render`
+//! export returns.
+//!
+//! The plugin's instance is resident, so opening a panel or clicking a button in
+//! it is an in-process call, not a round trip: render, paint, done. Anything the
+//! plugin wants the terminal to do it asks for by calling `run-command`, which
+//! is queued during the call and drained afterwards by
+//! [`WorkspaceView::drain_wasm_commands`].
 
 use super::*;
 use gpui::prelude::*;
 
 use guise::prelude::{Badge, Button, ColorName, Divider, Size, Text, Title, Variant};
 
-use crate::pluginhost::{self, Block, Response};
+use crate::panelui::{Block, Response};
 
 impl WorkspaceView {
     /// Plugins that contribute a panel (have both a `[runtime]` and `[panel]`),
@@ -21,108 +25,11 @@ impl WorkspaceView {
             .collect()
     }
 
-    /// Plugins with a `[webview]` whose placement is `panel`, in load order.
-    /// `SidebarPanel::Webview(i)` indexes this list.
-    pub(crate) fn plugin_webview_panel_defs(&self) -> Vec<&plugin::Plugin> {
-        self.plugins
-            .iter()
-            .filter(|p| {
-                p.webview
-                    .as_ref()
-                    .is_some_and(|w| w.placement == plugin::Placement::Panel)
-            })
-            .collect()
-    }
-
-    /// (Re)build the webview host entities for panel-placement `[webview]`
-    /// plugins. The entity wrapper is cheap; the native page is created on the
-    /// panel's first render. Called at load and after a plugin reload.
-    pub(crate) fn rebuild_webview_hosts(&mut self, cx: &mut Context<Self>) {
-        self.webview_hosts.clear();
-        let defs: Vec<plugin::Plugin> = self
-            .plugins
-            .iter()
-            .filter(|p| {
-                p.webview
-                    .as_ref()
-                    .is_some_and(|w| w.placement == plugin::Placement::Panel)
-            })
-            .cloned()
-            .collect();
-        for plugin in defs {
-            let id = plugin
-                .webview
-                .as_ref()
-                .map(|w| w.id.clone())
-                .unwrap_or_else(|| plugin.id.clone());
-            let surface = crate::pluginwebview::WebviewSurface::from_plugin(plugin);
-            let host = cx.new(|cx| crate::pluginwebview::PluginWebView::new(surface, cx));
-            self.webview_hosts.insert(id, host);
-        }
-    }
-
-    /// Render a plugin webview panel's body: the stored host entity, or a note.
-    pub(crate) fn panel_webview(&self, panel: SidebarPanel, _cx: &mut Context<Self>) -> AnyElement {
-        let SidebarPanel::Webview(index) = panel else {
-            return div().into_any_element();
-        };
-        let id = match webview_defs(&self.plugins)
-            .nth(index)
-            .and_then(|p| p.webview.as_ref())
-        {
-            Some(w) => w.id.clone(),
-            None => return div().into_any_element(),
-        };
-        match self.webview_hosts.get(&id) {
-            Some(host) => div()
-                .flex_1()
-                .min_h(px(0.0))
-                .child(host.clone())
-                .into_any_element(),
-            None => self.plugin_note("Loading\u{2026}"),
-        }
-    }
-
-    /// Whether a loaded plugin contributes a `[webview]` with this id — so a
-    /// built-in entry point (e.g. File → Notes) can prefer the plugin path and
-    /// fall back only when the plugin isn't present.
-    pub(crate) fn has_webview_plugin(&self, id: &str) -> bool {
-        self.plugins
-            .iter()
-            .any(|p| p.webview.as_ref().map(|w| w.id.as_str()) == Some(id))
-    }
-
-    /// Open a plugin's `[webview]` per its manifest placement: a sidebar panel,
-    /// or a standalone window (also the current fallback for `tab`).
-    pub(crate) fn open_webview(&mut self, id: &str, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(plugin) = self
-            .plugins
-            .iter()
-            .find(|p| p.webview.as_ref().map(|w| w.id.as_str()) == Some(id))
-            .cloned()
-        else {
-            return;
-        };
-        let placement = plugin
-            .webview
-            .as_ref()
-            .map(|w| w.placement)
-            .unwrap_or_default();
-        match placement {
-            plugin::Placement::Panel => self.toggle_sidebar(&format!("right:webview:{id}"), cx),
-            plugin::Placement::Tab => {
-                let surface = crate::pluginwebview::WebviewSurface::from_plugin(plugin);
-                self.open_webview_tab(surface, window, cx);
-            }
-            plugin::Placement::Window => crate::pluginwindow::open(window, plugin, cx),
-        }
-    }
-
     /// Open a web view as a tab in the focused pane. Mirrors `newtab` but with a
     /// webview item instead of a shell.
     pub(crate) fn open_webview_tab(
         &mut self,
-        surface: crate::pluginwebview::WebviewSurface,
+        surface: crate::webview::WebviewSurface,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -136,13 +43,6 @@ impl WorkspaceView {
     /// latest response (so a plugin can retitle live), falling back to the
     /// manifest's `[panel] title`.
     pub(crate) fn panel_label_of(&self, panel: SidebarPanel) -> String {
-        if let SidebarPanel::Webview(i) = panel {
-            return webview_defs(&self.plugins)
-                .nth(i)
-                .and_then(|p| p.webview.as_ref())
-                .map(|w| w.title.clone())
-                .unwrap_or_else(|| "Webview".to_string());
-        }
         let SidebarPanel::Plugin(i) = panel else {
             return panel.label().to_string();
         };
@@ -168,11 +68,6 @@ impl WorkspaceView {
                 .and_then(|p| p.panel.as_ref())
                 .map(|pn| pn.icon.clone())
                 .unwrap_or_else(|| "\u{25c9}".to_string()),
-            SidebarPanel::Webview(i) => webview_defs(&self.plugins)
-                .nth(i)
-                .and_then(|p| p.webview.as_ref())
-                .map(|w| w.icon.clone())
-                .unwrap_or_else(|| "\u{25f1}".to_string()),
             other => other.icon().to_string(),
         }
     }
@@ -253,7 +148,6 @@ impl WorkspaceView {
         }
         self.keybinds = keybinds;
         self.applykeybinds(cx);
-        self.rebuild_webview_hosts(cx);
         self.setmenus(cx);
     }
 
@@ -287,61 +181,51 @@ impl WorkspaceView {
             .and_then(|it| it.content.cwd_path(cx))
     }
 
-    /// (Re)render a plugin panel by invoking its runtime with a `render`
-    /// request off the UI thread, caching the response when it returns.
+    /// (Re)render a plugin panel. The plugin's instance is resident, so this is
+    /// an in-process call measured in microseconds — there is nothing to move
+    /// off the UI thread.
     pub(crate) fn refresh_plugin_panel(&mut self, index: usize, cx: &mut Context<Self>) {
         let plugin = match self.plugin_panel_defs().get(index) {
             Some(p) => (*p).clone(),
             None => return,
         };
-        let panel_id = match plugin.panel.as_ref() {
-            Some(pn) => pn.id.clone(),
-            None => return,
-        };
-        // A wasm plugin renders in-process (microseconds) — no subprocess spawn,
-        // no off-thread hop.
-        if plugin.runtime.as_ref().map(|r| r.kind) == Some(plugin::RuntimeKind::Wasm) {
-            self.render_wasm_panel(&plugin, &panel_id, cx);
+        let Some(panel_id) = plugin.panel.as_ref().map(|pn| pn.id.clone()) else {
             return;
-        }
-        let cwd = self.focused_cwd(cx).map(|p| p.to_string_lossy().into_owned());
-        let executor = cx.background_executor().clone();
-        cx.spawn(async move |this, cx| {
-            let pid = panel_id.clone();
-            let resp = executor
-                .spawn(async move {
-                    let req = pluginhost::Request {
-                        kind: "render",
-                        panel: &pid,
-                        action: None,
-                        cwd: cwd.as_deref(),
-                        method: None,
-                        params: None,
-                    };
-                    pluginhost::invoke(&plugin, &req)
-                })
-                .await;
-            let _ = this.update(cx, |view, cx| {
-                view.plugin_panels
-                    .insert(panel_id, resp.unwrap_or_else(|e| error_response(&e)));
-                cx.notify();
-            });
-        })
-        .detach();
+        };
+        self.render_wasm_panel(&plugin, &panel_id, cx);
     }
 
     /// Put whatever the last wasm call asked for onto the clipboard. The host
     /// can't touch the gpui context mid-call, so it parks the text and we apply
     /// it here, the way queued commands are applied.
-    fn apply_wasm_clipboard(&mut self, cx: &mut Context<Self>) {
+    pub(crate) fn apply_wasm_clipboard(&mut self, cx: &mut Context<Self>) {
         let Some(text) = self.gui_wasm.as_ref().and_then(|gw| gw.take_clipboard_write()) else {
             return;
         };
         cx.write_to_clipboard(gpui::ClipboardItem::new_string(text));
     }
 
+    /// Run whatever the last wasm call queued through `run-command`. The host
+    /// can't reach the workspace mid-call, so it parks the directives and every
+    /// caller drains them here once the guest has returned.
+    pub(crate) fn drain_wasm_commands(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let commands = self
+            .gui_wasm
+            .as_ref()
+            .map(|gw| gw.take_commands())
+            .unwrap_or_default();
+        for c in commands {
+            let _ = self.mcp_dispatch(
+                "run_command",
+                &json!({ "text": c.text, "target": c.target }),
+                window,
+                cx,
+            );
+        }
+    }
+
     /// Lazily create the GUI-side wasm runtime (one engine per window).
-    fn ensure_gui_wasm(&mut self) -> Option<&mut crate::guiwasm::GuiWasm> {
+    pub(crate) fn ensure_gui_wasm(&mut self) -> Option<&mut crate::guiwasm::GuiWasm> {
         if self.gui_wasm.is_none() {
             self.gui_wasm = crate::guiwasm::GuiWasm::new();
         }
@@ -390,15 +274,7 @@ impl WorkspaceView {
             None => Err("wasm runtime unavailable".to_string()),
         };
         self.apply_wasm_clipboard(cx);
-        let commands = self.gui_wasm.as_ref().map(|gw| gw.take_commands()).unwrap_or_default();
-        for c in commands {
-            let _ = self.mcp_dispatch(
-                "run_command",
-                &json!({ "text": c.text, "target": c.target }),
-                window,
-                cx,
-            );
-        }
+        self.drain_wasm_commands(window, cx);
         if let Err(e) = result {
             self.plugin_panels.insert(panel_id.to_string(), error_response(&e));
             cx.notify();
@@ -423,49 +299,7 @@ impl WorkspaceView {
             Some(p) => p.clone(),
             None => return,
         };
-        // A wasm panel handles the event in-process.
-        if plugin.runtime.as_ref().map(|r| r.kind) == Some(plugin::RuntimeKind::Wasm) {
-            self.wasm_ui_event(&plugin, panel_id, action, window, cx);
-            return;
-        }
-        let Some(handle) = window.window_handle().downcast::<WorkspaceView>() else {
-            return;
-        };
-        let panel = panel_id.to_string();
-        let action = action.to_string();
-        let cwd = self.focused_cwd(cx).map(|p| p.to_string_lossy().into_owned());
-        let executor = cx.background_executor().clone();
-        cx.spawn(async move |_this, cx| {
-            let p = panel.clone();
-            let resp = executor
-                .spawn(async move {
-                    let req = pluginhost::Request {
-                        kind: "action",
-                        panel: &p,
-                        action: Some(&action),
-                        cwd: cwd.as_deref(),
-                        method: None,
-                        params: None,
-                    };
-                    pluginhost::invoke(&plugin, &req)
-                })
-                .await;
-            let resp = resp.unwrap_or_else(|e| error_response(&e));
-            let _ = handle.update(cx, |view, window, cx| {
-                for run in &resp.run {
-                    let target = run.target.as_deref().unwrap_or("pane");
-                    let _ = view.mcp_dispatch(
-                        "run_command",
-                        &json!({ "text": run.text, "target": target }),
-                        window,
-                        cx,
-                    );
-                }
-                view.plugin_panels.insert(panel, resp);
-                cx.notify();
-            });
-        })
-        .detach();
+        self.wasm_ui_event(&plugin, panel_id, action, window, cx);
     }
 
     /// Render a plugin panel's body from its cached block tree.
@@ -611,8 +445,6 @@ fn error_response(msg: &str) -> Response {
             color: None,
             mono: false,
         }],
-        run: Vec::new(),
-        result: None,
     }
 }
 
@@ -667,15 +499,6 @@ fn panel_defs(plugins: &[plugin::Plugin]) -> impl Iterator<Item = &plugin::Plugi
         .filter(|p| p.runtime.is_some() && p.panel.is_some())
 }
 
-/// Plugins contributing a panel-placement `[webview]` — what `Webview(i)` indexes.
-fn webview_defs(plugins: &[plugin::Plugin]) -> impl Iterator<Item = &plugin::Plugin> {
-    plugins.iter().filter(|p| {
-        p.webview
-            .as_ref()
-            .is_some_and(|w| w.placement == plugin::Placement::Panel)
-    })
-}
-
 /// A panel's stable token. Plugin sections encode their manifest id, never
 /// their index, because the index moves when the plugin set changes.
 pub(crate) fn token_of(plugins: &[plugin::Plugin], panel: SidebarPanel) -> String {
@@ -686,14 +509,6 @@ pub(crate) fn token_of(plugins: &[plugin::Plugin], panel: SidebarPanel) -> Strin
                 .nth(i)
                 .and_then(|p| p.panel.as_ref())
                 .map(|pn| pn.id.as_str())
-                .unwrap_or("")
-        ),
-        SidebarPanel::Webview(i) => format!(
-            "webview:{}",
-            webview_defs(plugins)
-                .nth(i)
-                .and_then(|p| p.webview.as_ref())
-                .map(|w| w.id.as_str())
                 .unwrap_or("")
         ),
         other => other.id().to_string(),
@@ -709,11 +524,6 @@ pub(crate) fn from_token(plugins: &[plugin::Plugin], token: &str) -> Option<Side
             .position(|p| p.panel.as_ref().map(|pn| pn.id.as_str()) == Some(id))?;
         return Some(SidebarPanel::Plugin(i));
     }
-    if let Some(id) = token.strip_prefix("webview:") {
-        let i = webview_defs(plugins)
-            .position(|p| p.webview.as_ref().map(|w| w.id.as_str()) == Some(id))?;
-        return Some(SidebarPanel::Webview(i));
-    }
     SidebarPanel::from_id(token)
 }
 
@@ -727,22 +537,15 @@ pub(crate) fn label_of(plugins: &[plugin::Plugin], panel: SidebarPanel) -> Strin
             .and_then(|p| p.panel.as_ref())
             .map(|pn| pn.title.clone())
             .unwrap_or_else(|| "Plugin".to_string()),
-        SidebarPanel::Webview(i) => webview_defs(plugins)
-            .nth(i)
-            .and_then(|p| p.webview.as_ref())
-            .map(|w| w.title.clone())
-            .unwrap_or_else(|| "Webview".to_string()),
         other => other.label().to_string(),
     }
 }
 
-/// Every plugin-contributed section, block panels then webview panels.
+/// Every plugin-contributed section, in load order.
 pub(crate) fn contributed(plugins: &[plugin::Plugin]) -> Vec<SidebarPanel> {
-    let mut list: Vec<SidebarPanel> = (0..panel_defs(plugins).count())
+    (0..panel_defs(plugins).count())
         .map(SidebarPanel::Plugin)
-        .collect();
-    list.extend((0..webview_defs(plugins).count()).map(SidebarPanel::Webview));
-    list
+        .collect()
 }
 
 /// Build both docks from settings plus the loaded plugins: resolve the

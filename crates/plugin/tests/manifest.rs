@@ -140,76 +140,6 @@ run = "echo bad"
     }
 
     #[test]
-    fn parses_webview_contribution() {
-        let (plugin, diags) = parse(
-            path(),
-            r#"
-id = "dash"
-name = "Dash"
-[webview]
-id = "board"
-title = "Board"
-icon = "◱"
-placement = "window"
-entry = "index.html"
-"#,
-        );
-        assert!(diags.is_empty(), "{diags:?}");
-        let wv = plugin.unwrap().webview.unwrap();
-        assert_eq!(wv.id, "board");
-        assert_eq!(wv.title, "Board");
-        assert_eq!(wv.placement, Placement::Window);
-        assert_eq!(wv.source, WebviewSource::Entry("index.html".to_string()));
-    }
-
-    #[test]
-    fn webview_defaults_to_plugin_id_name_and_panel() {
-        let (plugin, diags) = parse(
-            path(),
-            "id = \"dash\"\nname = \"Dash\"\n[webview]\nurl = \"https://example.com\"\n",
-        );
-        assert!(diags.is_empty(), "{diags:?}");
-        let wv = plugin.unwrap().webview.unwrap();
-        assert_eq!(wv.id, "dash"); // falls back to plugin id
-        assert_eq!(wv.title, "Dash"); // falls back to plugin name
-        assert_eq!(wv.placement, Placement::Panel); // default
-        assert_eq!(
-            wv.source,
-            WebviewSource::Url("https://example.com".to_string())
-        );
-    }
-
-    #[test]
-    fn webview_requires_a_source() {
-        let (plugin, diags) = parse(path(), "id = \"dash\"\n[webview]\ntitle = \"X\"\n");
-        assert!(plugin.unwrap().webview.is_none());
-        assert!(diags.iter().any(|d| d.message.contains("requires a `url`")));
-    }
-
-    #[test]
-    fn webview_rejects_both_sources() {
-        let (plugin, diags) = parse(
-            path(),
-            "id = \"dash\"\n[webview]\nurl = \"https://x\"\nentry = \"i.html\"\n",
-        );
-        assert!(plugin.unwrap().webview.is_none());
-        assert!(diags.iter().any(|d| d.message.contains("exactly one")));
-    }
-
-    #[test]
-    fn webview_bad_placement_reports_and_defaults_to_panel() {
-        let (plugin, diags) = parse(
-            path(),
-            "id = \"dash\"\n[webview]\nplacement = \"floating\"\nurl = \"https://x\"\n",
-        );
-        assert!(diags.iter().any(|d| d.message.contains("placement")));
-        assert_eq!(
-            plugin.unwrap().webview.unwrap().placement,
-            Placement::Panel
-        );
-    }
-
-    #[test]
     fn parses_triggers() {
         let (plugin, diags) = parse(
             path(),
@@ -372,22 +302,6 @@ param = ["sql | string | The SQL | required", "limit | integer | Max rows"]
             parse(path(), "id = \"w\"\n[runtime]\ntype = \"wasm\"\nwasm = \"dist/plugin.wasm\"\n");
         assert!(diags.is_empty(), "{diags:?}");
         assert_eq!(plugin.unwrap().runtime.unwrap().wasm.as_deref(), Some("dist/plugin.wasm"));
-    }
-
-    #[test]
-    fn webview_entry_may_not_escape_the_plugin_dir() {
-        for entry in ["/etc/passwd", "../outside.html"] {
-            let src = format!("id = \"w\"\n[webview]\nentry = \"{entry}\"\n");
-            let (plugin, diags) = parse(path(), &src);
-            assert!(plugin.unwrap().webview.is_none(), "{entry}");
-            assert!(
-                diags.iter().any(|d| d.message.contains("inside the plugin folder")),
-                "{entry}: {diags:?}"
-            );
-        }
-        let (plugin, diags) = parse(path(), "id = \"w\"\n[webview]\nentry = \"ui/index.html\"\n");
-        assert!(diags.is_empty(), "{diags:?}");
-        assert!(plugin.unwrap().webview.is_some());
     }
 
     #[test]

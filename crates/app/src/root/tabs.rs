@@ -49,7 +49,7 @@ impl WorkspaceView {
             }
         }
 
-        // A panel `[webview]` hosts a native surface that only tracks its bounds
+        // A web-view item hosts a native surface that only tracks its bounds
         // while painted; hide any whose section just collapsed or whose dock closed.
         self.reconcile_webview_visibility(cx);
         self.setmenus(cx);
@@ -98,25 +98,15 @@ impl WorkspaceView {
         }
     }
 
-    /// Reconcile every native `[webview]` surface with what's actually on screen:
-    /// a panel host is visible only while its drawer is the active panel; a
-    /// webview *item* only while it is a live item in the group. A native OS view
+    /// Reconcile every native web-view surface with what's on screen: a surface
+    /// is visible only while it is a live item in the group. A native OS view
     /// tracks its bounds only while painted, so one that stops rendering must be
-    /// hidden explicitly or it lingers. See [`PluginWebView::set_visible`].
+    /// hidden explicitly or it lingers over whatever replaced it. See
+    /// [`crate::webview::SurfaceView::set_visible`].
     pub(crate) fn reconcile_webview_visibility(&self, cx: &mut Context<Self>) {
-        // Panel-placement webviews, keyed by id in `webview_hosts`.
-        let panel_visible = self.active_webview_ids();
-        let panel_hosts: Vec<(String, gpui::Entity<crate::pluginwebview::PluginWebView>)> =
-            self.webview_hosts.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
-        for (id, host) in panel_hosts {
-            let vis = panel_visible.contains(&id);
-            host.update(cx, |h, cx| h.set_visible(vis, cx));
-        }
-
-        // Webview items: visible while they exist in the group's item set.
         let active: std::collections::HashSet<ItemId> =
             self.group.read(cx).items().into_iter().collect();
-        let item_hosts: Vec<(ItemId, gpui::Entity<crate::pluginwebview::PluginWebView>)> = self
+        let hosts: Vec<(ItemId, gpui::Entity<crate::webview::SurfaceView>)> = self
             .items
             .borrow()
             .iter()
@@ -125,30 +115,9 @@ impl WorkspaceView {
                 PaneContent::Terminal(_) => None,
             })
             .collect();
-        for (id, host) in item_hosts {
-            let vis = active.contains(&id);
-            host.update(cx, |h, cx| h.set_visible(vis, cx));
+        for (id, host) in hosts {
+            host.update(cx, |h, cx| h.set_visible(active.contains(&id), cx));
         }
-    }
-
-    /// The webview ids on screen right now: a webview section counts only when
-    /// its dock is open *and* the section itself is expanded, since a collapsed
-    /// section paints nothing but its header.
-    fn active_webview_ids(&self) -> std::collections::HashSet<String> {
-        let defs = self.plugin_webview_panel_defs();
-        self.docks
-            .iter()
-            .filter(|d| d.open)
-            .flat_map(|d| d.sections.iter())
-            .filter(|s| s.expanded)
-            .filter_map(|s| match s.panel {
-                SidebarPanel::Webview(i) => defs
-                    .get(i)
-                    .and_then(|p| p.webview.as_ref())
-                    .map(|w| w.id.clone()),
-                _ => None,
-            })
-            .collect()
     }
 
     /// One title per item, in the group's layout order (for the MCP bridge).

@@ -218,7 +218,6 @@ impl WorkspaceView {
             SidebarPanel::Worktrees => self.panel_worktrees(cx),
             SidebarPanel::Notes => self.panel_notes(cx),
             SidebarPanel::Plugin(_) => self.panel_plugin(panel, cx),
-            SidebarPanel::Webview(_) => self.panel_webview(panel, cx),
         }
     }
 
@@ -278,7 +277,7 @@ impl WorkspaceView {
     /// manifest or its latest live response.
     fn section_title(&self, panel: SidebarPanel) -> SharedString {
         match panel {
-            SidebarPanel::Plugin(_) | SidebarPanel::Webview(_) => {
+            SidebarPanel::Plugin(_) => {
                 SharedString::from(self.panel_label_of(panel).to_uppercase())
             }
             builtin => SharedString::new_static(builtin.label_upper()),
@@ -288,7 +287,7 @@ impl WorkspaceView {
     /// A rail glyph. Same split: static for a built-in, owned for a plugin.
     fn panel_glyph(&self, panel: SidebarPanel) -> SharedString {
         match panel {
-            SidebarPanel::Plugin(_) | SidebarPanel::Webview(_) => {
+            SidebarPanel::Plugin(_) => {
                 SharedString::from(self.panel_icon_of(panel))
             }
             builtin => SharedString::new_static(builtin.icon()),
@@ -695,18 +694,12 @@ impl WorkspaceView {
             body = body.child(self.sidebar_note("No plugins installed."));
         }
         for (pi, plugin) in self.plugins.iter().enumerate() {
-            // Clicking the plugin name opens its primary surface: a webview,
-            // else a panel, else its first command.
+            // Clicking the plugin name opens its primary surface: a panel, else
+            // its first command.
             let primary = plugin
-                .webview
+                .panel
                 .as_ref()
-                .map(|w| config::Action::OpenWebview(w.id.clone()))
-                .or_else(|| {
-                    plugin
-                        .panel
-                        .as_ref()
-                        .map(|p| config::Action::Sidebar(format!("right:plugin:{}", p.id)))
-                })
+                .map(|p| config::Action::Sidebar(format!("right:plugin:{}", p.id)))
                 .or_else(|| {
                     plugin.commands.first().map(|c| {
                         config::Action::PluginCommand(plugin::actionid(&plugin.id, &c.id))
@@ -721,16 +714,6 @@ impl WorkspaceView {
                 )),
                 None => name_row,
             });
-            if let Some(wv) = plugin.webview.as_ref() {
-                let action = config::Action::OpenWebview(wv.id.clone());
-                body = body.child(
-                    self.sidebar_row(("sb-pl-webview", row_id), "\u{25a4} Open".to_string(), true, false, false)
-                        .on_click(cx.listener(move |this, _: &gpui::ClickEvent, window, cx| {
-                            this.run_action(action.clone(), window, cx);
-                        })),
-                );
-                row_id += 1;
-            }
             if let Some(panel) = plugin.panel.as_ref() {
                 let token = format!("right:plugin:{}", panel.id);
                 body = body.child(
@@ -852,19 +835,11 @@ impl WorkspaceView {
     /// Notes panel: the vaults the Notes editor has opened before.
     ///
     /// Vaults rather than individual notes on purpose — `notes::Vault::recents`
-    /// tracks vault directories, and the editor itself stays a webview because
-    /// a markdown editor is unusable in a column this narrow. This is the index
+    /// tracks vault directories, and the editor itself opens in a tab because a
+    /// markdown editor is unusable in a column this narrow. This is the index
     /// that gets you into it, not a second editor.
     fn panel_notes(&self, cx: &mut Context<Self>) -> AnyElement {
         let mut body = self.sidebar_body("sb-notes");
-
-        if !self.has_webview_plugin("notes") {
-            return body
-                .child(self.sidebar_note(
-                    "The Notes plugin isn't loaded, so notes can't be opened from here.",
-                ))
-                .into_any_element();
-        }
 
         body = body.child(self.sidebar_section("Vaults"));
         if self.notes_recent.is_empty() {

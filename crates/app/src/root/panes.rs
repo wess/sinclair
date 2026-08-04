@@ -135,13 +135,13 @@ impl WorkspaceView {
     }
 
     /// Create an item hosting a plugin web view (no terminal, no event bridge),
-    /// register it, and return its id. Used for `[webview] placement = "tab"`.
+    /// register it, and return its id. Used for the Notes editor.
     pub(crate) fn spawn_webview_item(
         &mut self,
-        surface: crate::pluginwebview::WebviewSurface,
+        surface: crate::webview::WebviewSurface,
         cx: &mut Context<Self>,
     ) -> ItemId {
-        let view = cx.new(|cx| crate::pluginwebview::PluginWebView::new(surface, cx));
+        let view = cx.new(|cx| crate::webview::SurfaceView::new(surface, cx));
         let id = self.item_ids.next();
         self.items.borrow_mut().insert(
             id,

@@ -222,20 +222,14 @@ impl WorkspaceView {
                 (label.to_string(), hint, action)
             })
             .collect();
-        // Installed plugins contribute their commands and webview surfaces to
-        // the palette too (VS Code-style), so everything is reachable from here.
+        // Installed plugins contribute their commands to the palette too
+        // (VS Code-style), so everything is reachable from here.
         let mut plugin_entries: Vec<(String, Action)> = Vec::new();
         for plugin in &self.plugins {
             for command in &plugin.commands {
                 plugin_entries.push((
                     format!("{}: {}", plugin.name, command.title),
                     Action::PluginCommand(plugin::actionid(&plugin.id, &command.id)),
-                ));
-            }
-            if let Some(webview) = &plugin.webview {
-                plugin_entries.push((
-                    format!("Open {}", webview.title),
-                    Action::OpenWebview(webview.id.clone()),
                 ));
             }
         }
@@ -267,13 +261,6 @@ impl WorkspaceView {
                     format!("Open {} panel", plugin.name),
                     None,
                     Action::Sidebar(format!("right:plugin:{}", panel.id)),
-                ));
-            }
-            if let Some(webview) = plugin.webview.as_ref() {
-                items.push((
-                    format!("Open {}", webview.title),
-                    None,
-                    Action::OpenWebview(webview.id.clone()),
                 ));
             }
         }

@@ -41,10 +41,6 @@ cp "target/release/relay" "$contents/MacOS/relay"
 cp "target/release/notes" "$contents/MacOS/notes"
 cp assets/icon.icns "$contents/Resources/icon.icns"
 
-# First-party bundled plugins, discovered at `Contents/Resources/plugins`.
-# Notes is a plugin now (plugins/notes); ship its manifest with the app.
-mkdir -p "$contents/Resources/plugins"
-cp -R plugins/notes "$contents/Resources/plugins/notes"
 
 cat > "$contents/Info.plist" << PLIST
 <?xml version="1.0" encoding="UTF-8"?>

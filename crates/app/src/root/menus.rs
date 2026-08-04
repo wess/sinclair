@@ -252,27 +252,19 @@ impl WorkspaceView {
     }
 
     /// Top-level Plugins menu: each installed plugin (click opens its primary
-    /// surface — a webview, else a panel, else its first command), then a
+    /// surface — a panel, else its first command), then a
     /// "Manage Plugins…" item that opens the Plugins drawer (browse + install).
     fn plugins_menu(&self, a: &mut Vec<Action>) -> Menu {
         let mut items: Vec<Option<MenuItem>> = Vec::new();
-        // The bundled Notes plugin already has its own File → Notes entry;
-        // listing it here again reads as a duplicate.
-        let plugins: Vec<_> = self.plugins.iter().filter(|p| p.id != "notes").collect();
+        let plugins: Vec<_> = self.plugins.iter().collect();
         if plugins.is_empty() {
             items.push(Some(Self::status_item("No plugins installed")));
         } else {
             for plugin in plugins {
                 let primary = plugin
-                    .webview
+                    .panel
                     .as_ref()
-                    .map(|w| Action::OpenWebview(w.id.clone()))
-                    .or_else(|| {
-                        plugin
-                            .panel
-                            .as_ref()
-                            .map(|p| Action::Sidebar(format!("right:plugin:{}", p.id)))
-                    })
+                    .map(|p| Action::Sidebar(format!("right:plugin:{}", p.id)))
                     .or_else(|| {
                         plugin
                             .commands

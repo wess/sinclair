@@ -176,7 +176,7 @@ pub(crate) fn split_dir(dir: SplitDirection) -> (SplitAxis, bool) {
 /// which only acts on `Terminal`).
 pub(crate) enum PaneContent {
     Terminal(Entity<TerminalView>),
-    Webview(Entity<crate::pluginwebview::PluginWebView>),
+    Webview(Entity<crate::webview::SurfaceView>),
 }
 
 impl PaneContent {
@@ -330,11 +330,8 @@ pub struct WorkspaceView {
     /// Notes vaults, cached when the Notes section expands.
     notes_recent: Vec<crate::notes::Vault>,
     /// Last block-tree response per plugin panel id, refreshed on open/action.
-    plugin_panels: HashMap<String, crate::pluginhost::Response>,
+    plugin_panels: HashMap<String, crate::panelui::Response>,
 
-    /// Live hosts for panel-placement `[webview]` plugins, keyed by webview id.
-    /// Built at load; the native page spins up on the panel's first render.
-    webview_hosts: HashMap<String, Entity<crate::pluginwebview::PluginWebView>>,
     /// GUI-side WASM runtime for `wasm` plugin panels, created on first use.
     gui_wasm: Option<crate::guiwasm::GuiWasm>,
     /// Installable catalog plugin names, fetched lazily when the Plugins panel
@@ -504,7 +501,6 @@ impl WorkspaceView {
             worktrees: None,
             notes_recent: Vec::new(),
             plugin_panels: HashMap::new(),
-            webview_hosts: HashMap::new(),
             gui_wasm: None,
             catalog: None,
             catalog_status: None,
@@ -545,7 +541,6 @@ impl WorkspaceView {
         }));
         this.applykeybinds(cx);
         this.setmenus(cx);
-        this.rebuild_webview_hosts(cx);
         let first = match adopt {
             // A torn-off tab: re-home its live terminal/webview as the first item.
             Some(content) => this.register_item(content, window, cx),
@@ -881,7 +876,6 @@ impl WorkspaceView {
         self.show_host.set(self.opts.tab_title_show_host);
         if plugins_changed {
             self.plugins = loadplugins(&self.opts);
-            self.rebuild_webview_hosts(cx);
         }
         self.macros = loadmacros();
         let (keybinds, diags) = resolvekeys(&self.opts, &self.plugins);

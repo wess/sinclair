@@ -4,8 +4,8 @@ mod model;
 mod parse;
 
 pub use model::{
-    Command, CommandMode, Diagnostic, Panel, Placement, Plugin, Runtime, RuntimeKind, Tool,
-    ToolParam, Trigger, TriggerAction, TriggerTarget, Webview, WebviewSource, CAPABILITIES,
+    Command, CommandMode, Diagnostic, Panel, Plugin, Runtime, RuntimeKind, Tool,
+    ToolParam, Trigger, TriggerAction, TriggerTarget, CAPABILITIES,
     TRIGGER_EVENTS,
 };
 pub use parse::parse;

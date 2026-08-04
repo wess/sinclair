@@ -46,10 +46,6 @@ mkdir -p "$appdir/usr/bin" "$appdir/usr/share/applications" "$appdir/usr/share/p
 cp "$bin" "$appdir/usr/bin/sinclair"
 # The Notes vault-server sidecar, found by the app beside its executable.
 cp "$notes_bin" "$appdir/usr/bin/notes"
-# First-party bundled plugins, discovered at `<prefix>/share/sinclair/plugins`.
-# Notes is a plugin now (plugins/notes); ship its manifest with the app.
-mkdir -p "$appdir/usr/share/sinclair/plugins"
-cp -r plugins/notes "$appdir/usr/share/sinclair/plugins/notes"
 cp assets/sinclair.desktop "$appdir/usr/share/applications/sinclair.desktop"
 # 512px icon: linuxdeploy only accepts standard icon sizes (<=512), not the
 # 1024px master.

@@ -65,7 +65,7 @@ fn collectmanifests(dir: &Path, out: &mut Vec<PathBuf>) {
     }
 }
 
-/// Directories of first-party plugins shipped alongside the binary (e.g. Notes).
+/// Directories of first-party plugins shipped alongside the binary.
 /// Resolved relative to the executable so it works for the macOS `.app`
 /// (`Contents/Resources/plugins`), a Linux prefix install
 /// (`<prefix>/share/sinclair/plugins`), and a portable layout (a `plugins` dir

@@ -84,67 +84,52 @@ impl WorkspaceView {
                 crate::view::post_os_notification(&plugin.name, text);
             }
             plugin::TriggerAction::Invoke { method } => {
-                self.invoke_trigger_runtime(plugin.clone(), method.clone(), ev, cwd, window, cx);
+                self.invoke_trigger_tool(plugin, method, ev, window, cx);
             }
         }
     }
 
-    /// Call the plugin's `[runtime]` with the event payload, off the UI thread,
-    /// then run any `run` directives it returns (like a panel action).
-    fn invoke_trigger_runtime(
+    /// Deliver an `invoke` trigger to the plugin's tool of that name, with the
+    /// event payload as its parameters.
+    ///
+    /// A trigger calls a **tool** rather than some separate event entry point:
+    /// tools are already the plugin's one callable surface (the palette and
+    /// agents reach the same functions), so an author writes one handler instead
+    /// of two, and no extra guest export has to exist for events.
+    ///
+    /// The call runs in-process on the resident instance, so unlike the old
+    /// subprocess round-trip there is nothing to move off the UI thread. A
+    /// plugin that wants the terminal to do something calls `run-command`
+    /// itself, which is queued and drained here.
+    fn invoke_trigger_tool(
         &mut self,
-        plugin: plugin::Plugin,
-        method: String,
+        plugin: &plugin::Plugin,
+        method: &str,
         ev: &TriggerEvent,
-        cwd: Option<&std::path::Path>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         if plugin.runtime.is_none() {
             return;
         }
-        let Some(handle) = window.window_handle().downcast::<WorkspaceView>() else {
-            return;
+        let params = ev.payload().to_string();
+        let cwd = self.focused_cwd(cx);
+        let clipboard = cx.read_from_clipboard().and_then(|i| i.text());
+        let result = match self.ensure_gui_wasm() {
+            Some(gw) => {
+                gw.set_context(cwd, clipboard);
+                gw.call_tool(plugin, method, &params)
+            }
+            None => Err("wasm runtime unavailable".to_string()),
         };
-        let params = ev.payload();
-        let cwd = cwd.map(|p| p.to_string_lossy().into_owned());
-        let panel = plugin
-            .webview
-            .as_ref()
-            .map(|w| w.id.clone())
-            .or_else(|| plugin.panel.as_ref().map(|p| p.id.clone()))
-            .unwrap_or_else(|| plugin.id.clone());
-        let executor = cx.background_executor().clone();
-        cx.spawn(async move |_this, cx| {
-            let resp = executor
-                .spawn(async move {
-                    let req = crate::pluginhost::Request {
-                        kind: "message",
-                        panel: &panel,
-                        action: None,
-                        cwd: cwd.as_deref(),
-                        method: Some(&method),
-                        params: Some(&params),
-                    };
-                    crate::pluginhost::invoke(&plugin, &req)
-                })
-                .await;
-            let Ok(resp) = resp else {
-                return;
-            };
-            let _ = handle.update(cx, |view, window, cx| {
-                for run in &resp.run {
-                    let target = run.target.as_deref().unwrap_or("pane");
-                    let _ = view.mcp_dispatch(
-                        "run_command",
-                        &json!({ "text": run.text, "target": target }),
-                        window,
-                        cx,
-                    );
-                }
-            });
-        })
-        .detach();
+        if let Err(e) = result {
+            eprintln!(
+                "sinclair: trigger `{method}` on plugin `{}` failed: {e}",
+                plugin.id
+            );
+        }
+        self.apply_wasm_clipboard(cx);
+        self.drain_wasm_commands(window, cx);
     }
 }
 

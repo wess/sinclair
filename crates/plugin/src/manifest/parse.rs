@@ -22,7 +22,6 @@ struct RawManifest {
     capabilities: Vec<String>,
     runtime: Option<RawRuntime>,
     panel: Option<RawPanel>,
-    webview: Option<RawWebview>,
     #[serde(default)]
     command: Vec<RawCommand>,
     #[serde(default)]
@@ -46,19 +45,6 @@ struct RawPanel {
     id: Option<String>,
     title: Option<String>,
     icon: Option<String>,
-}
-
-#[derive(Deserialize)]
-struct RawWebview {
-    id: Option<String>,
-    title: Option<String>,
-    icon: Option<String>,
-    placement: Option<String>,
-    url: Option<String>,
-    entry: Option<String>,
-    service: Option<String>,
-    #[serde(default)]
-    boot: bool,
 }
 
 #[derive(Deserialize)]
@@ -141,9 +127,6 @@ fn build(raw: RawManifest, path: &Path, diags: &mut Vec<Diagnostic>) -> Option<P
         .collect();
     let runtime = raw.runtime.and_then(|r| build_runtime(r, path, diags));
     let panel = raw.panel.map(|p| build_panel(p, &id, &name, path, diags));
-    let webview = raw
-        .webview
-        .and_then(|w| build_webview(w, &id, &name, path, diags));
     let triggers = raw
         .trigger
         .into_iter()
@@ -169,7 +152,6 @@ fn build(raw: RawManifest, path: &Path, diags: &mut Vec<Diagnostic>) -> Option<P
         commands,
         runtime,
         panel,
-        webview,
         triggers,
         tools,
         capabilities,
@@ -245,62 +227,6 @@ fn build_panel(raw: RawPanel, id: &str, name: &str, path: &Path, diags: &mut Vec
         title: raw.title.filter(nonblank).unwrap_or_else(|| name.to_string()),
         icon: raw.icon.filter(nonblank).unwrap_or_else(|| "\u{25c9}".to_string()),
     }
-}
-
-fn build_webview(raw: RawWebview, id: &str, name: &str, path: &Path, diags: &mut Vec<Diagnostic>) -> Option<Webview> {
-    let wid = raw.id.filter(nonblank).unwrap_or_else(|| id.to_string());
-    if !validid(&wid) {
-        diags.push(diag(path, "webview id must use lowercase letters, numbers, `.` or `-`"));
-        return None;
-    }
-    let placement = match raw.placement.as_deref() {
-        None => Placement::default(),
-        Some(p) => match Placement::parse(p) {
-            Some(p) => p,
-            None => {
-                diags.push(diag(path, "webview placement must be `panel`, `tab`, or `window`"));
-                Placement::default()
-            }
-        },
-    };
-    let sources: Vec<WebviewSource> = [
-        raw.url.filter(nonblank).map(WebviewSource::Url),
-        raw.entry.filter(nonblank).map(WebviewSource::Entry),
-        raw.service.filter(nonblank).map(WebviewSource::Service),
-    ]
-    .into_iter()
-    .flatten()
-    .collect();
-    let source = match sources.len() {
-        1 => sources.into_iter().next().expect("one source"),
-        0 => {
-            diags.push(diag(path, "[webview] requires a `url`, `entry`, or `service`"));
-            return None;
-        }
-        _ => {
-            diags.push(diag(path, "[webview] needs exactly one of `url`, `entry`, or `service`"));
-            return None;
-        }
-    };
-    if let WebviewSource::Entry(entry) = &source {
-        // The host joins `entry` onto the plugin dir; keep it inside.
-        if !contained(entry) {
-            diags.push(diag(
-                path,
-                "the webview `entry` must stay inside the plugin folder \
-                 (no absolute paths or `..`)",
-            ));
-            return None;
-        }
-    }
-    Some(Webview {
-        id: wid,
-        title: raw.title.filter(nonblank).unwrap_or_else(|| name.to_string()),
-        icon: raw.icon.filter(nonblank).unwrap_or_else(|| "\u{25f1}".to_string()),
-        placement,
-        source,
-        boot: raw.boot,
-    })
 }
 
 fn build_command(raw: RawCommand, path: &Path, diags: &mut Vec<Diagnostic>) -> Option<Command> {

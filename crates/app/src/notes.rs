@@ -1,12 +1,10 @@
-//! Notes: the markdown-vault editor. It is the first-party **Notes plugin**
-//! (`plugins/notes`), bundled with the app and opened through the plugin system
-//! like any other `[webview] service` plugin — the manifest is the single source
-//! of truth. File → Notes resolves the loaded `notes` plugin and opens it.
+//! Notes: the markdown-vault editor, a first-party surface backed by the
+//! bundled `notes` sidecar binary.
 //!
-//! There is no hand-rolled fallback boot: bundled-plugin discovery covers every
-//! layout (the `.app` bundle, a Linux prefix, a portable dir, and — in debug
-//! builds — the workspace `plugins/` dir, see `plugin::load`), so a missing
-//! plugin is a real installation problem and is reported as one.
+//! It was briefly a plugin, to prove the host-managed sidecar path worked for
+//! plugins. With plugin-contributed web views gone, Notes is that path's only
+//! user, so carrying a manifest for it bought nothing — File → Notes now builds
+//! the surface directly and `crate::sidecar` runs the binary.
 
 use gpui::{Context, Window};
 
@@ -57,15 +55,18 @@ pub(crate) fn vaults() -> Vec<Vault> {
 }
 
 impl WorkspaceView {
-    /// Open the Notes vault in a new tab via the bundled Notes plugin.
+    /// Open the Notes editor in a new tab, backed by the bundled `notes`
+    /// sidecar. The host allocates the sidecar's address and reaps it when the
+    /// last tab using it closes — see [`crate::sidecar`].
     pub(crate) fn open_notes(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.has_webview_plugin("notes") {
-            self.open_webview("notes", window, cx);
-        } else {
-            eprintln!(
-                "sinclair: the Notes plugin isn't loaded — expected a `notes` plugin \
-                 bundled with the app or installed in the plugins directory"
-            );
-        }
+        let surface = crate::webview::WebviewSurface {
+            id: "notes".to_string(),
+            title: "Notes".to_string(),
+            command: "notes serve".to_string(),
+            // The sidecar needs somewhere writable for its state; the app's own
+            // directory may be read-only (it lives inside the bundle).
+            dir: crate::paths::data_dir("notes"),
+        };
+        self.open_webview_tab(surface, window, cx);
     }
 }
