@@ -140,6 +140,7 @@ pub(crate) fn exec(
     if let Some(dir) = request.cwd.as_deref().map(std::path::PathBuf::from).or(default_cwd) {
         cmd.current_dir(dir);
     }
+    no_console(&mut cmd);
     // Own session, so a timeout kill takes the whole tree rather than leaving
     // orphaned grandchildren behind (mirrors the pty spawn).
     #[cfg(unix)]
@@ -201,7 +202,24 @@ fn clamp(bytes: &[u8]) -> String {
     String::from_utf8_lossy(&bytes[..end]).into_owned()
 }
 
-/// SIGKILL a process group (see the `setsid` above).
+/// Keep a spawned console program from flashing a window. Sinclair is a GUI
+/// app, so every `exec` from a plugin — a panel refreshing `git status` on a
+/// timer, say — would otherwise pop a console for as long as the program runs.
+/// No-op off Windows, where the question does not arise.
+fn no_console(cmd: &mut Command) {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        // CREATE_NO_WINDOW
+        cmd.creation_flags(0x0800_0000);
+    }
+    #[cfg(not(windows))]
+    let _ = cmd;
+}
+
+/// End the program and anything it started. Unix kills the process group the
+/// `setsid` above put it in; Windows has no such grouping, so `taskkill` walks
+/// the child tree instead.
 fn kill_tree(pid: u32) {
     #[cfg(unix)]
     unsafe {
@@ -209,11 +227,12 @@ fn kill_tree(pid: u32) {
     }
     #[cfg(windows)]
     {
-        let _ = Command::new("taskkill")
-            .args(["/PID", &pid.to_string(), "/F", "/T"])
+        let mut cmd = Command::new("taskkill");
+        cmd.args(["/PID", &pid.to_string(), "/F", "/T"])
             .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status();
+            .stderr(Stdio::null());
+        no_console(&mut cmd);
+        let _ = cmd.status();
     }
 }
 
@@ -307,10 +326,9 @@ pub(crate) fn fetch(request: HttpRequest) -> Result<HttpResponse, String> {
     }
 
     // `--` so a url beginning with `-` can't be read as an option.
+    cmd.arg("--").arg(&request.url).stdin(Stdio::null());
+    no_console(&mut cmd);
     let out = cmd
-        .arg("--")
-        .arg(&request.url)
-        .stdin(Stdio::null())
         .output()
         .map_err(|e| format!("curl: {e}"))?;
 
