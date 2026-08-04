@@ -60,7 +60,9 @@ mod worktree;
 use std::rc::Rc;
 
 use gpui::AppContext as _;
-use gpui::{point, px, size, App, Bounds, Pixels, TitlebarOptions, WindowBounds, WindowOptions};
+use gpui::{
+    point, px, size, App, Bounds, Pixels, Point, Size, TitlebarOptions, WindowBounds, WindowOptions,
+};
 use libsinclair::metrics;
 
 const DEFAULT_COLS: usize = 80;
@@ -247,6 +249,29 @@ pub(crate) fn cascade(source: Bounds<Pixels>, display: Bounds<Pixels>) -> Bounds
         stepped
     };
     Bounds::new(origin, source.size)
+}
+
+/// Where a window torn off by a *drag* goes: the source window's size, with its
+/// top-left corner where the drag ghost's was. gpui anchors the ghost at the
+/// pointer less the offset the tab was grabbed at, so reusing that corner makes
+/// the window take the ghost's place — the gesture reads as one movement
+/// instead of a release followed by a window appearing elsewhere. Held inside
+/// the display so a tear off an edge can't open a window mostly off-screen.
+pub(crate) fn dropped(
+    release: Point<Pixels>,
+    grab: Point<Pixels>,
+    size: Size<Pixels>,
+    display: Bounds<Pixels>,
+) -> Bounds<Pixels> {
+    let limit = point(
+        display.origin.x + (display.size.width - size.width).max(px(0.0)),
+        display.origin.y + (display.size.height - size.height).max(px(0.0)),
+    );
+    let origin = point(
+        (release.x - grab.x).clamp(display.origin.x, limit.x),
+        (release.y - grab.y).clamp(display.origin.y, limit.y),
+    );
+    Bounds::new(origin, size)
 }
 
 /// Open a fresh top-level window hosting its own `WorkspaceView`. Shared by

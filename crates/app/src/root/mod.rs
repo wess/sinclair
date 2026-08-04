@@ -40,7 +40,7 @@ use gpui::{
     div, px, size, AnyElement, App, Context, Entity, Focusable, KeyBinding, Menu, MenuItem,
     SharedString, Subscription, Window,
 };
-use guise::panegroup::{Direction, ItemId, ItemIds, PaneId};
+use guise::panegroup::{Direction, ItemId, ItemIds, PaneId, TearDrop};
 use guise::SplitDirection as SplitAxis;
 use guise::{PaneGroup, PaneGroupEvent};
 use serde_json::{json, Value};
@@ -703,7 +703,9 @@ impl WorkspaceView {
                 self.focusactive(window, cx);
                 cx.notify();
             }
-            PaneGroupEvent::TearOff(item) => self.tear_off_to_window(item, window, cx),
+            PaneGroupEvent::TearOff { item, drop } => {
+                self.tear_off_to_window(item, drop, window, cx)
+            }
             PaneGroupEvent::ContextMenu { item, position } => {
                 self.open_tab_menu(item, position, window, cx)
             }
@@ -797,21 +799,36 @@ impl WorkspaceView {
         cx.notify();
     }
 
-    /// Tear an item off into its own window. For this checkpoint the item's
-    /// content is not migrated: the item is dropped and a fresh window opens.
     /// Re-home a torn-off item into a new window. The group already detached it
     /// (guise `tear_off`); take its live content out of `items` — dropping the
     /// old event subscription, but keeping the `TerminalView` entity and its pty
     /// alive (the event pump is app-scoped) — and open a new window adopting it.
-    fn tear_off_to_window(&mut self, item: ItemId, window: &mut Window, cx: &mut Context<Self>) {
+    fn tear_off_to_window(
+        &mut self,
+        item: ItemId,
+        drop: Option<TearDrop>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let Some(Item { content, .. }) = self.items.borrow_mut().remove(&item) else {
             return;
         };
-        // Match the window the tab came from and step off it, so the torn-off
-        // window keeps its size and doesn't land squarely behind its source.
-        let place = window
-            .display(cx)
-            .map(|d| crate::cascade(window.bounds(), d.bounds()));
+        let source = window.bounds();
+        // The tab's release is reported in window coordinates, and a window's
+        // bounds are read against its own display, so both stay in that
+        // display's frame.
+        let display = window.display(cx).map(|d| d.bounds());
+        let place = display.map(|display| match drop {
+            // A drag: open where the pointer let go, so the window arrives under
+            // the ghost the user was already carrying.
+            Some(drop) => {
+                crate::dropped(source.origin + drop.position, drop.grab, source.size, display)
+            }
+            // No gesture to honor (a menu tear): match the window the tab came
+            // from and step off it, so the new window keeps its size and doesn't
+            // land squarely behind its source.
+            None => crate::cascade(source, display),
+        });
         crate::open_window(
             self.opts.clone(),
             self.colors.clone(),
