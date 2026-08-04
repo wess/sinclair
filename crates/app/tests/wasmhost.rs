@@ -105,6 +105,66 @@ fn clamp_cuts_on_a_char_boundary() {
     assert_eq!(text.len(), EXEC_MAX_OUTPUT - 1);
 }
 
+fn get(url: &str) -> HttpRequest {
+    HttpRequest {
+        url: url.to_string(),
+        method: "GET".to_string(),
+        headers: Vec::new(),
+        body: None,
+    }
+}
+
+#[test]
+fn fetch_refuses_plaintext_and_non_http_schemes() {
+    assert!(fetch(get("http://example.com")).is_err());
+    assert!(fetch(get("file:///etc/passwd")).is_err());
+    assert!(fetch(get("ftp://example.com")).is_err());
+}
+
+/// A header carrying CR/LF could inject a second header or a whole request, so
+/// it is rejected rather than sanitized.
+#[test]
+fn fetch_rejects_header_injection() {
+    for (name, value) in [
+        ("X-A\r\nX-Evil", "1"),
+        ("X-A", "1\r\nX-Evil: 2"),
+        ("X-A\nX-Evil", "1"),
+        ("X-A: b", "1"),
+        ("", "1"),
+    ] {
+        let mut r = get("https://example.com");
+        r.headers = vec![(name.to_string(), value.to_string())];
+        assert!(fetch(r).is_err(), "accepted header {name:?}: {value:?}");
+    }
+}
+
+#[test]
+fn fetch_rejects_a_bad_method() {
+    let mut r = get("https://example.com");
+    r.method = "GET /x HTTP/1.1".to_string();
+    assert!(fetch(r).is_err());
+}
+
+/// Following redirects leaves several header blocks in the dump; the last one
+/// is the response the plugin actually got.
+#[test]
+fn final_status_takes_the_last_hop() {
+    let dump = "HTTP/2 301\r\nlocation: https://b\r\n\r\nHTTP/2 200\r\ncontent-type: application/json\r\n\r\n";
+    assert_eq!(final_status(dump), 200);
+    assert_eq!(final_status("HTTP/1.1 404 Not Found\r\n\r\n"), 404);
+    assert_eq!(final_status(""), 0);
+}
+
+#[test]
+fn headers_come_from_the_last_hop_lowercased() {
+    let dump = "HTTP/2 301\r\nLocation: https://b\r\n\r\nHTTP/2 200\r\nContent-Type: application/json\r\nETag: \"x\"\r\n\r\n";
+    let headers = parse_headers(dump);
+    assert!(headers.contains(&("content-type".into(), "application/json".into())));
+    assert!(headers.contains(&("etag".into(), "\"x\"".into())));
+    // The redirect hop's headers are not the response's.
+    assert!(!headers.iter().any(|(k, _)| k == "location"), "{headers:?}");
+}
+
 #[test]
 fn scoped_rejects_escapes() {
     let root = std::path::Path::new("/tmp/plug");

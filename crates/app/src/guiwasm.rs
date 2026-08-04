@@ -23,6 +23,12 @@ struct Shared {
     /// call. The host runs off the gpui context, so it can't look this up
     /// itself — the caller, which has the context, deposits it here.
     cwd: Option<std::path::PathBuf>,
+    /// The clipboard as it read at the start of this call, deposited by the
+    /// caller for the same reason as `cwd`.
+    clipboard: Option<String>,
+    /// Text the plugin asked to put on the clipboard, applied by the caller
+    /// after the call returns.
+    clipboard_write: Option<String>,
 }
 
 /// Resident wasm panel instances plus the shared host channel.
@@ -44,10 +50,18 @@ impl GuiWasm {
         std::mem::take(&mut lock(&self.shared).commands)
     }
 
-    /// Point the next call's `exec` at the focused pane's directory, so a panel
-    /// reports on the repo the user is actually in.
-    pub fn set_cwd(&self, cwd: Option<std::path::PathBuf>) {
-        lock(&self.shared).cwd = cwd;
+    /// Hand the next call the context it can't reach itself: the focused pane's
+    /// directory (so a panel reports on the repo the user is in) and the current
+    /// clipboard.
+    pub fn set_context(&self, cwd: Option<std::path::PathBuf>, clipboard: Option<String>) {
+        let mut shared = lock(&self.shared);
+        shared.cwd = cwd;
+        shared.clipboard = clipboard;
+    }
+
+    /// Take the text the last call asked to put on the clipboard, if any.
+    pub fn take_clipboard_write(&self) -> Option<String> {
+        lock(&self.shared).clipboard_write.take()
     }
 
     /// Render a wasm plugin's panel to a node-tree JSON (same shape the block-tree
@@ -130,8 +144,8 @@ impl AppHost for GuiHost {
     fn selection(&mut self) -> Option<String> {
         None
     }
-    fn fetch(&mut self, _request: HttpRequest) -> Result<HttpResponse, String> {
-        Err("network access is not yet available".into())
+    fn fetch(&mut self, request: HttpRequest) -> Result<HttpResponse, String> {
+        crate::wasmhost::fetch(request)
     }
     fn read_file(&mut self, path: String) -> Result<Vec<u8>, String> {
         std::fs::read(crate::wasmhost::scoped(&self.root, &path)?).map_err(|e| e.to_string())
@@ -140,10 +154,11 @@ impl AppHost for GuiHost {
         std::fs::write(crate::wasmhost::scoped(&self.root, &path)?, data).map_err(|e| e.to_string())
     }
     fn clipboard_read(&mut self) -> Result<String, String> {
-        Err("clipboard access is not yet available".into())
+        Ok(lock(&self.shared).clipboard.clone().unwrap_or_default())
     }
-    fn clipboard_write(&mut self, _text: String) -> Result<(), String> {
-        Err("clipboard access is not yet available".into())
+    fn clipboard_write(&mut self, text: String) -> Result<(), String> {
+        lock(&self.shared).clipboard_write = Some(text);
+        Ok(())
     }
     fn notify(&mut self, title: String, body: String) {
         // Async on purpose: this runs on the gpui main thread (the host is

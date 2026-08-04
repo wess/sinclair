@@ -330,6 +330,16 @@ impl WorkspaceView {
         .detach();
     }
 
+    /// Put whatever the last wasm call asked for onto the clipboard. The host
+    /// can't touch the gpui context mid-call, so it parks the text and we apply
+    /// it here, the way queued commands are applied.
+    fn apply_wasm_clipboard(&mut self, cx: &mut Context<Self>) {
+        let Some(text) = self.gui_wasm.as_ref().and_then(|gw| gw.take_clipboard_write()) else {
+            return;
+        };
+        cx.write_to_clipboard(gpui::ClipboardItem::new_string(text));
+    }
+
     /// Lazily create the GUI-side wasm runtime (one engine per window).
     fn ensure_gui_wasm(&mut self) -> Option<&mut crate::guiwasm::GuiWasm> {
         if self.gui_wasm.is_none() {
@@ -341,13 +351,15 @@ impl WorkspaceView {
     /// Render a wasm plugin's panel synchronously into the panel cache.
     fn render_wasm_panel(&mut self, plugin: &plugin::Plugin, panel_id: &str, cx: &mut Context<Self>) {
         let cwd = self.focused_cwd(cx);
+        let clipboard = cx.read_from_clipboard().and_then(|i| i.text());
         let rendered = match self.ensure_gui_wasm() {
             Some(gw) => {
-                gw.set_cwd(cwd);
+                gw.set_context(cwd, clipboard);
                 gw.render(plugin)
             }
             None => Err("wasm runtime unavailable".to_string()),
         };
+        self.apply_wasm_clipboard(cx);
         let response = match rendered {
             Ok(json) => serde_json::from_str::<Response>(&json)
                 .unwrap_or_else(|e| error_response(&format!("bad panel: {e}"))),
@@ -369,13 +381,15 @@ impl WorkspaceView {
     ) {
         let event = json!({ "id": action }).to_string();
         let cwd = self.focused_cwd(cx);
+        let clipboard = cx.read_from_clipboard().and_then(|i| i.text());
         let result = match self.ensure_gui_wasm() {
             Some(gw) => {
-                gw.set_cwd(cwd);
+                gw.set_context(cwd, clipboard);
                 gw.on_ui_event(plugin, &event)
             }
             None => Err("wasm runtime unavailable".to_string()),
         };
+        self.apply_wasm_clipboard(cx);
         let commands = self.gui_wasm.as_ref().map(|gw| gw.take_commands()).unwrap_or_default();
         for c in commands {
             let _ = self.mcp_dispatch(

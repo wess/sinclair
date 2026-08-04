@@ -154,6 +154,20 @@ impl WorkspaceView {
                 self.newtab(window, cx);
                 Ok(json!({ "ok": true }))
             }
+            // The system clipboard, for the `clipboard` plugin capability. Lives
+            // here rather than in each host so the CLI-side plugin runtime and
+            // the in-window one reach the same clipboard by the same path.
+            "clipboard_read" => Ok(json!({
+                "text": cx.read_from_clipboard().and_then(|i| i.text()).unwrap_or_default()
+            })),
+            "clipboard_write" => {
+                let text = args
+                    .get("text")
+                    .and_then(Value::as_str)
+                    .ok_or("clipboard_write requires a `text` string")?;
+                cx.write_to_clipboard(gpui::ClipboardItem::new_string(text.to_string()));
+                Ok(json!({ "ok": true }))
+            }
             // Dispatch a config action exactly as a keybinding would, making
             // every bound surface (Notes, settings, splits, quit, ...)
             // reachable headless through the bridge.
