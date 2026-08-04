@@ -71,6 +71,9 @@ pub(crate) struct Inner {
     /// Executed command lines captured on `133;C`, newest last, capped. Feeds
     /// history-based autosuggestion.
     pub(crate) history: std::collections::VecDeque<String>,
+    /// Increments when a distinct command enters `history`, allowing hosts to
+    /// reuse completion candidates without cloning the full history first.
+    pub(crate) history_generation: u64,
     /// Set when OSC 7 reports a working directory different from the last one.
     pub(crate) cwd_changed: bool,
     pub(crate) last_printed: Option<char>,
@@ -154,6 +157,7 @@ impl Terminal {
                 command_finished: None,
                 input_start: None,
                 history: std::collections::VecDeque::new(),
+                history_generation: 0,
                 cwd_changed: false,
                 full_damage: true,
                 title_changed: false,
@@ -232,6 +236,12 @@ impl Terminal {
     /// `(resident_bytes_estimate, compressed_bytes)`.
     pub fn scrollback_memory(&self) -> (usize, usize) {
         self.inner.primary.grid.scrollback().memory()
+    }
+
+    /// Decoded graphics bytes retained by kitty storage and image placements.
+    /// Shared pixel buffers are counted once.
+    pub fn graphics_memory(&self) -> usize {
+        self.inner.graphics_memory()
     }
 
     /// Sixel images anchored to the active screen's buffer, oldest first.
@@ -401,6 +411,11 @@ impl Terminal {
     /// Captured command history, newest first. Empty without shell integration.
     pub fn command_history(&self) -> Vec<String> {
         self.inner.history.iter().rev().cloned().collect()
+    }
+
+    /// Monotonic generation of the captured command history.
+    pub fn command_history_generation(&self) -> u64 {
+        self.inner.history_generation
     }
 
     /// The new working directory once after OSC 7 reported a change; `None`
@@ -608,7 +623,11 @@ impl Terminal {
                 while end + 1 < cells.len() && cells[end + 1].hyperlink == Some(hid) {
                     end += 1;
                 }
-                return Some(LinkHit { url, start_col: start, end_col: end });
+                return Some(LinkHit {
+                    url,
+                    start_col: start,
+                    end_col: end,
+                });
             }
         }
         // Auto-detected URL in the row text (skip wide-cell spacers).

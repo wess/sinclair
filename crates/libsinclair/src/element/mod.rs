@@ -9,6 +9,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
+use std::time::Duration;
 
 use gpui::{
     fill, point, px, relative, size, App, Bounds, ContentMask, Corners, Element, ElementId,
@@ -31,7 +32,63 @@ mod draw;
 mod snapshot;
 
 pub(crate) use snapshot::*;
-pub use snapshot::SnapCache;
+pub use snapshot::{ImageCache, ImageCachePool, ImageCacheStats, RenderStats, SnapCache};
+
+/// Wait for a resize gesture to settle before doing the primary screen's
+/// potentially expensive full-history reflow.
+const RESIZE_SETTLE: Duration = Duration::from_millis(80);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct ResizeRequest {
+    cols: usize,
+    rows: usize,
+    cell_width: u16,
+    cell_height: u16,
+}
+
+#[derive(Default)]
+pub(crate) struct ResizeState {
+    desired: Option<ResizeRequest>,
+    generation: u64,
+    armed: bool,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum ResizeAction {
+    None,
+    Immediate,
+    Arm,
+}
+
+impl ResizeState {
+    fn request(&mut self, desired: ResizeRequest, current: (usize, usize)) -> ResizeAction {
+        let first = self.desired.is_none();
+        if self.desired != Some(desired) {
+            self.desired = Some(desired);
+            self.generation = self.generation.wrapping_add(1);
+        }
+        if current == (desired.cols, desired.rows) {
+            return ResizeAction::None;
+        }
+        if first {
+            return ResizeAction::Immediate;
+        }
+        if self.armed {
+            ResizeAction::None
+        } else {
+            self.armed = true;
+            ResizeAction::Arm
+        }
+    }
+
+    fn settle(&mut self, generation: u64) -> Option<ResizeRequest> {
+        if self.generation != generation {
+            return None;
+        }
+        self.armed = false;
+        self.desired
+    }
+}
 
 /// How the cursor is drawn when the program leaves the power-on default
 /// (DECSCUSR blinking block). Hosts map their configured style onto this.
@@ -77,7 +134,7 @@ pub struct TerminalElement {
     ghost: Option<String>,
     /// GPU textures for decoded sixel images, keyed by placement id and shared
     /// with the view so they survive across frames.
-    image_cache: Rc<RefCell<HashMap<u64, Arc<RenderImage>>>>,
+    image_cache: Rc<RefCell<ImageCache>>,
     /// Previous frame's snapshot plus the inputs it was built from, shared
     /// with the view; an undamaged, input-identical frame reuses it.
     snap_cache: Rc<RefCell<SnapCache>>,
@@ -101,7 +158,7 @@ impl TerminalElement {
         focused: bool,
         search: Option<SearchQuery>,
         ghost: Option<String>,
-        image_cache: Rc<RefCell<HashMap<u64, Arc<RenderImage>>>>,
+        image_cache: Rc<RefCell<ImageCache>>,
         snap_cache: Rc<RefCell<SnapCache>>,
     ) -> Self {
         Self {
@@ -122,6 +179,50 @@ impl TerminalElement {
             ghost,
             image_cache,
             snap_cache,
+        }
+    }
+
+    fn resize(&self, desired: ResizeRequest, current: (usize, usize), cx: &mut App) {
+        let action = self
+            .snap_cache
+            .borrow_mut()
+            .resize
+            .request(desired, current);
+        match action {
+            ResizeAction::None => {}
+            ResizeAction::Immediate => {
+                let _ = self.session.resize_px(
+                    desired.cols,
+                    desired.rows,
+                    desired.cell_width,
+                    desired.cell_height,
+                );
+            }
+            ResizeAction::Arm => {
+                let session = self.session.clone();
+                let cache = self.snap_cache.clone();
+                let executor = cx.background_executor().clone();
+                cx.spawn(async move |cx| loop {
+                    let generation = cache.borrow().resize.generation;
+                    executor.timer(RESIZE_SETTLE).await;
+                    let request = cache.borrow_mut().resize.settle(generation);
+                    let Some(request) = request else {
+                        continue;
+                    };
+                    let current = session.with_term(|term| (term.cols(), term.rows()));
+                    if current != (request.cols, request.rows) {
+                        let _ = session.resize_px(
+                            request.cols,
+                            request.rows,
+                            request.cell_width,
+                            request.cell_height,
+                        );
+                    }
+                    cx.update(|cx| cx.refresh_windows());
+                    break;
+                })
+                .detach();
+            }
         }
     }
 }
@@ -180,7 +281,7 @@ impl Element for TerminalElement {
         bounds: Bounds<Pixels>,
         _request_layout: &mut (),
         window: &mut Window,
-        _cx: &mut App,
+        cx: &mut App,
     ) -> Frame {
         let origin = point(
             bounds.origin.x + px(self.pad.x),
@@ -194,16 +295,20 @@ impl Element for TerminalElement {
         );
 
         let current = self.session.with_term(|term| (term.cols(), term.rows()));
-        if current != (cols, rows) {
-            // Carry the cell box so TIOCSWINSZ reports real pixel sizes to
-            // pixel-addressing programs (kitty graphics, sixel).
-            let _ = self.session.resize_px(
+        // Carry the cell box so TIOCSWINSZ reports real pixel sizes to
+        // pixel-addressing programs (kitty graphics, sixel). The first layout
+        // applies immediately; subsequent resize-drag churn is trailing-edge
+        // debounced so scrollback is reflowed once at the settled width.
+        self.resize(
+            ResizeRequest {
                 cols,
                 rows,
-                self.cell.width.round() as u16,
-                self.cell.height.round() as u16,
-            );
-        }
+                cell_width: self.cell.width.round() as u16,
+                cell_height: self.cell.height.round() as u16,
+            },
+            current,
+            cx,
+        );
 
         let hover_link = self.mouse.borrow().hover_link;
         let snap = {
@@ -242,8 +347,9 @@ impl Element for TerminalElement {
             })
             .collect();
         let bg_quads = snap
-            .bg_runs
+            .rows
             .iter()
+            .flat_map(|row| row.bg_runs.iter())
             .map(|run| {
                 let pos = point(
                     origin.x + cell_w * run.col as f32,
@@ -257,8 +363,9 @@ impl Element for TerminalElement {
             .collect();
 
         let box_quads = snap
-            .boxes
+            .rows
             .iter()
+            .flat_map(|row| row.boxes.iter())
             .flat_map(|b| {
                 let glyph = crate::boxdraw::rects(b.ch, self.cell.width, self.cell.height);
                 let cell_origin = point(
@@ -284,24 +391,75 @@ impl Element for TerminalElement {
             })
             .collect();
 
-        let lines = snap
-            .spans
-            .iter()
-            .map(|span| {
-                let run = self.text_run(span);
-                let line = window.text_system().shape_line(
-                    span.text.clone().into(),
-                    self.font_size,
-                    &[run],
-                    Some(cell_w),
-                );
-                let pos = point(
-                    origin.x + cell_w * span.col as f32,
-                    origin.y + cell_h * span.row as f32,
-                );
-                (pos, line)
-            })
-            .collect();
+        let lines = {
+            let mut cache = self.snap_cache.borrow_mut();
+            let font_size = f32::from(self.font_size).to_bits();
+            let cell_width = self.cell.width.to_bits();
+            if cache.shape_font.as_ref() != Some(&self.font)
+                || cache.shape_font_size != font_size
+                || cache.shape_cell_width != cell_width
+            {
+                cache.shape_font = Some(self.font.clone());
+                cache.shape_font_size = font_size;
+                cache.shape_cell_width = cell_width;
+                cache.shaped_rows.clear();
+            }
+            // Re-key the cache by row-snapshot identity rather than viewport
+            // index. A terminal scroll rotates most rows; preserving their
+            // shaped lines avoids re-shaping the whole screen just because
+            // each unchanged row moved up by one slot.
+            let mut prior: HashMap<*const RowSnapshot, ShapedRow> =
+                std::mem::take(&mut cache.shaped_rows)
+                    .into_iter()
+                    .flatten()
+                    .map(|shaped| (Rc::as_ptr(&shaped.source), shaped))
+                    .collect();
+            cache.shaped_rows.resize_with(snap.rows.len(), || None);
+            let mut shaped_rows = 0;
+            for (row_i, row) in snap.rows.iter().enumerate() {
+                if let Some(shaped) = prior.remove(&Rc::as_ptr(row)) {
+                    cache.shaped_rows[row_i] = Some(shaped);
+                    continue;
+                }
+                let lines = row
+                    .spans
+                    .iter()
+                    .map(|span| {
+                        let run = self.text_run(span);
+                        window.text_system().shape_line(
+                            span.text.clone().into(),
+                            self.font_size,
+                            &[run],
+                            Some(cell_w),
+                        )
+                    })
+                    .collect();
+                cache.shaped_rows[row_i] = Some(ShapedRow {
+                    source: row.clone(),
+                    lines,
+                });
+                shaped_rows += 1;
+            }
+            cache.set_last_shaped_rows(shaped_rows);
+            snap.rows
+                .iter()
+                .enumerate()
+                .flat_map(|(row_i, row)| {
+                    let shaped = cache.shaped_rows[row_i].as_ref().unwrap();
+                    row.spans
+                        .iter()
+                        .zip(shaped.lines.iter())
+                        .map(|(span, line)| {
+                            let pos = point(
+                                origin.x + cell_w * span.col as f32,
+                                origin.y + cell_h * span.row as f32,
+                            );
+                            (pos, line.clone())
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .collect()
+        };
 
         // The focused pane draws a filled cursor; an unfocused pane keeps a
         // hollow outline so the cursor stays findable after a focus switch.
@@ -313,7 +471,10 @@ impl Element for TerminalElement {
 
         // Ghost text: dimmed suggestion suffix starting at the cursor cell.
         let ghost = self.ghost.as_ref().filter(|g| !g.is_empty()).and_then(|g| {
-            let c = snap.cursor.as_ref().filter(|c| c.row < rows && c.col < cols)?;
+            let c = snap
+                .cursor
+                .as_ref()
+                .filter(|c| c.row < rows && c.col < cols)?;
             let mut color = colors::hsla(self.colors.fg);
             color.a *= 0.4;
             let run = gpui::TextRun {
@@ -328,7 +489,10 @@ impl Element for TerminalElement {
                 window
                     .text_system()
                     .shape_line(g.clone().into(), self.font_size, &[run], None);
-            let pos = point(origin.x + cell_w * c.col as f32, origin.y + cell_h * c.row as f32);
+            let pos = point(
+                origin.x + cell_w * c.col as f32,
+                origin.y + cell_h * c.row as f32,
+            );
             Some((pos, line))
         });
 

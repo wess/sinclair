@@ -20,6 +20,8 @@ pub enum Target {
     Layout(crate::tiles::Layout),
     /// Annotate the current line of an item with the entered note.
     Annotate(ItemId),
+    /// Create a git worktree from a `path[@branch]` spec, as typed.
+    Worktree,
 }
 
 impl Target {
@@ -29,6 +31,7 @@ impl Target {
             Target::Macro(_) => "Name Macro",
             Target::Layout(_) => "Save Layout",
             Target::Annotate(_) => "Annotate Line",
+            Target::Worktree => "New Worktree",
         }
     }
 }
@@ -48,6 +51,9 @@ fn commit(
             Target::Macro(commands) => ws.save_macro(text, commands.clone(), cx),
             Target::Layout(layout) => ws.save_layout(text, layout.clone(), cx),
             Target::Annotate(id) => ws.annotate_item(*id, text, cx),
+            // Same `path[@branch]` spec `Action::WorktreeCreate` takes, and the
+            // same background create — git is a subprocess, not a UI thread job.
+            Target::Worktree => ws.worktree_create_bg(text, window, cx),
         }
         ws.close_modal(window, cx);
     })

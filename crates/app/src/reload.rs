@@ -3,22 +3,42 @@
 
 use std::time::Duration;
 
-use config::WatchHandle;
-use futures::channel::mpsc::UnboundedReceiver;
+use futures::StreamExt;
 
-/// Poll interval for the config file. Coarse enough to coalesce an
-/// editor's multi-write save, fine enough to feel immediate.
+struct Installed(#[allow(dead_code)] config::WatchHandle);
+impl gpui::Global for Installed {}
+
+/// Quiet period used to coalesce an editor's multi-write save.
 const INTERVAL: Duration = Duration::from_millis(250);
 
-/// Start watching the default config file. Returns the watch handle (keep
-/// it alive to keep watching) and a stream that yields once per change,
-/// including the file first appearing. `None` when there is no config path
-/// (e.g. no `HOME`), in which case live reload is simply unavailable.
-pub fn watch() -> Option<(WatchHandle, UnboundedReceiver<()>)> {
-    let path = config::default_path()?;
+/// Start the process-wide config watcher and fan each change out to every
+/// workspace window. No-op when already installed or no config path exists.
+pub fn install(cx: &mut gpui::App) {
+    if cx.try_global::<Installed>().is_some() {
+        return;
+    }
+    let Some(path) = config::default_path() else {
+        return;
+    };
     let (tx, rx) = futures::channel::mpsc::unbounded();
     let handle = config::watch(path, INTERVAL, move || {
         let _ = tx.unbounded_send(());
     });
-    Some((handle, rx))
+    cx.set_global(Installed(handle));
+
+    let mut changes = rx;
+    cx.spawn(async move |cx| {
+        while changes.next().await.is_some() {
+            cx.update(|cx| {
+                for window in cx.windows() {
+                    if let Some(workspace) = window.downcast::<crate::root::WorkspaceView>() {
+                        workspace
+                            .update(cx, |view, _window, cx| view.reload(cx))
+                            .ok();
+                    }
+                }
+            });
+        }
+    })
+    .detach();
 }

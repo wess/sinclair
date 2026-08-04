@@ -59,6 +59,9 @@ pub struct SettingsView {
     open_choice: Option<&'static str>,
     /// Saved macros, for the Macros section.
     macros: Vec<macros::Macro>,
+    /// Loaded plugins, for the Sidebar designer: a plugin's section is
+    /// addressed by manifest id, so resolving and labelling one needs the set.
+    plugins: Vec<plugin::Plugin>,
     /// When set, the next key chord is captured as the shortcut for this macro.
     capture_macro: Option<String>,
     focus: FocusHandle,
@@ -140,6 +143,7 @@ impl SettingsView {
             capturing: false,
             open_choice: None,
             macros: Vec::new(),
+            plugins: Vec::new(),
             capture_macro: None,
             focus: cx.focus_handle(),
             // Probing the relay blocks (file read + TCP connect); start
@@ -203,6 +207,7 @@ impl SettingsView {
     fn reload(&mut self) {
         self.reload_opts();
         self.macros = macros::defaultdir().map(|d| macros::load(&d)).unwrap_or_default();
+        self.plugins = crate::root::loadplugins(&self.opts);
     }
 
     /// Refresh the parsed options and modified-key set after a write — the

@@ -1,8 +1,7 @@
 //! macOS AppKit reach-through for the quick terminal. gpui exposes no
-//! window-level or visibility controls, but it implements `HasWindowHandle`,
-//! so we borrow the live `NSWindow` and message it directly to float the
-//! window above every app and Space and to hide/show it without destroying
-//! the session.
+//! window-level controls, but it implements `HasWindowHandle`, so we borrow the
+//! live `NSWindow` and message it directly to float the window above every app
+//! and Space.
 
 use gpui::Window;
 
@@ -10,21 +9,6 @@ use gpui::Window;
 /// Space, and drawn over fullscreen apps. Idempotent.
 pub fn make_overlay(window: &Window) {
     imp::make_overlay(window);
-}
-
-/// Order the window in and make it key, preserving its session.
-pub fn show(window: &Window) {
-    imp::show(window);
-}
-
-/// Order the window out (hidden but alive), preserving its session.
-pub fn hide(window: &Window) {
-    imp::hide(window);
-}
-
-/// Whether the window is currently on screen.
-pub fn is_visible(window: &Window) -> bool {
-    imp::is_visible(window)
 }
 
 /// The active keyboard layout's input-source id (e.g.
@@ -60,20 +44,6 @@ mod imp {
                 }
             }
         });
-    }
-
-    pub fn show(window: &Window) {
-        with_nswindow(window, |w| w.makeKeyAndOrderFront(None));
-    }
-
-    pub fn hide(window: &Window) {
-        with_nswindow(window, |w| w.orderOut(None));
-    }
-
-    pub fn is_visible(window: &Window) -> bool {
-        let mut visible = false;
-        with_nswindow(window, |w| visible = w.isVisible());
-        visible
     }
 
     use std::ffi::{c_char, c_void, CStr};
@@ -122,7 +92,10 @@ mod imp {
         let cap = (CFStringGetLength(s) * 4 + 1).max(16);
         let mut buf = vec![0 as c_char; cap as usize];
         if CFStringGetCString(s, buf.as_mut_ptr(), cap, UTF8) != 0 {
-            CStr::from_ptr(buf.as_ptr()).to_str().ok().map(str::to_owned)
+            CStr::from_ptr(buf.as_ptr())
+                .to_str()
+                .ok()
+                .map(str::to_owned)
         } else {
             None
         }
@@ -152,11 +125,6 @@ mod imp {
     use gpui::Window;
 
     pub fn make_overlay(_window: &Window) {}
-    pub fn show(_window: &Window) {}
-    pub fn hide(_window: &Window) {}
-    pub fn is_visible(_window: &Window) -> bool {
-        true
-    }
     pub fn keyboard_layout_id() -> Option<String> {
         None
     }

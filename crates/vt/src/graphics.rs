@@ -185,7 +185,7 @@ fn raw_pixels(control: &Control, data: &[u8], channels: usize) -> Result<Image, 
     Ok(Image {
         width: w as usize,
         height: h as usize,
-        rgba,
+        rgba: rgba.into(),
     })
 }
 
@@ -234,7 +234,7 @@ fn decode_png(data: &[u8]) -> Result<Image, GfxError> {
     Ok(Image {
         width: w as usize,
         height: h as usize,
-        rgba,
+        rgba: rgba.into(),
     })
 }
 

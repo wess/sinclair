@@ -97,6 +97,17 @@ fn compact_step_reports_no_work_when_hot_is_small() {
 }
 
 #[test]
+fn sustained_output_never_exceeds_the_hot_high_water() {
+    let mut sb = Scrollback::new(20_000);
+    for i in 0..12_000 {
+        sb.push(numbered(i, 80));
+        assert!(sb.hot.len() < HOT_HIGH_WATER);
+    }
+    assert!(!sb.cold.is_empty());
+    assert_eq!(sb.len(), 12_000);
+}
+
+#[test]
 fn compaction_keeps_hot_floor_and_uniform_blocks() {
     let mut sb = Scrollback::new(10_000);
     let total = HOT_TARGET + 5 * BLOCK_ROWS + 37;
@@ -308,8 +319,16 @@ fn compaction_compresses_realistic_history_at_least_5x() {
         let text = match n % 4 {
             0 => format!("$ cargo build --release # step {n}"),
             1 => format!("   Compiling crate-{} v0.{}.{}", n % 97, n % 10, n % 7),
-            2 => format!("/usr/local/share/project/src/module{}/file{}.rs:{}: note", n % 13, n % 29, n % 500),
-            _ => format!("{n:>8}  drwxr-xr-x  wess  staff  {} bytes", n * 37 % 100_000),
+            2 => format!(
+                "/usr/local/share/project/src/module{}/file{}.rs:{}: note",
+                n % 13,
+                n % 29,
+                n % 500
+            ),
+            _ => format!(
+                "{n:>8}  drwxr-xr-x  wess  staff  {} bytes",
+                n * 37 % 100_000
+            ),
         };
         for (i, ch) in text.chars().enumerate().take(cols) {
             row.cells[i].ch = ch;
@@ -338,6 +357,10 @@ fn compaction_compresses_realistic_history_at_least_5x() {
     assert!(sb.row(0).unwrap().text().starts_with("$ cargo build"));
     assert_eq!(
         sb.row(limit - 1).unwrap().text(),
-        format!("{:>8}  drwxr-xr-x  wess  staff  {} bytes", limit - 1, (limit - 1) * 37 % 100_000)
+        format!(
+            "{:>8}  drwxr-xr-x  wess  staff  {} bytes",
+            limit - 1,
+            (limit - 1) * 37 % 100_000
+        )
     );
 }

@@ -135,6 +135,25 @@ impl WorkspaceView {
         Ok(abs)
     }
 
+    /// Re-list the repository's worktrees into the cache the Worktrees section
+    /// renders from. `git worktree list` is a subprocess, so this runs when the
+    /// section is revealed (and on its Refresh row) rather than during render.
+    ///
+    /// The error is kept rather than discarded: "this isn't a git repository"
+    /// is the single most common state for that section, and showing it beats
+    /// an empty list that looks like a repo with no worktrees.
+    pub(crate) fn refresh_worktrees(&mut self, cx: &mut Context<Self>) {
+        self.worktrees = Some(
+            self.repo_dir(cx)
+                .and_then(|repo| crate::worktree::list(&repo)),
+        );
+    }
+
+    /// Prompt for a `path[@branch]` spec and create that worktree.
+    pub(crate) fn open_new_worktree(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.open_rename(crate::rename::Target::Worktree, String::new(), window, cx);
+    }
+
     /// The repository's worktrees, as JSON for the `worktree_list` verb.
     pub(crate) fn worktree_list(&self, cx: &App) -> Result<Value, String> {
         let repo = self.repo_dir(cx)?;

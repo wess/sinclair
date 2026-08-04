@@ -32,3 +32,29 @@ fn clear_empties_the_registry() {
     let b = h.intern(None, "https://b".into()).unwrap();
     assert_eq!(a, b);
 }
+
+#[test]
+fn oversized_fields_are_rejected() {
+    let mut h = Hyperlinks::default();
+    assert!(h.intern(None, "x".repeat(MAX_URI_BYTES + 1)).is_none());
+    assert!(h
+        .intern(Some("x".repeat(MAX_ID_BYTES + 1)), "https://a".into())
+        .is_none());
+}
+
+#[test]
+fn registry_has_a_byte_budget() {
+    let mut h = Hyperlinks::default();
+    let mut accepted = 0;
+    for i in 0..1000 {
+        let uri = format!("https://example/{i}/{}", "x".repeat(8000));
+        if h.intern(None, uri).is_some() {
+            accepted += 1;
+        } else {
+            break;
+        }
+    }
+    assert!(accepted > 0);
+    assert!(accepted < 1000);
+    assert!(h.bytes <= MAX_REGISTRY_BYTES);
+}

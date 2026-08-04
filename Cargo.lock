@@ -1573,6 +1573,9 @@ dependencies = [
 [[package]]
 name = "config"
 version = "1.31.0"
+dependencies = [
+ "notify",
+]
 
 [[package]]
 name = "console_error_panic_hook"
@@ -4809,6 +4812,7 @@ name = "libsinclair"
 version = "1.31.0"
 dependencies = [
  "cast",
+ "flume",
  "futures",
  "gpui",
  "gpui_platform",
@@ -8205,6 +8209,7 @@ name = "terminal"
 version = "1.31.0"
 dependencies = [
  "cast",
+ "flume",
  "pty",
  "vt",
 ]

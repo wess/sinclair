@@ -10,4 +10,8 @@ pub mod session;
 
 pub use event::Event;
 pub use options::SessionOptions;
-pub use session::Session;
+pub use session::{Session, SessionStats};
+
+/// Event stream returned by [`Session::spawn`]. It supports both blocking
+/// receives for headless embedders and async streaming for UI hosts.
+pub type EventReceiver = flume::Receiver<Event>;

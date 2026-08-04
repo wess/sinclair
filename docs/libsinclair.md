@@ -95,6 +95,8 @@ session.write(b"ls\r")?;
 ```
 
 The embedder contract: `with_term` locks the terminal; `Wakeup` events are
-coalesced (at most one in flight until the terminal is next locked); vt's
-damage tracking (`term.take_damage()`) supports partial redraw. `bridge::
-forward` (ui feature) adapts the blocking receiver to an async stream.
+coalesced. Read `session.output_generation()`, process the terminal, then call
+`session.acknowledge_wakeup(generation)` and process immediately again when it
+returns true. vt's damage tracking (`term.take_damage()`) supports partial
+redraw. `bridge::forward` (ui feature) exposes the flume receiver as an async
+stream without another thread or queue.

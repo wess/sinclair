@@ -1,5 +1,6 @@
 use super::*;
 use std::sync::atomic::AtomicUsize;
+use std::sync::Arc;
 use std::time::Instant;
 
 fn tempfile(tag: &str) -> PathBuf {

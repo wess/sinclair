@@ -7,6 +7,7 @@ license.workspace = true
 
 [dependencies]
 cast = { path = "../cast" }
+flume = { version = "0.11", features = ["async"] }
 pty = { path = "../pty" }
 vt = { path = "../vt" }
 

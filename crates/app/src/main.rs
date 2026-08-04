@@ -7,12 +7,12 @@ mod agentstate;
 mod appid;
 mod appkit;
 mod attachpicker;
+mod badge;
 mod catalog;
+mod clipboard;
 mod colors;
 mod confwrite;
 mod envpath;
-mod notes;
-mod notify;
 mod exportcmd;
 #[cfg(target_os = "macos")]
 mod fidelity;
@@ -25,17 +25,16 @@ mod keys;
 #[cfg(target_os = "linux")]
 mod linux;
 mod mcpbridge;
+mod notes;
+mod notify;
 mod ospicker;
 mod paths;
 mod pluginhost;
 mod pluginmanager;
 mod pluginwebview;
 mod pluginwindow;
-mod badge;
-mod clipboard;
 mod quick;
 mod redact;
-mod trigger;
 mod relay;
 mod relaywatch;
 mod reload;
@@ -45,25 +44,26 @@ mod root;
 mod sandbox;
 mod session;
 mod sessionstate;
-mod sidecar;
-mod worktree;
 mod settings;
-mod suggest;
-mod teambuilder;
-mod updateui;
 mod shellinteg;
+mod sidecar;
+mod suggest;
 mod tabbar;
+mod teambuilder;
 mod tiles;
 mod titlebar;
+mod trigger;
+mod updateui;
 mod view;
 mod warmhost;
 mod wasmhost;
+mod worktree;
 
 use std::rc::Rc;
 
 use gpui::AppContext as _;
-use libsinclair::metrics;
 use gpui::{point, px, size, App, Bounds, Pixels, TitlebarOptions, WindowBounds, WindowOptions};
+use libsinclair::metrics;
 
 const DEFAULT_COLS: usize = 80;
 const DEFAULT_ROWS: usize = 24;
@@ -154,7 +154,10 @@ fn main() {
 
     let (opts, diagnostics) = config::load();
     for d in &diagnostics {
-        eprintln!("sinclair: settings line {}: {} ({})", d.line, d.message, d.key);
+        eprintln!(
+            "sinclair: settings line {}: {} ({})",
+            d.line, d.message, d.key
+        );
     }
 
     let app = gpui_platform::application();
@@ -165,6 +168,7 @@ fn main() {
     });
     app.run(move |cx: &mut App| {
         let auto_update = opts.auto_update;
+        reload::install(cx);
         open_default_window(opts, cx);
         cx.activate(true);
         quick::install_global_hotkey(cx);
@@ -182,7 +186,10 @@ fn main() {
 fn spawn_window(cx: &mut App) {
     let (opts, diagnostics) = config::load();
     for d in &diagnostics {
-        eprintln!("sinclair: settings line {}: {} ({})", d.line, d.message, d.key);
+        eprintln!(
+            "sinclair: settings line {}: {} ({})",
+            d.line, d.message, d.key
+        );
     }
     open_default_window(opts, cx);
 }
@@ -193,7 +200,10 @@ fn open_default_window(opts: config::Options, cx: &mut App) {
     badge::install(&opts.badge, cx);
     view::install_timestamps(opts.timestamps, cx);
     trigger::install(&opts.trigger, cx);
-    let colors = Rc::new(colors::from_config(&opts, root::is_dark(cx.window_appearance())));
+    let colors = Rc::new(colors::from_config(
+        &opts,
+        root::is_dark(cx.window_appearance()),
+    ));
     guisetheme::install(&colors, cx);
     let font = font::build(&opts);
     let font_size = px(opts.font_size.max(1.0));
@@ -202,7 +212,9 @@ fn open_default_window(opts: config::Options, cx: &mut App) {
         x: opts.window_padding_x as f32,
         y: opts.window_padding_y as f32,
     };
-    open_window(opts, colors, font, font_size, cell, pad, None, None, None, None, cx);
+    open_window(
+        opts, colors, font, font_size, cell, pad, None, None, None, None, cx,
+    );
 }
 
 /// Where a torn-off window goes: the source window's size, stepped down and to
@@ -247,8 +259,12 @@ pub(crate) fn open_window(
 ) {
     let (bounds, cols, rows) = match place {
         Some(bounds) => {
-            let (cols, rows) =
-                metrics::grid_size(bounds.size.width.into(), bounds.size.height.into(), pad, cell);
+            let (cols, rows) = metrics::grid_size(
+                bounds.size.width.into(),
+                bounds.size.height.into(),
+                pad,
+                cell,
+            );
             (bounds, cols, rows)
         }
         None => {

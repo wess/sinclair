@@ -73,11 +73,11 @@ Conventions (non-negotiable):
   shared-memory transmission, animation, unicode placeholders, and
   z-index/cropping.
 - [x] **11. Performance & polish** — parser throughput benchmark
-  (`vt/tests/throughput.rs`, ~103 MiB/s baseline on this machine), snapshot
-  buffer pre-sizing, idle repaints already avoided (notify-driven render).
-  Identified next optimization: per-row damage-clipped shaping (vt damage
-  tracking exists from phase 2; the renderer currently drains it and
-  re-shapes the full viewport per frame).
+  (`vt/tests/throughput.rs`, including settled resize and scrollback-footprint
+  scenarios), row-level snapshot/text-shaping reuse, 60 Hz output coalescing,
+  resize debounce, bounded hot scrollback/graphics/input/OSC data, a shared GPU
+  texture LRU, event-driven config reload, and public session/render counters.
+  See `docs/performance.md` for budgets and repeatable checks.
 - [x] **12. Feature coverage audit** — feature-by-feature coverage map in
   `docs/parity.md`, with implemented areas, partial areas, and the
   remaining gaps prioritized.
@@ -430,3 +430,43 @@ Conventions (non-negotiable):
   controls drags rather than being dead padding. Dev containers: `mounts` and
   `remoteUser` from a project's `devcontainer.json` are now applied, not just
   parsed. See `docs/devcontainers.html`.
+- 2026-08-03: configurable side columns. The two side drawers used to be the
+  same thing twice — one identical activity rail on each side listing every
+  panel, and one panel visible at a time per side. Each side is now its own
+  **dock**: an ordered stack of collapsible sections, composed independently,
+  Zed-dock style. The rail stays but lists only *that* side's sections, so the
+  left and right columns are finally different columns; several sections can be
+  open at once, sharing the leftover height and each scrolling on its own.
+  Composition lives in `app/src/root/dock.rs`, deliberately gpui-free so the
+  interesting part is testable (`crates/app/tests/dock.rs`): resolving config
+  tokens, revealing a section wherever the user actually put it, and moving one
+  dock to the other. Sections persist as **tokens**, never indices — a plugin
+  panel carries an index into a list that shifts when the plugin set changes, so
+  storing one would quietly rebind a saved slot to a different plugin. An
+  unresolvable token (uninstalled plugin) is skipped and left in the file, so a
+  reinstall restores its slot. `Action::Sidebar` gained reveal semantics: a
+  bare side toggles the dock, `<side>:<token>` expands the section on whichever
+  side holds it, which is what keeps `sidebar:left:containers` working after
+  Containers has been moved right. Five new settings keys (`sidebar-left`,
+  `sidebar-right`, `sidebar-collapsed`, `sidebar-left-width`,
+  `sidebar-right-width`) and a **Settings → Sidebar** designer that edits them
+  through the same `compose_docks` the workspace renders from, so the two can
+  never disagree. Two new sections: **Worktrees** (the repo's git worktrees,
+  click to open one in a tab, on the existing `worktree.rs` plumbing) and
+  **Notes** (the vaults the Notes editor has opened; the editor itself stays a
+  webview, since a markdown editor is unusable in a 260px column). Both cache
+  on expand rather than resolving during render — one is a `git` subprocess and
+  the other a file read.
+
+  Footprint: no new dependencies (the Notes section reads the sidecar's
+  `vaults.json` directly rather than depending on the `notes` crate, which is a
+  binary-only tokio+axum server). A closed dock builds no elements at all, so
+  the default costs nothing. The chrome of an open dock allocates nothing per
+  repaint: rail icons and section headers click by `(side, index)` through
+  `dock::toggle_at` instead of formatting a token payload only to parse it back
+  and re-resolve it, built-in labels/glyphs are `SharedString::new_static` over
+  constants (`label_upper`), and the plugin lookups iterate to `nth` rather than
+  collecting a `Vec<&Plugin>` to index once. Measured: +0.1MB RSS to open both
+  docks with six sections; CPU during sustained terminal output is unchanged
+  within noise (6.2% open vs 6.3% closed — the grid renderer dominates and gpui
+  coalesces repaints); 200 toggle cycles move RSS by 0.5MB.

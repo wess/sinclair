@@ -396,25 +396,35 @@ impl WorkspaceView {
         )
     }
 
-    /// A drawer submenu: one checked item per panel, checked when that panel is
-    /// the active one on this side. Selecting toggles via [`Action::Sidebar`].
+    /// A dock submenu: one checked item per section **on that side**, checked
+    /// when the section is expanded. Selecting reveals it via
+    /// [`Action::Sidebar`]. The two sides list different sections now, which is
+    /// the whole point — so this reads the dock rather than the static catalog.
     fn sidebar_menu(&self, a: &mut Vec<Action>, side: SidebarSide) -> Menu {
-        let (name, active, prefix) = match side {
-            SidebarSide::Left => ("Sidebar", self.left_panel, "left"),
-            SidebarSide::Right => ("Right Sidebar", self.right_panel, "right"),
+        let name = match side {
+            SidebarSide::Left => "Sidebar",
+            SidebarSide::Right => "Right Sidebar",
         };
-        let items = SidebarPanel::ALL
-            .into_iter()
-            .map(|panel| {
-                let payload = format!("{prefix}:{}", panel.id());
+        let dock = &self.docks[side.index()];
+        let mut items: Vec<Option<MenuItem>> = dock
+            .sections
+            .iter()
+            .map(|section| {
+                let payload = format!("{}:{}", side.token(), self.panel_token_of(section.panel));
                 Some(self.pick_checked(
                     a,
-                    panel.label(),
+                    &self.panel_label_of(section.panel),
                     Action::Sidebar(payload),
-                    active == Some(panel),
+                    dock.open && section.expanded,
                 ))
             })
             .collect();
+        if items.is_empty() {
+            // An emptied dock still needs a way back to the designer.
+            items.push(self.pick(a, "No sections", Action::ToggleSettings));
+        }
+        items.push(Some(MenuItem::separator()));
+        items.push(self.pick(a, "Customize Sidebar\u{2026}", Action::ToggleSettings));
         Self::menu(name, items)
     }
 

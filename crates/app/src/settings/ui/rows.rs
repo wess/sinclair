@@ -82,6 +82,7 @@ impl SettingsView {
         match self.section {
             Section::Keyboard => vec![self.keyboard_group(cx).into_any_element()],
             Section::Macros => vec![self.macros_group(cx).into_any_element()],
+            Section::Sidebar => self.sidebar_content(cx),
             Section::Ai => self.ai_content(cx),
             section => {
                 let settings: Vec<&'static Setting> = schema::in_section(section).collect();
@@ -120,12 +121,16 @@ impl SettingsView {
         for section in Section::ALL {
             let mut matched: Vec<&'static Setting> =
                 schema::in_section(section).filter(|s| s.matches(&query)).collect();
-            // The Macros section has no schema entries; match it by name.
+            // Macros and Sidebar have no schema entries; match them by name.
             let macros_hit = section == Section::Macros && word_match(&query, "macros replay shortcut");
-            if matched.is_empty() && !macros_hit {
+            let sidebar_hit = super::sidebar::matches_search(section, &query);
+            if matched.is_empty() && !macros_hit && !sidebar_hit {
                 continue;
             }
             out.push(self.heading(section.title()).into_any_element());
+            if sidebar_hit {
+                out.extend(self.sidebar_content(cx));
+            }
             if section == Section::Keyboard {
                 // Keep the capture/restore chrome with the keybind list.
                 matched.retain(|s| s.key != "keybind");
@@ -150,7 +155,7 @@ impl SettingsView {
 }
 
 /// Every query word appears in `haystack` (case-insensitive).
-fn word_match(query: &str, haystack: &str) -> bool {
+pub(crate) fn word_match(query: &str, haystack: &str) -> bool {
     let hay = haystack.to_lowercase();
     query
         .to_lowercase()

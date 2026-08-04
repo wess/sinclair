@@ -72,7 +72,7 @@ The workspace is layered bottom-up; each crate depends only on those below it.
 - **`pty`** — Unix pty allocation and child-process spawn (`rustix`). Unix-only.
 - **`terminal`** — runtime glue: `Session::spawn` runs a child on a pty, feeds
   its bytes into a `vt::Terminal` on a reader thread, and emits `Event`s
-  (wakeup, title, bell, exit) over a std channel.
+  (wakeup, title, bell, exit) over an async-capable flume receiver.
 - **`cast`** — asciinema v2 `.cast` recording: a `Recorder` writes a header line
   plus timestamped output events as bytes arrive (output only; UTF-8 split
   across reads is carried over). Used by `terminal` for session capture.
@@ -183,9 +183,10 @@ bridge and quick-terminal summon reach the running terminal.
 
 ### Event flow
 
-`terminal::Session` emits events on a blocking std channel; `app/src/bridge.rs`
-forwards them into an async `futures` stream that a gpui foreground task polls.
-Keep the vt/terminal layers free of gpui types — the boundary is the bridge.
+`terminal::Session` emits events through a flume receiver that is also a
+`futures` stream; `libsinclair::bridge` is the zero-thread adapter consumed by
+gpui foreground tasks. Keep the vt/terminal layers free of gpui types — the
+boundary is the bridge.
 
 ## Working in this repo
 

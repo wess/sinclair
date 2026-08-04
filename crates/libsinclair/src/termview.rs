@@ -10,23 +10,21 @@
 //! [`crate::element::TerminalElement`] the way the Sinclair app does.
 
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::rc::Rc;
-use std::sync::mpsc::Receiver;
 use std::sync::Arc;
 use std::time::Duration;
 
 use futures::StreamExt;
 use gpui::prelude::*;
 use gpui::{
-    div, px, App, ClipboardItem, Context, EventEmitter, FocusHandle, Focusable, Font,
-    FontFeatures, FontStyle, FontWeight, KeyDownEvent, KeyUpEvent, Pixels, Subscription, Window,
+    div, px, App, ClipboardItem, Context, EventEmitter, FocusHandle, Focusable, Font, FontFeatures,
+    FontStyle, FontWeight, KeyDownEvent, KeyUpEvent, Pixels, Subscription, Window,
 };
 use terminal::{Event, Session, SessionOptions};
 
 use crate::bridge;
 use crate::colors::{self, Colors};
-use crate::element::{CursorShape, SnapCache, TerminalElement};
+use crate::element::{CursorShape, ImageCache, RenderStats, SnapCache, TerminalElement};
 use crate::metrics::{self, CellSize, Padding};
 use crate::mouse::MouseState;
 use crate::pointer::{clipboard_copy, CopyHook};
@@ -34,6 +32,8 @@ use crate::pointer::{clipboard_copy, CopyHook};
 /// Maximum time a frame is withheld for synchronized output before it is
 /// painted anyway, so a stuck ?2026 cannot freeze the view.
 const SYNC_TIMEOUT: Duration = Duration::from_millis(150);
+/// Sustained output is presented at most once per 16 ms; parsing is immediate.
+const OUTPUT_FRAME: Duration = Duration::from_millis(16);
 
 /// Appearance and behavior for a [`TermView`]. The default is the built-in
 /// dark theme with a platform monospace font.
@@ -180,7 +180,7 @@ pub struct TermView {
     /// Pointer state shared with the element's per-frame event closures.
     mouse: Rc<RefCell<MouseState>>,
     /// Decoded sixel textures, keyed by placement id; persists across frames.
-    image_cache: Rc<RefCell<HashMap<u64, Arc<gpui::RenderImage>>>>,
+    image_cache: Rc<RefCell<ImageCache>>,
     /// Previous frame's render snapshot, reused while vt reports no damage.
     snap_cache: Rc<RefCell<SnapCache>>,
     focus: FocusHandle,
@@ -188,6 +188,8 @@ pub struct TermView {
     /// True while a repaint is withheld for synchronized output (?2026),
     /// with a safety timer armed to release it.
     sync_pending: bool,
+    /// True while a coalesced output-processing pass is scheduled.
+    wakeup_armed: bool,
     /// Last vt title (OSC 0/2); `None` until the child sets one.
     title: Option<String>,
     exited: bool,
@@ -212,7 +214,7 @@ impl TermView {
     /// still in hand).
     pub fn new(
         session: Arc<Session>,
-        events: Receiver<Event>,
+        events: terminal::EventReceiver,
         opts: TermOptions,
         window: &mut Window,
         cx: &mut Context<Self>,
@@ -250,11 +252,12 @@ impl TermView {
             clipboard_write: opts.clipboard_write,
             copy: opts.copy,
             mouse: Rc::new(RefCell::new(MouseState::default())),
-            image_cache: Rc::new(RefCell::new(HashMap::new())),
+            image_cache: Rc::new(RefCell::new(ImageCache::default())),
             snap_cache: Rc::new(RefCell::new(SnapCache::default())),
             focus,
             focused: false,
             sync_pending: false,
+            wakeup_armed: false,
             title: None,
             exited: false,
             _focus_subs: subs,
@@ -283,6 +286,11 @@ impl TermView {
     /// Whether the child has exited.
     pub fn exited(&self) -> bool {
         self.exited
+    }
+
+    /// Cumulative snapshot and text-shaping work for this pane.
+    pub fn render_stats(&self) -> RenderStats {
+        self.snap_cache.borrow().stats()
     }
 
     /// Swap the color set (theme change); updates OSC 4/10/11/12 reporting.
@@ -383,6 +391,21 @@ impl TermView {
     /// a short safety timer so a program that never clears ?2026 can't
     /// freeze the view.
     fn wakeup(&mut self, cx: &mut Context<Self>) {
+        if self.wakeup_armed {
+            return;
+        }
+        self.wakeup_armed = true;
+        let timer = cx.background_executor().timer(OUTPUT_FRAME);
+        cx.spawn(async move |this, cx| {
+            timer.await;
+            let _ = this.update(cx, |this, cx| this.flush_wakeup(cx));
+        })
+        .detach();
+    }
+
+    fn flush_wakeup(&mut self, cx: &mut Context<Self>) {
+        self.wakeup_armed = false;
+        let generation = self.session.output_generation();
         if self.session.with_term(|term| term.synchronized_output()) {
             if !self.sync_pending {
                 self.sync_pending = true;
@@ -398,10 +421,13 @@ impl TermView {
                 })
                 .detach();
             }
-            return;
+        } else {
+            self.sync_pending = false;
+            cx.notify();
         }
-        self.sync_pending = false;
-        cx.notify();
+        if self.session.acknowledge_wakeup(generation) {
+            self.wakeup(cx);
+        }
     }
 
     /// Capture phase: intercept Tab before gpui's focus traversal consumes

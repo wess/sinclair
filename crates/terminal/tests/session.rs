@@ -6,7 +6,7 @@ fn command(args: &[&str]) -> SessionOptions {
 }
 
 /// Collect events until `Exit`; returns the others plus the exit code.
-fn drain_until_exit(rx: &Receiver<Event>) -> (Vec<Event>, Option<i32>) {
+fn drain_until_exit(rx: &EventReceiver) -> (Vec<Event>, Option<i32>) {
     let deadline = Instant::now() + Duration::from_secs(10);
     let mut seen = Vec::new();
     loop {
@@ -33,6 +33,10 @@ fn write_reaches_child() {
     session.write(b"go\n").expect("write");
     let (_, code) = drain_until_exit(&rx);
     assert_eq!(code, Some(5));
+    let stats = session.stats();
+    assert_eq!(stats.input_bytes, 3);
+    assert!(stats.output_bytes > 0);
+    assert!(stats.output_chunks > 0);
 }
 
 #[test]
@@ -61,12 +65,7 @@ fn large_input_is_delivered_completely() {
     .expect("spawn");
     // Newlines keep each line under the canonical-mode line limit.
     let line = [b"x".repeat(511).as_slice(), b"\n"].concat();
-    let big: Vec<u8> = line
-        .iter()
-        .copied()
-        .cycle()
-        .take(TOTAL)
-        .collect();
+    let big: Vec<u8> = line.iter().copied().cycle().take(TOTAL).collect();
     let start = Instant::now();
     session.write(&big).expect("write");
     // The write only queues; it must return long before the child drains it.
@@ -77,8 +76,7 @@ fn large_input_is_delivered_completely() {
 
 #[test]
 fn write_does_not_block_on_a_stalled_child() {
-    let (session, _rx) =
-        Session::spawn(command(&["/bin/sh", "-c", "sleep 30"])).expect("spawn");
+    let (session, _rx) = Session::spawn(command(&["/bin/sh", "-c", "sleep 30"])).expect("spawn");
     let big = vec![b'x'; 1 << 20];
     let start = Instant::now();
     session.write(&big).expect("write");
@@ -98,19 +96,29 @@ fn write_does_not_block_on_a_stalled_child() {
 }
 
 #[test]
-fn wakeup_is_coalesced_until_term_access() {
-    // Two output bursts, but the embedder never observes the terminal,
-    // so exactly one Wakeup may be queued.
-    let (_session, rx) =
-        Session::spawn(command(&["/bin/sh", "-c", "printf a; sleep 1; printf b"]))
-            .expect("spawn");
-    let (seen, _) = drain_until_exit(&rx);
-    let wakeups = seen.iter().filter(|e| **e == Event::Wakeup).count();
-    assert_eq!(wakeups, 1, "events: {seen:?}");
+fn stalled_child_cannot_grow_the_input_queue_without_bound() {
+    let (session, _rx) = Session::spawn(command(&["/bin/sh", "-c", "sleep 30"])).expect("spawn");
+    let error = session
+        .write(&vec![b'x'; MAX_INPUT_BYTES + 1])
+        .expect_err("oversized queued write should be rejected");
+    assert_eq!(error.kind(), std::io::ErrorKind::WouldBlock);
+    assert_eq!(session.pending_input_bytes(), 0);
 }
 
 #[test]
-fn with_term_rearms_wakeup() {
+fn wakeup_is_coalesced_until_acknowledged() {
+    // Two output bursts, but the embedder never observes the terminal,
+    // so exactly one Wakeup may be queued.
+    let (session, rx) =
+        Session::spawn(command(&["/bin/sh", "-c", "printf a; sleep 1; printf b"])).expect("spawn");
+    let (seen, _) = drain_until_exit(&rx);
+    let wakeups = seen.iter().filter(|e| **e == Event::Wakeup).count();
+    assert_eq!(wakeups, 1, "events: {seen:?}");
+    assert_eq!(session.stats().wakeups, 1);
+}
+
+#[test]
+fn acknowledging_generation_rearms_wakeup() {
     let (session, rx) = Session::spawn(command(&[
         "/bin/sh",
         "-c",
@@ -122,7 +130,8 @@ fn with_term_rearms_wakeup() {
             .expect("first wakeup"),
         Event::Wakeup
     );
-    session.with_term(|_| ()); // re-arms the pending flag
+    let generation = session.output_generation();
+    assert!(!session.acknowledge_wakeup(generation));
     assert_eq!(
         rx.recv_timeout(Duration::from_secs(10))
             .expect("second wakeup"),
@@ -164,21 +173,17 @@ fn osc52_surfaces_clipboard_event() {
 
 #[test]
 fn resize_updates_grid_immediately() {
-    let (session, _rx) =
-        Session::spawn(command(&["/bin/sh", "-c", "sleep 30"])).expect("spawn");
+    let (session, _rx) = Session::spawn(command(&["/bin/sh", "-c", "sleep 30"])).expect("spawn");
     session.resize(90, 28).expect("resize");
     let size = session.with_term(|t| (t.cols(), t.rows()));
     assert_eq!(size, (90, 28));
+    assert_eq!(session.stats().resize_commits, 1);
 }
 
 #[test]
 fn resize_px_updates_grid_and_kernel_winsize() {
-    let (session, rx) = Session::spawn(command(&[
-        "/bin/sh",
-        "-c",
-        "sleep 1; stty size",
-    ]))
-    .expect("spawn");
+    let (session, rx) =
+        Session::spawn(command(&["/bin/sh", "-c", "sleep 1; stty size"])).expect("spawn");
     session.resize_px(100, 30, 8, 16).expect("resize_px");
     let size = session.with_term(|t| (t.cols(), t.rows()));
     assert_eq!(size, (100, 30));

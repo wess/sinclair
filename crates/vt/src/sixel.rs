@@ -5,12 +5,16 @@
 //! run-length repeats (`!`), carriage return (`$`), and band newline (`-`).
 //! Each data byte `?`..=`~` paints six vertical pixels in the current color.
 
+use std::sync::Arc;
+
 /// A decoded image: tightly-packed RGBA8, `width * height * 4` bytes.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Image {
     pub width: usize,
     pub height: usize,
-    pub rgba: Vec<u8>,
+    /// Shared because kitty's transmit-and-display path keeps the same decoded
+    /// image in both its id store and a screen placement.
+    pub rgba: Arc<[u8]>,
 }
 
 impl Image {
@@ -68,9 +72,7 @@ const MAX_AREA: usize = 8_000_000;
 /// Decode a sixel payload (the bytes between `DCS ... q` and `ST`). Returns
 /// `None` when nothing was drawn or the geometry is unreasonable.
 pub fn decode(data: &[u8]) -> Option<Image> {
-    let mut palette: Vec<Rgb> = (0..256)
-        .map(|i| DEFAULT_PALETTE[i % 16])
-        .collect();
+    let mut palette: Vec<Rgb> = (0..256).map(|i| DEFAULT_PALETTE[i % 16]).collect();
     let mut pixels: Vec<Option<Rgb>> = Vec::new();
     // Logical extents vs. buffer layout: the buffer keeps `stride` slots per
     // row and doubles on width growth, so a payload that widens one column
@@ -84,11 +86,11 @@ pub fn decode(data: &[u8]) -> Option<Image> {
     let mut color = 0usize;
 
     let ensure = |pixels: &mut Vec<Option<Rgb>>,
-                      stride: &mut usize,
-                      width: &mut usize,
-                      height: &mut usize,
-                      max_x: usize,
-                      max_y: usize|
+                  stride: &mut usize,
+                  width: &mut usize,
+                  height: &mut usize,
+                  max_x: usize,
+                  max_y: usize|
      -> bool {
         let w = (*width).max(max_x);
         let h = (*height).max(max_y);
@@ -215,14 +217,21 @@ pub fn decode(data: &[u8]) -> Option<Image> {
     Some(Image {
         width,
         height,
-        rgba,
+        rgba: rgba.into(),
     })
 }
 
 /// Paint the six vertical pixels a sixel byte encodes at column `x`, starting
 /// at `band * 6`. Bit 0 is the topmost pixel. `stride` is the buffer's slots
 /// per row (at least the image width).
-fn paint_sixel(pixels: &mut [Option<Rgb>], stride: usize, x: usize, band: usize, byte: u8, color: Rgb) {
+fn paint_sixel(
+    pixels: &mut [Option<Rgb>],
+    stride: usize,
+    x: usize,
+    band: usize,
+    byte: u8,
+    color: Rgb,
+) {
     let bits = byte - 0x3f;
     for row in 0..6 {
         if bits & (1 << row) != 0 {

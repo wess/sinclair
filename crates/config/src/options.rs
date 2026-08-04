@@ -275,6 +275,20 @@ pub struct Options {
     pub sandbox_devcontainer: bool,
     /// File key: `keybind`, raw strings (accumulated, parsed later).
     pub keybind: Vec<String>,
+    /// File key: `sidebar-left` - the left dock's sections, top to bottom, as
+    /// section tokens (`terminals`, `agents`, `plugin:<id>`, …). Empty means the
+    /// built-in composition; the app resolves tokens and silently skips any that
+    /// no longer exist, so an uninstalled plugin keeps its slot for a reinstall.
+    pub sidebar_left: Vec<String>,
+    /// File key: `sidebar-right` - the right dock's sections. See `sidebar_left`.
+    pub sidebar_right: Vec<String>,
+    /// File key: `sidebar-collapsed` - section tokens that start collapsed.
+    /// Order-independent by design, so it never fights the two lists above.
+    pub sidebar_collapsed: Vec<String>,
+    /// File key: `sidebar-left-width` - the left dock's width in pixels.
+    pub sidebar_left_width: u32,
+    /// File key: `sidebar-right-width` - the right dock's width in pixels.
+    pub sidebar_right_width: u32,
     /// File key: `ai-enabled` - master switch for all AI features.
     pub ai_enabled: bool,
     /// File key: `ai-optimize-tokens` - when true, prompts sent to AI agents are
@@ -478,6 +492,14 @@ impl Default for Options {
             sandbox_persist: true,
             sandbox_devcontainer: true,
             keybind: Vec::new(),
+            // Empty means "use the built-in composition" (see the app's
+            // `root::dock`), which is how a user who has never touched the
+            // sidebar gets sensible, *different* left and right docks.
+            sidebar_left: Vec::new(),
+            sidebar_right: Vec::new(),
+            sidebar_collapsed: Vec::new(),
+            sidebar_left_width: 260,
+            sidebar_right_width: 260,
             ai_enabled: false,
             ai_optimize_tokens: false,
             mcp_server_enabled: false,

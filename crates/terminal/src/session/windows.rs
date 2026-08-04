@@ -2,14 +2,15 @@
 
 use std::fs::File;
 use std::io::{self, Read, Write};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
+use super::{event_channel, Counters, EventSender, SessionStats};
 use crate::event::Event;
 use crate::options::SessionOptions;
+use crate::EventReceiver;
 
 /// A running child attached to a [`vt::Terminal`].
 ///
@@ -25,6 +26,8 @@ pub struct Session {
     term: Arc<Mutex<vt::Terminal>>,
     /// `true` while an unconsumed [`Event::Wakeup`] sits in the channel.
     wakeup_pending: Arc<AtomicBool>,
+    output_generation: Arc<AtomicU64>,
+    stats: Arc<Counters>,
     /// Active asciinema recording; the reader thread writes output into it.
     recorder: Arc<Mutex<Option<cast::Recorder>>>,
     reader: Option<JoinHandle<()>>,
@@ -35,20 +38,20 @@ struct Reader {
     pty: Arc<Mutex<pty::Pty>>,
     term: Arc<Mutex<vt::Terminal>>,
     pending: Arc<AtomicBool>,
+    generation: Arc<AtomicU64>,
+    stats: Arc<Counters>,
     recorder: Arc<Mutex<Option<cast::Recorder>>>,
-    events: Sender<Event>,
+    events: EventSender,
     scrollback_limit: usize,
 }
 
 impl Session {
     /// Spawn the child on a ConPTY and start the reader thread.
     ///
-    /// Wakeup contract: `Event::Wakeup` is coalesced. The reader sends one
-    /// only when none is pending, then sets the pending flag. The embedder
-    /// re-arms it by locking the terminal via [`Session::with_term`] (the
-    /// natural render path). Spurious wakeups are possible; missed ones are
-    /// not.
-    pub fn spawn(options: SessionOptions) -> io::Result<(Session, Receiver<Event>)> {
+    /// Wakeup contract: `Event::Wakeup` is coalesced until the embedder calls
+    /// [`Session::acknowledge_wakeup`] after processing the observed output
+    /// generation. Spurious wakeups are possible; missed ones are not.
+    pub fn spawn(options: SessionOptions) -> io::Result<(Session, EventReceiver)> {
         let SessionOptions {
             cols,
             rows,
@@ -66,20 +69,26 @@ impl Session {
         let term = Arc::new(Mutex::new(vt::Terminal::new(cols, rows, scrollback_limit)));
         let pty = Arc::new(Mutex::new(pty));
         let wakeup_pending = Arc::new(AtomicBool::new(false));
+        let output_generation = Arc::new(AtomicU64::new(0));
+        let stats = Arc::new(Counters::default());
         let recorder: Arc<Mutex<Option<cast::Recorder>>> = Arc::new(Mutex::new(None));
-        let (events, receiver) = mpsc::channel();
+        let (events, receiver) = event_channel(Arc::clone(&stats));
 
-        let reader = thread::Builder::new().name("ptyreader".to_string()).spawn({
-            let reader = Reader {
-                pty: Arc::clone(&pty),
-                term: Arc::clone(&term),
-                pending: Arc::clone(&wakeup_pending),
-                recorder: Arc::clone(&recorder),
-                events,
-                scrollback_limit,
-            };
-            move || read_loop(output, replies, reader)
-        })?;
+        let reader = thread::Builder::new()
+            .name("ptyreader".to_string())
+            .spawn({
+                let reader = Reader {
+                    pty: Arc::clone(&pty),
+                    term: Arc::clone(&term),
+                    pending: Arc::clone(&wakeup_pending),
+                    generation: Arc::clone(&output_generation),
+                    stats: Arc::clone(&stats),
+                    recorder: Arc::clone(&recorder),
+                    events,
+                    scrollback_limit,
+                };
+                move || read_loop(output, replies, reader)
+            })?;
 
         Ok((
             Session {
@@ -87,6 +96,8 @@ impl Session {
                 writer,
                 term,
                 wakeup_pending,
+                output_generation,
+                stats,
                 recorder,
                 reader: Some(reader),
             },
@@ -96,7 +107,21 @@ impl Session {
 
     /// Send user input to the child. Loops until every byte is written.
     pub fn write(&self, bytes: &[u8]) -> io::Result<()> {
-        (&self.writer).write_all(bytes)
+        (&self.writer).write_all(bytes)?;
+        self.stats
+            .input_bytes
+            .fetch_add(bytes.len() as u64, Ordering::Relaxed);
+        Ok(())
+    }
+
+    /// ConPTY writes directly rather than retaining a userspace queue.
+    pub fn pending_input_bytes(&self) -> usize {
+        0
+    }
+
+    /// Current resource/performance counters for this session.
+    pub fn stats(&self) -> SessionStats {
+        self.stats.snapshot(0)
     }
 
     /// Resize both the emulation grid and the pseudoconsole.
@@ -118,6 +143,7 @@ impl Session {
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .resize(cols, rows);
+        self.stats.resize_commits.fetch_add(1, Ordering::Relaxed);
         let size = pty::Winsize::with_cell_size(cols as u16, rows as u16, cell_width, cell_height);
         self.pty
             .lock()
@@ -127,10 +153,7 @@ impl Session {
 
     /// Whether an asciinema recording is currently capturing this session.
     pub fn is_recording(&self) -> bool {
-        self.recorder
-            .lock()
-            .map(|r| r.is_some())
-            .unwrap_or(false)
+        self.recorder.lock().map(|r| r.is_some()).unwrap_or(false)
     }
 
     /// Begin recording output to `path` as an asciinema v2 cast. Replaces any
@@ -167,13 +190,25 @@ impl Session {
     }
 
     /// Run `f` with the terminal locked, for rendering or inspection.
-    ///
-    /// Clears the wakeup-pending flag *before* taking the lock, so output
-    /// applied while (or after) `f` runs raises a fresh [`Event::Wakeup`].
     pub fn with_term<R>(&self, f: impl FnOnce(&mut vt::Terminal) -> R) -> R {
-        self.wakeup_pending.store(false, Ordering::SeqCst);
         let mut term = self.term.lock().unwrap_or_else(|e| e.into_inner());
         f(&mut term)
+    }
+
+    /// Current generation of output applied to the terminal.
+    pub fn output_generation(&self) -> u64 {
+        self.output_generation.load(Ordering::Acquire)
+    }
+
+    /// Acknowledge the pending wakeup after processing `observed_generation`.
+    /// Returns `true` when output raced with that processing and another pass
+    /// should be scheduled immediately.
+    pub fn acknowledge_wakeup(&self, observed_generation: u64) -> bool {
+        self.stats
+            .wakeup_acknowledgements
+            .fetch_add(1, Ordering::Relaxed);
+        self.wakeup_pending.store(false, Ordering::Release);
+        self.output_generation.load(Ordering::Acquire) != observed_generation
     }
 
     /// End the child and join the reader thread. The reader reaps the child
@@ -228,6 +263,10 @@ fn read_loop(mut output: File, mut replies: File, r: Reader) {
 /// the terminal generates (DSR, DA, ...) are written straight back to the
 /// console input pipe.
 fn apply_chunk(chunk: &[u8], replies: &mut File, r: &Reader) {
+    r.stats
+        .output_bytes
+        .fetch_add(chunk.len() as u64, Ordering::Relaxed);
+    r.stats.output_chunks.fetch_add(1, Ordering::Relaxed);
     let (reply, title, bell, clipboard, notification, command_finished, cwd_changed) = {
         let mut term = r.term.lock().unwrap_or_else(|e| e.into_inner());
         // The reader thread must survive parser bugs, but a panicking feed
@@ -278,8 +317,13 @@ fn apply_chunk(chunk: &[u8], replies: &mut File, r: &Reader) {
     if let Some(dir) = cwd_changed {
         let _ = r.events.send(Event::DirChanged(dir));
     }
+    r.generation.fetch_add(1, Ordering::Release);
     if !r.pending.swap(true, Ordering::SeqCst) {
-        let _ = r.events.send(Event::Wakeup);
+        if r.events.send(Event::Wakeup).is_ok() {
+            r.stats.wakeups.fetch_add(1, Ordering::Relaxed);
+        } else {
+            r.pending.store(false, Ordering::Release);
+        }
     }
 }
 

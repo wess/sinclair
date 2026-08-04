@@ -79,11 +79,7 @@ fn decode_row(raw: &[u8], pos: &mut usize, cols: usize) -> Row {
         cells.push(decode_cell(raw, pos));
     }
     cells.resize(cols.max(kept), Cell::default());
-    Row {
-        cells,
-        wrapped: flags & 1 != 0,
-        prompt: flags & 2 != 0,
-    }
+    Row::from_parts(cells, flags & 1 != 0, flags & 2 != 0)
 }
 
 fn encode_cell(cell: &Cell, out: &mut Vec<u8>) {

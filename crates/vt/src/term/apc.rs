@@ -26,11 +26,6 @@ const MAX_APC: usize = 4 * 1024 * 1024;
 /// transfer (`MAX_PIXELS` * 4 channels).
 const MAX_GFX_PENDING: usize = 128 * 1024 * 1024;
 
-/// Ceiling on the total bytes retained across all transmitted-but-not-displayed
-/// images. Past it, other stored entries are evicted, so a flood of `a=t`
-/// transmissions with distinct ids can't hold unbounded memory.
-const MAX_GFX_STORE: usize = 320 * 1024 * 1024;
-
 /// Scanner state, carried on [`Inner`] across `feed` calls — an APC block or a
 /// bare trailing ESC can straddle pty reads.
 #[derive(Debug, Default)]
@@ -211,9 +206,7 @@ impl Inner {
                         buf.extend_from_slice(&raw);
                     }
                 }
-                None if raw.len() <= MAX_GFX_PENDING => {
-                    self.gfx_pending = Some((control, raw))
-                }
+                None if raw.len() <= MAX_GFX_PENDING => self.gfx_pending = Some((control, raw)),
                 None => {} // first chunk already over budget: ignore
             }
             return;
@@ -268,34 +261,11 @@ impl Inner {
         }
     }
 
-    /// Retain a transmitted image under `id`, evicting other stored entries once
-    /// the total retained bytes would exceed [`MAX_GFX_STORE`]. Bounds memory
-    /// against a flood of `a=t` transmissions carrying distinct ids. Eviction
-    /// order is arbitrary — the goal is to cap memory, not to keep any one
-    /// image; an app whose image was dropped simply re-transmits it.
+    /// Retain a transmitted image under `id`, sharing the pane-wide graphics
+    /// budget with visible placements on both screens.
     fn store_image(&mut self, id: u32, img: crate::sixel::Image) {
-        if img.rgba.len() > MAX_GFX_STORE {
-            return; // a single image over the whole budget is never retained
-        }
         self.gfx_store.insert(id, img);
-        let mut total: usize = self.gfx_store.values().map(|i| i.rgba.len()).sum();
-        if total <= MAX_GFX_STORE {
-            return;
-        }
-        let victims: Vec<u32> = self
-            .gfx_store
-            .keys()
-            .copied()
-            .filter(|&k| k != id)
-            .collect();
-        for k in victims {
-            if total <= MAX_GFX_STORE {
-                break;
-            }
-            if let Some(evicted) = self.gfx_store.remove(&k) {
-                total -= evicted.rgba.len();
-            }
-        }
+        self.enforce_graphics_budget();
     }
 
     /// Remove placements per an `a=d` command. Uppercase specifiers also free
@@ -328,8 +298,8 @@ impl Inner {
             return;
         }
         let suppress = match (&result, control.quiet) {
-            (_, q) if q >= 2 => true,          // suppress all
-            (Ok(()), q) if q >= 1 => true,     // suppress success
+            (_, q) if q >= 2 => true,      // suppress all
+            (Ok(()), q) if q >= 1 => true, // suppress success
             _ => false,
         };
         if suppress {

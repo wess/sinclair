@@ -1,3 +1,4 @@
+use super::{MAX_GRAPHICS_BYTES, MAX_GRAPHICS_ITEMS};
 use crate::term::Terminal;
 
 fn term() -> Terminal {
@@ -19,7 +20,10 @@ fn combining_mark_attaches_to_previous_cell() {
     t.inner.write_char('e');
     t.inner.write_char('\u{0301}'); // combining acute accent
     assert_eq!(t.cursor_pos(), (0, 1)); // mark does not advance the cursor
-    assert_eq!(t.cell(0, 0).combining().collect::<Vec<_>>(), vec!['\u{0301}']);
+    assert_eq!(
+        t.cell(0, 0).combining().collect::<Vec<_>>(),
+        vec!['\u{0301}']
+    );
     assert_eq!(t.row_text(0), "e\u{0301}");
 }
 
@@ -28,7 +32,10 @@ fn combining_mark_attaches_to_wide_head() {
     let mut t = term();
     t.inner.write_char('漢');
     t.inner.write_char('\u{0301}');
-    assert_eq!(t.cell(0, 0).combining().collect::<Vec<_>>(), vec!['\u{0301}']);
+    assert_eq!(
+        t.cell(0, 0).combining().collect::<Vec<_>>(),
+        vec!['\u{0301}']
+    );
     assert!(t.cell(0, 1).combining().next().is_none());
 }
 
@@ -39,7 +46,10 @@ fn combining_keeps_first_mark() {
     for m in ['\u{0301}', '\u{0302}'] {
         t.inner.write_char(m);
     }
-    assert_eq!(t.cell(0, 0).combining().collect::<Vec<_>>(), vec!['\u{0301}']);
+    assert_eq!(
+        t.cell(0, 0).combining().collect::<Vec<_>>(),
+        vec!['\u{0301}']
+    );
 }
 
 #[test]
@@ -303,16 +313,55 @@ fn column_shrink_repairs_sliced_wide_pair() {
 #[test]
 fn image_budget_evicts_oldest_placements() {
     let mut t = term();
-    // Five ~30 MiB images exceed the 128 MiB budget: the oldest one goes.
+    // Five ~30 MiB images exceed the pane-wide 128 MiB budget: the oldest goes.
     for _ in 0..5 {
         t.inner.place_sixel(crate::sixel::Image {
             width: 4,
             height: 4,
-            rgba: vec![0; 30 << 20],
+            rgba: vec![0; 30 << 20].into(),
         });
     }
     assert_eq!(t.images().len(), 4);
     assert_eq!(t.images()[0].id, 1);
+    assert!(t.graphics_memory() <= MAX_GRAPHICS_BYTES);
+}
+
+#[test]
+fn stored_and_placed_copies_share_one_pixel_buffer() {
+    let mut t = term();
+    let image = crate::sixel::Image {
+        width: 4,
+        height: 4,
+        rgba: vec![0; 30 << 20].into(),
+    };
+    t.inner.gfx_store.insert(7, image.clone());
+    t.inner.place_image(image, 7, false);
+    assert!(std::sync::Arc::ptr_eq(
+        &t.inner.gfx_store[&7].rgba,
+        &t.images()[0].image.rgba
+    ));
+    assert_eq!(t.graphics_memory(), 30 << 20);
+}
+
+#[test]
+fn tiny_images_cannot_grow_placement_metadata_without_bound() {
+    let mut t = term();
+    for id in 0..=MAX_GRAPHICS_ITEMS as u64 {
+        t.inner.primary.images.push(crate::sixel::Placement {
+            id,
+            line: 0,
+            col: 0,
+            image: crate::sixel::Image {
+                width: 1,
+                height: 1,
+                rgba: vec![0; 4].into(),
+            },
+            kitty_id: None,
+        });
+    }
+    t.inner.enforce_graphics_budget();
+    assert_eq!(t.inner.primary.images.len(), MAX_GRAPHICS_ITEMS);
+    assert_eq!(t.inner.primary.images[0].id, 1);
 }
 
 #[test]

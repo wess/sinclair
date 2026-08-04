@@ -1,7 +1,192 @@
 use super::*;
 
+use std::collections::{HashMap, HashSet};
+
 use theme::Rgb;
 use vt::CellFlags;
+
+const PANE_IMAGE_CACHE_BYTES: usize = 128 * 1024 * 1024;
+const DEFAULT_IMAGE_CACHE_BYTES: usize = 512 * 1024 * 1024;
+
+struct CachedImage {
+    image: Arc<RenderImage>,
+    bytes: usize,
+    used: u64,
+}
+
+/// Shared decoded-texture cache. Multiple panes can use one pool so their
+/// combined GPU-facing image data has a single LRU budget.
+pub struct ImageCachePool {
+    entries: HashMap<(u64, u64), CachedImage>,
+    bytes: usize,
+    limit: usize,
+    clock: u64,
+    next_pane: u64,
+    evictions: u64,
+}
+
+/// Current shared texture-cache footprint and lifetime eviction count.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct ImageCacheStats {
+    pub bytes: usize,
+    pub entries: usize,
+    pub evictions: u64,
+}
+
+impl Default for ImageCachePool {
+    fn default() -> Self {
+        Self::new(DEFAULT_IMAGE_CACHE_BYTES)
+    }
+}
+
+impl ImageCachePool {
+    pub fn new(limit: usize) -> Self {
+        Self {
+            entries: HashMap::new(),
+            bytes: 0,
+            limit: limit.max(1),
+            clock: 0,
+            next_pane: 1,
+            evictions: 0,
+        }
+    }
+
+    pub fn stats(&self) -> ImageCacheStats {
+        ImageCacheStats {
+            bytes: self.bytes,
+            entries: self.entries.len(),
+            evictions: self.evictions,
+        }
+    }
+
+    fn remove(&mut self, key: (u64, u64)) {
+        if let Some(entry) = self.entries.remove(&key) {
+            self.bytes = self.bytes.saturating_sub(entry.bytes);
+            self.evictions = self.evictions.saturating_add(1);
+        }
+    }
+
+    fn enforce(&mut self, pane: u64) {
+        loop {
+            let pane_bytes: usize = self
+                .entries
+                .iter()
+                .filter(|((owner, _), _)| *owner == pane)
+                .map(|(_, entry)| entry.bytes)
+                .sum();
+            if pane_bytes <= PANE_IMAGE_CACHE_BYTES {
+                break;
+            }
+            let victim = self
+                .entries
+                .iter()
+                .filter(|((owner, _), _)| *owner == pane)
+                .min_by_key(|(_, entry)| entry.used)
+                .map(|(key, _)| *key);
+            let Some(victim) = victim else { break };
+            self.remove(victim);
+        }
+        while self.bytes > self.limit {
+            let victim = self
+                .entries
+                .iter()
+                .min_by_key(|(_, entry)| entry.used)
+                .map(|(key, _)| *key);
+            let Some(victim) = victim else { break };
+            self.remove(victim);
+        }
+    }
+}
+
+/// One pane's namespace within an [`ImageCachePool`].
+pub struct ImageCache {
+    pane: u64,
+    pool: Rc<RefCell<ImageCachePool>>,
+}
+
+impl Default for ImageCache {
+    fn default() -> Self {
+        Self::new(Rc::new(RefCell::new(ImageCachePool::default())))
+    }
+}
+
+impl ImageCache {
+    pub fn new(pool: Rc<RefCell<ImageCachePool>>) -> Self {
+        let pane = {
+            let mut pool = pool.borrow_mut();
+            let pane = pool.next_pane;
+            pool.next_pane = pool.next_pane.wrapping_add(1).max(1);
+            pane
+        };
+        Self { pane, pool }
+    }
+
+    pub fn stats(&self) -> ImageCacheStats {
+        self.pool.borrow().stats()
+    }
+
+    fn retain(&mut self, live: &HashSet<u64>) {
+        let victims: Vec<_> = self
+            .pool
+            .borrow()
+            .entries
+            .keys()
+            .filter(|(pane, id)| *pane == self.pane && !live.contains(id))
+            .copied()
+            .collect();
+        let mut pool = self.pool.borrow_mut();
+        for victim in victims {
+            pool.remove(victim);
+        }
+    }
+
+    pub(super) fn texture(&mut self, id: u64, source: &vt::Image) -> Arc<RenderImage> {
+        let key = (self.pane, id);
+        {
+            let mut pool = self.pool.borrow_mut();
+            pool.clock = pool.clock.wrapping_add(1);
+            let used = pool.clock;
+            if let Some(entry) = pool.entries.get_mut(&key) {
+                entry.used = used;
+                return entry.image.clone();
+            }
+        }
+
+        let image = render_image(source);
+        let bytes = source.rgba.len();
+        let mut pool = self.pool.borrow_mut();
+        pool.clock = pool.clock.wrapping_add(1);
+        let used = pool.clock;
+        pool.bytes = pool.bytes.saturating_add(bytes);
+        pool.entries.insert(
+            key,
+            CachedImage {
+                image: image.clone(),
+                bytes,
+                used,
+            },
+        );
+        pool.enforce(self.pane);
+        image
+    }
+}
+
+impl Drop for ImageCache {
+    fn drop(&mut self) {
+        let Ok(mut pool) = self.pool.try_borrow_mut() else {
+            return;
+        };
+        let victims: Vec<_> = pool
+            .entries
+            .keys()
+            .filter(|(pane, _)| *pane == self.pane)
+            .copied()
+            .collect();
+        for victim in victims {
+            pool.remove(victim);
+        }
+    }
+}
 
 /// Style bits that affect how a span of text is shaped/decorated. Spans
 /// merge only when these (and the foreground color) match.
@@ -23,7 +208,7 @@ pub(crate) struct ImageDraw {
 
 /// Build a GPU texture from a decoded sixel image (RGBA -> the BGRA gpui wants).
 fn render_image(img: &vt::Image) -> Arc<RenderImage> {
-    let mut bgra = img.rgba.clone();
+    let mut bgra = img.rgba.to_vec();
     for px in bgra.chunks_exact_mut(4) {
         px.swap(0, 2);
     }
@@ -35,7 +220,7 @@ fn render_image(img: &vt::Image) -> Arc<RenderImage> {
 }
 
 /// A horizontal run of equal non-default background color, in cells.
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub(crate) struct BgRun {
     pub(crate) row: usize,
     pub(crate) col: usize,
@@ -44,7 +229,7 @@ pub(crate) struct BgRun {
 }
 
 /// A contiguous run of glyphs sharing one style, ready for shaping.
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub(crate) struct Span {
     pub(crate) row: usize,
     pub(crate) col: usize,
@@ -71,6 +256,7 @@ pub(crate) struct CursorSnap {
 
 /// A cell rendered with custom box-drawing/block geometry instead of a
 /// font glyph.
+#[derive(Clone)]
 pub(crate) struct BoxCell {
     pub(crate) row: usize,
     pub(crate) col: usize,
@@ -78,10 +264,26 @@ pub(crate) struct BoxCell {
     pub(crate) fg: Rgb,
 }
 
-/// Everything render needs, captured under the terminal lock.
-pub(crate) struct Snapshot {
+/// One visible row's resolved primitives. Reference counting lets partial
+/// damage carry unchanged rows across frames without cloning their strings.
+pub(crate) struct RowSnapshot {
+    pub(crate) source_revision: u64,
     pub(crate) bg_runs: Vec<BgRun>,
     pub(crate) spans: Vec<Span>,
+    pub(crate) boxes: Vec<BoxCell>,
+}
+
+/// Everything render needs, captured under the terminal lock.
+pub(crate) struct Snapshot {
+    pub(crate) rows: Vec<Rc<RowSnapshot>>,
+    // Keep the direct unit-test surface without flattened duplicates in
+    // production builds.
+    #[cfg(test)]
+    pub(crate) bg_runs: Vec<BgRun>,
+    #[cfg(test)]
+    pub(crate) spans: Vec<Span>,
+    #[cfg(test)]
+    #[allow(dead_code)]
     pub(crate) boxes: Vec<BoxCell>,
     pub(crate) cursor: Option<CursorSnap>,
     /// Display offset and scrollback length, for the scrollback indicator.
@@ -96,6 +298,7 @@ pub(crate) struct Snapshot {
 pub(crate) struct SnapKey {
     offset: usize,
     scrollback: usize,
+    committed: u64,
     cols: usize,
     rows: usize,
     cell: CellSize,
@@ -123,6 +326,7 @@ pub(crate) fn snapkey(
     SnapKey {
         offset: term.display_offset(),
         scrollback: term.grid().scrollback().len(),
+        committed: term.committed_lines(),
         cols: term.cols(),
         rows: term.rows(),
         cell,
@@ -130,7 +334,11 @@ pub(crate) fn snapkey(
         selection: term.selection().copied(),
         search: search.map(|s| (s.query.clone(), s.current, s.matches.clone())),
         hover_link,
-        images: term.images().iter().map(|p| (p.id, p.line, p.col)).collect(),
+        images: term
+            .images()
+            .iter()
+            .map(|p| (p.id, p.line, p.col))
+            .collect(),
     }
 }
 
@@ -138,6 +346,7 @@ pub(crate) fn snapkey(
 pub(crate) fn keyeq(a: &SnapKey, b: &SnapKey) -> bool {
     a.offset == b.offset
         && a.scrollback == b.scrollback
+        && a.committed == b.committed
         && a.cols == b.cols
         && a.rows == b.rows
         && a.cell == b.cell
@@ -147,9 +356,7 @@ pub(crate) fn keyeq(a: &SnapKey, b: &SnapKey) -> bool {
         && a.images == b.images
         && match (&a.search, &b.search) {
             (None, None) => true,
-            (Some((qa, ca, ma)), Some((qb, cb, mb))) => {
-                qa == qb && ca == cb && Rc::ptr_eq(ma, mb)
-            }
+            (Some((qa, ca, ma)), Some((qb, cb, mb))) => qa == qb && ca == cb && Rc::ptr_eq(ma, mb),
             _ => false,
         }
 }
@@ -159,6 +366,57 @@ pub(crate) fn keyeq(a: &SnapKey, b: &SnapKey) -> bool {
 pub struct SnapCache {
     snap: Option<Rc<Snapshot>>,
     key: Option<SnapKey>,
+    last_snapshot_rows: usize,
+    pub(crate) shape_font: Option<gpui::Font>,
+    pub(crate) shape_font_size: u32,
+    pub(crate) shape_cell_width: u32,
+    pub(crate) shaped_rows: Vec<Option<ShapedRow>>,
+    last_shaped_rows: usize,
+    pub(super) resize: super::ResizeState,
+    stats: RenderStats,
+}
+
+/// Monotonic renderer work counters, useful for profiling and regression tests.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct RenderStats {
+    pub frames: u64,
+    pub snapshot_reuses: u64,
+    pub snapshot_rows: u64,
+    pub shaped_rows: u64,
+}
+
+pub(crate) struct ShapedRow {
+    pub(crate) source: Rc<RowSnapshot>,
+    pub(crate) lines: Vec<ShapedLine>,
+}
+
+enum Reuse<'a> {
+    /// Reuse rows by viewport index, rebuilding only explicit dirty rows.
+    Dirty(&'a Snapshot, &'a [usize]),
+    /// A full-screen scroll rotated row objects. Match their stable revisions
+    /// so only newly exposed rows are resolved and shaped.
+    Scrolled(&'a Snapshot),
+}
+
+impl SnapCache {
+    pub fn stats(&self) -> RenderStats {
+        self.stats
+    }
+
+    /// Terminal rows resolved during the most recent snapshot pass.
+    pub fn last_snapshot_rows(&self) -> usize {
+        self.last_snapshot_rows
+    }
+
+    /// Rows sent through the text shaper during the most recent prepaint.
+    pub fn last_shaped_rows(&self) -> usize {
+        self.last_shaped_rows
+    }
+
+    pub(crate) fn set_last_shaped_rows(&mut self, rows: usize) {
+        self.last_shaped_rows = rows;
+        self.stats.shaped_rows = self.stats.shaped_rows.saturating_add(rows as u64);
+    }
 }
 
 /// [`snapshot`] with cross-frame reuse: when vt reports no damage and every
@@ -171,19 +429,57 @@ pub(crate) fn snapshot_reuse(
     colors: &Rc<Colors>,
     search: Option<&SearchQuery>,
     cell: CellSize,
-    image_cache: &mut HashMap<u64, Arc<RenderImage>>,
+    image_cache: &mut ImageCache,
     hover_link: Option<(usize, usize, usize)>,
 ) -> Rc<Snapshot> {
+    cache.stats.frames = cache.stats.frames.saturating_add(1);
     let key = snapkey(term, colors, search, cell, hover_link);
-    if term.take_damage().is_empty() {
+    let damage = term.take_damage();
+    let cursor = cursor_snap(term, colors);
+    if damage.is_empty() {
         if let (Some(prev), Some(snap)) = (&cache.key, &cache.snap) {
             // Cursor motion is not damage-tracked; compare its resolved state.
-            if keyeq(prev, &key) && snap.cursor == cursor_snap(term, colors) {
+            if keyeq(prev, &key) && snap.cursor == cursor {
+                cache.last_snapshot_rows = 0;
+                cache.stats.snapshot_reuses = cache.stats.snapshot_reuses.saturating_add(1);
                 return snap.clone();
             }
         }
     }
-    let snap = Rc::new(snapshot(term, colors, search, cell, image_cache, hover_link));
+    let previous = cache.snap.clone();
+    let reuse = match (&damage, cache.key.as_ref(), previous.as_ref()) {
+        (vt::Damage::Rows(rows), Some(prev_key), Some(prev)) if keyeq(prev_key, &key) => {
+            Some(Reuse::Dirty(prev.as_ref(), rows.as_slice()))
+        }
+        (vt::Damage::Full, Some(prev_key), Some(prev))
+            if prev_key.committed != key.committed
+                && prev_key.offset == key.offset
+                && prev_key.cols == key.cols
+                && prev_key.rows == key.rows
+                && prev_key.cell == key.cell
+                && Rc::ptr_eq(&prev_key.colors, &key.colors)
+                && prev_key.selection == key.selection
+                && prev_key.hover_link == key.hover_link
+                && prev_key.search.is_none()
+                && key.search.is_none() =>
+        {
+            Some(Reuse::Scrolled(prev.as_ref()))
+        }
+        _ => None,
+    };
+    let (snap, built) = build_snapshot(
+        term,
+        colors,
+        search,
+        cell,
+        image_cache,
+        hover_link,
+        cursor,
+        reuse,
+    );
+    let snap = Rc::new(snap);
+    cache.last_snapshot_rows = built;
+    cache.stats.snapshot_rows = cache.stats.snapshot_rows.saturating_add(built as u64);
     cache.key = Some(key);
     cache.snap = Some(snap.clone());
     snap
@@ -192,23 +488,44 @@ pub(crate) fn snapshot_reuse(
 /// Capture visible rows as background runs and styled spans. Resolves all
 /// colors (theme palette + OSC 4 overrides + inverse + bold brightening +
 /// selection) so nothing after this needs the lock.
+#[cfg(test)]
 pub(crate) fn snapshot(
     term: &mut vt::Terminal,
     colors: &Colors,
     search: Option<&SearchQuery>,
     cell: CellSize,
-    image_cache: &mut HashMap<u64, Arc<RenderImage>>,
+    image_cache: &mut ImageCache,
     hover_link: Option<(usize, usize, usize)>,
 ) -> Snapshot {
-    term.set_cell_pixels(cell.width.round() as u16, cell.height.round() as u16);
-    // Reset the accumulator; `snapshot_reuse` consults the damage before
-    // deciding to call here, and a full rebuild covers whatever it said.
     let _ = term.take_damage();
+    let cursor = cursor_snap(term, colors);
+    build_snapshot(
+        term,
+        colors,
+        search,
+        cell,
+        image_cache,
+        hover_link,
+        cursor,
+        None,
+    )
+    .0
+}
+
+#[allow(clippy::too_many_arguments)]
+fn build_snapshot(
+    term: &mut vt::Terminal,
+    colors: &Colors,
+    search: Option<&SearchQuery>,
+    cell: CellSize,
+    image_cache: &mut ImageCache,
+    hover_link: Option<(usize, usize, usize)>,
+    cursor: Option<CursorSnap>,
+    reuse: Option<Reuse<'_>>,
+) -> (Snapshot, usize) {
+    term.set_cell_pixels(cell.width.round() as u16, cell.height.round() as u16);
 
     let rows = term.rows();
-    let mut bg_runs: Vec<BgRun> = Vec::with_capacity(rows);
-    let mut spans: Vec<Span> = Vec::with_capacity(rows * 2);
-    let mut boxes: Vec<BoxCell> = Vec::with_capacity(rows);
     // Copied out: the row loop below borrows the terminal mutably
     // (scrolled-back rows may decode out of compressed history).
     let palette: [Option<(u8, u8, u8)>; 256] =
@@ -229,8 +546,56 @@ pub(crate) fn snapshot(
         }
     }
 
-    for row_i in 0..rows {
+    let (mut row_snaps, rebuild) = match reuse {
+        Some(Reuse::Dirty(previous, dirty)) => (
+            previous.rows.clone(),
+            dirty
+                .iter()
+                .copied()
+                .filter(|row| *row < rows)
+                .collect::<Vec<_>>(),
+        ),
+        Some(Reuse::Scrolled(previous)) => {
+            let prior: std::collections::HashMap<u64, Rc<RowSnapshot>> = previous
+                .rows
+                .iter()
+                .map(|row| (row.source_revision, row.clone()))
+                .collect();
+            let mut next = Vec::with_capacity(rows);
+            let mut dirty = Vec::new();
+            for row_i in 0..rows {
+                let revision = term.visible_row(row_i).revision();
+                if let Some(row) = prior.get(&revision) {
+                    next.push(row.clone());
+                } else {
+                    next.push(Rc::new(RowSnapshot {
+                        source_revision: 0,
+                        bg_runs: Vec::new(),
+                        spans: Vec::new(),
+                        boxes: Vec::new(),
+                    }));
+                    dirty.push(row_i);
+                }
+            }
+            (next, dirty)
+        }
+        None => (Vec::new(), (0..rows).collect()),
+    };
+    row_snaps.resize_with(rows, || {
+        Rc::new(RowSnapshot {
+            source_revision: 0,
+            bg_runs: Vec::new(),
+            spans: Vec::new(),
+            boxes: Vec::new(),
+        })
+    });
+
+    for row_i in rebuild.iter().copied() {
+        let mut bg_runs: Vec<BgRun> = Vec::new();
+        let mut spans: Vec<Span> = Vec::new();
+        let mut boxes: Vec<BoxCell> = Vec::new();
         let row = term.visible_row(row_i);
+        let source_revision = row.revision();
         for (col, cell) in row.cells.iter().enumerate() {
             if cell.is_wide_spacer() {
                 continue;
@@ -342,20 +707,21 @@ pub(crate) fn snapshot(
                 }
             }
         }
+        row_snaps[row_i] = Rc::new(RowSnapshot {
+            source_revision,
+            bg_runs,
+            spans,
+            boxes,
+        });
     }
 
-    let cursor = cursor_snap(term, colors);
-
     let placements = term.images();
-    let live: std::collections::HashSet<u64> = placements.iter().map(|p| p.id).collect();
-    image_cache.retain(|id, _| live.contains(id));
+    let live: HashSet<u64> = placements.iter().map(|p| p.id).collect();
+    image_cache.retain(&live);
     let images = placements
         .iter()
         .map(|p| {
-            let image = image_cache
-                .entry(p.id)
-                .or_insert_with(|| render_image(&p.image))
-                .clone();
+            let image = image_cache.texture(p.id, &p.image);
             ImageDraw {
                 line: p.line,
                 col: p.col,
@@ -366,15 +732,29 @@ pub(crate) fn snapshot(
         })
         .collect();
 
-    Snapshot {
-        bg_runs,
-        spans,
-        boxes,
+    let snapshot = Snapshot {
+        #[cfg(test)]
+        bg_runs: row_snaps
+            .iter()
+            .flat_map(|row| row.bg_runs.iter().cloned())
+            .collect(),
+        #[cfg(test)]
+        spans: row_snaps
+            .iter()
+            .flat_map(|row| row.spans.iter().cloned())
+            .collect(),
+        #[cfg(test)]
+        boxes: row_snaps
+            .iter()
+            .flat_map(|row| row.boxes.iter().cloned())
+            .collect(),
+        rows: row_snaps,
         cursor,
         offset,
         scrollback: term.grid().scrollback().len(),
         images,
-    }
+    };
+    (snapshot, rebuild.len())
 }
 
 /// Resolve the cursor's drawable state, or `None` while hidden or scrolled

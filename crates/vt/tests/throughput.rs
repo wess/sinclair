@@ -52,3 +52,54 @@ fn feed_throughput() {
     );
     assert!(secs > 0.0);
 }
+
+/// Measure the one expensive reflow that remains after the UI's resize-drag
+/// debounce has collapsed a gesture to its settled dimensions.
+#[test]
+#[ignore = "benchmark; run with --ignored --nocapture in release"]
+fn settled_resize_reflow() {
+    let chunk = sample();
+    let mut term = vt::Terminal::new(120, 40, 50_000);
+    for _ in 0..30 {
+        term.feed(&chunk);
+    }
+    while term.compact_scrollback() {}
+    let lines = term.grid().scrollback().len() + term.rows();
+    let before = term.scrollback_memory();
+    let start = Instant::now();
+    term.resize(91, 40);
+    let elapsed = start.elapsed();
+    let after = term.scrollback_memory();
+    eprintln!(
+        "vt settled resize: {lines} physical rows reflowed in {:.1} ms; scrollback {}+{} KiB -> {}+{} KiB",
+        elapsed.as_secs_f64() * 1000.0,
+        before.0 / 1024,
+        before.1 / 1024,
+        after.0 / 1024,
+        after.1 / 1024,
+    );
+    assert_eq!(term.cols(), 91);
+}
+
+/// Record the steady-state scrollback footprint after a sustained output run.
+#[test]
+#[ignore = "benchmark; run with --ignored --nocapture in release"]
+fn sustained_output_footprint() {
+    let chunk = sample();
+    let mut term = vt::Terminal::new(120, 40, 100_000);
+    for _ in 0..60 {
+        term.feed(&chunk);
+    }
+    let before = term.scrollback_memory();
+    while term.compact_scrollback() {}
+    let after = term.scrollback_memory();
+    eprintln!(
+        "vt scrollback: {} rows, hot/compressed {}+{} KiB before idle, {}+{} KiB after",
+        term.grid().scrollback().len(),
+        before.0 / 1024,
+        before.1 / 1024,
+        after.0 / 1024,
+        after.1 / 1024,
+    );
+    assert!(after.0 <= before.0);
+}

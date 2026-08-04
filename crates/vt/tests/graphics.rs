@@ -30,14 +30,14 @@ fn decodes_raw_rgba() {
     let raw = vec![1, 2, 3, 4, 5, 6, 7, 8]; // two RGBA pixels
     let img = decode(&c, &raw).unwrap();
     assert_eq!((img.width, img.height), (2, 1));
-    assert_eq!(img.rgba, raw);
+    assert_eq!(img.rgba.as_ref(), raw.as_slice());
 }
 
 #[test]
 fn decodes_raw_rgb_expanding_alpha() {
     let c = ctrl("f=24,s=1,v=1");
     let img = decode(&c, &[10, 20, 30]).unwrap();
-    assert_eq!(img.rgba, vec![10, 20, 30, 255]);
+    assert_eq!(img.rgba.as_ref(), &[10, 20, 30, 255]);
 }
 
 #[test]
@@ -60,7 +60,7 @@ fn inflates_zlib_payload() {
     enc.write_all(&raw).unwrap();
     let comp = enc.finish().unwrap();
     let c = ctrl("f=32,s=1,v=1,o=z");
-    assert_eq!(decode(&c, &comp).unwrap().rgba, raw);
+    assert_eq!(decode(&c, &comp).unwrap().rgba.as_ref(), raw.as_slice());
 }
 
 #[test]
@@ -94,7 +94,7 @@ fn decodes_png_to_rgba() {
     }
     let img = decode(&ctrl("f=100"), &bytes).unwrap();
     assert_eq!((img.width, img.height), (1, 1));
-    assert_eq!(img.rgba, vec![0, 0, 255, 255]);
+    assert_eq!(img.rgba.as_ref(), &[0, 0, 255, 255]);
 }
 
 #[test]
@@ -108,7 +108,7 @@ fn decodes_rgb_png_expanding_alpha() {
         w.write_image_data(&[10, 20, 30]).unwrap();
     }
     let img = decode(&ctrl("f=100"), &bytes).unwrap();
-    assert_eq!(img.rgba, vec![10, 20, 30, 255]);
+    assert_eq!(img.rgba.as_ref(), &[10, 20, 30, 255]);
 }
 
 #[test]

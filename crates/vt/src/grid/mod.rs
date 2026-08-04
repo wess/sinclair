@@ -53,6 +53,7 @@ impl Grid {
 
     pub fn row_mut(&mut self, r: usize) -> &mut Row {
         self.damage.mark_row(r);
+        self.lines[r].touch();
         &mut self.lines[r]
     }
 
@@ -62,6 +63,7 @@ impl Grid {
 
     pub fn cell_mut(&mut self, r: usize, c: usize) -> &mut Cell {
         self.damage.mark_row(r);
+        self.lines[r].touch();
         &mut self.lines[r].cells[c]
     }
 
@@ -330,7 +332,8 @@ impl Grid {
             self.scrollback.push(row);
         }
         let new_len = self.scrollback.len() as u64;
-        self.scrollback.set_committed(committed - old_len as u64 + new_len);
+        self.scrollback
+            .set_committed(committed - old_len as u64 + new_len);
         while out.len() < rows {
             out.push(Row::new(cols));
         }

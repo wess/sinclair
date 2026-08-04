@@ -33,14 +33,15 @@ Always:
 
 With `ui` (default):
 - modules: bridge, element, pointer, termview
-- TerminalElement, CursorShape, SearchQuery, SnapCache (element::)
+- TerminalElement, CursorShape, SearchQuery, SnapCache, ImageCache,
+  ImageCachePool (element::)
 - TermView, TermOptions (termview::)
 
 ## Headless embedding
 
     use libsinclair::{Session, SessionOptions};
     let (session, events) = Session::spawn(SessionOptions::default())?;
-    // events: std::sync::mpsc::Receiver<Event>
+    // events: terminal::EventReceiver (flume; blocking + async stream APIs)
 
 - SessionOptions { cols, rows, scrollback_limit, spawn: pty::SpawnOptions }.
   Default: 80x24 login shell. SessionOptions::command(argv) runs an explicit
@@ -54,8 +55,9 @@ With `ui` (default):
   Exit(Option<i32>), CommandFinished(Option<i32>) (OSC 133 D),
   DirChanged(String) (OSC 7).
 - CONTRACT: Wakeup is coalesced — at most one unconsumed Wakeup sits in the
-  channel; the next arrives only after the embedder re-locks the terminal
-  via with_term. Redraw on Wakeup, read grid under the lock.
+  channel. Read `output_generation()`, process the terminal, then call
+  `acknowledge_wakeup(generation)`; process again immediately when it returns
+  true.
 - Partial redraw: term.take_damage() (vt::Damage) accumulates dirty regions.
 - Useful vt::Terminal reads: cols(), rows(), visible_row(i), cursor_pos(),
   cursor_visible(), display_offset(), scroll_display(n),
@@ -84,7 +86,7 @@ Drop-in pane:
     });
 
 - TermView::spawn(SessionOptions, TermOptions, &mut Window, &mut Context<Self>)
-  -> io::Result<Self>; TermView::new(Arc<Session>, Receiver<Event>, ...)
+  -> io::Result<Self>; TermView::new(Arc<Session>, EventReceiver, ...)
   adopts an existing session.
 - TermOptions fields (all pub, Default provided): colors: Colors,
   font: gpui::Font, font_size: f32 (px), pad: Padding,
@@ -95,7 +97,7 @@ Drop-in pane:
   plain clipboard write).
 - TermView methods: session() -> &Arc<Session>, title() -> Option<&str>,
   exited() -> bool, set_colors(Colors, cx), set_font(Font, f32, window, cx),
-  paste(cx), copy_selection(cx) -> bool.
+  paste(cx), copy_selection(cx) -> bool, render_stats() -> RenderStats.
 - TermView impls Render, Focusable, EventEmitter<terminal::Event> — every
   session Event is re-emitted; subscribe and close the pane on Exit.
 - Built-in shortcuts: Cmd+C/Cmd+V (macOS), Ctrl+Shift+C/V (elsewhere).
@@ -113,7 +115,7 @@ middle_click_paste: bool, focused: bool, search: Option<SearchQuery>,
 ghost: Option<String>, image_cache, snap_cache) each frame. Measure cell
 with metrics::measure(window.text_system(), &font, font_size). Keep
 mouse/image_cache/snap_cache Rc'd across frames. Pump events with
-bridge::forward(receiver) -> async UnboundedReceiver, apply on the
+bridge::forward(receiver) -> flume's async stream, apply on the
 foreground. Sinclair's own pane (crates/app/src/view/) is the reference
 implementation.
 
@@ -124,7 +126,7 @@ implementation.
     src/metrics.rs    cell/grid/pixel math, font measuring (ui)
     src/mouse.rs      pure mouse policy (reporting, click modes, wheel)
     src/boxdraw.rs    box-drawing/block glyph geometry
-    src/bridge.rs     std channel -> async stream           (ui)
+    src/bridge.rs     flume receiver -> async stream        (ui)
     src/pointer.rs    gpui mouse events -> pty/selection    (ui)
     src/element/      TerminalElement: snapshot + paint     (ui)
     src/termview.rs   TermView drop-in pane                 (ui)

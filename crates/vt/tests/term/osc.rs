@@ -11,6 +11,38 @@ fn title_via_osc0_and_osc2() {
 }
 
 #[test]
+fn retained_osc_payloads_are_bounded() {
+    let mut t = Terminal::new(10, 3, 0);
+    let title = vec![b't'; MAX_TITLE_BYTES + 100];
+    dispatch(&mut t.inner, &[b"2", &title], false);
+    assert_eq!(t.title().len(), MAX_TITLE_BYTES);
+
+    let cwd = vec![b'c'; MAX_CWD_BYTES + 100];
+    dispatch(&mut t.inner, &[b"7", &cwd], false);
+    assert_eq!(t.cwd().unwrap().len(), MAX_CWD_BYTES);
+
+    let body = vec![b'n'; MAX_NOTIFICATION_BODY_BYTES + 100];
+    dispatch(&mut t.inner, &[b"9", &body], false);
+    assert_eq!(
+        t.take_notification().unwrap().body.len(),
+        MAX_NOTIFICATION_BODY_BYTES
+    );
+}
+
+#[test]
+fn oversized_clipboard_and_link_payloads_are_rejected() {
+    let mut t = Terminal::new(10, 3, 0);
+    let clipboard = vec![b'A'; MAX_CLIPBOARD_ENCODED + 1];
+    dispatch(&mut t.inner, &[b"52", b"c", &clipboard], false);
+    assert!(t.take_clipboard().is_none());
+
+    let uri = vec![b'u'; crate::hyperlink::MAX_URI_BYTES + 1];
+    dispatch(&mut t.inner, &[b"8", b"", &uri], false);
+    t.feed(b"x");
+    assert!(t.cell(0, 0).hyperlink.is_none());
+}
+
+#[test]
 fn osc9_notification() {
     let mut t = Terminal::new(10, 3, 0);
     t.feed(b"\x1b]9;build done\x07");
@@ -278,7 +310,10 @@ fn osc133_history_dedups_consecutive_and_newest_first() {
         t.feed(b"\x1b]133;C\x1b\\\r\n");
     }
     // Consecutive duplicate "ls" collapses; newest first.
-    assert_eq!(t.command_history(), vec!["cargo test".to_string(), "ls".to_string()]);
+    assert_eq!(
+        t.command_history(),
+        vec!["cargo test".to_string(), "ls".to_string()]
+    );
 }
 
 #[test]

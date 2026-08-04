@@ -1,5 +1,6 @@
 //! State operations shared by the dispatch handlers.
 
+use std::collections::HashSet;
 use std::io::Write;
 
 use unicode_width::UnicodeWidthChar;
@@ -12,12 +13,13 @@ use crate::screen::Screen;
 
 use super::Inner;
 
-/// Retained decoded-image budget per screen; the oldest placements are
-/// evicted beyond it (a single image can be ~32 MiB of RGBA).
-const MAX_IMAGE_BYTES: usize = 128 * 1024 * 1024;
+/// Pane-wide retained decoded-image budget. Stored kitty images and placements
+/// on both screens share this cap; shared pixel buffers are counted once.
+const MAX_GRAPHICS_BYTES: usize = 128 * 1024 * 1024;
+/// Metadata cap for tiny images that would otherwise evade the byte budget.
+const MAX_GRAPHICS_ITEMS: usize = 4096;
 
 impl Inner {
-
     /// Write one already-charset-mapped character at the cursor.
     pub(crate) fn write_char(&mut self, c: char) {
         let width = c.width().unwrap_or(0);
@@ -117,14 +119,16 @@ impl Inner {
             image,
             kitty_id: None,
         };
-        let scr = self.screen_mut();
-        let start = scr.cursor.row;
-        let end = (start + rows).min(scr.grid.rows());
-        for r in start..end {
-            scr.grid.damage_row(r);
+        {
+            let scr = self.screen_mut();
+            let start = scr.cursor.row;
+            let end = (start + rows).min(scr.grid.rows());
+            for r in start..end {
+                scr.grid.damage_row(r);
+            }
+            scr.images.push(placement);
         }
-        scr.images.push(placement);
-        enforce_image_budget(&mut scr.images);
+        self.enforce_graphics_budget();
         self.carriage_return();
         for _ in 0..rows {
             self.linefeed();
@@ -135,7 +139,12 @@ impl Inner {
     /// [`Self::place_sixel`] but tags the placement with its kitty image id (for
     /// `a=d,d=i` deletes) and only advances the cursor below the image when the
     /// command allows it (`C=1` suppresses the move).
-    pub(crate) fn place_image(&mut self, image: crate::sixel::Image, kitty_id: u32, move_cursor: bool) {
+    pub(crate) fn place_image(
+        &mut self,
+        image: crate::sixel::Image,
+        kitty_id: u32,
+        move_cursor: bool,
+    ) {
         let cell_h = self.cell_px.1.max(1) as usize;
         let rows = image.image_rows(cell_h);
         let id = self.image_seq;
@@ -147,14 +156,16 @@ impl Inner {
             image,
             kitty_id: (kitty_id != 0).then_some(kitty_id),
         };
-        let scr = self.screen_mut();
-        let start = scr.cursor.row;
-        let end = (start + rows).min(scr.grid.rows());
-        for r in start..end {
-            scr.grid.damage_row(r);
+        {
+            let scr = self.screen_mut();
+            let start = scr.cursor.row;
+            let end = (start + rows).min(scr.grid.rows());
+            for r in start..end {
+                scr.grid.damage_row(r);
+            }
+            scr.images.push(placement);
         }
-        scr.images.push(placement);
-        enforce_image_budget(&mut scr.images);
+        self.enforce_graphics_budget();
         if move_cursor {
             self.carriage_return();
             for _ in 0..rows {
@@ -175,6 +186,59 @@ impl Inner {
         images.retain(|img| img.line + img.image.image_rows(cell_h) as isize > oldest);
     }
 
+    /// Decoded graphics bytes retained by kitty storage and placements across
+    /// both screens. Pixel buffers shared through `Arc` are counted once.
+    pub(crate) fn graphics_memory(&self) -> usize {
+        let mut seen = HashSet::new();
+        let mut bytes = 0usize;
+        let mut count = |image: &crate::sixel::Image| {
+            let ptr = image.rgba.as_ptr();
+            if seen.insert(ptr) {
+                bytes = bytes.saturating_add(image.rgba.len());
+            }
+        };
+        for image in self.gfx_store.values() {
+            count(image);
+        }
+        for placement in self.primary.images.iter().chain(&self.alt.images) {
+            count(&placement.image);
+        }
+        bytes
+    }
+
+    /// Evict retained graphics until the pane-wide budget is met. Unplaced
+    /// kitty storage goes first, then the oldest placement across both screens.
+    pub(crate) fn enforce_graphics_budget(&mut self) {
+        while self.graphics_memory() > MAX_GRAPHICS_BYTES
+            || self.gfx_store.len() + self.primary.images.len() + self.alt.images.len()
+                > MAX_GRAPHICS_ITEMS
+        {
+            if let Some(id) = self.gfx_store.keys().next().copied() {
+                self.gfx_store.remove(&id);
+                continue;
+            }
+
+            let primary = self.primary.images.first().map(|p| p.id);
+            let alt = self.alt.images.first().map(|p| p.id);
+            match (primary, alt) {
+                (Some(a), Some(b)) if a <= b => {
+                    self.primary.images.remove(0);
+                }
+                (Some(_), Some(_)) => {
+                    self.alt.images.remove(0);
+                }
+                (Some(_), None) => {
+                    self.primary.images.remove(0);
+                }
+                (None, Some(_)) => {
+                    self.alt.images.remove(0);
+                }
+                (None, None) => break,
+            }
+            self.full_damage = true;
+        }
+    }
+
     /// REP: repeat the last printed character.
     pub(crate) fn repeat_last(&mut self, n: usize) {
         if let Some(c) = self.last_printed {
@@ -190,7 +254,6 @@ impl Inner {
         self.screen_mut().cursor.col = 0;
         self.linefeed();
     }
-
 
     /// LF/VT/FF/IND: move down, scrolling at the bottom margin.
     pub(crate) fn linefeed(&mut self) {
@@ -260,7 +323,6 @@ impl Inner {
             self.selection_clear_all();
         }
     }
-
 
     pub(crate) fn cursor_up(&mut self, n: usize) {
         let scr = self.screen_mut();
@@ -335,7 +397,6 @@ impl Inner {
         scr.cursor.pending_wrap = false;
     }
 
-
     pub(crate) fn tab_forward(&mut self, n: usize) {
         let scr = self.screen_mut();
         for _ in 0..n {
@@ -349,7 +410,6 @@ impl Inner {
             scr.cursor.col = scr.prev_tab(scr.cursor.col);
         }
     }
-
 
     /// ED: erase in display (0 below, 1 above, 2 all, 3 scrollback).
     /// Clears the selection when the erased band intersects it; ED 3 also
@@ -535,7 +595,6 @@ impl Inner {
         }
     }
 
-
     /// DECSC.
     pub(crate) fn save_cursor(&mut self) {
         let charsets = self.charsets;
@@ -626,7 +685,6 @@ impl Inner {
         scr.cursor.pending_wrap = false;
     }
 
-
     /// Entering the alternate screen resets the display offset (alt has no
     /// scrollback) and drops the selection (it pointed at primary content).
     pub(crate) fn enter_alt(&mut self, clear: bool) {
@@ -659,7 +717,6 @@ impl Inner {
         self.modes.remove(Modes::ALT_SCREEN);
     }
 
-
     /// DSR 6: cursor position report, origin-mode adjusted.
     pub(crate) fn report_cursor(&mut self) {
         let origin = self.modes.contains(Modes::ORIGIN);
@@ -684,20 +741,6 @@ fn split_wide_at(scr: &mut Screen, row: usize, b: usize) {
     if scr.grid.cell(row, b).is_wide_spacer() && scr.grid.cell(row, b - 1).is_wide() {
         *scr.grid.cell_mut(row, b - 1) = Cell::default();
         *scr.grid.cell_mut(row, b) = Cell::default();
-    }
-}
-
-/// Evict the oldest image placements once the retained bytes exceed the
-/// budget, so a stream of sixels can't hold unbounded memory.
-fn enforce_image_budget(images: &mut Vec<crate::sixel::Placement>) {
-    let mut total: usize = images.iter().map(|p| p.image.rgba.len()).sum();
-    let mut drop = 0;
-    while drop < images.len() && total > MAX_IMAGE_BYTES {
-        total -= images[drop].image.rgba.len();
-        drop += 1;
-    }
-    if drop > 0 {
-        images.drain(..drop);
     }
 }
 

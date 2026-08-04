@@ -2,9 +2,14 @@ use super::*;
 use gpui::prelude::*;
 
 impl WorkspaceView {
-    /// Apply an [`Action::Sidebar`] payload: show/hide a drawer side or switch
-    /// its panel. Re-selecting the active panel (or toggling a side that is
-    /// already open) collapses that side.
+    /// Apply an [`Action::Sidebar`] payload.
+    ///
+    /// - `left` / `right` — toggle that whole dock open or closed.
+    /// - `<side>:<token>` — **reveal** that section: expand it wherever it
+    ///   actually lives (opening that dock), collapse it if it was already
+    ///   showing. The side in the payload only decides where a section that is
+    ///   in neither dock gets added, so a binding like `sidebar:left:containers`
+    ///   keeps working after Containers has been moved to the right.
     pub fn toggle_sidebar(&mut self, payload: &str, cx: &mut Context<Self>) {
         // Parse `side[:token]`; resolve the token (built-in or `plugin:<id>`)
         // against the live plugin set, since plugin panels aren't statically known.
@@ -12,53 +17,85 @@ impl WorkspaceView {
             Some((s, t)) => (s.trim(), Some(t.trim())),
             None => (payload.trim(), None),
         };
-        let side = match side_str {
-            "left" => SidebarSide::Left,
-            "right" => SidebarSide::Right,
-            _ => return,
+        let Some(side) = SidebarSide::parse(side_str) else {
+            return;
         };
-        let panel = match token {
-            None => None,
+
+        let revealed = match token {
+            None => {
+                dock::toggle_side(&mut self.docks, side);
+                None
+            }
             Some(t) => match self.panel_from_token(t) {
-                Some(p) => Some(p),
+                // An unknown token is a stale binding or an uninstalled plugin;
+                // do nothing rather than opening the wrong thing.
                 None => return,
+                Some(panel) => Some((panel, dock::reveal(&mut self.docks, side, panel))),
             },
         };
-        let slot = match side {
-            SidebarSide::Left => &mut self.left_panel,
-            SidebarSide::Right => &mut self.right_panel,
-        };
-        let next = match (panel, *slot) {
-            // Side-only toggle: open with default panel, or collapse if open.
-            (None, Some(_)) => None,
-            (None, None) => Some(SidebarPanel::Terminals),
-            // Re-selecting the active panel collapses; otherwise switch.
-            (Some(p), Some(cur)) if cur == p => None,
-            (Some(p), _) => Some(p),
-        };
-        *slot = next;
-        // Render a freshly-opened plugin panel.
-        if let Some(SidebarPanel::Plugin(i)) = next {
-            self.refresh_plugin_panel(i, cx);
+
+        // Load what the newly-visible section needs. Only on the way *open* —
+        // collapsing a section should never kick off a fetch.
+        if let Some((panel, out)) = revealed {
+            if out.expanded {
+                self.on_section_shown(panel, cx);
+            }
+        } else if self.docks[side.index()].open {
+            // A whole dock just opened; prime every section showing in it.
+            for section in self.docks[side.index()].sections.clone() {
+                if section.expanded {
+                    self.on_section_shown(section.panel, cx);
+                }
+            }
         }
-        // Lazily fetch the installable catalog the first time Plugins opens.
-        if next == Some(SidebarPanel::Plugins) && self.catalog.is_none() {
-            self.fetch_catalog(cx);
-        }
-        // Refresh the running-container list whenever the Containers panel opens.
-        if next == Some(SidebarPanel::Containers) {
-            self.refresh_containers();
-        }
-        // The Agents/Layouts panels render from the off-thread menu-data cache;
-        // re-snapshot it when one opens so the panel reflects current disk state.
-        if matches!(next, Some(SidebarPanel::Agents | SidebarPanel::Layouts)) {
-            self.refresh_menu_data(cx);
-        }
+
         // A panel `[webview]` hosts a native surface that only tracks its bounds
-        // while painted; hide any whose drawer just closed (or switched away).
+        // while painted; hide any whose section just collapsed or whose dock closed.
         self.reconcile_webview_visibility(cx);
         self.setmenus(cx);
         cx.notify();
+    }
+
+    /// Expand or collapse the section at `index` on `side` — the click path for
+    /// the rail icons and the section headers.
+    ///
+    /// Index-based on purpose: those two draw a known section, so routing them
+    /// through [`Self::toggle_sidebar`] would mean formatting a payload only to
+    /// parse it apart and re-resolve it. Both are rebuilt on every repaint, and
+    /// the workspace repaints on terminal output.
+    pub(crate) fn toggle_section(
+        &mut self,
+        side: SidebarSide,
+        index: usize,
+        cx: &mut Context<Self>,
+    ) {
+        let Some((panel, expanded)) = dock::toggle_at(&mut self.docks, side, index) else {
+            return;
+        };
+        if expanded {
+            self.on_section_shown(panel, cx);
+        }
+        self.reconcile_webview_visibility(cx);
+        self.setmenus(cx);
+        cx.notify();
+    }
+
+    /// Refresh whatever a section needs the moment it becomes visible. Every
+    /// one of these reads disk, shells out, or hits the network, which is why
+    /// it happens here and never in `render`.
+    pub(crate) fn on_section_shown(&mut self, panel: SidebarPanel, cx: &mut Context<Self>) {
+        match panel {
+            SidebarPanel::Plugin(i) => self.refresh_plugin_panel(i, cx),
+            // The catalog is a GitHub call; fetch it once, lazily.
+            SidebarPanel::Plugins if self.catalog.is_none() => self.fetch_catalog(cx),
+            SidebarPanel::Containers => self.refresh_containers(),
+            // These render from the off-thread menu-data cache; re-snapshot so
+            // the section reflects current disk state.
+            SidebarPanel::Agents | SidebarPanel::Layouts => self.refresh_menu_data(cx),
+            SidebarPanel::Worktrees => self.refresh_worktrees(cx),
+            SidebarPanel::Notes => self.refresh_notes(),
+            _ => {}
+        }
     }
 
     /// Reconcile every native `[webview]` surface with what's actually on screen:
@@ -94,24 +131,24 @@ impl WorkspaceView {
         }
     }
 
-    /// The webview ids currently shown as a panel on either side.
+    /// The webview ids on screen right now: a webview section counts only when
+    /// its dock is open *and* the section itself is expanded, since a collapsed
+    /// section paints nothing but its header.
     fn active_webview_ids(&self) -> std::collections::HashSet<String> {
         let defs = self.plugin_webview_panel_defs();
-        let id_of = |panel: &Option<SidebarPanel>| match panel {
-            Some(SidebarPanel::Webview(i)) => defs
-                .get(*i)
-                .and_then(|p| p.webview.as_ref())
-                .map(|w| w.id.clone()),
-            _ => None,
-        };
-        let mut set = std::collections::HashSet::new();
-        if let Some(id) = id_of(&self.left_panel) {
-            set.insert(id);
-        }
-        if let Some(id) = id_of(&self.right_panel) {
-            set.insert(id);
-        }
-        set
+        self.docks
+            .iter()
+            .filter(|d| d.open)
+            .flat_map(|d| d.sections.iter())
+            .filter(|s| s.expanded)
+            .filter_map(|s| match s.panel {
+                SidebarPanel::Webview(i) => defs
+                    .get(i)
+                    .and_then(|p| p.webview.as_ref())
+                    .map(|w| w.id.clone()),
+                _ => None,
+            })
+            .collect()
     }
 
     /// One title per item, in the group's layout order (for the MCP bridge).

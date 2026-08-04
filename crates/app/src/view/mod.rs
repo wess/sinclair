@@ -5,14 +5,13 @@ use std::rc::Rc;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use config::{Action, SplitDirection};
 use gpui::prelude::*;
 use gpui::{
     anchored, deferred, div, px, AnyElement, App, ClipboardItem, Context, EventEmitter,
     FocusHandle, Focusable, KeyDownEvent, KeyUpEvent, MouseButton, MouseDownEvent, Pixels, Point,
-    SharedString,
-    Subscription, Window,
+    SharedString, Subscription, Window,
 };
-use config::{Action, SplitDirection};
 use terminal::{Event, Session};
 
 use crate::colors::{self, Colors};
@@ -40,6 +39,33 @@ pub use timestamps::install as install_timestamps;
 /// Maximum time a frame is withheld for synchronized output before it is
 /// painted anyway, so a stuck ?2026 cannot freeze the view.
 const SYNC_TIMEOUT: Duration = Duration::from_millis(150);
+/// Maximum visual update rate under sustained output. PTY parsing remains
+/// immediate; only app-side scans and repaint notification are coalesced.
+const OUTPUT_FRAME: Duration = Duration::from_millis(16);
+/// Search results may trail a streaming buffer slightly, but never trigger a
+/// full-history scan on every output frame.
+const SEARCH_REFRESH: Duration = Duration::from_millis(100);
+
+/// All application panes share this texture budget. Each pane is separately
+/// capped by libsinclair, so one graphics-heavy split cannot monopolize it.
+const APP_IMAGE_CACHE_BYTES: usize = 512 * 1024 * 1024;
+
+struct AppImageCache(Rc<RefCell<libsinclair::element::ImageCachePool>>);
+impl gpui::Global for AppImageCache {}
+
+fn app_image_cache(cx: &mut App) -> Rc<RefCell<libsinclair::element::ImageCache>> {
+    let pool = match cx.try_global::<AppImageCache>() {
+        Some(cache) => cache.0.clone(),
+        None => {
+            let pool = Rc::new(RefCell::new(libsinclair::element::ImageCachePool::new(
+                APP_IMAGE_CACHE_BYTES,
+            )));
+            cx.set_global(AppImageCache(pool.clone()));
+            pool
+        }
+    };
+    Rc::new(RefCell::new(libsinclair::element::ImageCache::new(pool)))
+}
 
 /// How long the visual bell flash stays on screen.
 const BELL_FLASH: Duration = Duration::from_millis(120);
@@ -84,10 +110,7 @@ pub enum TriggerEvent {
     /// The window title changed.
     TitleChanged(String),
     /// The child requested a desktop notification (OSC 9/777/99).
-    Notify {
-        title: Option<String>,
-        body: String,
-    },
+    Notify { title: Option<String>, body: String },
     /// The child process exited (exit code, or `None` when signalled).
     Exit(Option<i32>),
     /// A shell-integration command finished (OSC 133 `D`) with its exit code.
@@ -358,7 +381,7 @@ pub struct TerminalView {
     /// history layered over the plain clipboard write.
     copy: Rc<CopyHook>,
     /// Decoded sixel textures, keyed by placement id; persists across frames.
-    image_cache: Rc<RefCell<std::collections::HashMap<u64, Arc<gpui::RenderImage>>>>,
+    image_cache: Rc<RefCell<libsinclair::element::ImageCache>>,
     /// Previous frame's render snapshot, reused while vt reports no damage
     /// and every snapshot input is unchanged.
     snap_cache: Rc<RefCell<libsinclair::element::SnapCache>>,
@@ -388,8 +411,12 @@ pub struct TerminalView {
     /// True while a repaint is being withheld for synchronized output
     /// (?2026), with a safety timer armed to release it.
     sync_pending: bool,
+    /// True while a coalesced output-processing pass is scheduled.
+    wakeup_armed: bool,
     /// Active scrollback search, if the overlay is open.
     search: Option<Search>,
+    /// True while a throttled search refresh is scheduled.
+    search_refresh_armed: bool,
     /// Active hint mode (keyboard link-following), if open.
     hints: Option<hints::Hints>,
     /// Active copy mode (vi-style keyboard selection), if open.
@@ -474,7 +501,7 @@ impl TerminalView {
                 crate::clipboard::remember(&text, cx);
                 cx.write_to_clipboard(ClipboardItem::new_string(text));
             }),
-            image_cache: Rc::new(RefCell::new(std::collections::HashMap::new())),
+            image_cache: app_image_cache(cx),
             snap_cache: Rc::new(RefCell::new(libsinclair::element::SnapCache::default())),
             focus,
             title: None,
@@ -486,7 +513,9 @@ impl TerminalView {
             focused: false,
             pane_active: false,
             sync_pending: false,
+            wakeup_armed: false,
             search: None,
+            search_refresh_armed: false,
             hints: None,
             copy_mode: None,
             trigger_hwm: u64::MAX,
@@ -660,11 +689,26 @@ impl TerminalView {
     fn wakeup(&mut self, cx: &mut Context<Self>) {
         self.activity += 1;
         self.arm_compaction(cx);
+        if self.wakeup_armed {
+            return;
+        }
+        self.wakeup_armed = true;
+        let timer = cx.background_executor().timer(OUTPUT_FRAME);
+        cx.spawn(async move |this, cx| {
+            timer.await;
+            let _ = this.update(cx, |this, cx| this.flush_wakeup(cx));
+        })
+        .detach();
+    }
+
+    /// Process all output parsed up to one generation, then explicitly re-arm
+    /// the session. If output raced with the pass, queue one more frame.
+    fn flush_wakeup(&mut self, cx: &mut Context<Self>) {
+        self.wakeup_armed = false;
+        let generation = self.session.output_generation();
         self.scan_triggers(cx);
         self.update_line_times(cx);
-        if let Some(s) = &mut self.search {
-            s.dirty = true;
-        }
+        self.arm_search_refresh(cx);
         if let Some(Assist::Semantic { dirty, .. }) = &mut self.assist {
             *dirty = true;
         }
@@ -683,11 +727,33 @@ impl TerminalView {
                 })
                 .detach();
             }
+        } else {
+            self.sync_pending = false;
+            self.recompute_suggestions(cx);
+            cx.notify();
+        }
+        if self.session.acknowledge_wakeup(generation) {
+            self.wakeup(cx);
+        }
+    }
+
+    fn arm_search_refresh(&mut self, cx: &mut Context<Self>) {
+        if self.search.is_none() || self.search_refresh_armed {
             return;
         }
-        self.sync_pending = false;
-        self.recompute_suggestions(cx);
-        cx.notify();
+        self.search_refresh_armed = true;
+        let timer = cx.background_executor().timer(SEARCH_REFRESH);
+        cx.spawn(async move |this, cx| {
+            timer.await;
+            let _ = this.update(cx, |this, cx| {
+                this.search_refresh_armed = false;
+                if let Some(search) = &mut this.search {
+                    search.dirty = true;
+                    cx.notify();
+                }
+            });
+        })
+        .detach();
     }
 
     /// Schedule idle scrollback compaction: once this pane has been quiet
@@ -818,11 +884,14 @@ impl Render for TerminalView {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let matches = self.search_matches();
         let total = matches.len();
-        let query = self.search.as_ref().map(move |s| libsinclair::element::SearchQuery {
-            query: s.edit.text(),
-            current: s.current,
-            matches,
-        });
+        let query = self
+            .search
+            .as_ref()
+            .map(move |s| libsinclair::element::SearchQuery {
+                query: s.edit.text(),
+                current: s.current,
+                matches,
+            });
         let bar = self.search.as_ref().map(|s| {
             let pos = if total == 0 { 0 } else { s.current + 1 };
             match s.edit.split_selection() {

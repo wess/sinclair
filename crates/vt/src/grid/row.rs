@@ -1,9 +1,16 @@
 //! A single row of cells.
 
 use crate::cell::Cell;
+use std::sync::atomic::{AtomicU64, Ordering};
+
+static NEXT_REVISION: AtomicU64 = AtomicU64::new(1);
+
+fn next_revision() -> u64 {
+    NEXT_REVISION.fetch_add(1, Ordering::Relaxed)
+}
 
 /// One grid line.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Row {
     pub cells: Vec<Cell>,
     /// `true` when the line soft-wrapped into the next one (used by a
@@ -13,6 +20,15 @@ pub struct Row {
     /// used as a jump-to-prompt target. Travels with the row into
     /// scrollback.
     pub prompt: bool,
+    /// Process-local content identity used by renderers to recognize a row
+    /// after the grid rotates it during scrolling.
+    revision: u64,
+}
+
+impl PartialEq for Row {
+    fn eq(&self, other: &Self) -> bool {
+        self.cells == other.cells && self.wrapped == other.wrapped && self.prompt == other.prompt
+    }
 }
 
 impl Row {
@@ -27,7 +43,25 @@ impl Row {
             cells: vec![cell; cols],
             wrapped: false,
             prompt: false,
+            revision: next_revision(),
         }
+    }
+
+    pub(crate) fn from_parts(cells: Vec<Cell>, wrapped: bool, prompt: bool) -> Row {
+        Row {
+            cells,
+            wrapped,
+            prompt,
+            revision: next_revision(),
+        }
+    }
+
+    pub fn revision(&self) -> u64 {
+        self.revision
+    }
+
+    pub(crate) fn touch(&mut self) {
+        self.revision = next_revision();
     }
 
     pub fn len(&self) -> usize {
@@ -40,6 +74,7 @@ impl Row {
 
     /// Overwrite every cell and clear the wrap/prompt flags.
     pub fn fill(&mut self, cell: Cell) {
+        self.touch();
         self.cells.fill(cell);
         self.wrapped = false;
         self.prompt = false;
@@ -48,6 +83,7 @@ impl Row {
     /// Truncate or pad with `blank` to `cols` cells. A truncation that
     /// slices a wide pair leaves its stranded head blanked.
     pub fn resize(&mut self, cols: usize, blank: Cell) {
+        self.touch();
         let shrunk = cols < self.cells.len();
         self.cells.resize(cols, blank);
         if shrunk && self.cells.last().is_some_and(|c| c.is_wide()) {

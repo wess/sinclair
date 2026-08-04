@@ -79,14 +79,17 @@ impl Render for WorkspaceView {
         } else {
             self.group.clone().into_any_element()
         };
-        // Content row: [left drawer?] [splits] [right drawer?]. Drawers are
-        // fixed-width and hidden unless a panel is active on that side.
+        // Content row: [left dock?] [splits] [right dock?]. Each dock is a
+        // stack of collapsible sections at its own configured width, and is
+        // hidden entirely while closed.
         let left = self
-            .left_panel
-            .map(|panel| self.drawer(SidebarSide::Left, panel, cx));
+            .docks[SidebarSide::Left.index()]
+            .open
+            .then(|| self.dock_column(SidebarSide::Left, cx));
         let right = self
-            .right_panel
-            .map(|panel| self.drawer(SidebarSide::Right, panel, cx));
+            .docks[SidebarSide::Right.index()]
+            .open
+            .then(|| self.dock_column(SidebarSide::Right, cx));
         base = base.child(
             div()
                 .w_full()

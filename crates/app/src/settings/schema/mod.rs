@@ -20,6 +20,7 @@ pub use lists::ListKind;
 pub enum Section {
     General,
     Appearance,
+    Sidebar,
     Terminal,
     Keyboard,
     Macros,
@@ -28,9 +29,10 @@ pub enum Section {
 }
 
 impl Section {
-    pub const ALL: [Section; 7] = [
+    pub const ALL: [Section; 8] = [
         Section::General,
         Section::Appearance,
+        Section::Sidebar,
         Section::Terminal,
         Section::Keyboard,
         Section::Macros,
@@ -42,6 +44,7 @@ impl Section {
         match self {
             Section::General => "General",
             Section::Appearance => "Appearance",
+            Section::Sidebar => "Sidebar",
             Section::Terminal => "Terminal",
             Section::Keyboard => "Keyboard",
             Section::Macros => "Macros",
@@ -56,6 +59,7 @@ impl Section {
         match self {
             Section::General => "General Settings",
             Section::Appearance => "Appearance Settings",
+            Section::Sidebar => "Side Columns",
             Section::Terminal => "Terminal Settings",
             Section::Keyboard => "Keymap",
             Section::Macros => "Macros",

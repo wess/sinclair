@@ -8,7 +8,7 @@
 use std::path::Path;
 
 /// Which suggestion behaviors and sources are on, mirrored from `Options`.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct SuggestConfig {
     pub ghost: bool,
     pub popup: bool,
@@ -58,15 +58,51 @@ pub struct Suggest {
     /// a stale reply for an old line is ignored.
     pub ai_for: Option<String>,
     pub ai_ghost: Option<String>,
+    /// Inputs beyond `input` that determine the cached candidate set.
+    pub cached_cwd: Option<std::path::PathBuf>,
+    pub cached_history_generation: u64,
+    pub cached_at_end: bool,
+    pub cached_config: Option<SuggestConfig>,
+    /// Invalidates completion work that finishes after the input changed.
+    pub request_generation: u64,
 }
 
 /// A short built-in list of common commands, as first-token completions.
 const COMMON: &[&str] = &[
-    "cd ", "ls", "ls -la", "clear", "exit", "cat ", "less ", "tail -f ", "grep -r ", "find . -name ",
-    "git status", "git add ", "git commit -m ", "git push", "git pull", "git log", "git diff",
-    "git checkout ", "git branch", "git stash", "cargo build", "cargo build --release",
-    "cargo test", "cargo run", "cargo clippy --all-targets", "cargo fmt", "npm install", "npm run ",
-    "make", "docker ps", "docker compose up", "kubectl get pods", "ssh ", "curl ",
+    "cd ",
+    "ls",
+    "ls -la",
+    "clear",
+    "exit",
+    "cat ",
+    "less ",
+    "tail -f ",
+    "grep -r ",
+    "find . -name ",
+    "git status",
+    "git add ",
+    "git commit -m ",
+    "git push",
+    "git pull",
+    "git log",
+    "git diff",
+    "git checkout ",
+    "git branch",
+    "git stash",
+    "cargo build",
+    "cargo build --release",
+    "cargo test",
+    "cargo run",
+    "cargo clippy --all-targets",
+    "cargo fmt",
+    "npm install",
+    "npm run ",
+    "make",
+    "docker ps",
+    "docker compose up",
+    "kubectl get pods",
+    "ssh ",
+    "curl ",
 ];
 
 /// Assemble and rank completion candidates for `input` from the enabled sources.

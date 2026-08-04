@@ -6,3 +6,4 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+notify = "6"

@@ -6,8 +6,8 @@
 use gpui::prelude::*;
 use gpui::{div, px, AnyElement, Context, Keystroke, SharedString};
 
-use crate::colors;
 use super::TerminalView;
+use crate::colors;
 
 impl TerminalView {
     /// A floating completion popup anchored just below the cursor, when open.
@@ -27,7 +27,10 @@ impl TerminalView {
             .enumerate()
             .map(|(i, c)| {
                 let text: String = c.chars().take(52).collect();
-                let mut r = div().px(px(8.0)).py(px(2.0)).child(SharedString::from(text));
+                let mut r = div()
+                    .px(px(8.0))
+                    .py(px(2.0))
+                    .child(SharedString::from(text));
                 if i == sel {
                     r = r.bg(sel_bg);
                 }
@@ -101,47 +104,81 @@ impl TerminalView {
         }
         // Read the typed line and whether the cursor sits at its end (only then
         // do we offer a completion, fish-style).
-        let (input, at_end) = self.session.with_term(|t| {
+        let (input, at_end, history_generation) = self.session.with_term(|t| {
             let input = t.current_input();
             let at_end = match (t.input_end(), Some(t.cursor_pos())) {
                 (Some(end), Some(cur)) => end == cur,
                 _ => false,
             };
-            (input, at_end)
+            (input, at_end, t.command_history_generation())
         });
         let Some(input) = input.filter(|s| !s.trim().is_empty()) else {
             self.clear_suggestions();
             return;
         };
+        let cwd = self.cwd_path();
+        if self.suggest.input == input
+            && self.suggest.cached_cwd == cwd
+            && self.suggest.cached_history_generation == history_generation
+            && self.suggest.cached_at_end == at_end
+            && self.suggest.cached_config == Some(cfg)
+        {
+            return;
+        }
+        self.suggest.input = input.clone();
+        self.suggest.cached_cwd = cwd.clone();
+        self.suggest.cached_history_generation = history_generation;
+        self.suggest.cached_at_end = at_end;
+        self.suggest.cached_config = Some(cfg);
         if !at_end {
             // Editing mid-line: keep candidates but don't draw a ghost.
+            self.suggest.request_generation = self.suggest.request_generation.wrapping_add(1);
             self.suggest.ghost = None;
-            cx.notify();
             return;
         }
         // Only now is history needed: cloning it up front deep-copied the whole
         // shell history on every output wakeup, then dropped it in the common
         // (no active input line) case above.
-        let history = self.session.with_term(|t| t.command_history());
-        let cwd = self.cwd_path();
-        let cands = crate::suggest::candidates(&cfg, &input, &history, cwd.as_deref());
-        self.suggest.input = input.clone();
-        self.suggest.candidates = cands;
+        self.suggest.request_generation = self.suggest.request_generation.wrapping_add(1);
+        let request_generation = self.suggest.request_generation;
+        self.suggest.candidates.clear();
         self.suggest.tab_idx = None;
         self.suggest.popup_sel = 0;
-        self.suggest.popup_open = cfg.popup && !self.suggest.candidates.is_empty();
-        self.suggest.ghost = if cfg.ghost {
-            crate::suggest::ghost(&self.suggest.candidates, &input)
-        } else {
-            None
-        };
-        // Fall back to an AI suggestion when nothing local completes the line.
-        if cfg.ai && self.suggest.ghost.is_none() && self.suggest.candidates.is_empty() {
-            self.fetch_ai_suggestion(&input, cx);
-        } else {
-            self.suggest.ai_ghost = None;
-        }
-        cx.notify();
+        self.suggest.popup_open = false;
+        self.suggest.ghost = None;
+        self.suggest.ai_ghost = None;
+
+        let session = self.session.clone();
+        let executor = cx.background_executor().clone();
+        cx.spawn(async move |this, cx| {
+            let work_input = input.clone();
+            let candidates = executor
+                .spawn(async move {
+                    let history = session.with_term(|term| term.command_history());
+                    crate::suggest::candidates(&cfg, &work_input, &history, cwd.as_deref())
+                })
+                .await;
+            let _ = this.update(cx, |this, cx| {
+                if this.suggest.request_generation != request_generation
+                    || this.suggest.input != input
+                {
+                    return;
+                }
+                this.suggest.candidates = candidates;
+                this.suggest.popup_sel = 0;
+                this.suggest.popup_open = cfg.popup && !this.suggest.candidates.is_empty();
+                this.suggest.ghost = if cfg.ghost {
+                    crate::suggest::ghost(&this.suggest.candidates, &input)
+                } else {
+                    None
+                };
+                if cfg.ai && this.suggest.ghost.is_none() && this.suggest.candidates.is_empty() {
+                    this.fetch_ai_suggestion(&input, cx);
+                }
+                cx.notify();
+            });
+        })
+        .detach();
     }
 
     /// The ghost suffix to draw past the cursor right now, if any.
@@ -158,7 +195,8 @@ impl TerminalView {
 
     /// The open completion popup's candidates + selected index, for rendering.
     pub(crate) fn suggestion_popup(&self) -> Option<(&[String], usize)> {
-        if self.suggest_cfg.popup && self.suggest.popup_open && !self.suggest.candidates.is_empty() {
+        if self.suggest_cfg.popup && self.suggest.popup_open && !self.suggest.candidates.is_empty()
+        {
             Some((&self.suggest.candidates, self.suggest.popup_sel))
         } else {
             None
@@ -166,11 +204,14 @@ impl TerminalView {
     }
 
     fn clear_suggestions(&mut self) {
+        self.suggest.request_generation = self.suggest.request_generation.wrapping_add(1);
         self.suggest.input.clear();
         self.suggest.candidates.clear();
         self.suggest.ghost = None;
         self.suggest.ai_ghost = None;
         self.suggest.ai_for = None;
+        self.suggest.cached_cwd = None;
+        self.suggest.cached_config = None;
         self.suggest.popup_open = false;
         self.suggest.tab_idx = None;
     }
@@ -273,7 +314,12 @@ impl TerminalView {
             key: key.to_string(),
             key_char: None,
         };
-        let mods = input::Mods { shift: false, alt: false, ctrl: false, cmd: false };
+        let mods = input::Mods {
+            shift: false,
+            alt: false,
+            ctrl: false,
+            cmd: false,
+        };
         self.handle_suggestion_key(&ks, mods, cx)
     }
 
@@ -299,9 +345,9 @@ impl TerminalView {
         self.suggest.ai_for = Some(input.to_string());
         self.suggest.ai_ghost = None;
         let input = input.to_string();
-        let recent = self.session.with_term(|t| {
-            t.command_history().into_iter().take(10).collect::<Vec<_>>()
-        });
+        let recent = self
+            .session
+            .with_term(|t| t.command_history().into_iter().take(10).collect::<Vec<_>>());
         let executor = cx.background_executor().clone();
         cx.spawn(async move |this, cx| {
             let line = input.clone();

@@ -11,7 +11,6 @@ use std::rc::Rc;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use futures::channel::mpsc::UnboundedReceiver;
 use futures::StreamExt;
 use global_hotkey::hotkey::{Code, HotKey, Modifiers};
 use global_hotkey::{GlobalHotKeyEvent, GlobalHotKeyManager, HotKeyState};
@@ -25,11 +24,11 @@ use terminal::{Event, Session};
 
 #[cfg(target_os = "macos")]
 use crate::appkit;
-use libsinclair::bridge;
 use crate::colors::{self, Colors};
-use libsinclair::metrics::Padding;
 use crate::session;
-use crate::view::{TerminalView, ViewEvent};
+use crate::view::TerminalView;
+use libsinclair::bridge;
+use libsinclair::metrics::Padding;
 
 /// Initial grid for the quick terminal until its first layout pass.
 const COLS: usize = 80;
@@ -44,16 +43,38 @@ const DOUBLE_ESC: Duration = Duration::from_millis(500);
 #[derive(Default)]
 struct QuickWindow {
     handle: Option<WindowHandle<QuickTerminalView>>,
+    /// Root view retained while no native window exists. This keeps the shell
+    /// and its terminal state alive without retaining a compositor/GPU surface.
+    parked: Option<Entity<QuickTerminalView>>,
 }
 impl Global for QuickWindow {}
 
 impl QuickWindow {
-    fn set(cx: &mut App, handle: Option<WindowHandle<QuickTerminalView>>) {
-        cx.set_global(QuickWindow { handle });
+    fn shown(cx: &mut App, handle: WindowHandle<QuickTerminalView>) {
+        cx.set_global(QuickWindow {
+            handle: Some(handle),
+            parked: None,
+        });
+    }
+
+    fn park(cx: &mut App, view: Entity<QuickTerminalView>) {
+        cx.set_global(QuickWindow {
+            handle: None,
+            parked: Some(view),
+        });
+    }
+
+    fn clear(cx: &mut App) {
+        cx.set_global(QuickWindow::default());
     }
 
     fn current(cx: &App) -> Option<WindowHandle<QuickTerminalView>> {
         cx.try_global::<QuickWindow>().and_then(|g| g.handle)
+    }
+
+    fn parked(cx: &App) -> Option<Entity<QuickTerminalView>> {
+        cx.try_global::<QuickWindow>()
+            .and_then(|g| g.parked.clone())
     }
 }
 
@@ -97,19 +118,54 @@ fn hotkey_for(mods: &config::Mods, key: &str) -> Option<HotKey> {
 fn key_code(key: &str) -> Option<Code> {
     let k = key.to_ascii_lowercase();
     let code = match k.as_str() {
-        "a" => Code::KeyA, "b" => Code::KeyB, "c" => Code::KeyC, "d" => Code::KeyD,
-        "e" => Code::KeyE, "f" => Code::KeyF, "g" => Code::KeyG, "h" => Code::KeyH,
-        "i" => Code::KeyI, "j" => Code::KeyJ, "k" => Code::KeyK, "l" => Code::KeyL,
-        "m" => Code::KeyM, "n" => Code::KeyN, "o" => Code::KeyO, "p" => Code::KeyP,
-        "q" => Code::KeyQ, "r" => Code::KeyR, "s" => Code::KeyS, "t" => Code::KeyT,
-        "u" => Code::KeyU, "v" => Code::KeyV, "w" => Code::KeyW, "x" => Code::KeyX,
-        "y" => Code::KeyY, "z" => Code::KeyZ,
-        "0" => Code::Digit0, "1" => Code::Digit1, "2" => Code::Digit2, "3" => Code::Digit3,
-        "4" => Code::Digit4, "5" => Code::Digit5, "6" => Code::Digit6, "7" => Code::Digit7,
-        "8" => Code::Digit8, "9" => Code::Digit9,
-        "f1" => Code::F1, "f2" => Code::F2, "f3" => Code::F3, "f4" => Code::F4,
-        "f5" => Code::F5, "f6" => Code::F6, "f7" => Code::F7, "f8" => Code::F8,
-        "f9" => Code::F9, "f10" => Code::F10, "f11" => Code::F11, "f12" => Code::F12,
+        "a" => Code::KeyA,
+        "b" => Code::KeyB,
+        "c" => Code::KeyC,
+        "d" => Code::KeyD,
+        "e" => Code::KeyE,
+        "f" => Code::KeyF,
+        "g" => Code::KeyG,
+        "h" => Code::KeyH,
+        "i" => Code::KeyI,
+        "j" => Code::KeyJ,
+        "k" => Code::KeyK,
+        "l" => Code::KeyL,
+        "m" => Code::KeyM,
+        "n" => Code::KeyN,
+        "o" => Code::KeyO,
+        "p" => Code::KeyP,
+        "q" => Code::KeyQ,
+        "r" => Code::KeyR,
+        "s" => Code::KeyS,
+        "t" => Code::KeyT,
+        "u" => Code::KeyU,
+        "v" => Code::KeyV,
+        "w" => Code::KeyW,
+        "x" => Code::KeyX,
+        "y" => Code::KeyY,
+        "z" => Code::KeyZ,
+        "0" => Code::Digit0,
+        "1" => Code::Digit1,
+        "2" => Code::Digit2,
+        "3" => Code::Digit3,
+        "4" => Code::Digit4,
+        "5" => Code::Digit5,
+        "6" => Code::Digit6,
+        "7" => Code::Digit7,
+        "8" => Code::Digit8,
+        "9" => Code::Digit9,
+        "f1" => Code::F1,
+        "f2" => Code::F2,
+        "f3" => Code::F3,
+        "f4" => Code::F4,
+        "f5" => Code::F5,
+        "f6" => Code::F6,
+        "f7" => Code::F7,
+        "f8" => Code::F8,
+        "f9" => Code::F9,
+        "f10" => Code::F10,
+        "f11" => Code::F11,
+        "f12" => Code::F12,
         "space" => Code::Space,
         "`" | "backquote" | "grave" => Code::Backquote,
         _ => return None,
@@ -173,39 +229,26 @@ pub fn toggle(cx: &mut App) {
             toggle_alive(handle, cx);
             return;
         }
-        QuickWindow::set(cx, None);
+        QuickWindow::clear(cx);
+    }
+    if let Some(view) = QuickWindow::parked(cx) {
+        reopen(view, cx);
+        return;
     }
     open(cx);
 }
 
-/// macOS keeps the session by hiding/showing the overlay; other platforms
-/// lack a portable hide-and-keep, so the window is closed and respawned.
-#[cfg(target_os = "macos")]
+/// Remove the native surface while retaining the root view and live session.
+/// Reopening creates a fresh surface, avoiding idle compositor/GPU resources.
 fn toggle_alive(handle: WindowHandle<QuickTerminalView>, cx: &mut App) {
-    let visible = handle
-        .update(cx, |_, window, _| appkit::is_visible(window))
-        .unwrap_or(false);
-    if visible {
-        handle.update(cx, |_, window, _| appkit::hide(window)).ok();
-    } else {
-        cx.activate(true);
-        handle
-            .update(cx, |this, window, cx| {
-                appkit::make_overlay(window);
-                appkit::show(window);
-                window.focus(&this.view.focus_handle(cx), cx);
-            })
-            .ok();
+    match handle.update(cx, |_, window, cx| {
+        let view = cx.entity();
+        window.remove_window();
+        view
+    }) {
+        Ok(view) => QuickWindow::park(cx, view),
+        Err(_) => QuickWindow::clear(cx),
     }
-    QuickWindow::set(cx, Some(handle));
-}
-
-#[cfg(not(target_os = "macos"))]
-fn toggle_alive(handle: WindowHandle<QuickTerminalView>, cx: &mut App) {
-    handle
-        .update(cx, |_, window, _| window.remove_window())
-        .ok();
-    QuickWindow::set(cx, None);
 }
 
 /// Window kind for the quick terminal: a Wayland layer-shell overlay where
@@ -229,6 +272,40 @@ fn apply_overlay(window: &gpui::Window) {
     crate::linux::make_overlay(window);
     #[cfg(not(any(target_os = "macos", target_os = "linux")))]
     let _ = window;
+}
+
+fn window_options(cx: &mut App) -> WindowOptions {
+    WindowOptions {
+        window_bounds: Some(WindowBounds::Windowed(dropdown_bounds(cx))),
+        kind: quick_window_kind(),
+        is_resizable: false,
+        is_minimizable: false,
+        titlebar: Some(TitlebarOptions {
+            title: Some("Quick Terminal".into()),
+            appears_transparent: true,
+            traffic_light_position: Some(point(px(12.0), px(12.0))),
+        }),
+        ..Default::default()
+    }
+}
+
+/// Put a parked terminal view in a fresh native window.
+fn reopen(view: Entity<QuickTerminalView>, cx: &mut App) {
+    let retained = view.clone();
+    let options = window_options(cx);
+    let handle = cx.open_window(options, move |window, cx| {
+        window.set_window_title("Quick Terminal");
+        view.update(cx, |this, cx| this.rehome(window, cx));
+        view
+    });
+    match handle {
+        Ok(handle) => {
+            handle.update(cx, |_, window, _| apply_overlay(window)).ok();
+            QuickWindow::shown(cx, handle);
+            cx.activate(true);
+        }
+        Err(_) => QuickWindow::park(cx, retained),
+    }
 }
 
 /// Open a fresh quick-terminal window dropped over the active display.
@@ -267,52 +344,38 @@ fn open(cx: &mut App) {
     let unfocused_split_opacity = opts.unfocused_split_opacity;
     let suggest_cfg = crate::suggest::SuggestConfig::from_opts(&opts);
 
-    let bounds = dropdown_bounds(cx);
-    let handle = cx.open_window(
-        WindowOptions {
-            window_bounds: Some(WindowBounds::Windowed(bounds)),
-            kind: quick_window_kind(),
-            is_resizable: false,
-            is_minimizable: false,
-            titlebar: Some(TitlebarOptions {
-                title: Some("Quick Terminal".into()),
-                appears_transparent: true,
-                traffic_light_position: Some(point(px(12.0), px(12.0))),
-            }),
-            ..Default::default()
-        },
-        move |window, cx| {
-            window.set_window_title("Quick Terminal");
-            cx.new(move |cx| {
-                QuickTerminalView::new(
-                    sh,
-                    events,
-                    palette,
-                    font,
-                    font_size,
-                    cell,
-                    pad,
-                    cursor_style,
-                    copy_on_select,
-                    smart_select,
-                    middle_click_paste,
-                    option_as_alt,
-                    paste_protection,
-                    clipboard_write,
-                    unfocused_split_opacity,
-                    suggest_cfg,
-                    fallback,
-                    toggle_chord,
-                    window,
-                    cx,
-                )
-            })
-        },
-    );
+    let window_options = window_options(cx);
+    let handle = cx.open_window(window_options, move |window, cx| {
+        window.set_window_title("Quick Terminal");
+        cx.new(move |cx| {
+            QuickTerminalView::new(
+                sh,
+                events,
+                palette,
+                font,
+                font_size,
+                cell,
+                pad,
+                cursor_style,
+                copy_on_select,
+                smart_select,
+                middle_click_paste,
+                option_as_alt,
+                paste_protection,
+                clipboard_write,
+                unfocused_split_opacity,
+                suggest_cfg,
+                fallback,
+                toggle_chord,
+                window,
+                cx,
+            )
+        })
+    });
 
     if let Ok(handle) = handle {
         handle.update(cx, |_, window, _| apply_overlay(window)).ok();
-        QuickWindow::set(cx, Some(handle));
+        QuickWindow::shown(cx, handle);
         cx.activate(true);
     }
 }
@@ -348,9 +411,8 @@ pub struct QuickTerminalView {
     /// The user's `toggle_quick_terminal` chord; pressing it inside the window
     /// dismisses (hides) it, mirroring the summon key.
     toggle_chord: Option<(config::Mods, String)>,
-    _subscription: Subscription,
-    /// Quake-style autohide: hide the moment the window resigns key (macOS
-    /// only — it relies on the overlay hide/show other platforms stub out).
+    /// Quake-style autohide: park the moment the window resigns key (macOS
+    /// only).
     /// Event-driven via the window-activation observer; no polling.
     #[cfg(target_os = "macos")]
     _activation: Subscription,
@@ -360,7 +422,7 @@ impl QuickTerminalView {
     #[allow(clippy::too_many_arguments)]
     fn new(
         session: Arc<Session>,
-        events: std::sync::mpsc::Receiver<Event>,
+        events: terminal::EventReceiver,
         colors: Rc<Colors>,
         font: gpui::Font,
         font_size: gpui::Pixels,
@@ -404,34 +466,37 @@ impl QuickTerminalView {
         });
 
         let weak = view.downgrade();
-        let mut events: UnboundedReceiver<Event> = bridge::forward(events);
-        window
-            .spawn(cx, async move |cx| {
-                while let Some(event) = events.next().await {
-                    if weak.update(cx, |view, cx| view.apply(event, cx)).is_err() {
-                        break;
-                    }
+        let mut events = bridge::forward(events);
+        cx.spawn(async move |_this, cx| {
+            while let Some(event) = events.next().await {
+                let exited = matches!(event, Event::Exit(_));
+                if weak.update(cx, |view, cx| view.apply(event, cx)).is_err() {
+                    break;
                 }
-            })
-            .detach();
-
-        let subscription = cx.subscribe_in(
-            &view,
-            window,
-            |_this, _view, event: &ViewEvent, window, _cx| {
-                if matches!(event, ViewEvent::Exited) {
-                    window.remove_window();
+                if exited {
+                    cx.update(|cx| {
+                        if let Some(handle) = QuickWindow::current(cx) {
+                            handle
+                                .update(cx, |_, window, _| window.remove_window())
+                                .ok();
+                        }
+                        QuickWindow::clear(cx);
+                    });
+                    break;
                 }
-            },
-        );
+            }
+        })
+        .detach();
 
-        // Hide the moment the window resigns key (the user clicked another app
+        // Park the moment the window resigns key (the user clicked another app
         // or window). The observer only fires on changes, so a freshly summoned
         // window that hasn't become key yet is never hidden prematurely.
         #[cfg(target_os = "macos")]
-        let activation = cx.observe_window_activation(window, |_this, window, _cx| {
+        let activation = cx.observe_window_activation(window, |_this, window, cx| {
             if !window.is_window_active() {
-                appkit::hide(window);
+                let view = cx.entity();
+                QuickWindow::park(cx, view);
+                window.remove_window();
             }
         });
 
@@ -441,10 +506,26 @@ impl QuickTerminalView {
             focus: cx.focus_handle(),
             last_esc: None,
             toggle_chord,
-            _subscription: subscription,
             #[cfg(target_os = "macos")]
             _activation: activation,
         }
+    }
+
+    /// Rebind window-scoped focus and activation listeners after a parked view
+    /// receives a fresh native surface.
+    fn rehome(&mut self, window: &mut gpui::Window, cx: &mut Context<Self>) {
+        self.view.update(cx, |view, cx| view.rehome(window, cx));
+        #[cfg(target_os = "macos")]
+        {
+            self._activation = cx.observe_window_activation(window, |_this, window, cx| {
+                if !window.is_window_active() {
+                    let view = cx.entity();
+                    QuickWindow::park(cx, view);
+                    window.remove_window();
+                }
+            });
+        }
+        window.focus(&self.view.focus_handle(cx), cx);
     }
 
     /// Capture phase: detect a double-Escape before the terminal swallows the
@@ -469,7 +550,7 @@ impl QuickTerminalView {
         match self.last_esc {
             Some(prev) if now.duration_since(prev) <= DOUBLE_ESC => {
                 self.last_esc = None;
-                self.dismiss(window);
+                self.dismiss(window, cx);
                 cx.stop_propagation();
             }
             _ => self.last_esc = Some(now),
@@ -477,10 +558,15 @@ impl QuickTerminalView {
     }
 
     /// The toggle hotkey (the user's `toggle_quick_terminal` binding) also
-    /// dismisses the window from inside, hiding it so the session is kept.
+    /// dismisses the window from inside, parking it so the session is kept.
     /// Modifier chords are never encoded by the terminal, so the keystroke
     /// bubbles up here instead of hitting the shell.
-    fn key_down(&mut self, event: &KeyDownEvent, window: &mut gpui::Window, cx: &mut Context<Self>) {
+    fn key_down(
+        &mut self,
+        event: &KeyDownEvent,
+        window: &mut gpui::Window,
+        cx: &mut Context<Self>,
+    ) {
         let Some((mods, key)) = &self.toggle_chord else {
             return;
         };
@@ -492,17 +578,15 @@ impl QuickTerminalView {
             && m.shift == mods.shift
             && ks.key.eq_ignore_ascii_case(key)
         {
-            self.dismiss(window);
+            self.dismiss(window, cx);
             cx.stop_propagation();
         }
     }
 
-    /// Hide the window from inside. macOS keeps the session (overlay hide);
-    /// other platforms close it, since there is no portable hide-and-keep.
-    fn dismiss(&self, window: &mut gpui::Window) {
-        #[cfg(target_os = "macos")]
-        appkit::hide(window);
-        #[cfg(not(target_os = "macos"))]
+    /// Park the view and remove its native surface while keeping the session.
+    fn dismiss(&self, window: &mut gpui::Window, cx: &mut Context<Self>) {
+        let view = cx.entity();
+        QuickWindow::park(cx, view);
         window.remove_window();
     }
 }

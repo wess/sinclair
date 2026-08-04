@@ -1,5 +1,79 @@
 use super::*;
 
+fn resize_request(cols: usize) -> ResizeRequest {
+    ResizeRequest {
+        cols,
+        rows: 24,
+        cell_width: 8,
+        cell_height: 16,
+    }
+}
+
+#[test]
+fn initial_resize_is_immediate_then_drag_resizes_are_coalesced() {
+    let mut state = ResizeState::default();
+    assert_eq!(
+        state.request(resize_request(80), (100, 24)),
+        ResizeAction::Immediate
+    );
+    assert_eq!(
+        state.request(resize_request(81), (80, 24)),
+        ResizeAction::Arm
+    );
+    let old_generation = state.generation;
+    assert_eq!(
+        state.request(resize_request(82), (80, 24)),
+        ResizeAction::None
+    );
+    assert_eq!(state.settle(old_generation), None);
+    let latest = state.generation;
+    assert_eq!(state.settle(latest), Some(resize_request(82)));
+    assert!(!state.armed);
+}
+
+#[test]
+fn resize_reverted_to_current_size_cancels_pending_target() {
+    let mut state = ResizeState::default();
+    assert_eq!(
+        state.request(resize_request(80), (80, 24)),
+        ResizeAction::None
+    );
+    assert_eq!(
+        state.request(resize_request(90), (80, 24)),
+        ResizeAction::Arm
+    );
+    let old_generation = state.generation;
+    assert_eq!(
+        state.request(resize_request(80), (80, 24)),
+        ResizeAction::None
+    );
+    assert_eq!(state.settle(old_generation), None);
+    assert_eq!(state.settle(state.generation), Some(resize_request(80)));
+}
+
+#[test]
+fn shared_image_cache_enforces_a_global_lru_budget() {
+    let pool = Rc::new(RefCell::new(ImageCachePool::new(80)));
+    let mut first = ImageCache::new(pool.clone());
+    let mut second = ImageCache::new(pool.clone());
+    let image = vt::Image {
+        width: 4,
+        height: 4,
+        rgba: vec![0; 64].into(),
+    };
+    let _first_frame = first.texture(1, &image);
+    assert_eq!(pool.borrow().stats().bytes, 64);
+    let _second_frame = second.texture(1, &image);
+    assert_eq!(
+        pool.borrow().stats(),
+        ImageCacheStats {
+            bytes: 64,
+            entries: 1,
+            evictions: 1,
+        }
+    );
+}
+
 fn test_colors() -> Colors {
     Colors::from_scheme(theme::default_scheme())
 }
@@ -14,7 +88,7 @@ fn take_snapshot(
         width: 8.0,
         height: 16.0,
     };
-    snapshot(term, colors, search, cell, &mut std::collections::HashMap::new(), None)
+    snapshot(term, colors, search, cell, &mut ImageCache::default(), None)
 }
 
 #[test]
@@ -234,10 +308,38 @@ fn undamaged_identical_frames_reuse_the_snapshot() {
     term.feed(b"hello");
     let colors = Rc::new(test_colors());
     let mut cache = SnapCache::default();
-    let mut images = std::collections::HashMap::new();
-    let a = snapshot_reuse(&mut term, &mut cache, &colors, None, test_cell(), &mut images, None);
-    let b = snapshot_reuse(&mut term, &mut cache, &colors, None, test_cell(), &mut images, None);
-    assert!(Rc::ptr_eq(&a, &b), "no damage + identical inputs must reuse");
+    let mut images = ImageCache::default();
+    let a = snapshot_reuse(
+        &mut term,
+        &mut cache,
+        &colors,
+        None,
+        test_cell(),
+        &mut images,
+        None,
+    );
+    let b = snapshot_reuse(
+        &mut term,
+        &mut cache,
+        &colors,
+        None,
+        test_cell(),
+        &mut images,
+        None,
+    );
+    assert!(
+        Rc::ptr_eq(&a, &b),
+        "no damage + identical inputs must reuse"
+    );
+    assert_eq!(
+        cache.stats(),
+        RenderStats {
+            frames: 2,
+            snapshot_reuses: 1,
+            snapshot_rows: 4,
+            shaped_rows: 0,
+        }
+    );
 }
 
 #[test]
@@ -246,12 +348,94 @@ fn new_output_rebuilds_the_snapshot() {
     term.feed(b"hello");
     let colors = Rc::new(test_colors());
     let mut cache = SnapCache::default();
-    let mut images = std::collections::HashMap::new();
-    let a = snapshot_reuse(&mut term, &mut cache, &colors, None, test_cell(), &mut images, None);
+    let mut images = ImageCache::default();
+    let a = snapshot_reuse(
+        &mut term,
+        &mut cache,
+        &colors,
+        None,
+        test_cell(),
+        &mut images,
+        None,
+    );
     term.feed(b" world");
-    let b = snapshot_reuse(&mut term, &mut cache, &colors, None, test_cell(), &mut images, None);
+    let b = snapshot_reuse(
+        &mut term,
+        &mut cache,
+        &colors,
+        None,
+        test_cell(),
+        &mut images,
+        None,
+    );
     assert!(!Rc::ptr_eq(&a, &b));
     assert_eq!(b.spans[1].text, "world");
+}
+
+#[test]
+fn row_damage_rebuilds_only_the_changed_row() {
+    let mut term = vt::Terminal::new(20, 4, 100);
+    term.feed(b"first\r\nsecond");
+    let colors = Rc::new(test_colors());
+    let mut cache = SnapCache::default();
+    let mut images = ImageCache::default();
+    let first = snapshot_reuse(
+        &mut term,
+        &mut cache,
+        &colors,
+        None,
+        test_cell(),
+        &mut images,
+        None,
+    );
+    assert_eq!(cache.last_snapshot_rows(), 4);
+    term.feed(b"!");
+    let second = snapshot_reuse(
+        &mut term,
+        &mut cache,
+        &colors,
+        None,
+        test_cell(),
+        &mut images,
+        None,
+    );
+    assert_eq!(cache.last_snapshot_rows(), 1);
+    assert!(Rc::ptr_eq(&first.rows[0], &second.rows[0]));
+    assert!(!Rc::ptr_eq(&first.rows[1], &second.rows[1]));
+    assert!(Rc::ptr_eq(&first.rows[2], &second.rows[2]));
+    assert!(Rc::ptr_eq(&first.rows[3], &second.rows[3]));
+}
+
+#[test]
+fn scrolling_reuses_rotated_rows() {
+    let mut term = vt::Terminal::new(20, 3, 100);
+    term.feed(b"first\r\nsecond\r\nthird");
+    let colors = Rc::new(test_colors());
+    let mut cache = SnapCache::default();
+    let mut images = ImageCache::default();
+    let first = snapshot_reuse(
+        &mut term,
+        &mut cache,
+        &colors,
+        None,
+        test_cell(),
+        &mut images,
+        None,
+    );
+    term.feed(b"\r\nfourth");
+    let second = snapshot_reuse(
+        &mut term,
+        &mut cache,
+        &colors,
+        None,
+        test_cell(),
+        &mut images,
+        None,
+    );
+    assert_eq!(cache.last_snapshot_rows(), 1);
+    assert!(Rc::ptr_eq(&first.rows[1], &second.rows[0]));
+    assert!(Rc::ptr_eq(&first.rows[2], &second.rows[1]));
+    assert!(!Rc::ptr_eq(&first.rows[0], &second.rows[2]));
 }
 
 #[test]
@@ -260,11 +444,27 @@ fn cursor_motion_alone_rebuilds_the_snapshot() {
     term.feed(b"hi");
     let colors = Rc::new(test_colors());
     let mut cache = SnapCache::default();
-    let mut images = std::collections::HashMap::new();
-    let a = snapshot_reuse(&mut term, &mut cache, &colors, None, test_cell(), &mut images, None);
+    let mut images = ImageCache::default();
+    let a = snapshot_reuse(
+        &mut term,
+        &mut cache,
+        &colors,
+        None,
+        test_cell(),
+        &mut images,
+        None,
+    );
     // CUP repositions the cursor without printing a cell.
     term.feed(b"\x1b[2;5H");
-    let b = snapshot_reuse(&mut term, &mut cache, &colors, None, test_cell(), &mut images, None);
+    let b = snapshot_reuse(
+        &mut term,
+        &mut cache,
+        &colors,
+        None,
+        test_cell(),
+        &mut images,
+        None,
+    );
     assert!(!Rc::ptr_eq(&a, &b));
     assert_ne!(a.cursor, b.cursor);
 }
@@ -275,8 +475,16 @@ fn hover_change_rebuilds_without_damage() {
     term.feed(b"https://example.com");
     let colors = Rc::new(test_colors());
     let mut cache = SnapCache::default();
-    let mut images = std::collections::HashMap::new();
-    let a = snapshot_reuse(&mut term, &mut cache, &colors, None, test_cell(), &mut images, None);
+    let mut images = ImageCache::default();
+    let a = snapshot_reuse(
+        &mut term,
+        &mut cache,
+        &colors,
+        None,
+        test_cell(),
+        &mut images,
+        None,
+    );
     let b = snapshot_reuse(
         &mut term,
         &mut cache,
@@ -308,21 +516,36 @@ fn snapkeys_compare_search_by_identity_and_colors_by_pointer() {
         current: 0,
         matches: Rc::new(Vec::new()),
     };
-    assert!(!keyeq(&a, &snapkey(&term, &colors, Some(&sq2), test_cell(), None)));
+    assert!(!keyeq(
+        &a,
+        &snapkey(&term, &colors, Some(&sq2), test_cell(), None)
+    ));
     // Focused-match step.
     let sq3 = SearchQuery {
         query: "x".to_string(),
         current: 1,
         matches,
     };
-    assert!(!keyeq(&a, &snapkey(&term, &colors, Some(&sq3), test_cell(), None)));
+    assert!(!keyeq(
+        &a,
+        &snapkey(&term, &colors, Some(&sq3), test_cell(), None)
+    ));
     // Closing the overlay.
-    assert!(!keyeq(&a, &snapkey(&term, &colors, None, test_cell(), None)));
+    assert!(!keyeq(
+        &a,
+        &snapkey(&term, &colors, None, test_cell(), None)
+    ));
     // A theme reload swaps the colors Rc even when values are identical.
     let colors2 = Rc::new(test_colors());
-    assert!(!keyeq(&a, &snapkey(&term, &colors2, Some(&sq), test_cell(), None)));
+    assert!(!keyeq(
+        &a,
+        &snapkey(&term, &colors2, Some(&sq), test_cell(), None)
+    ));
     // Hover link.
-    assert!(!keyeq(&a, &snapkey(&term, &colors, Some(&sq), test_cell(), Some((0, 0, 2)))));
+    assert!(!keyeq(
+        &a,
+        &snapkey(&term, &colors, Some(&sq), test_cell(), Some((0, 0, 2)))
+    ));
     // Cell metrics (font size change).
     let big = CellSize {
         width: 10.0,

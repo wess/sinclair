@@ -3,7 +3,7 @@ use futures::StreamExt;
 
 #[test]
 fn forwards_in_order_and_closes() {
-    let (tx, rx) = std::sync::mpsc::channel();
+    let (tx, rx) = flume::unbounded();
     tx.send(Event::Wakeup).unwrap();
     tx.send(Event::TitleChanged("t".to_string())).unwrap();
     tx.send(Event::Exit(Some(0))).unwrap();

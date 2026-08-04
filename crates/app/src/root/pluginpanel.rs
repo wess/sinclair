@@ -34,19 +34,6 @@ impl WorkspaceView {
             .collect()
     }
 
-    /// The full activity-bar panel list: built-ins, then plugin block panels,
-    /// then plugin webview panels.
-    pub(crate) fn panel_list(&self) -> Vec<SidebarPanel> {
-        let mut list = SidebarPanel::ALL.to_vec();
-        for i in 0..self.plugin_panel_defs().len() {
-            list.push(SidebarPanel::Plugin(i));
-        }
-        for i in 0..self.plugin_webview_panel_defs().len() {
-            list.push(SidebarPanel::Webview(i));
-        }
-        list
-    }
-
     /// (Re)build the webview host entities for panel-placement `[webview]`
     /// plugins. The entity wrapper is cheap; the native page is created on the
     /// panel's first render. Called at load and after a plugin reload.
@@ -79,9 +66,8 @@ impl WorkspaceView {
         let SidebarPanel::Webview(index) = panel else {
             return div().into_any_element();
         };
-        let id = match self
-            .plugin_webview_panel_defs()
-            .get(index)
+        let id = match webview_defs(&self.plugins)
+            .nth(index)
             .and_then(|p| p.webview.as_ref())
         {
             Some(w) => w.id.clone(),
@@ -151,9 +137,8 @@ impl WorkspaceView {
     /// manifest's `[panel] title`.
     pub(crate) fn panel_label_of(&self, panel: SidebarPanel) -> String {
         if let SidebarPanel::Webview(i) = panel {
-            return self
-                .plugin_webview_panel_defs()
-                .get(i)
+            return webview_defs(&self.plugins)
+                .nth(i)
                 .and_then(|p| p.webview.as_ref())
                 .map(|w| w.title.clone())
                 .unwrap_or_else(|| "Webview".to_string());
@@ -161,8 +146,7 @@ impl WorkspaceView {
         let SidebarPanel::Plugin(i) = panel else {
             return panel.label().to_string();
         };
-        let defs = self.plugin_panel_defs();
-        let Some(decl) = defs.get(i).and_then(|p| p.panel.as_ref()) else {
+        let Some(decl) = panel_defs(&self.plugins).nth(i).and_then(|p| p.panel.as_ref()) else {
             return "Plugin".to_string();
         };
         if let Some(title) = self
@@ -179,15 +163,13 @@ impl WorkspaceView {
     /// Activity-bar glyph for a panel, resolving plugin panels by their manifest.
     pub(crate) fn panel_icon_of(&self, panel: SidebarPanel) -> String {
         match panel {
-            SidebarPanel::Plugin(i) => self
-                .plugin_panel_defs()
-                .get(i)
+            SidebarPanel::Plugin(i) => panel_defs(&self.plugins)
+                .nth(i)
                 .and_then(|p| p.panel.as_ref())
                 .map(|pn| pn.icon.clone())
                 .unwrap_or_else(|| "\u{25c9}".to_string()),
-            SidebarPanel::Webview(i) => self
-                .plugin_webview_panel_defs()
-                .get(i)
+            SidebarPanel::Webview(i) => webview_defs(&self.plugins)
+                .nth(i)
                 .and_then(|p| p.webview.as_ref())
                 .map(|w| w.icon.clone())
                 .unwrap_or_else(|| "\u{25f1}".to_string()),
@@ -198,44 +180,12 @@ impl WorkspaceView {
     /// The `Action::Sidebar` token for a panel: `terminals` for built-ins,
     /// `plugin:<id>` for plugin panels.
     pub(crate) fn panel_token_of(&self, panel: SidebarPanel) -> String {
-        match panel {
-            SidebarPanel::Plugin(i) => format!(
-                "plugin:{}",
-                self.plugin_panel_defs()
-                    .get(i)
-                    .and_then(|p| p.panel.as_ref())
-                    .map(|pn| pn.id.as_str())
-                    .unwrap_or("")
-            ),
-            SidebarPanel::Webview(i) => format!(
-                "webview:{}",
-                self.plugin_webview_panel_defs()
-                    .get(i)
-                    .and_then(|p| p.webview.as_ref())
-                    .map(|w| w.id.as_str())
-                    .unwrap_or("")
-            ),
-            other => other.id().to_string(),
-        }
+        token_of(&self.plugins, panel)
     }
 
     /// Resolve a sidebar token (`terminals` or `plugin:<id>`) to a panel.
     pub(crate) fn panel_from_token(&self, token: &str) -> Option<SidebarPanel> {
-        if let Some(id) = token.strip_prefix("plugin:") {
-            let i = self
-                .plugin_panel_defs()
-                .iter()
-                .position(|p| p.panel.as_ref().map(|pn| pn.id.as_str()) == Some(id))?;
-            return Some(SidebarPanel::Plugin(i));
-        }
-        if let Some(id) = token.strip_prefix("webview:") {
-            let i = self
-                .plugin_webview_panel_defs()
-                .iter()
-                .position(|p| p.webview.as_ref().map(|w| w.id.as_str()) == Some(id))?;
-            return Some(SidebarPanel::Webview(i));
-        }
-        SidebarPanel::from_id(token)
+        from_token(&self.plugins, token)
     }
 
     /// Fetch the installable catalog off-thread (the GitHub API call would
@@ -501,7 +451,7 @@ impl WorkspaceView {
         let SidebarPanel::Plugin(index) = panel else {
             return div().into_any_element();
         };
-        let panel_id = match self.plugin_panel_defs().get(index).and_then(|p| p.panel.as_ref()) {
+        let panel_id = match panel_defs(&self.plugins).nth(index).and_then(|p| p.panel.as_ref()) {
             Some(pn) => pn.id.clone(),
             None => return div().into_any_element(),
         };
@@ -647,4 +597,127 @@ fn button_variant(variant: &Option<String>) -> Variant {
         Some("white") => Variant::White,
         _ => Variant::Light,
     }
+}
+
+// --- token encoding, without a WorkspaceView -------------------------------
+//
+// The dock composition is built before `WorkspaceView` exists (in `new`) and is
+// also edited from the settings window, which has no workspace at all. Both
+// only ever need the loaded plugin list, so the encode/decode pair lives here
+// as free functions and the methods above delegate to them.
+
+// These are lookups, not lists: every caller wants one entry by index, or a
+// count. Iterating to `nth` avoids collecting a `Vec<&Plugin>` on a path the
+// render loop reaches once per visible section per repaint.
+
+/// Plugins contributing a `[panel]`, in load order — what `Plugin(i)` indexes.
+fn panel_defs(plugins: &[plugin::Plugin]) -> impl Iterator<Item = &plugin::Plugin> {
+    plugins
+        .iter()
+        .filter(|p| p.runtime.is_some() && p.panel.is_some())
+}
+
+/// Plugins contributing a panel-placement `[webview]` — what `Webview(i)` indexes.
+fn webview_defs(plugins: &[plugin::Plugin]) -> impl Iterator<Item = &plugin::Plugin> {
+    plugins.iter().filter(|p| {
+        p.webview
+            .as_ref()
+            .is_some_and(|w| w.placement == plugin::Placement::Panel)
+    })
+}
+
+/// A panel's stable token. Plugin sections encode their manifest id, never
+/// their index, because the index moves when the plugin set changes.
+pub(crate) fn token_of(plugins: &[plugin::Plugin], panel: SidebarPanel) -> String {
+    match panel {
+        SidebarPanel::Plugin(i) => format!(
+            "plugin:{}",
+            panel_defs(plugins)
+                .nth(i)
+                .and_then(|p| p.panel.as_ref())
+                .map(|pn| pn.id.as_str())
+                .unwrap_or("")
+        ),
+        SidebarPanel::Webview(i) => format!(
+            "webview:{}",
+            webview_defs(plugins)
+                .nth(i)
+                .and_then(|p| p.webview.as_ref())
+                .map(|w| w.id.as_str())
+                .unwrap_or("")
+        ),
+        other => other.id().to_string(),
+    }
+}
+
+/// Resolve a token back to a panel, or `None` when nothing answers to it —
+/// which is what an uninstalled plugin looks like. Callers skip those rather
+/// than rewriting the config, so a reinstall restores the section's slot.
+pub(crate) fn from_token(plugins: &[plugin::Plugin], token: &str) -> Option<SidebarPanel> {
+    if let Some(id) = token.strip_prefix("plugin:") {
+        let i = panel_defs(plugins)
+            .position(|p| p.panel.as_ref().map(|pn| pn.id.as_str()) == Some(id))?;
+        return Some(SidebarPanel::Plugin(i));
+    }
+    if let Some(id) = token.strip_prefix("webview:") {
+        let i = webview_defs(plugins)
+            .position(|p| p.webview.as_ref().map(|w| w.id.as_str()) == Some(id))?;
+        return Some(SidebarPanel::Webview(i));
+    }
+    SidebarPanel::from_id(token)
+}
+
+/// A section's display name without a live workspace. Plugin sections read
+/// their manifest title; `WorkspaceView::panel_label_of` additionally prefers a
+/// title the running plugin has reported, which only the workspace can know.
+pub(crate) fn label_of(plugins: &[plugin::Plugin], panel: SidebarPanel) -> String {
+    match panel {
+        SidebarPanel::Plugin(i) => panel_defs(plugins)
+            .nth(i)
+            .and_then(|p| p.panel.as_ref())
+            .map(|pn| pn.title.clone())
+            .unwrap_or_else(|| "Plugin".to_string()),
+        SidebarPanel::Webview(i) => webview_defs(plugins)
+            .nth(i)
+            .and_then(|p| p.webview.as_ref())
+            .map(|w| w.title.clone())
+            .unwrap_or_else(|| "Webview".to_string()),
+        other => other.label().to_string(),
+    }
+}
+
+/// Every plugin-contributed section, block panels then webview panels.
+pub(crate) fn contributed(plugins: &[plugin::Plugin]) -> Vec<SidebarPanel> {
+    let mut list: Vec<SidebarPanel> = (0..panel_defs(plugins).count())
+        .map(SidebarPanel::Plugin)
+        .collect();
+    list.extend((0..webview_defs(plugins).count()).map(SidebarPanel::Webview));
+    list
+}
+
+/// Build both docks from settings plus the loaded plugins: resolve the
+/// configured tokens, then give any newly installed plugin panel a home.
+pub(crate) fn compose_docks(opts: &config::Options, plugins: &[plugin::Plugin]) -> Docks {
+    let resolve = |t: &str| from_token(plugins, t);
+    let tokenize = |p: SidebarPanel| token_of(plugins, p);
+    let mut docks = [
+        dock::compose(
+            SidebarSide::Left,
+            &opts.sidebar_left,
+            &opts.sidebar_collapsed,
+            opts.sidebar_left_width as f32,
+            resolve,
+            tokenize,
+        ),
+        dock::compose(
+            SidebarSide::Right,
+            &opts.sidebar_right,
+            &opts.sidebar_collapsed,
+            opts.sidebar_right_width as f32,
+            resolve,
+            tokenize,
+        ),
+    ];
+    dock::place_unplaced(&mut docks, &contributed(plugins));
+    docks
 }

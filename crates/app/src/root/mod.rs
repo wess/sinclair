@@ -11,6 +11,7 @@ mod boot;
 mod containers;
 mod dialogs;
 mod dispatch;
+pub(crate) mod dock;
 mod layout;
 mod mcp;
 mod menus;
@@ -22,9 +23,9 @@ mod render;
 pub(crate) mod sandbox;
 mod savebuffer;
 mod sidebar;
-mod triggers;
 mod tabmenu;
 mod tabs;
+mod triggers;
 mod worktrees;
 
 use std::cell::RefCell;
@@ -45,16 +46,20 @@ use guise::{PaneGroup, PaneGroupEvent};
 use serde_json::{json, Value};
 use terminal::Session;
 
-use libsinclair::bridge;
 use crate::colors::{self, Colors};
 use crate::keys;
-use libsinclair::metrics::{CellSize, Padding};
 use crate::session;
 use crate::view::{TerminalView, ViewEvent};
+use libsinclair::bridge;
+use libsinclair::metrics::{CellSize, Padding};
 
 pub(crate) use boot::{
     commandspawn, loadmacros, loadplugins, palette_catalog, resolvekeys, write_config,
 };
+// The settings designer edits the same composition the workspace renders, so
+// it builds docks through the same code rather than a parallel reading of the
+// config keys.
+pub(crate) use pluginpanel::{compose_docks, label_of, token_of};
 
 /// One keybind dispatch: the index into the workspace's resolved keybind
 /// table. A single action type keeps every binding flowing through one
@@ -236,7 +241,15 @@ impl PaneContent {
 
     fn element(&self) -> AnyElement {
         match self {
-            PaneContent::Terminal(v) => v.clone().into_any_element(),
+            PaneContent::Terminal(v) => gpui::AnyView::from(v.clone())
+                .cached(
+                    gpui::StyleRefinement::default()
+                        .flex()
+                        .flex_col()
+                        .w_full()
+                        .h_full(),
+                )
+                .into_any_element(),
             PaneContent::Webview(v) => v.clone().into_any_element(),
         }
     }
@@ -275,98 +288,10 @@ struct Item {
 /// during the group's render) can read it without borrowing `WorkspaceView`.
 type Items = HashMap<ItemId, Item>;
 
-/// Which side a drawer lives on.
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub enum SidebarSide {
-    Left,
-    Right,
-}
-
-/// The content shown in a side drawer. Each maps to one activity-bar icon.
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub enum SidebarPanel {
-    /// Tree of tabs and their terminal panes.
-    Terminals,
-    /// At-a-glance activity: each tab's working / attention / idle state.
-    Activity,
-    /// Tile presets and saved custom layouts.
-    Layouts,
-    /// Live Relay server status and connections.
-    Relay,
-    /// Saved agent definitions you can launch.
-    Agents,
-    /// Installed plugins + the installable catalog.
-    Plugins,
-    /// Running containers (Docker/Podman): attach or spin up new OS tabs.
-    Containers,
-    /// A plugin-contributed panel, by index into [`WorkspaceView::plugin_panel_defs`].
-    Plugin(usize),
-    /// A plugin-contributed webview panel, by index into
-    /// [`WorkspaceView::plugin_webview_panel_defs`].
-    Webview(usize),
-}
-
-impl SidebarPanel {
-    /// Panels in activity-bar order.
-    pub const ALL: [SidebarPanel; 7] = [
-        SidebarPanel::Terminals,
-        SidebarPanel::Activity,
-        SidebarPanel::Layouts,
-        SidebarPanel::Containers,
-        SidebarPanel::Relay,
-        SidebarPanel::Agents,
-        SidebarPanel::Plugins,
-    ];
-
-    /// Config/id token, round-tripping through [`SidebarPanel::from_id`].
-    pub fn id(self) -> &'static str {
-        match self {
-            SidebarPanel::Terminals => "terminals",
-            SidebarPanel::Activity => "activity",
-            SidebarPanel::Layouts => "layouts",
-            SidebarPanel::Containers => "containers",
-            SidebarPanel::Relay => "relay",
-            SidebarPanel::Agents => "agents",
-            SidebarPanel::Plugins => "plugins",
-            SidebarPanel::Plugin(_) => "plugin",
-            SidebarPanel::Webview(_) => "webview",
-        }
-    }
-
-    pub fn from_id(s: &str) -> Option<SidebarPanel> {
-        SidebarPanel::ALL.into_iter().find(|p| p.id() == s)
-    }
-
-    /// Title shown in the panel header.
-    pub fn label(self) -> &'static str {
-        match self {
-            SidebarPanel::Terminals => "Terminals",
-            SidebarPanel::Activity => "Activity",
-            SidebarPanel::Layouts => "Layouts",
-            SidebarPanel::Containers => "Containers",
-            SidebarPanel::Relay => "Relay",
-            SidebarPanel::Agents => "Agents",
-            SidebarPanel::Plugins => "Plugins",
-            SidebarPanel::Plugin(_) => "Plugin",
-            SidebarPanel::Webview(_) => "Webview",
-        }
-    }
-
-    /// Activity-bar glyph.
-    pub fn icon(self) -> &'static str {
-        match self {
-            SidebarPanel::Terminals => "\u{25a3}", // ▣ panes
-            SidebarPanel::Activity => "\u{25c9}",  // ◉ activity
-            SidebarPanel::Layouts => "\u{25f0}",   // ◰ tiles
-            SidebarPanel::Containers => "\u{2756}", // ❖ containers
-            SidebarPanel::Relay => "\u{21c4}",     // ⇄ connections
-            SidebarPanel::Agents => "\u{25c8}",    // ◈ agents
-            SidebarPanel::Plugins => "\u{29c9}",   // ⧉ plugins
-            SidebarPanel::Plugin(_) => "\u{25c9}", // ◉ plugin
-            SidebarPanel::Webview(_) => "\u{25f1}", // ◱ webview
-        }
-    }
-}
+// The dock composition model — which sections live on which side, in what
+// order, and what a reveal does. Kept gpui-free in `dock.rs` so it can be
+// tested; `sidebar.rs` renders whatever it decides.
+pub(crate) use dock::{DockSection, Docks, SidebarPanel, SidebarSide};
 
 pub struct WorkspaceView {
     opts: config::Options,
@@ -393,10 +318,17 @@ pub struct WorkspaceView {
     macros: Vec<macros::Macro>,
     /// Config actions for keybind-less menu items, indexed by [`MenuPick`].
     menu_actions: Vec<Action>,
-    /// Active panel in the left drawer; `None` = left drawer hidden.
-    left_panel: Option<SidebarPanel>,
-    /// Active panel in the right drawer; `None` = right drawer hidden.
-    right_panel: Option<SidebarPanel>,
+    /// The two side docks, indexed by [`SidebarSide::index`]. Each is an
+    /// ordered stack of collapsible sections composed from `sidebar-left` /
+    /// `sidebar-right`, so the sides are genuinely different columns rather
+    /// than the same panel list twice.
+    docks: Docks,
+    /// Worktrees of the current repo, cached when that section expands. `None`
+    /// until first resolved; the outer/inner options separate "not looked yet"
+    /// from "looked and this isn't a repo".
+    worktrees: Option<Result<Vec<crate::worktree::Worktree>, String>>,
+    /// Notes vaults, cached when the Notes section expands.
+    notes_recent: Vec<crate::notes::Vault>,
     /// Last block-tree response per plugin panel id, refreshed on open/action.
     plugin_panels: HashMap<String, crate::pluginhost::Response>,
 
@@ -467,8 +399,6 @@ pub struct WorkspaceView {
     sandbox_busy: bool,
     /// Configured font size, restored by `reset_font_size`.
     base_font_size: gpui::Pixels,
-    /// Config-file watcher; kept alive so live reload keeps working.
-    _watch: Option<config::WatchHandle>,
     /// Enabled agent providers that passed their reachability probe, gating the
     /// AI menu's quick-launch items. `None` until the first off-thread probe
     /// finishes — treated as "unknown", so every enabled provider shows meanwhile.
@@ -529,6 +459,9 @@ impl WorkspaceView {
         cx: &mut Context<Self>,
     ) -> Self {
         let plugins = loadplugins(&opts);
+        // Composed before `self` exists, from settings plus the loaded plugin
+        // set — both docks start closed, exactly as the old drawers did.
+        let docks = pluginpanel::compose_docks(&opts, &plugins);
         let (keybinds, diags) = resolvekeys(&opts, &plugins);
         for d in &diags {
             eprintln!("sinclair: {}: {}", d.key, d.message);
@@ -544,9 +477,13 @@ impl WorkspaceView {
         let placeholder = item_ids.next();
         let show_host = Rc::new(std::cell::Cell::new(opts.tab_title_show_host));
         let group = Self::build_group(placeholder, items.clone(), show_host.clone(), cx);
-        let group_sub = cx.subscribe_in(&group, window, |this, _g, ev: &PaneGroupEvent, window, cx| {
-            this.on_group_event(ev.clone(), window, cx);
-        });
+        let group_sub = cx.subscribe_in(
+            &group,
+            window,
+            |this, _g, ev: &PaneGroupEvent, window, cx| {
+                this.on_group_event(ev.clone(), window, cx);
+            },
+        );
         let mut this = Self {
             base_font_size: font_size,
             opts,
@@ -563,8 +500,9 @@ impl WorkspaceView {
             plugins,
             macros: loadmacros(),
             menu_actions: Vec::new(),
-            left_panel: None,
-            right_panel: None,
+            docks,
+            worktrees: None,
+            notes_recent: Vec::new(),
             plugin_panels: HashMap::new(),
             webview_hosts: HashMap::new(),
             gui_wasm: None,
@@ -588,7 +526,6 @@ impl WorkspaceView {
             sandbox_status: None,
             sandbox_notes: Vec::new(),
             sandbox_busy: false,
-            _watch: None,
             verified_agents: None,
             dark: is_dark(window.appearance()),
             _appearance: None,
@@ -641,13 +578,15 @@ impl WorkspaceView {
             }
         };
         // Rebuild the group around the real first item (the placeholder held none).
-        this.group =
-            Self::build_group(first, this.items.clone(), this.show_host.clone(), cx);
-        this._group_sub = cx.subscribe_in(&this.group, window, |this, _g, ev: &PaneGroupEvent, window, cx| {
-            this.on_group_event(ev.clone(), window, cx);
-        });
+        this.group = Self::build_group(first, this.items.clone(), this.show_host.clone(), cx);
+        this._group_sub = cx.subscribe_in(
+            &this.group,
+            window,
+            |this, _g, ev: &PaneGroupEvent, window, cx| {
+                this.on_group_event(ev.clone(), window, cx);
+            },
+        );
         this.focusactive(window, cx);
-        this.startwatch(window, cx);
         crate::relay::on_launch(&this.opts);
         crate::relaywatch::start(&this.opts, cx);
         this.refresh_agent_verification(cx);
@@ -828,7 +767,12 @@ impl WorkspaceView {
     }
 
     /// Activate `item` in its pane and focus it.
-    pub(crate) fn activate_item(&mut self, item: ItemId, window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn activate_item(
+        &mut self,
+        item: ItemId,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let pane = self.group.read(cx).pane_of(item);
         if let Some(pane) = pane {
             self.group.update(cx, |g, cx| g.activate(pane, item, cx));
@@ -883,24 +827,6 @@ impl WorkspaceView {
         cx.notify();
     }
 
-    /// Watch the config file and reload appearance on every edit.
-    fn startwatch(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some((handle, mut changes)) = crate::reload::watch() else {
-            return;
-        };
-        self._watch = Some(handle);
-        let weak = cx.weak_entity();
-        window
-            .spawn(cx, async move |cx| {
-                while changes.next().await.is_some() {
-                    if weak.update(cx, |this, cx| this.reload(cx)).is_err() {
-                        break;
-                    }
-                }
-            })
-            .detach();
-    }
-
     /// Re-read the config file and apply everything that can change at
     /// runtime: theme/colors, font family/size, padding, cursor style,
     /// copy-on-select. Shell, scrollback and window size only affect new
@@ -911,10 +837,13 @@ impl WorkspaceView {
     /// heavier subsystem is diffed against the current options and skipped
     /// when its keys did not change: plugin rescans, font re-measures, and
     /// agent re-verification never run for an unrelated key.
-    fn reload(&mut self, cx: &mut Context<Self>) {
+    pub(crate) fn reload(&mut self, cx: &mut Context<Self>) {
         let (opts, diagnostics) = config::load();
         for d in &diagnostics {
-            eprintln!("sinclair: settings line {}: {} ({})", d.line, d.message, d.key);
+            eprintln!(
+                "sinclair: settings line {}: {} ({})",
+                d.line, d.message, d.key
+            );
         }
         let font_changed = opts.font_family != self.opts.font_family
             || opts.font_feature != self.opts.font_feature

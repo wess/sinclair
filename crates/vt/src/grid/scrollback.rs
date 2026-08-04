@@ -22,6 +22,11 @@ pub(crate) const BLOCK_ROWS: usize = 512;
 /// Compaction keeps at least this many newest rows uncompressed.
 pub(crate) const HOT_TARGET: usize = 1024;
 
+/// Hard ceiling for uncompressed history during sustained output. Crossing
+/// it synchronously moves one old block to the cold tier; idle compaction can
+/// later continue down to [`HOT_TARGET`].
+pub(crate) const HOT_HIGH_WATER: usize = 4096;
+
 /// Ring buffer that rows scroll into off the top of the screen. The oldest
 /// row is evicted once `limit` is reached. A limit of 0 disables storage
 /// (used by the alternate screen).
@@ -93,6 +98,7 @@ impl Scrollback {
         self.cols = row.len();
         self.hot.push_back(row);
         self.pushed += 1;
+        self.compact_high_water();
     }
 
     /// Append a copy of `row`, recycling the evicted front row's buffer when
@@ -122,6 +128,7 @@ impl Scrollback {
             self.hot.push_back(row.clone());
         }
         self.pushed += 1;
+        self.compact_high_water();
     }
 
     /// Drop the oldest logical row: advance into the oldest cold block
@@ -162,7 +169,11 @@ impl Scrollback {
         let Some(block) = self.cold.pop_back() else {
             return;
         };
-        if self.cache.as_ref().is_some_and(|(i, _)| *i == self.cold.len()) {
+        if self
+            .cache
+            .as_ref()
+            .is_some_and(|(i, _)| *i == self.cold.len())
+        {
             self.cache = None;
         }
         let mut rows = codec::decode(&block, self.cols);
@@ -247,9 +258,19 @@ impl Scrollback {
         if self.hot.len() < HOT_TARGET + BLOCK_ROWS {
             return false;
         }
+        self.compact_one();
+        self.hot.len() >= HOT_TARGET + BLOCK_ROWS
+    }
+
+    fn compact_high_water(&mut self) {
+        if self.hot.len() >= HOT_HIGH_WATER {
+            self.compact_one();
+        }
+    }
+
+    fn compact_one(&mut self) {
         let rows: Vec<Row> = self.hot.drain(..BLOCK_ROWS).collect();
         self.cold.push_back(codec::encode(&rows, self.cols));
-        self.hot.len() >= HOT_TARGET + BLOCK_ROWS
     }
 
     /// Memory footprint estimate: `(resident_bytes, compressed_bytes)`.

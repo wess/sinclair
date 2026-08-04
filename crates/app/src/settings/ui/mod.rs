@@ -14,6 +14,7 @@ mod ai;
 mod controls;
 mod lists;
 mod rows;
+mod sidebar;
 
 const SIDEBAR: f32 = 226.0;
 
@@ -202,7 +203,7 @@ impl SettingsView {
     fn section_header(&self) -> impl IntoElement {
         let grouped = matches!(
             self.section,
-            Section::Keyboard | Section::Macros | Section::Plugins
+            Section::Keyboard | Section::Macros | Section::Plugins | Section::Sidebar
         );
         let mut header = div().flex().flex_col().pt(px(18.0)).child(
             div()

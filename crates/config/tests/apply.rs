@@ -173,3 +173,43 @@ fn word_chars_parses_rejects_whitespace_and_resets() {
     assert!(diags.is_empty());
     assert_eq!(o.word_chars, "/-_.~");
 }
+
+#[test]
+fn sidebar_composition_keeps_file_order() {
+    // The order the tokens appear in the file *is* the top-to-bottom order in
+    // the dock, so the two lists must accumulate rather than overwrite.
+    let src = "sidebar-left = terminals\nsidebar-left = worktrees\n\
+               sidebar-right = agents\nsidebar-right = relay\n";
+    let (o, diags) = parse_str(src);
+    assert!(diags.is_empty(), "{diags:?}");
+    assert_eq!(o.sidebar_left, ["terminals", "worktrees"]);
+    assert_eq!(o.sidebar_right, ["agents", "relay"]);
+}
+
+#[test]
+fn sidebar_composition_resets_to_empty() {
+    // Empty resets to the default, which is empty — and empty is what the app
+    // reads as "use the built-in composition", not "an empty dock".
+    let (o, diags) = parse_str("sidebar-left = terminals\nsidebar-left =\n");
+    assert!(diags.is_empty(), "{diags:?}");
+    assert!(o.sidebar_left.is_empty());
+}
+
+#[test]
+fn sidebar_collapsed_accumulates() {
+    let (o, diags) = parse_str("sidebar-collapsed = layouts\nsidebar-collapsed = plugins\n");
+    assert!(diags.is_empty(), "{diags:?}");
+    assert_eq!(o.sidebar_collapsed, ["layouts", "plugins"]);
+}
+
+#[test]
+fn sidebar_widths_parse_and_reject_junk() {
+    let (o, diags) = parse_str("sidebar-left-width = 320\nsidebar-right-width = 280\n");
+    assert!(diags.is_empty(), "{diags:?}");
+    assert_eq!(o.sidebar_left_width, 320);
+    assert_eq!(o.sidebar_right_width, 280);
+    // A bad value degrades to the default plus a diagnostic; it never aborts.
+    let (o, diags) = parse_str("sidebar-left-width = wide\n");
+    assert_eq!(diags.len(), 1);
+    assert_eq!(o.sidebar_left_width, Options::default().sidebar_left_width);
+}

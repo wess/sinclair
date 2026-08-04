@@ -60,7 +60,8 @@ let window = cx.open_window(options, |window, cx| {
 shape, copy-on-select, smart select, middle-click paste, macOS
 option-as-alt, and OSC 52 clipboard policy. The view re-emits every session
 `Event` (title, bell, exit, cwd, notifications), so the host reacts with a
-normal gpui subscription.
+normal gpui subscription. `Session::stats()` and `TermView::render_stats()`
+expose lightweight counters for profiling output coalescing and render reuse.
 
 A complete runnable window lives in [`examples/embed.rs`](examples/embed.rs):
 
@@ -87,8 +88,10 @@ session.write(b"ls\r")?;
 ```
 
 The embedder contract: `with_term` locks the terminal; `Wakeup` events are
-coalesced (at most one in flight until the terminal is next locked); vt's
-damage tracking (`term.take_damage()`) supports partial redraw.
+coalesced. After processing `session.output_generation()`, call
+`session.acknowledge_wakeup(generation)` and immediately process again if it
+returns true. vt's damage tracking (`term.take_damage()`) supports partial
+redraw.
 
 ## More
 

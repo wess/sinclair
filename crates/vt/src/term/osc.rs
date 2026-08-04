@@ -4,6 +4,13 @@
 use super::report::{base64_decode, format_rgb, Clipboard, Notification};
 use super::Inner;
 
+const MAX_TITLE_BYTES: usize = 4 * 1024;
+const MAX_CWD_BYTES: usize = 16 * 1024;
+const MAX_CLIPBOARD_BYTES: usize = 8 * 1024 * 1024;
+const MAX_CLIPBOARD_ENCODED: usize = MAX_CLIPBOARD_BYTES / 3 * 4 + 4;
+const MAX_NOTIFICATION_TITLE_BYTES: usize = 512;
+const MAX_NOTIFICATION_BODY_BYTES: usize = 16 * 1024;
+
 /// Handle a complete OSC. `params` are the semicolon-split raw byte chunks
 /// as provided by vte. `bell_terminated` says whether the sequence ended
 /// with BEL (so replies echo the same terminator). Unknown commands are
@@ -14,7 +21,7 @@ pub(crate) fn dispatch(inner: &mut Inner, params: &[&[u8]], bell_terminated: boo
     };
     match cmd {
         0 | 2 => {
-            inner.title = sanitize_title(&rejoin(&params[1..]));
+            inner.title = sanitize_title(&rejoin_truncated(&params[1..], MAX_TITLE_BYTES));
             inner.title_changed = true;
         }
         4 => {
@@ -38,7 +45,7 @@ pub(crate) fn dispatch(inner: &mut Inner, params: &[&[u8]], bell_terminated: boo
             }
         }
         7 => {
-            let s = rejoin(&params[1..]);
+            let s = rejoin_truncated(&params[1..], MAX_CWD_BYTES);
             let next = (!s.is_empty()).then_some(s);
             if next != inner.cwd {
                 inner.cwd = next;
@@ -46,13 +53,15 @@ pub(crate) fn dispatch(inner: &mut Inner, params: &[&[u8]], bell_terminated: boo
             }
         }
         8 => {
-            let uri = rejoin(params.get(2..).unwrap_or(&[]));
-            let hid = if uri.is_empty() {
-                None
-            } else {
+            let hid = rejoin_bounded(
+                params.get(2..).unwrap_or(&[]),
+                crate::hyperlink::MAX_URI_BYTES,
+            )
+            .filter(|uri| !uri.is_empty())
+            .and_then(|uri| {
                 let id = link_id_param(params.get(1));
                 inner.hyperlinks.intern(id, uri)
-            };
+            });
             inner.screen_mut().cursor.pen.hyperlink = hid;
         }
         133 => match params.get(1).and_then(|p| p.first()) {
@@ -73,6 +82,7 @@ pub(crate) fn dispatch(inner: &mut Inner, params: &[&[u8]], bell_terminated: boo
                     let line = line.trim();
                     if !line.is_empty() && inner.history.back().map(String::as_str) != Some(line) {
                         inner.history.push_back(line.to_string());
+                        inner.history_generation = inner.history_generation.wrapping_add(1);
                         while inner.history.len() > 1000 {
                             inner.history.pop_front();
                         }
@@ -110,18 +120,20 @@ pub(crate) fn dispatch(inner: &mut Inner, params: &[&[u8]], bell_terminated: boo
                 .map(|b| String::from_utf8_lossy(b).into_owned());
             let data = params.get(2);
             if let (Some(kind), Some(data)) = (kind, data) {
-                if data != b"?" {
-                    if let Some(decoded) = base64_decode(data) {
-                        let kind = if kind.is_empty() {
-                            "c".to_string()
-                        } else {
-                            kind
-                        };
-                        inner.clipboard = Some(Clipboard {
-                            kind,
-                            data: decoded,
-                        });
-                    }
+                let decoded = (data != b"?" && data.len() <= MAX_CLIPBOARD_ENCODED)
+                    .then(|| base64_decode(data))
+                    .flatten()
+                    .filter(|d| d.len() <= MAX_CLIPBOARD_BYTES);
+                if let Some(decoded) = decoded {
+                    let kind = if kind.is_empty() {
+                        "c".to_string()
+                    } else {
+                        kind.chars().take(32).collect()
+                    };
+                    inner.clipboard = Some(Clipboard {
+                        kind,
+                        data: decoded,
+                    });
                 }
             }
         }
@@ -147,18 +159,30 @@ pub(crate) fn dispatch(inner: &mut Inner, params: &[&[u8]], bell_terminated: boo
                     .get(1)
                     .is_some_and(|p| p.len() == 1 && p[0].is_ascii_digit());
             if !conemu {
-                notify(inner, None, rejoin(&params[1..]));
+                notify(
+                    inner,
+                    None,
+                    rejoin_truncated(&params[1..], MAX_NOTIFICATION_BODY_BYTES),
+                );
             }
         }
         777 if params.get(1) == Some(&b"notify".as_slice()) => {
             let title = params
                 .get(2)
-                .map(|b| String::from_utf8_lossy(b).into_owned())
+                .map(|b| truncated_lossy(b, MAX_NOTIFICATION_TITLE_BYTES))
                 .filter(|t| !t.is_empty());
-            notify(inner, title, rejoin(params.get(3..).unwrap_or(&[])));
+            notify(
+                inner,
+                title,
+                rejoin_truncated(params.get(3..).unwrap_or(&[]), MAX_NOTIFICATION_BODY_BYTES),
+            );
         }
         99 => {
-            notify(inner, None, rejoin(params.get(2..).unwrap_or(&[])));
+            notify(
+                inner,
+                None,
+                rejoin_truncated(params.get(2..).unwrap_or(&[]), MAX_NOTIFICATION_BODY_BYTES),
+            );
         }
         _ => {}
     }
@@ -173,7 +197,13 @@ fn row_text_from(inner: &Inner, row: usize, col: usize) -> String {
     if row >= grid.rows() {
         return String::new();
     }
-    grid.row(row).text().chars().skip(col).collect::<String>().trim_end().to_string()
+    grid.row(row)
+        .text()
+        .chars()
+        .skip(col)
+        .collect::<String>()
+        .trim_end()
+        .to_string()
 }
 
 fn notify(inner: &mut Inner, title: Option<String>, body: String) {
@@ -239,6 +269,9 @@ fn report_cursor(inner: &Inner) -> Option<(u8, u8, u8)> {
 /// Extract the `id=` value from an OSC 8 params field (colon-separated
 /// `key=value` pairs). Returns `None` when absent or empty.
 fn link_id_param(field: Option<&&[u8]>) -> Option<String> {
+    if field?.len() > crate::hyperlink::MAX_ID_BYTES + 3 {
+        return None;
+    }
     let field = String::from_utf8_lossy(field?);
     field.split(':').find_map(|kv| {
         let value = kv.strip_prefix("id=")?;
@@ -252,13 +285,37 @@ fn sanitize_title(title: &str) -> String {
     title.chars().filter(|c| !c.is_control()).collect()
 }
 
-/// Rebuild a value that vte split on `;` (titles may legitimately contain it).
-fn rejoin(params: &[&[u8]]) -> String {
-    params
+/// Rebuild a value that vte split on `;`, rejecting it if the joined byte form
+/// exceeds `max`.
+fn rejoin_bounded(params: &[&[u8]], max: usize) -> Option<String> {
+    let len = params
         .iter()
-        .map(|b| String::from_utf8_lossy(b))
-        .collect::<Vec<_>>()
-        .join(";")
+        .try_fold(params.len().saturating_sub(1), |n, part| {
+            n.checked_add(part.len())
+        })?;
+    if len > max {
+        return None;
+    }
+    Some(rejoin_truncated(params, max))
+}
+
+fn rejoin_truncated(params: &[&[u8]], max: usize) -> String {
+    let mut bytes = Vec::with_capacity(max.min(256));
+    for (i, part) in params.iter().enumerate() {
+        if i > 0 && bytes.len() < max {
+            bytes.push(b';');
+        }
+        let remaining = max.saturating_sub(bytes.len());
+        bytes.extend_from_slice(&part[..part.len().min(remaining)]);
+        if bytes.len() == max {
+            break;
+        }
+    }
+    String::from_utf8_lossy(&bytes).into_owned()
+}
+
+fn truncated_lossy(bytes: &[u8], max: usize) -> String {
+    String::from_utf8_lossy(&bytes[..bytes.len().min(max)]).into_owned()
 }
 
 fn parse_number(bytes: &[u8]) -> Option<u16> {

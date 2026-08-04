@@ -130,8 +130,7 @@ documented limits), **✗** not yet.
 
 1. **Stacked combining marks** — only the first combining mark per cell is kept;
    full grapheme clusters / ZWJ emoji need spillover storage.
-2. **Damage-clipped rendering** — shape only dirty rows for big-throughput wins.
-3. **Kitty graphics (advanced)** — file/shared-memory transmission, animation,
+2. **Kitty graphics (advanced)** — file/shared-memory transmission, animation,
    unicode placeholders, z-index/cropping (the common-case works).
-4. **Heavy/double/dashed/rounded box-drawing** — extend `boxdraw` geometry.
-5. **macOS status-bar (tray) item** — needs native NSStatusBar code.
+3. **Heavy/double/dashed/rounded box-drawing** — extend `boxdraw` geometry.
+4. **macOS status-bar (tray) item** — needs native NSStatusBar code.

@@ -2,10 +2,9 @@
 
 #![cfg(unix)]
 
-use std::sync::mpsc::Receiver;
 use std::time::{Duration, Instant};
 
-use terminal::{Event, Session, SessionOptions};
+use terminal::{Event, EventReceiver, Session, SessionOptions};
 
 const TIMEOUT: Duration = Duration::from_secs(10);
 
@@ -40,7 +39,7 @@ fn wait_for(session: &Session, what: &str, ok: impl Fn(&str) -> bool) {
 }
 
 /// Block until an `Exit` event arrives; panic on timeout.
-fn wait_for_exit(events: &Receiver<Event>) -> Option<i32> {
+fn wait_for_exit(events: &EventReceiver) -> Option<i32> {
     let deadline = Instant::now() + TIMEOUT;
     loop {
         let remaining = deadline.saturating_duration_since(Instant::now());

@@ -544,6 +544,43 @@ pub fn apply(opts: &mut Options, d: &Options, key: &str, val: &str) -> Result<()
                 opts.keybind.push(val.to_string());
             }
         }
+        // The two dock compositions accumulate one section token per entry, in
+        // file order — that order *is* the top-to-bottom order in the dock.
+        "sidebar-left" => {
+            if empty {
+                opts.sidebar_left = d.sidebar_left.clone();
+            } else {
+                opts.sidebar_left.push(val.to_string());
+            }
+        }
+        "sidebar-right" => {
+            if empty {
+                opts.sidebar_right = d.sidebar_right.clone();
+            } else {
+                opts.sidebar_right.push(val.to_string());
+            }
+        }
+        "sidebar-collapsed" => {
+            if empty {
+                opts.sidebar_collapsed = d.sidebar_collapsed.clone();
+            } else {
+                opts.sidebar_collapsed.push(val.to_string());
+            }
+        }
+        "sidebar-left-width" => {
+            opts.sidebar_left_width = if empty {
+                d.sidebar_left_width
+            } else {
+                value::parse_u32(val).ok_or_else(|| bad("non-negative integer", val))?
+            };
+        }
+        "sidebar-right-width" => {
+            opts.sidebar_right_width = if empty {
+                d.sidebar_right_width
+            } else {
+                value::parse_u32(val).ok_or_else(|| bad("non-negative integer", val))?
+            };
+        }
         "ai-enabled" => {
             opts.ai_enabled = if empty {
                 d.ai_enabled

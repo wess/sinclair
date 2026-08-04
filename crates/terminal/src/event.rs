@@ -5,9 +5,9 @@
 pub enum Event {
     /// New child output was applied to the terminal; redraw when convenient.
     ///
-    /// Coalesced: at most one unconsumed `Wakeup` sits in the channel. The
-    /// next one is sent only after the embedder re-arms the flag by locking
-    /// the terminal ([`crate::Session::with_term`]).
+    /// Coalesced: at most one unacknowledged `Wakeup` sits in the channel. The
+    /// embedder acknowledges it explicitly after processing a generation via
+    /// [`crate::Session::acknowledge_wakeup`].
     Wakeup,
     /// The child set a new window title (OSC 0/2 or title-stack pop).
     TitleChanged(String),
@@ -18,10 +18,7 @@ pub enum Event {
     /// already-decoded bytes to place on the clipboard.
     Clipboard { kind: String, data: Vec<u8> },
     /// The child requested a desktop notification (OSC 9 / 777 / 99).
-    Notify {
-        title: Option<String>,
-        body: String,
-    },
+    Notify { title: Option<String>, body: String },
     /// The child exited; carries the unix exit code when available
     /// (`None` when it was killed by a signal).
     Exit(Option<i32>),

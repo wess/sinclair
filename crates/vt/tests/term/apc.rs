@@ -48,7 +48,10 @@ fn apc_does_not_disturb_surrounding_text_or_csi() {
     let mut t = term();
     // A red SGR (a CSI, not an APC), "hi", a transmit-only graphics APC, then
     // "!" — the ESC-not-underscore must not be mistaken for an APC start.
-    let seq = format!("\x1b[31mhi\x1b_Gf=32,s=1,v=1,a=t,i=1;{}\x1b\\!", b64(&[0; 4]));
+    let seq = format!(
+        "\x1b[31mhi\x1b_Gf=32,s=1,v=1,a=t,i=1;{}\x1b\\!",
+        b64(&[0; 4])
+    );
     t.feed(seq.as_bytes());
     assert!(t.images().is_empty()); // a=t stores only, no placement
     assert!(t.row_text(0).starts_with("hi!"));
@@ -63,7 +66,7 @@ fn chunked_transfer_reassembles() {
     assert!(t.images().is_empty()); // still waiting for the final chunk
     t.feed(format!("\x1b_Gm=0;{}\x1b\\", b64(b)).as_bytes());
     assert_eq!(t.images().len(), 1);
-    assert_eq!(t.images()[0].image.rgba, rgba);
+    assert_eq!(t.images()[0].image.rgba.as_ref(), rgba.as_slice());
 }
 
 #[test]

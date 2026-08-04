@@ -1,9 +1,16 @@
-//! Side drawers. A drawer pairs a thin activity bar of
-//! panel icons with the active panel's content; both left and right drawers
-//! reuse the same renderers. Panels: Terminals (tab/pane tree), Layouts (tile
-//! presets + saved layouts), Relay (live server status from the `RelayStatus`
-//! global), and Agents (saved agent definitions to launch). Hidden by default;
-//! toggled from the View menu (see `menus::sidebar_menu`).
+//! Side docks. A dock pairs a thin rail of section icons with a vertical stack
+//! of collapsible sections — Zed's dock accordion rather than one panel at a
+//! time. **The two sides hold different sections**: each dock's composition
+//! comes from `sidebar-left` / `sidebar-right` (see `dock.rs`, which owns that
+//! logic and is where its tests live), so the rail on the left lists only the
+//! left dock's sections.
+//!
+//! This file is the rendering half: the rail, the section headers, and one
+//! `panel_*` body renderer per section. Composition, reveal and reordering all
+//! live in `dock.rs`.
+//!
+//! Both docks are hidden by default; toggled from the View menu (see
+//! `menus::sidebar_menu`) and composed in Settings → Sidebar.
 
 use super::*;
 use gpui::prelude::*;
@@ -13,7 +20,10 @@ use guise::prelude::{Size, Text};
 const ATTENTION: theme::Rgb = theme::Rgb::new(255, 196, 0);
 
 const ACTIVITY_W: f32 = 44.0;
-const PANEL_W: f32 = 260.0;
+
+/// Floor on a configured dock width, so a bad `sidebar-left-width` cannot
+/// produce a column too narrow to read.
+const MIN_PANEL_W: f32 = 180.0;
 
 /// Vertical clearance reserved at the top of a drawer so the platform's window
 /// controls don't cover the activity-bar icons or the panel header. Matches the
@@ -38,132 +48,67 @@ fn drawer_top_inset(side: SidebarSide) -> f32 {
 }
 
 impl WorkspaceView {
-    /// Render one side drawer: activity bar + the active panel. The activity bar
-    /// sits on the window-edge side (far left for the left drawer, far right for
-    /// the right drawer); a hairline faces the splits.
-    pub(crate) fn drawer(
-        &self,
-        side: SidebarSide,
-        panel: SidebarPanel,
-        cx: &mut Context<Self>,
-    ) -> AnyElement {
+    /// Render one side dock: the rail plus the section stack. The rail sits on
+    /// the window-edge side (far left for the left dock, far right for the
+    /// right); a hairline faces the splits.
+    pub(crate) fn dock_column(&self, side: SidebarSide, cx: &mut Context<Self>) -> AnyElement {
         let fg = colors::hsla(self.colors.fg);
         let panelbg = colors::rgba(crate::tabbar::blend(self.colors.bg, self.colors.fg, 0.04));
         let mut border = fg;
         border.a = 0.15;
+        let dock = &self.docks[side.index()];
 
-        let body = match panel {
-            SidebarPanel::Terminals => self.panel_terminals(cx),
-            SidebarPanel::Layouts => self.panel_layouts(cx),
-            SidebarPanel::Containers => self.panel_containers(cx),
-            SidebarPanel::Activity => self.panel_activity(cx),
-            SidebarPanel::Relay => self.panel_relay(cx),
-            SidebarPanel::Agents => self.panel_agents(cx),
-            SidebarPanel::Plugins => self.panel_pluginlist(cx),
-            SidebarPanel::Plugin(_) => self.panel_plugin(panel, cx),
-            SidebarPanel::Webview(_) => self.panel_webview(panel, cx),
-        };
-        // Reserve top clearance on the window-controls side so the panel header
-        // isn't drawn under the traffic lights / caption buttons; the panel
-        // background still fills to the very top behind them.
-        let content = div()
-            .w(px(PANEL_W))
+        // Reserve top clearance on the window-controls side so the first
+        // section header isn't drawn under the traffic lights / caption
+        // buttons; the background still fills to the very top behind them.
+        let mut content = div()
+            .w(px(dock.width.max(MIN_PANEL_W)))
             .h_full()
             .flex()
             .flex_col()
             .min_h(px(0.0))
             .pt(px(drawer_top_inset(side)))
             .bg(panelbg)
-            .text_color(fg)
-            .child(self.sidebar_header(&self.panel_label_of(panel), side, cx))
-            .child(body);
+            .text_color(fg);
 
-        let activity = self.sidebar_activitybar(side, panel, cx);
+        if dock.sections.is_empty() {
+            content = content
+                .child(self.dock_titlebar(side, cx))
+                .child(self.sidebar_note(
+                    "No sections here. Add some in Settings \u{2192} Sidebar.",
+                ));
+        } else {
+            content = content.child(self.dock_titlebar(side, cx));
+            for (i, section) in dock.sections.iter().enumerate() {
+                content = content.child(self.dock_section(side, i, *section, cx));
+            }
+        }
+
+        let rail = self.sidebar_rail(side, cx);
         let mut row = div().flex().flex_row().h_full().flex_none();
         row = match side {
-            SidebarSide::Left => row.border_r_1().border_color(border).child(activity).child(content),
-            SidebarSide::Right => row.border_l_1().border_color(border).child(content).child(activity),
+            SidebarSide::Left => row.border_r_1().border_color(border).child(rail).child(content),
+            SidebarSide::Right => row.border_l_1().border_color(border).child(content).child(rail),
         };
         row.into_any_element()
     }
 
-    /// The vertical icon strip. Each icon selects its panel; clicking the active
-    /// one collapses the drawer.
-    fn sidebar_activitybar(
-        &self,
-        side: SidebarSide,
-        active: SidebarPanel,
-        cx: &mut Context<Self>,
-    ) -> impl IntoElement {
+    /// The dock's own thin strip: the side's name and an `×` that closes the
+    /// whole dock. Section titles live on the sections themselves now, so this
+    /// only has to identify the column and offer the close.
+    fn dock_titlebar(&self, side: SidebarSide, cx: &mut Context<Self>) -> impl IntoElement {
         let fg = colors::hsla(self.colors.fg);
         let mut dim = fg;
-        dim.a = 0.55;
-        let mut hover = fg;
-        hover.a = 0.08;
-        let barbg = colors::rgba(crate::tabbar::blend(self.colors.bg, self.colors.fg, 0.10));
-        let accent = colors::rgba(self.colors.selection_bg);
-        let prefix = match side {
-            SidebarSide::Left => "left",
-            SidebarSide::Right => "right",
-        };
-
-        // Drop the first icon below the window controls on the controls side
-        // (the bar's own background still fills up behind them); elsewhere keep
-        // the normal 4px top pad.
-        let top = drawer_top_inset(side);
-        let mut bar = div()
-            .w(px(ACTIVITY_W))
-            .h_full()
-            .flex()
-            .flex_col()
-            .items_center()
-            .pt(px(if top > 0.0 { top } else { 4.0 }))
-            .pb_1()
-            .gap_1()
-            .bg(barbg);
-        for (i, panel) in self.panel_list().into_iter().enumerate() {
-            let is_active = panel == active;
-            let payload = format!("{prefix}:{}", self.panel_token_of(panel));
-            bar = bar.child(
-                div()
-                    .id(("sb-icon", i))
-                    .w(px(34.0))
-                    .h(px(34.0))
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .rounded(px(6.0))
-                    .text_size(px(16.0))
-                    .text_color(if is_active { fg } else { dim })
-                    .when(is_active, |d| d.bg(accent))
-                    .hover(|s| s.bg(hover))
-                    .on_click(cx.listener(move |this, _: &gpui::ClickEvent, _w, cx| {
-                        this.toggle_sidebar(&payload, cx);
-                    }))
-                    .child(SharedString::from(self.panel_icon_of(panel))),
-            );
-        }
-        bar
-    }
-
-    /// A panel's title strip: the label plus an `×` that collapses the drawer.
-    fn sidebar_header(
-        &self,
-        label: &str,
-        side: SidebarSide,
-        cx: &mut Context<Self>,
-    ) -> impl IntoElement {
-        let fg = colors::hsla(self.colors.fg);
-        let mut dim = fg;
-        dim.a = 0.6;
+        dim.a = 0.45;
         let mut border = fg;
         border.a = 0.12;
         let mut hover = fg;
         hover.a = 0.12;
-        // A bare side token ("left"/"right") tells `toggle_sidebar` to collapse.
-        let (close_payload, side_ix) = match side {
-            SidebarSide::Left => ("left", 0usize),
-            SidebarSide::Right => ("right", 1usize),
+        // A bare side token tells `toggle_sidebar` to close the dock.
+        let close_payload = side.token();
+        let label = match side {
+            SidebarSide::Left => "Left",
+            SidebarSide::Right => "Right",
         };
         div()
             .flex_none()
@@ -171,15 +116,15 @@ impl WorkspaceView {
             .flex_row()
             .items_center()
             .px_3()
-            .py_2()
+            .py_1()
             .border_b_1()
             .border_color(border)
-            .text_size(px(11.0))
+            .text_size(px(10.0))
             .text_color(dim)
             .child(div().flex_1().child(SharedString::from(label.to_uppercase())))
             .child(
                 div()
-                    .id(("sb-close", side_ix))
+                    .id(("sb-close", side.index()))
                     .flex_none()
                     .w(px(18.0))
                     .h(px(18.0))
@@ -196,10 +141,172 @@ impl WorkspaceView {
             )
     }
 
-    /// Scrollable body wrapper shared by all panels.
+    /// One section: a flush header (chevron + label) over its body when
+    /// expanded. Expanded sections are `flex_1` so they share whatever height
+    /// is left over; collapsed ones are just their header.
+    fn dock_section(
+        &self,
+        side: SidebarSide,
+        index: usize,
+        section: DockSection,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let panel = section.panel;
+        let fg = colors::hsla(self.colors.fg);
+        let mut dim = fg;
+        dim.a = 0.6;
+        let mut border = fg;
+        border.a = 0.10;
+        let mut hover = fg;
+        hover.a = 0.08;
+
+        let chevron: &'static str = if section.expanded {
+            "\u{25be}" // ▾
+        } else {
+            "\u{25b8}" // ▸
+        };
+        let header = div()
+            .id(("sb-sec", side.index() * 64 + index))
+            .flex_none()
+            .flex()
+            .flex_row()
+            .items_center()
+            .gap_1()
+            .px_2()
+            .py(px(5.0))
+            .border_b_1()
+            .border_color(border)
+            .text_size(px(10.0))
+            .text_color(dim)
+            .hover(move |s| s.bg(hover).text_color(fg))
+            .on_click(cx.listener(move |this, _: &gpui::ClickEvent, _w, cx| {
+                this.toggle_section(side, index, cx);
+            }))
+            .child(div().w(px(12.0)).child(SharedString::new_static(chevron)))
+            .child(
+                div()
+                    .flex_1()
+                    .min_w(px(0.0))
+                    .overflow_hidden()
+                    .whitespace_nowrap()
+                    .text_ellipsis()
+                    .child(self.section_title(panel)),
+            );
+
+        let mut wrapper = div().flex().flex_col().min_h(px(0.0)).child(header);
+        if section.expanded {
+            // flex_1 + min_h(0) is what lets several expanded sections share the
+            // column and each scroll on its own instead of one pushing the rest
+            // off the bottom.
+            wrapper = wrapper.flex_1().child(self.panel_body(panel, cx));
+        } else {
+            wrapper = wrapper.flex_none();
+        }
+        wrapper.into_any_element()
+    }
+
+    /// Dispatch to the renderer for one section's contents.
+    fn panel_body(&self, panel: SidebarPanel, cx: &mut Context<Self>) -> AnyElement {
+        match panel {
+            SidebarPanel::Terminals => self.panel_terminals(cx),
+            SidebarPanel::Layouts => self.panel_layouts(cx),
+            SidebarPanel::Containers => self.panel_containers(cx),
+            SidebarPanel::Activity => self.panel_activity(cx),
+            SidebarPanel::Relay => self.panel_relay(cx),
+            SidebarPanel::Agents => self.panel_agents(cx),
+            SidebarPanel::Plugins => self.panel_pluginlist(cx),
+            SidebarPanel::Worktrees => self.panel_worktrees(cx),
+            SidebarPanel::Notes => self.panel_notes(cx),
+            SidebarPanel::Plugin(_) => self.panel_plugin(panel, cx),
+            SidebarPanel::Webview(_) => self.panel_webview(panel, cx),
+        }
+    }
+
+    /// The vertical icon strip — **only this side's sections**, which is what
+    /// makes the left and right docks genuinely different columns. Clicking an
+    /// icon expands that section (or collapses it if it was already showing).
+    fn sidebar_rail(&self, side: SidebarSide, cx: &mut Context<Self>) -> impl IntoElement {
+        let fg = colors::hsla(self.colors.fg);
+        let mut dim = fg;
+        dim.a = 0.55;
+        let mut hover = fg;
+        hover.a = 0.08;
+        let barbg = colors::rgba(crate::tabbar::blend(self.colors.bg, self.colors.fg, 0.10));
+        let accent = colors::rgba(self.colors.selection_bg);
+
+        // Drop the first icon below the window controls on the controls side
+        // (the bar's own background still fills up behind them); elsewhere keep
+        // the normal 4px top pad.
+        let top = drawer_top_inset(side);
+        let mut bar = div()
+            .w(px(ACTIVITY_W))
+            .h_full()
+            .flex()
+            .flex_col()
+            .items_center()
+            .pt(px(if top > 0.0 { top } else { 4.0 }))
+            .pb_1()
+            .gap_1()
+            .bg(barbg);
+        for (i, section) in self.docks[side.index()].sections.iter().enumerate() {
+            let panel = section.panel;
+            let is_active = section.expanded;
+            bar = bar.child(
+                div()
+                    .id(("sb-icon", side.index() * 64 + i))
+                    .w(px(34.0))
+                    .h(px(34.0))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .rounded(px(6.0))
+                    .text_size(px(16.0))
+                    .text_color(if is_active { fg } else { dim })
+                    .when(is_active, |d| d.bg(accent))
+                    .hover(|s| s.bg(hover))
+                    .on_click(cx.listener(move |this, _: &gpui::ClickEvent, _w, cx| {
+                        this.toggle_section(side, i, cx);
+                    }))
+                    .child(self.panel_glyph(panel)),
+            );
+        }
+        bar
+    }
+
+    /// A section header's title. Free for a built-in — the uppercased form is a
+    /// constant — and one allocation for a plugin, whose title comes from its
+    /// manifest or its latest live response.
+    fn section_title(&self, panel: SidebarPanel) -> SharedString {
+        match panel {
+            SidebarPanel::Plugin(_) | SidebarPanel::Webview(_) => {
+                SharedString::from(self.panel_label_of(panel).to_uppercase())
+            }
+            builtin => SharedString::new_static(builtin.label_upper()),
+        }
+    }
+
+    /// A rail glyph. Same split: static for a built-in, owned for a plugin.
+    fn panel_glyph(&self, panel: SidebarPanel) -> SharedString {
+        match panel {
+            SidebarPanel::Plugin(_) | SidebarPanel::Webview(_) => {
+                SharedString::from(self.panel_icon_of(panel))
+            }
+            builtin => SharedString::new_static(builtin.icon()),
+        }
+    }
+
+    /// Scrollable body wrapper shared by all sections. `flex_1` here would
+    /// fight the section wrapper for height, so the wrapper owns the sizing and
+    /// this only owns the scrolling.
     fn sidebar_body(&self, id: &'static str) -> gpui::Stateful<gpui::Div> {
         div()
             .id(id)
+            .w_full()
+            // `flex_1` + `min_h(0)`, not `h_full`: the body is the *second*
+            // child of the section wrapper, after the header, so filling the
+            // wrapper's full height would overflow it by exactly the header.
+            // Flexing takes the leftover instead, and min_h(0) is what lets it
+            // shrink below its content so the scroll actually engages.
             .flex_1()
             .min_h(px(0.0))
             .overflow_y_scroll()
@@ -675,6 +782,118 @@ impl WorkspaceView {
             body = body.child(self.sidebar_note(status));
         }
         body.into_any_element()
+    }
+
+    /// Worktrees panel: this repository's git worktrees. Click one to open it
+    /// in a tab, which is the same path `worktree_open` takes.
+    ///
+    /// The list is whatever `refresh_worktrees` last cached — `git worktree
+    /// list` is a subprocess, and running one per repaint would be a subprocess
+    /// per frame.
+    fn panel_worktrees(&self, cx: &mut Context<Self>) -> AnyElement {
+        let mut body = self.sidebar_body("sb-worktrees");
+        let current = self.focused_cwd_path(cx);
+
+        match self.worktrees.as_ref() {
+            None => {
+                return body
+                    .child(self.sidebar_note("Looking for a repository\u{2026}"))
+                    .into_any_element()
+            }
+            Some(Err(message)) => {
+                return body.child(self.sidebar_note(message)).into_any_element()
+            }
+            Some(Ok(list)) if list.is_empty() => {
+                body = body.child(self.sidebar_note("No worktrees in this repository."));
+            }
+            Some(Ok(list)) => {
+                for (i, tree) in list.iter().enumerate() {
+                    let name = tree
+                        .path
+                        .file_name()
+                        .map(|n| n.to_string_lossy().into_owned())
+                        .unwrap_or_else(|| tree.path.to_string_lossy().into_owned());
+                    let label = match tree.branch.as_deref() {
+                        Some(branch) => format!("{name}  \u{00b7}  {branch}"),
+                        None => format!("{name}  \u{00b7}  detached"),
+                    };
+                    // Mark the worktree the focused tab is actually sitting in.
+                    let active = current.as_deref() == Some(tree.path.as_path());
+                    let path = tree.path.to_string_lossy().into_owned();
+                    body = body.child(
+                        self.sidebar_row(("sb-wt", i), label, false, active, false).on_click(
+                            cx.listener(move |this, _: &gpui::ClickEvent, window, cx| {
+                                if let Err(message) = this.worktree_open(&path, window, cx) {
+                                    eprintln!("sinclair: worktree: {message}");
+                                }
+                            }),
+                        ),
+                    );
+                }
+            }
+        }
+
+        body = body.child(
+            self.sidebar_row(("sb-wt-new", 0usize), "\u{002b} New worktree\u{2026}".into(), false, false, false)
+                .on_click(cx.listener(|this, _: &gpui::ClickEvent, window, cx| {
+                    this.open_new_worktree(window, cx);
+                })),
+        );
+        body = body.child(
+            self.sidebar_row(("sb-wt-refresh", 0usize), "\u{21bb} Refresh".into(), false, false, false)
+                .on_click(cx.listener(|this, _: &gpui::ClickEvent, _w, cx| {
+                    this.refresh_worktrees(cx);
+                    cx.notify();
+                })),
+        );
+        body.into_any_element()
+    }
+
+    /// Notes panel: the vaults the Notes editor has opened before.
+    ///
+    /// Vaults rather than individual notes on purpose — `notes::Vault::recents`
+    /// tracks vault directories, and the editor itself stays a webview because
+    /// a markdown editor is unusable in a column this narrow. This is the index
+    /// that gets you into it, not a second editor.
+    fn panel_notes(&self, cx: &mut Context<Self>) -> AnyElement {
+        let mut body = self.sidebar_body("sb-notes");
+
+        if !self.has_webview_plugin("notes") {
+            return body
+                .child(self.sidebar_note(
+                    "The Notes plugin isn't loaded, so notes can't be opened from here.",
+                ))
+                .into_any_element();
+        }
+
+        body = body.child(self.sidebar_section("Vaults"));
+        if self.notes_recent.is_empty() {
+            body = body.child(self.sidebar_note("No vaults opened yet."));
+        }
+        for (i, recent) in self.notes_recent.iter().enumerate() {
+            let label = recent.name.clone();
+            body = body.child(
+                self.sidebar_row(("sb-note", i), label, false, false, false).on_click(
+                    cx.listener(move |this, _: &gpui::ClickEvent, window, cx| {
+                        this.open_notes(window, cx);
+                    }),
+                ),
+            );
+        }
+
+        body = body.child(
+            self.sidebar_row(("sb-notes-open", 0usize), "\u{25a4} Open Notes".into(), false, false, false)
+                .on_click(cx.listener(|this, _: &gpui::ClickEvent, window, cx| {
+                    this.open_notes(window, cx);
+                })),
+        );
+        body.into_any_element()
+    }
+
+    /// Re-read the vault list the Notes section renders from. Reads a small
+    /// JSON file, so it runs when the section is revealed rather than in render.
+    pub(crate) fn refresh_notes(&mut self) {
+        self.notes_recent = crate::notes::vaults();
     }
 
     /// A small dimmed sub-header inside a panel (guise typography).

@@ -27,6 +27,7 @@ smallvec = { version = "1", optional = true }
 
 # The example needs a windowing backend; the library itself only needs gpui.
 [dev-dependencies]
+flume = { version = "0.11", features = ["async"] }
 gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "96285fc1", features = ["font-kit", "wayland", "x11"] }
 
 [[example]]

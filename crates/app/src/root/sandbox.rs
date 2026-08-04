@@ -215,14 +215,20 @@ impl WorkspaceView {
         cx.notify();
     }
 
-    /// Show the Containers drawer, where the sandbox status and its advisories
-    /// live. Unlike the sidebar toggle this never collapses an open panel — it
-    /// is called to reveal something, never to hide it.
+    /// Show the Containers section, where the sandbox status and its advisories
+    /// live. Unlike the sidebar toggle this never collapses one — it is called
+    /// to reveal something, never to hide it, so it expands in place rather
+    /// than going through `dock::reveal`.
     fn show_sandbox_panel(&mut self, cx: &mut Context<Self>) {
-        if self.left_panel != Some(SidebarPanel::Containers)
-            && self.right_panel != Some(SidebarPanel::Containers)
-        {
-            self.left_panel = Some(SidebarPanel::Containers);
+        let placed = self.docks.iter().any(|d| d.holds(SidebarPanel::Containers));
+        if !placed {
+            dock::add(&mut self.docks, SidebarSide::Left, SidebarPanel::Containers);
+        }
+        for d in self.docks.iter_mut() {
+            if let Some(i) = d.find(SidebarPanel::Containers) {
+                d.sections[i].expanded = true;
+                d.open = true;
+            }
         }
         self.refresh_containers();
         cx.notify();
