@@ -23,6 +23,9 @@ pub(crate) fn current() -> &'static str {
 
 const WIDTH: f32 = 460.0;
 const HEIGHT: f32 = 300.0;
+/// The report window has no progress area or release notes, so it is shorter
+/// than the install prompt.
+const REPORT_HEIGHT: f32 = 180.0;
 
 /// Height reserved for the status area, so the window doesn't jump as the
 /// prompt moves between its states.
@@ -108,20 +111,17 @@ fn apply(found: Result<Check, String>, manual: bool, cx: &mut App) {
         // rather than claiming you're up to date; the next poll picks it up.
         Ok(Check::Pending(version)) => {
             if manual {
-                crate::view::post_os_notification(
-                    "Update on the way",
-                    &format!("Sinclair {version} is still building. Check back shortly."),
-                );
+                report(Outcome::Pending(version), cx);
             }
         }
         Ok(Check::UpToDate) => {
             if manual {
-                crate::view::post_os_notification("Sinclair", "You're on the latest version.");
+                report(Outcome::UpToDate, cx);
             }
         }
         Err(e) => {
             if manual {
-                crate::view::post_os_notification("Update check failed", &e);
+                report(Outcome::Failed(e), cx);
             }
         }
     }
@@ -165,6 +165,123 @@ pub fn open(release: Release, cx: &mut App) {
     );
     if let Ok(handle) = handle {
         handle.update(cx, |_v, window, _cx| window.activate_window()).ok();
+    }
+}
+
+/// The outcome of a check that has nothing to install — everything the prompt
+/// window cannot represent, because it exists to run an install.
+enum Outcome {
+    /// Nothing newer is published.
+    UpToDate,
+    /// Something newer exists but has not uploaded what this machine installs.
+    Pending(String),
+    /// The check itself failed (offline, GitHub down, a parse error).
+    Failed(String),
+}
+
+impl Outcome {
+    /// Headline and detail. Both are needed: "You're up to date" alone leaves a
+    /// user who half-expected an update wondering whether the check ran.
+    fn lines(&self) -> (String, String) {
+        match self {
+            Outcome::UpToDate => (
+                "You're up to date".to_string(),
+                format!("Sinclair {} is the latest version.", current()),
+            ),
+            Outcome::Pending(version) => (
+                format!("Sinclair {version} is on the way"),
+                "It is still building for this platform. Check again shortly.".to_string(),
+            ),
+            Outcome::Failed(why) => ("Couldn't check for updates".to_string(), why.clone()),
+        }
+    }
+}
+
+/// Answer a manual check that had nothing to install.
+///
+/// A window rather than a desktop notification: a notification is silently
+/// dropped when the user has denied Sinclair permission to post one, and
+/// "Check for Updates…" that appears to do nothing at all is worse than the
+/// answer being unwelcome. The install prompt already worked this way; this is
+/// the other half of it.
+fn report(outcome: Outcome, cx: &mut App) {
+    let bounds = Bounds::centered(None, size(px(WIDTH), px(REPORT_HEIGHT)), cx);
+    let handle = cx.open_window(
+        WindowOptions {
+            window_bounds: Some(WindowBounds::Windowed(bounds)),
+            is_resizable: false,
+            titlebar: Some(TitlebarOptions {
+                title: Some("Software Update".into()),
+                appears_transparent: true,
+                traffic_light_position: Some(point(px(12.0), px(12.0))),
+            }),
+            ..Default::default()
+        },
+        |window, cx| {
+            window.set_window_title("Software Update");
+            cx.new(|cx| ReportView {
+                outcome,
+                focus: cx.focus_handle(),
+            })
+        },
+    );
+    if let Ok(handle) = handle {
+        handle.update(cx, |_v, window, _cx| window.activate_window()).ok();
+    }
+}
+
+struct ReportView {
+    outcome: Outcome,
+    focus: FocusHandle,
+}
+
+impl gpui::Focusable for ReportView {
+    fn focus_handle(&self, _cx: &App) -> FocusHandle {
+        self.focus.clone()
+    }
+}
+
+impl Render for ReportView {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let t = guise::theme(cx);
+        let (headline, detail) = self.outcome.lines();
+        div()
+            .size_full()
+            .flex()
+            .flex_col()
+            .track_focus(&self.focus)
+            .on_key_down(|event: &KeyDownEvent, window: &mut Window, _cx| {
+                if event.keystroke.key == "escape" {
+                    window.remove_window();
+                }
+            })
+            .bg(t.body().hsla())
+            .text_color(t.text().hsla())
+            .pt(px(34.0))
+            .px(px(20.0))
+            .pb(px(18.0))
+            .gap(px(10.0))
+            .child(drag_strip())
+            .child(
+                div()
+                    .text_size(px(16.0))
+                    .font_weight(FontWeight::BOLD)
+                    .child(SharedString::from(headline)),
+            )
+            .child(
+                div()
+                    .text_size(px(12.0))
+                    .text_color(t.dimmed().hsla())
+                    .child(SharedString::from(detail)),
+            )
+            .child(div().flex_1())
+            .child(
+                div().flex().items_center().justify_end().child(
+                    Button::new("upd-ok", "OK")
+                        .variant(Variant::Filled)
+                        .on_click(|_e, window, _app| window.remove_window()),
+                ),
+            )
     }
 }
 

@@ -77,3 +77,41 @@ fn the_action_label_tracks_phase_and_installability() {
     // A failure has to stay retryable rather than dead-ending the window.
     assert_eq!(action_label(&Phase::Failed("boom".into()), true), "Try Again");
 }
+
+/// Every outcome names both what happened and why. A headline alone leaves
+/// someone who half-expected an update unsure the check even ran.
+#[test]
+fn every_outcome_says_what_happened_and_why() {
+    for outcome in [
+        Outcome::UpToDate,
+        Outcome::Pending("1.32.0".into()),
+        Outcome::Failed("network unreachable".into()),
+    ] {
+        let (headline, detail) = outcome.lines();
+        assert!(!headline.trim().is_empty());
+        assert!(!detail.trim().is_empty());
+    }
+}
+
+#[test]
+fn up_to_date_names_the_version_you_are_on() {
+    let (_, detail) = Outcome::UpToDate.lines();
+    assert!(detail.contains(current()), "{detail}");
+}
+
+/// A release still uploading must not read as "up to date" — that is the case
+/// the Pending state exists to distinguish.
+#[test]
+fn a_pending_release_is_not_reported_as_up_to_date() {
+    let (headline, detail) = Outcome::Pending("1.32.0".into()).lines();
+    assert!(headline.contains("1.32.0"), "{headline}");
+    assert!(!headline.contains("up to date"), "{headline}");
+    assert!(detail.contains("building"), "{detail}");
+}
+
+/// A failed check reports the reason rather than a generic apology.
+#[test]
+fn a_failed_check_surfaces_its_reason() {
+    let (_, detail) = Outcome::Failed("network unreachable".into()).lines();
+    assert_eq!(detail, "network unreachable");
+}
