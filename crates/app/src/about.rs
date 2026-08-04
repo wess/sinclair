@@ -21,9 +21,31 @@ const HEIGHT: f32 = 420.0;
 /// (e.g. when run straight from `cargo run`).
 const ICON: &[u8] = include_bytes!("../../../assets/icon.png");
 
-/// Compiled-in release metadata.
+/// Compiled-in build metadata (see `build.rs`).
 const VERSION: &str = env!("CARGO_PKG_VERSION");
-const RELEASE_DATE: &str = env!("SINCLAIR_RELEASE_DATE");
+const BUILD_DATE: &str = env!("SINCLAIR_BUILD_DATE");
+/// Whether this build is the tagged release of [`VERSION`], rather than some
+/// later commit that merely carries the same version number.
+const RELEASED: bool = matches!(env!("SINCLAIR_RELEASED").as_bytes(), b"1");
+
+/// The dated line at the foot of the panel, for this build.
+fn build_line() -> String {
+    dateline(RELEASED, BUILD_DATE)
+}
+
+/// Only a build made from the version's own tag can honestly call its date a
+/// release date; anything else says what it actually is, so a development build
+/// cannot pass itself off as the release. Split out from the compiled-in
+/// constants so every case can be tested rather than only the one this build is.
+fn dateline(released: bool, date: &str) -> String {
+    match (released, date) {
+        (true, date) => format!("Released {date}"),
+        // Outside a git checkout there is no date to qualify, so the line is
+        // just what the build is.
+        (false, "unknown") => "Development build".to_string(),
+        (false, date) => format!("Development build \u{b7} {date}"),
+    }
+}
 
 /// Project home page, opened when the link is clicked.
 const REPO: &str = "https://github.com/wess/sinclair";
@@ -112,7 +134,11 @@ impl Render for AboutView {
                 ),
             )
             .child(div().flex_1())
-            .child(Text::new(format!("Released {RELEASE_DATE}")).size(Size::Xs).dimmed())
+            .child(Text::new(build_line()).size(Size::Xs).dimmed())
             .child(div().mt_1().child(Text::new("Apache-2.0 licensed").size(Size::Xs).dimmed()))
     }
 }
+
+#[cfg(test)]
+#[path = "../tests/about.rs"]
+mod tests;
