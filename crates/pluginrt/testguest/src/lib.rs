@@ -45,6 +45,16 @@ impl Guest for Example {
                     std::hint::black_box(n);
                 }
             }
+            // Allocates without bound — exercises the store's memory ceiling.
+            // The guest sees an ordinary allocation failure and aborts; without
+            // the ceiling this grows until the host process dies.
+            "glutton" => {
+                let mut held: Vec<Vec<u8>> = Vec::new();
+                loop {
+                    held.push(vec![7u8; 4 * 1024 * 1024]);
+                    std::hint::black_box(held.len());
+                }
+            }
             other => Err(format!("unknown tool: {other}")),
         }
     }

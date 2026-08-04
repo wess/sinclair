@@ -172,3 +172,21 @@ fn scoped_rejects_escapes() {
     assert!(scoped(root, "../etc/passwd").is_err());
     assert!(scoped(root, "/etc/passwd").is_err());
 }
+
+/// `exec` is driven straight from a panel render on the UI thread, so it must
+/// not linger once the program has finished. The watchdog used to be a polling
+/// sleeper that could only be joined when it next woke, which held the caller
+/// for up to a poll interval after the work was already done — four execs in a
+/// panel refresh meant a visible stall.
+#[test]
+fn exec_returns_promptly_once_the_program_exits() {
+    let start = std::time::Instant::now();
+    for _ in 0..8 {
+        exec(req("true", &[]), None).expect("true runs");
+    }
+    let each = start.elapsed() / 8;
+    assert!(
+        each < Duration::from_millis(25),
+        "each exec took {each:?}; the watchdog is holding the caller after exit"
+    );
+}

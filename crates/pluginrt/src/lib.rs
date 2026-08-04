@@ -8,7 +8,7 @@ use std::collections::{HashMap, HashSet};
 
 use anyhow::{Context, Result};
 use wasmtime::component::{Component, Linker};
-use wasmtime::{Config, Engine, Store};
+use wasmtime::{Config, Engine, Store, StoreLimits, StoreLimitsBuilder};
 use wasmtime_wasi::{ResourceTable, WasiCtx, WasiCtxBuilder, WasiView};
 
 /// The generated host/guest bindings for `wit/plugin.wit`.
@@ -46,6 +46,13 @@ pub trait AppHost: Send {
     fn exec(&mut self, request: ExecRequest) -> Result<ExecOutput, String>;
 }
 
+/// Ceiling on one guest's linear memory. Fuel bounds how long a plugin can run
+/// but says nothing about how much it can allocate, so without this a plugin
+/// that grows its memory in a loop takes the whole terminal down with it — the
+/// allocation failure lands in the host process, not the sandbox. Generous
+/// enough for the JS SDK, which embeds an engine, and far short of trouble.
+const MAX_MEMORY: usize = 64 * 1024 * 1024;
+
 /// Store data for one plugin instance: the app host it delegates to, plus a
 /// locked-down WASI context (the baseline system interface the guest's `std`
 /// needs — no preopened dirs, no sockets, no env; real privileged operations go
@@ -54,6 +61,10 @@ struct State {
     host: Box<dyn AppHost>,
     wasi: WasiCtx,
     table: ResourceTable,
+    /// Enforced by the store, which asks before every growth: a refused growth
+    /// is an ordinary allocation failure inside the guest, so the plugin fails
+    /// and the app carries on.
+    limits: StoreLimits,
 }
 
 impl WasiView for State {
@@ -204,8 +215,10 @@ impl PluginInstance {
                 host,
                 wasi,
                 table: ResourceTable::new(),
+                limits: StoreLimitsBuilder::new().memory_size(MAX_MEMORY).build(),
             },
         );
+        store.limiter(|state| &mut state.limits);
         let world = bindings::Plugin::instantiate(&mut store, &component, &linker)
             .context("instantiate plugin component")?;
         store.set_fuel(FUEL_PER_CALL)?;

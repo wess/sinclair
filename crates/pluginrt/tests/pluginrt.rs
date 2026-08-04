@@ -498,3 +498,21 @@ fn bundled_screentools_greps_the_screen() {
     // A UI event is accepted (no-op here).
     plugin.on_ui_event("{\"id\":\"x\"}").unwrap();
 }
+
+/// Fuel bounds how long a guest runs but says nothing about how much it can
+/// allocate. Without the store's memory ceiling this test would not fail — it
+/// would take the test process down with it, which is exactly what it would do
+/// to the terminal.
+#[test]
+fn a_guest_cannot_allocate_the_host_to_death() {
+    let eng = engine().unwrap();
+    let host = Box::new(MockHost::new(""));
+    let mut plugin = PluginInstance::new(&eng, &fixture(), &granted(), host).unwrap();
+    // Generous fuel: the point is that memory stops it, not the clock.
+    plugin.set_fuel_budget(20_000_000_000);
+    let result = plugin.call_tool("glutton", "{}");
+    assert!(
+        result.is_err(),
+        "an unbounded allocator must be stopped by the store, not by the OS"
+    );
+}

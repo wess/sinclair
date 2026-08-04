@@ -113,7 +113,6 @@ pub(crate) fn scoped(root: &std::path::Path, path: &str) -> Result<std::path::Pa
 /// caller; the guest's fuel budget can't help here because the guest is parked
 /// in a host call, not executing instructions.
 const EXEC_TIMEOUT: Duration = Duration::from_secs(15);
-const EXEC_POLL: Duration = Duration::from_millis(50);
 
 /// Cap on what a program can hand back, so a plugin can't be fed a gigabyte by
 /// `cat`-ing the wrong file and take the app's memory with it.
@@ -158,27 +157,35 @@ pub(crate) fn exec(
         )
     })?;
 
-    // Watchdog: kill the child if it overruns. `done` stops us killing after a
-    // normal exit, when the pid may already have been reused.
+    // Watchdog: kill the child if it overruns. It waits on a condvar rather
+    // than polling, for two reasons. The obvious one is that a poll burns a
+    // wakeup every interval for the whole run. The one that actually hurt: this
+    // function is called straight from a panel render on the UI thread, and a
+    // sleeping watchdog cannot be joined until it next wakes — so every exec
+    // used to hold the UI for up to a poll interval *after* the program had
+    // already finished. Signalling wakes it at once.
     let pid = child.id();
-    let done = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let done = std::sync::Arc::new((std::sync::Mutex::new(false), std::sync::Condvar::new()));
     let flag = done.clone();
     let watchdog = std::thread::spawn(move || {
-        let mut waited = Duration::ZERO;
-        while waited < EXEC_TIMEOUT {
-            if flag.load(std::sync::atomic::Ordering::Relaxed) {
-                return;
-            }
-            std::thread::sleep(EXEC_POLL);
-            waited += EXEC_POLL;
-        }
-        if !flag.load(std::sync::atomic::Ordering::Relaxed) {
+        let (lock, signal) = &*flag;
+        let finished = lock.lock().unwrap_or_else(|e| e.into_inner());
+        let (finished, _) = signal
+            .wait_timeout_while(finished, EXEC_TIMEOUT, |done| !*done)
+            .unwrap_or_else(|e| e.into_inner());
+        // `done` stops us killing after a normal exit, when the pid may already
+        // have been handed to someone else.
+        if !*finished {
             kill_tree(pid);
         }
     });
 
     let out = child.wait_with_output();
-    done.store(true, std::sync::atomic::Ordering::Relaxed);
+    {
+        let (lock, signal) = &*done;
+        *lock.lock().unwrap_or_else(|e| e.into_inner()) = true;
+        signal.notify_all();
+    }
     let _ = watchdog.join();
     let out = out.map_err(|e| format!("exec wait: {e}"))?;
 

@@ -899,6 +899,13 @@ impl WorkspaceView {
         self.show_host.set(self.opts.tab_title_show_host);
         if plugins_changed {
             self.plugins = loadplugins(&self.opts);
+            // Drop the resident instances with them. A plugin that was disabled
+            // or uninstalled otherwise keeps its instance — and its guest
+            // memory — alive for as long as the window, and one whose module
+            // changed on disk would keep serving the old code. They are rebuilt
+            // lazily on the next panel render.
+            self.gui_wasm = None;
+            self.plugin_panels.clear();
         }
         self.macros = loadmacros();
         let (keybinds, diags) = resolvekeys(&self.opts, &self.plugins);
