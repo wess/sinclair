@@ -4,8 +4,8 @@
 #
 # The binary is the `sinclairdev` bin from crates/app, installed as `sinclair.exe`;
 # the Notes sidecar (`notes.exe`) ships beside it. The version is read from the
-# workspace Cargo.toml. Builds natively for the host
-# architecture — pass x86_64 or aarch64 only to label artifacts and pick the
+# workspace Cargo.toml. Builds natively for the host architecture — pass x86_64
+# or aarch64 only to label artifacts and pick the
 # target triple.
 #
 # The MSI is built with the WiX v4 toolset (installed on demand as a dotnet
