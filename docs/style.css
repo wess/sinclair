@@ -1119,8 +1119,10 @@ h3 {
 /* Laptop-height screens. The display type is sized for a large monitor; on a
    900px-tall screen it ran the headline to five lines and pushed the install
    button and the brew command entirely below the fold. Give back enough
-   vertical space that both are visible without scrolling. */
-@media (min-width: 981px) and (max-height: 940px) {
+   vertical space that both are visible without scrolling. The cutoff is the
+   measured height the full-size hero needs (the brew bar bottoms out at
+   ~1003px), plus clearance -- below that, step the type down. */
+@media (min-width: 981px) and (max-height: 1050px) {
   .hero {
     min-height: 0;
     padding: clamp(2rem, 3vw, 3rem) 0 clamp(1.5rem, 3vw, 2.5rem);
