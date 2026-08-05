@@ -261,7 +261,7 @@ pub(crate) struct CursorSnap {
 /// font glyph.
 ///
 /// Column-only, for the reason given on [`RowSnapshot`].
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub(crate) struct BoxCell {
     pub(crate) col: usize,
     pub(crate) ch: char,
@@ -398,7 +398,55 @@ pub struct RenderStats {
 
 pub(crate) struct ShapedRow {
     pub(crate) source: Rc<RowSnapshot>,
-    pub(crate) lines: Vec<ShapedLine>,
+    /// Refcounted, not owned: a `ShapedLine` is ~3KB (its `decoration_runs`
+    /// SmallVec is inline), and every frame copies one per span into the
+    /// frame's draw list. Sharing makes that a refcount bump instead of a
+    /// multi-hundred-kilobyte memcpy on every frame, including idle ones.
+    pub(crate) lines: Vec<Rc<ShapedLine>>,
+}
+
+/// Line up the shaped-line cache with this frame's rows, and report the slots
+/// that still need shaping.
+///
+/// Rows are identified by the address of their [`RowSnapshot`], which is
+/// stable while a `ShapedRow` holds it: a slot whose row object is unchanged
+/// keeps its lines for one pointer compare, and only rows that actually moved
+/// go through the identity map. That matters because the settled case is the
+/// common one -- an idle frame reuses the entire snapshot, and partial damage
+/// replaces only the rows that changed -- and it must not allocate. A scroll
+/// is the case that does move every row, and re-homing them is what stops a
+/// one-line scroll from re-shaping the whole screen.
+pub(crate) fn realign_shaped_rows(
+    cache: &mut Vec<Option<ShapedRow>>,
+    rows: &[Rc<RowSnapshot>],
+) -> Vec<usize> {
+    cache.resize_with(rows.len(), || None);
+    cache.truncate(rows.len());
+    let mut misplaced: Vec<usize> = Vec::new();
+    for (row_i, row) in rows.iter().enumerate() {
+        let settled = cache[row_i]
+            .as_ref()
+            .is_some_and(|shaped| Rc::ptr_eq(&shaped.source, row));
+        if !settled {
+            misplaced.push(row_i);
+        }
+    }
+    if !misplaced.is_empty() {
+        let mut pool: HashMap<*const RowSnapshot, ShapedRow> =
+            HashMap::with_capacity(misplaced.len());
+        for &row_i in &misplaced {
+            if let Some(shaped) = cache[row_i].take() {
+                pool.insert(Rc::as_ptr(&shaped.source), shaped);
+            }
+        }
+        for &row_i in &misplaced {
+            if let Some(shaped) = pool.remove(&Rc::as_ptr(&rows[row_i])) {
+                cache[row_i] = Some(shaped);
+            }
+        }
+    }
+    misplaced.retain(|&row_i| cache[row_i].is_none());
+    misplaced
 }
 
 enum Reuse<'a> {

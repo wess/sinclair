@@ -664,3 +664,279 @@ fn scrolled_reuse_moves_a_rows_background_up_with_it() {
         );
     }
 }
+
+/// Every row the reuse path produced, as comparable primitives.
+fn rows_of(snap: &Snapshot) -> Vec<(Vec<Span>, Vec<BgRun>, Vec<BoxCell>)> {
+    snap.rows
+        .iter()
+        .map(|r| (r.spans.clone(), r.bg_runs.clone(), r.boxes.clone()))
+        .collect()
+}
+
+/// The reuse machinery (vt damage tracking, `Reuse::Dirty` row carry-over and
+/// `Reuse::Scrolled` re-homing, plus whole-snapshot reuse) is an optimization:
+/// it must be indistinguishable from resolving every visible cell afresh. Any
+/// divergence is a stale-pixel bug on screen.
+///
+/// Drives two identical terminals through the same bytes -- one through the
+/// incremental path, one rebuilt from scratch each step -- and compares. This
+/// is the guard that a missed damage mark or a bad reuse key cannot hide
+/// behind "it usually looks right".
+#[track_caller]
+fn assert_reuse_matches_full_rebuild(cols: usize, rows: usize, scrollback: usize, steps: &[&[u8]]) {
+    let colors = Rc::new(test_colors());
+    let cell = test_cell();
+    let mut cache = SnapCache::default();
+    let mut incremental_images = ImageCache::default();
+    let mut fresh_images = ImageCache::default();
+    let mut incremental = vt::Terminal::new(cols, rows, scrollback);
+    let mut fresh = vt::Terminal::new(cols, rows, scrollback);
+
+    for (i, step) in steps.iter().enumerate() {
+        incremental.feed(step);
+        fresh.feed(step);
+        let got = snapshot_reuse(
+            &mut incremental,
+            &mut cache,
+            &colors,
+            None,
+            cell,
+            &mut incremental_images,
+            None,
+        );
+        let want = snapshot(&mut fresh, &colors, None, cell, &mut fresh_images, None);
+        assert_eq!(
+            rows_of(&got),
+            rows_of(&want),
+            "step {i}: reused snapshot diverged from a full rebuild after {:?}",
+            String::from_utf8_lossy(step)
+        );
+        assert_eq!(got.cursor, want.cursor, "step {i}: cursor diverged");
+        assert_eq!(got.offset, want.offset, "step {i}: display offset diverged");
+    }
+}
+
+#[test]
+fn reuse_matches_a_full_rebuild_for_plain_scrolling_output() {
+    let mut steps: Vec<Vec<u8>> = Vec::new();
+    for i in 0..40 {
+        steps.push(format!("line {i} of scrolling output\r\n").into_bytes());
+    }
+    let refs: Vec<&[u8]> = steps.iter().map(|s| s.as_slice()).collect();
+    assert_reuse_matches_full_rebuild(40, 8, 100, &refs);
+}
+
+#[test]
+fn reuse_matches_a_full_rebuild_for_cursor_addressed_redraws() {
+    // The shape a progress display uses: park the cursor, rewrite lines in
+    // place, erase to end of line, come back up.
+    assert_reuse_matches_full_rebuild(
+        40,
+        6,
+        100,
+        &[
+            b"aaa\r\nbbb\r\nccc\r\nddd\r\n",
+            b"\x1b[2A",           // up two
+            b"\x1b[2Krewritten",  // erase line, rewrite
+            b"\x1b[1B\rmore\x1b[K",
+            b"\x1b[H",            // home
+            b"\x1b[Jcleared down",
+            b"\x1b[4;1Hbottom",
+            b"\x1b[1;1H\x1b[1M",  // delete a line
+            b"\x1b[1L",           // insert a line
+            b"\x1b[3;5r",         // scroll region
+            b"\x1b[3;1Hin region\r\n\r\n\r\n",
+            b"\x1b[r",            // reset region
+            b"\x1bM\x1bM",        // reverse index twice
+        ],
+    );
+}
+
+#[test]
+fn reuse_matches_a_full_rebuild_for_styles_wide_chars_and_box_drawing() {
+    assert_reuse_matches_full_rebuild(
+        30,
+        6,
+        100,
+        &[
+            b"\x1b[1;31mbold red\x1b[0m\r\n",
+            b"\x1b[4;32munderline\x1b[0m\r\n",
+            b"\x1b[7minverse\x1b[0m\r\n",
+            "\u{4e16}\u{754c} wide\r\n".as_bytes(),
+            "\u{250c}\u{2500}\u{2510}\r\n".as_bytes(),
+            "\u{2588}\u{2591} blocks\r\n".as_bytes(),
+            b"\x1b[48;2;10;20;30mtruecolor bg\x1b[0m\r\n",
+            b"\x1b[9mstrike\x1b[0m\r\n",
+            b"\x1b[2mdim\x1b[0m\r\n",
+            b"tail\r\n\r\n\r\n\r\n",
+        ],
+    );
+}
+
+#[test]
+fn reuse_matches_a_full_rebuild_across_screen_and_scrollback_changes() {
+    assert_reuse_matches_full_rebuild(
+        30,
+        5,
+        100,
+        &[
+            b"one\r\ntwo\r\nthree\r\nfour\r\nfive\r\nsix\r\n",
+            b"\x1b[?1049h",      // alt screen
+            b"alt content\r\nmore alt\r\n",
+            b"\x1b[2J\x1b[H",    // clear alt
+            b"redrawn alt\r\n",
+            b"\x1b[?1049l",      // back to primary
+            b"after alt\r\n",
+            b"\x1b[3J",          // drop scrollback
+            b"\x1bc",            // RIS
+            b"post reset\r\n",
+        ],
+    );
+}
+
+/// The same equivalence under a wide, deterministic mix of operations. Fixed
+/// seed so a failure is reproducible; the point is to reach interleavings a
+/// hand-written corpus does not think of.
+#[test]
+fn reuse_matches_a_full_rebuild_under_a_mixed_operation_fuzz() {
+    for seed in [
+        0x5171_2c9f_1a3b_77d5,
+        0x0123_4567_89ab_cdef,
+        0xfeed_face_dead_beef,
+        0x9e37_79b9_7f4a_7c15,
+        0x1,
+        0xffff_ffff_ffff_ffff,
+    ] {
+        fuzz_one_seed(seed);
+    }
+}
+
+fn fuzz_one_seed(seed: u64) {
+    let mut state: u64 = seed;
+    let mut rand = move || {
+        // xorshift64*: deterministic, no external dependency.
+        state ^= state >> 12;
+        state ^= state << 25;
+        state ^= state >> 27;
+        state.wrapping_mul(0x2545_F491_4F6C_DD1D) >> 33
+    };
+    let mut steps: Vec<Vec<u8>> = Vec::new();
+    for _ in 0..600 {
+        let n = rand();
+        let step: Vec<u8> = match n % 20 {
+            0..=2 => format!("text{}", n % 1000).into_bytes(),
+            3 | 4 => b"\r\n".to_vec(),
+            5 => format!("\x1b[{};{}H", n % 9 + 1, n % 25 + 1).into_bytes(),
+            6 => format!("\x1b[{}A", n % 4 + 1).into_bytes(),
+            7 => format!("\x1b[{}B", n % 4 + 1).into_bytes(),
+            8 => format!("\x1b[{}C", n % 6 + 1).into_bytes(),
+            9 => format!("\x1b[{}D", n % 6 + 1).into_bytes(),
+            10 => format!("\x1b[{}K", n % 3).into_bytes(),
+            11 => format!("\x1b[{}J", n % 3).into_bytes(),
+            12 => format!("\x1b[{}L", n % 3 + 1).into_bytes(),
+            13 => format!("\x1b[{}M", n % 3 + 1).into_bytes(),
+            14 => format!("\x1b[{}P", n % 4 + 1).into_bytes(),
+            15 => format!("\x1b[{}m", n % 8 + 30).into_bytes(),
+            16 => format!("\x1b[4{}m", n % 8).into_bytes(),
+            17 => "\u{4e16}\u{2500}\u{2588}".as_bytes().to_vec(),
+            18 => b"\x1bM".to_vec(),
+            _ => b"\t\x08 ".to_vec(),
+        };
+        steps.push(step);
+    }
+    let refs: Vec<&[u8]> = steps.iter().map(|s| s.as_slice()).collect();
+    assert_reuse_matches_full_rebuild(25, 9, 200, &refs);
+}
+
+fn blank_row() -> Rc<RowSnapshot> {
+    Rc::new(RowSnapshot {
+        source_revision: 0,
+        bg_runs: Vec::new(),
+        spans: Vec::new(),
+        boxes: Vec::new(),
+    })
+}
+
+fn shaped_for(row: &Rc<RowSnapshot>) -> ShapedRow {
+    ShapedRow {
+        source: row.clone(),
+        lines: Vec::new(),
+    }
+}
+
+/// Which cached slots still point at the row they were shaped for.
+fn settled_slots(cache: &[Option<ShapedRow>], rows: &[Rc<RowSnapshot>]) -> Vec<usize> {
+    cache
+        .iter()
+        .enumerate()
+        .filter(|(i, slot)| {
+            slot.as_ref()
+                .is_some_and(|s| Rc::ptr_eq(&s.source, &rows[*i]))
+        })
+        .map(|(i, _)| i)
+        .collect()
+}
+
+#[test]
+fn realign_reshapes_nothing_when_no_row_moved() {
+    let rows: Vec<Rc<RowSnapshot>> = (0..5).map(|_| blank_row()).collect();
+    let mut cache: Vec<Option<ShapedRow>> = rows.iter().map(|r| Some(shaped_for(r))).collect();
+    // An idle frame hands back the very same row objects.
+    assert_eq!(realign_shaped_rows(&mut cache, &rows), Vec::<usize>::new());
+    assert_eq!(settled_slots(&cache, &rows), vec![0, 1, 2, 3, 4]);
+}
+
+#[test]
+fn realign_rehomes_scrolled_rows_and_shapes_only_the_new_one() {
+    let rows: Vec<Rc<RowSnapshot>> = (0..5).map(|_| blank_row()).collect();
+    let mut cache: Vec<Option<ShapedRow>> = rows.iter().map(|r| Some(shaped_for(r))).collect();
+    // A one-line scroll: every surviving row moves up a slot, one row is new.
+    let fresh = blank_row();
+    let scrolled: Vec<Rc<RowSnapshot>> = rows[1..].iter().cloned().chain([fresh]).collect();
+    assert_eq!(realign_shaped_rows(&mut cache, &scrolled), vec![4]);
+    // The four survivors kept their shaped lines, at their new slots.
+    assert_eq!(settled_slots(&cache, &scrolled), vec![0, 1, 2, 3]);
+}
+
+#[test]
+fn realign_shapes_only_the_row_that_changed_in_place() {
+    let rows: Vec<Rc<RowSnapshot>> = (0..5).map(|_| blank_row()).collect();
+    let mut cache: Vec<Option<ShapedRow>> = rows.iter().map(|r| Some(shaped_for(r))).collect();
+    // Partial damage replaces one row object, leaving the rest untouched.
+    let mut damaged = rows.clone();
+    damaged[2] = blank_row();
+    assert_eq!(realign_shaped_rows(&mut cache, &damaged), vec![2]);
+    assert_eq!(settled_slots(&cache, &damaged), vec![0, 1, 3, 4]);
+}
+
+#[test]
+fn realign_follows_the_row_count_when_the_grid_resizes() {
+    let rows: Vec<Rc<RowSnapshot>> = (0..5).map(|_| blank_row()).collect();
+    let mut cache: Vec<Option<ShapedRow>> = rows.iter().map(|r| Some(shaped_for(r))).collect();
+    // Shrink: the cache must not keep stale slots past the end.
+    let shorter: Vec<Rc<RowSnapshot>> = rows[..3].to_vec();
+    assert_eq!(realign_shaped_rows(&mut cache, &shorter), Vec::<usize>::new());
+    assert_eq!(cache.len(), 3);
+    // Grow: the added slots need shaping, the existing ones do not.
+    let taller: Vec<Rc<RowSnapshot>> = shorter
+        .iter()
+        .cloned()
+        .chain((0..2).map(|_| blank_row()))
+        .collect();
+    assert_eq!(realign_shaped_rows(&mut cache, &taller), vec![3, 4]);
+    assert_eq!(cache.len(), 5);
+}
+
+#[test]
+fn realign_handles_a_row_object_appearing_in_two_slots() {
+    // Duplicate rows can only be served once from the cache; the other slot
+    // must be reported for shaping rather than silently left empty.
+    let shared = blank_row();
+    let rows = [shared.clone(), blank_row()];
+    let mut cache: Vec<Option<ShapedRow>> = rows.iter().map(|r| Some(shaped_for(r))).collect();
+    let duped = vec![shared.clone(), shared.clone()];
+    let todo = realign_shaped_rows(&mut cache, &duped);
+    assert_eq!(todo, vec![1]);
+    assert!(cache[0].is_some());
+    assert!(cache[1].is_none());
+}

@@ -6,7 +6,6 @@
 //! shaping happens after the lock is released.
 
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Duration;
@@ -230,7 +229,7 @@ impl TerminalElement {
 pub struct Frame {
     bg_quads: Vec<(Bounds<Pixels>, Hsla)>,
     box_quads: Vec<(Bounds<Pixels>, Hsla)>,
-    lines: Vec<(Point<Pixels>, ShapedLine)>,
+    lines: Vec<(Point<Pixels>, Rc<ShapedLine>)>,
     cursor: Option<CursorFrame>,
     /// Dimmed autosuggestion ghost text at the cursor.
     ghost: Option<(Point<Pixels>, ShapedLine)>,
@@ -392,61 +391,42 @@ impl Element for TerminalElement {
                 cache.shape_cell_width = cell_width;
                 cache.shaped_rows.clear();
             }
-            // Re-key the cache by row-snapshot identity rather than viewport
-            // index. A terminal scroll rotates most rows; preserving their
-            // shaped lines avoids re-shaping the whole screen just because
-            // each unchanged row moved up by one slot.
-            let mut prior: HashMap<*const RowSnapshot, ShapedRow> =
-                std::mem::take(&mut cache.shaped_rows)
-                    .into_iter()
-                    .flatten()
-                    .map(|shaped| (Rc::as_ptr(&shaped.source), shaped))
-                    .collect();
-            cache.shaped_rows.resize_with(snap.rows.len(), || None);
-            let mut shaped_rows = 0;
-            for (row_i, row) in snap.rows.iter().enumerate() {
-                if let Some(shaped) = prior.remove(&Rc::as_ptr(row)) {
-                    cache.shaped_rows[row_i] = Some(shaped);
-                    continue;
-                }
+            let needs_shaping = realign_shaped_rows(&mut cache.shaped_rows, &snap.rows);
+            cache.set_last_shaped_rows(needs_shaping.len());
+            for row_i in needs_shaping {
+                let row = &snap.rows[row_i];
                 let lines = row
                     .spans
                     .iter()
                     .map(|span| {
                         let run = self.text_run(span);
-                        window.text_system().shape_line(
+                        Rc::new(window.text_system().shape_line(
                             span.text.clone().into(),
                             self.font_size,
                             &[run],
                             Some(cell_w),
-                        )
+                        ))
                     })
                     .collect();
                 cache.shaped_rows[row_i] = Some(ShapedRow {
                     source: row.clone(),
                     lines,
                 });
-                shaped_rows += 1;
             }
-            cache.set_last_shaped_rows(shaped_rows);
-            snap.rows
-                .iter()
-                .enumerate()
-                .flat_map(|(row_i, row)| {
-                    let shaped = cache.shaped_rows[row_i].as_ref().unwrap();
-                    row.spans
-                        .iter()
-                        .zip(shaped.lines.iter())
-                        .map(|(span, line)| {
-                            let pos = point(
-                                origin.x + cell_w * span.col as f32,
-                                origin.y + cell_h * row_i as f32,
-                            );
-                            (pos, line.clone())
-                        })
-                        .collect::<Vec<_>>()
-                })
-                .collect()
+            // One exact-capacity allocation for the whole frame; the previous
+            // shape collected a throwaway Vec per row on top of the per-span
+            // copies.
+            let mut lines = Vec::with_capacity(snap.rows.iter().map(|r| r.spans.len()).sum());
+            for (row_i, row) in snap.rows.iter().enumerate() {
+                let Some(shaped) = cache.shaped_rows[row_i].as_ref() else {
+                    continue;
+                };
+                let y = origin.y + cell_h * row_i as f32;
+                for (span, line) in row.spans.iter().zip(shaped.lines.iter()) {
+                    lines.push((point(origin.x + cell_w * span.col as f32, y), line.clone()));
+                }
+            }
+            lines
         };
 
         // The focused pane draws a filled cursor; an unfocused pane keeps a
