@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Your first 10 minutes — Sinclair docs</title>
+    <meta name="description" content="A hands-on quickstart for Sinclair: install it, open splits and tabs, switch themes live, edit the config, and learn the two shortcuts that unlock everything else.">
+    <meta name="theme-color" content="#05070c">
+    <link rel="icon" href="icon.png">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="docs.css">
+  </head>
+  <body class="docs">
+    <a class="skip" href="#doc-main">Skip to content</a>
+    <main id="doc-main" class="doc-main">
+      <article class="doc-article" data-doc-page="quickstart">
+        <p class="kicker">Tutorial</p>
+        <h1>Your first 10 minutes with Sinclair</h1>
+        <p class="lede">
+          By the end of this you'll have Sinclair installed, a couple of shells running
+          side by side, your favorite theme applied, and the two keystrokes that let you
+          reach every other feature without memorizing anything. No configuration required
+          to start — but you'll edit the config once, just to see how fast it reloads.
+        </p>
+
+        <div class="callout note">
+          <p>On macOS, <kbd>⌘</kbd> is the modifier. On Linux, read <kbd>⌘</kbd> as
+          <kbd>⌃</kbd> (Ctrl) throughout. Every shortcut here maps to an action you can
+          remap — see <a href="keybindings.html">Keybindings</a>.</p>
+        </div>
+
+        <h2>1. Install and launch</h2>
+        <p>On macOS, install the Homebrew cask:</p>
+        <pre><code>brew install --cask wess/packages/sinclair</code></pre>
+        <p>
+          On Linux, grab the AppImage, <code>.deb</code>, or tarball from the
+          <a href="https://github.com/wess/sinclair/releases">releases page</a> — full steps
+          are on the <a href="install.html">Install</a> page. Open Sinclair and you get one
+          window running your login shell. That's the whole setup; everything below happens
+          inside that window.
+        </p>
+
+        <h2>2. Split the window</h2>
+        <p>
+          Every pane in Sinclair is a full, independent shell. Make a second one beside the
+          first with <kbd>⌘D</kbd>, and a third underneath with <kbd>⌘⇧D</kbd>:
+        </p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Do this</th><th>Key</th></tr></thead>
+            <tbody>
+              <tr><td>Split right</td><td><kbd>⌘D</kbd></td></tr>
+              <tr><td>Split down</td><td><kbd>⌘⇧D</kbd></td></tr>
+              <tr><td>Move focus between panes</td><td><kbd>⌘⌥</kbd> + arrow keys</td></tr>
+              <tr><td>Zoom the focused pane (toggle)</td><td>bind <code>zoom_split</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          Splits are recursive — any pane can be split again — so you can build a column of
+          logs beside your editor, or a 2×2 grid of servers. Drag a divider to resize, or
+          nudge it from the keyboard with <code>resize_split</code>. The unfocused panes dim
+          slightly so the active shell always stands out. Full details:
+          <a href="workspace.html">Tabs, splits &amp; layouts</a>.
+        </p>
+        <div class="callout tip">
+          <span class="label">Tip</span>
+          <p>Don't split one pane at a time — press the <strong>Layouts</strong> sidebar
+          panel and apply a preset like <em>Main + Right</em> or <em>4-pane Grid</em> to
+          arrange several shells in a single step. Built one you like by hand? Run
+          <code>save_layout</code> to keep it.</p>
+        </div>
+
+        <h2>3. Open tabs</h2>
+        <p>
+          When one screen of splits isn't enough, tabs hold separate workspaces. Open one
+          with <kbd>⌘T</kbd>, jump straight to a tab with <kbd>⌘1</kbd>–<kbd>⌘9</kbd>, and
+          cycle with <kbd>⌘⇧]</kbd> / <kbd>⌘⇧[</kbd>. Each tab titles itself after the
+          focused pane's directory (and its git branch, if any), so you can tell them apart
+          at a glance. A background tab that fires a notification grows a small dot until you
+          look at it.
+        </p>
+
+        <h2>4. Change the theme — live</h2>
+        <p>
+          Open settings with <kbd>⌘,</kbd> and pick from 22 built-in color schemes. The
+          window repaints the instant you choose one — no restart. Prefer to follow your
+          system? Sinclair can track the OS light/dark setting and switch automatically.
+          Everything is also a plain config key, so a theme is one line:
+        </p>
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "theme": "Catppuccin Mocha"
+}</code></pre>
+        <p>
+          You can override individual colors, set transparency, drop in a background image,
+          and enforce a readability contrast floor — see
+          <a href="themes.html">Themes &amp; appearance</a>.
+        </p>
+
+        <h2>5. Edit the config and watch it reload</h2>
+        <p>
+          Sinclair's settings live in a readable JSON-with-comments file at
+          <code>~/.config/sinclair/settings.json</code> (or
+          <code>$XDG_CONFIG_HOME/sinclair/settings.json</code>).
+          It's watched live: <strong>save the file and the change applies immediately</strong>,
+          no relaunch. Try a few:
+        </p>
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "font-family": ["JetBrains Mono"],
+  "font-size": 14,
+  "session-restore": true      <span class="c">// reopen tabs &amp; splits on next launch</span>
+}</code></pre>
+        <p>
+          A bad line never aborts the load — it becomes a friendly diagnostic and the rest
+          still applies. Every option is catalogued on the
+          <a href="configuration.html">Configuration</a> page.
+        </p>
+
+        <h2>6. The two shortcuts that unlock the rest</h2>
+        <p>These are the ones to actually commit to memory:</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Shortcut</th><th>Opens</th><th>Use it to</th></tr></thead>
+            <tbody>
+              <tr><td><kbd>⌘⇧P</kbd></td><td>Command palette</td><td>Run <em>any</em> action or plugin command by name — split, theme, record, launch an agent — even if you don't know its key.</td></tr>
+              <tr><td><kbd>⌘P</kbd></td><td>Quick open</td><td>Jump to a tab or pane, or a launch profile.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          Because the palette lists everything, you never have to memorize a keybinding to
+          find a feature — type a few letters and go. That's your escape hatch for the whole
+          rest of the app.
+        </p>
+
+        <h2>7. Two niceties you'll use constantly</h2>
+        <ul>
+          <li><strong>Autosuggestions.</strong> As you type, Sinclair completes your command
+          from history, common commands, and paths as faint ghost text. Accept the whole
+          thing with <kbd>→</kbd>. (Optional completion popup, Tab-cycling, and an AI
+          fallback each toggle on their own — see <a href="productivity.html">Productivity</a>.)</li>
+          <li><strong>Grab the last output.</strong> With shell integration on,
+          <code>copy_command_output</code> copies the entire output of the last command
+          between its prompt marks — no selecting by hand.</li>
+        </ul>
+
+        <h2>Where to next</h2>
+        <p>You now know your way around. Two good directions:</p>
+        <div class="cards">
+          <a href="productivity.html"><strong>Go deeper on the terminal</strong>Hint mode, copy mode, clipboard history, snippets, redaction, triggers, recording, and more.</a>
+          <a href="agentteams.html"><strong>Run an agent team</strong>The reason a lot of people install Sinclair — coordinate multiple coding agents in real panes.</a>
+        </div>
+      </article>
+    </main>
+    <script type="module" src="docs.js"></script>
+  </body>
+</html>

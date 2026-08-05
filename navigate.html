@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Navigate &amp; select — Sinclair docs</title>
+    <meta name="description" content="A hands-on walkthrough for moving through scrollback and selecting text in Sinclair without the mouse: search, semantic search, jump-to-prompt, command output, hint mode, copy mode, smart selection, and search across every tab.">
+    <meta name="theme-color" content="#05070c">
+    <link rel="icon" href="icon.png">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="docs.css">
+  </head>
+  <body class="docs">
+    <a class="skip" href="#doc-main">Skip to content</a>
+    <main id="doc-main" class="doc-main">
+      <article class="doc-article" data-doc-page="navigate">
+        <p class="kicker">Tutorial</p>
+        <h1>Navigate &amp; select without the mouse</h1>
+        <p class="lede">
+          Once your hands are on the home row, reaching for the trackpad to scroll back,
+          grab a URL, or copy the output of the last command is the slow path. Sinclair lets
+          you do all of it from the keyboard: search the scrollback, jump between prompts,
+          follow links by keystroke, and drive a vi-style cursor to select exactly what you
+          want. This walkthrough runs through each one in the order you'll reach for them.
+        </p>
+
+        <div class="callout note">
+          <p>On macOS, <kbd>⌘</kbd> is the modifier. On Linux, read <kbd>⌘</kbd> as
+          <kbd>⌃</kbd> (Ctrl) throughout. Every shortcut here maps to an action you can
+          remap — see <a href="keybindings.html">Keybindings</a>.</p>
+        </div>
+
+        <h2>1. Confirm shell integration is on</h2>
+        <p>
+          Almost everything below leans on one prerequisite, and the good news is you
+          already have it: <strong>shell integration is on by default</strong> (the
+          <code>shell-integration</code> config key). Sinclair injects OSC 133 prompt marks
+          and OSC 7 working-directory reporting into zsh, bash, and fish purely through
+          environment variables — it never touches your <code>.zshrc</code>,
+          <code>.bashrc</code>, or fish config. Those marks are how Sinclair knows where each
+          command begins and ends, which is what powers jump-to-prompt, command-output
+          grabbing, and semantic search in the steps that follow.
+        </p>
+        <div class="callout note">
+          <span class="label">Note</span>
+          <p>The integration is transparent and reversible: it's just an environment
+          injection, so nothing is written to your shell startup files, and setting
+          <code>shell-integration = false</code> turns it off completely.</p>
+        </div>
+
+        <h2>2. Search the scrollback</h2>
+        <p>
+          Press <kbd>⌘F</kbd> (<code>toggle_search</code>) to open an in-place search overlay
+          over the current pane's scrollback. As you type, every match highlights live and
+          the view scrolls to the nearest hit — you see results before you finish the word.
+          The query is fully editable: a caret tracks your position and the cursor keys move
+          through it, so you can refine a search instead of retyping it. Matching is
+          case-insensitive, and the next/previous controls walk through matches in
+          order. Press <kbd>⎋</kbd> to dismiss the overlay
+          and drop back into the buffer.
+        </p>
+
+        <h2>3. Search by command, not by line</h2>
+        <p>
+          Sometimes you don't want a raw text match — you want <em>the command that printed
+          this</em>. <kbd>⌘⇧F</kbd> (<code>toggle_semantic_search</code>) searches a level up:
+          instead of matching individual lines, it searches across logical prompt/output
+          blocks, each command you ran and the output it produced. That turns "scroll until I
+          find it" into a direct hit on the block you're after.
+        </p>
+        <div class="callout note">
+          <span class="label">Note</span>
+          <p>Semantic search relies on knowing where commands begin and end, so it requires
+          shell integration (step 1) to be active.</p>
+        </div>
+
+        <h2>4. Jump between prompts</h2>
+        <p>
+          A single command can bury the screen in output. Rather than scroll it by hand, jump
+          straight to the prompt marks: <kbd>⌘↑</kbd> and <kbd>⌘↓</kbd>
+          (<code>jump_to_prompt:-1</code> and <code>jump_to_prompt:1</code>) move the viewport
+          between shell prompts recorded in the scrollback. It's the fastest way to skip back
+          over a long block of output to the command that produced it, or forward again to the
+          latest prompt.
+        </p>
+
+        <h2>5. Grab a command's output in one keystroke</h2>
+        <p>
+          Because shell integration marks where each command's output begins and ends, Sinclair
+          treats the space between two prompts as a <strong>block</strong>. Press
+          <kbd>⌘⇧O</kbd> (<code>copy_command_output</code>) and it copies the output of the
+          most recent finished command straight to the clipboard — the rows between the two
+          newest prompt marks, or from the last prompt to the bottom while a command is still
+          running. No selecting, no scrolling: run a command, then grab exactly what it
+          printed.
+        </p>
+        <div class="callout tip">
+          <span class="label">Tip</span>
+          <p>This is the everyday move for pasting a stack trace or a build log into a chat or
+          an issue — you get precisely what the command emitted, with none of the surrounding
+          prompt or your own typing.</p>
+        </div>
+
+        <h2>6. Follow links by keystroke</h2>
+        <p>
+          When output is full of URLs, hint mode saves you the round trip to the mouse. Press
+          <kbd>⌘⇧U</kbd> (<code>hints</code>) and Sinclair labels every visible URL with a short
+          home-row keystroke, Vimium-style. Type a label to open that link in your browser —
+          bare <code>www.…</code> domains get an <code>https://</code> scheme automatically.
+          <kbd>Backspace</kbd> corrects a mistyped label; <kbd>⎋</kbd> or any impossible prefix
+          cancels the whole thing.
+        </p>
+
+        <h2>7. Select with the keyboard</h2>
+        <p>
+          To copy an arbitrary region — not a whole command's output, but the exact span you
+          want — use copy mode. <kbd>⌘⇧Space</kbd> (<code>copy_mode</code>) drops a vi-style
+          cursor onto the viewport and scrollback so you can select without touching the mouse.
+          Movement follows vi conventions:
+        </p>
+        <ul>
+          <li><kbd>h</kbd> <kbd>j</kbd> <kbd>k</kbd> <kbd>l</kbd> or the arrow keys — move the cursor (it scrolls the view when it leaves the screen)</li>
+          <li><kbd>w</kbd> / <kbd>b</kbd> — step a column; <kbd>0</kbd> / <kbd>$</kbd> — line start / end; <kbd>g</kbd> / <kbd>G</kbd> — top / bottom</li>
+          <li><kbd>v</kbd> — begin a selection; move to extend it</li>
+          <li><kbd>y</kbd> or <kbd>Enter</kbd> — yank the selection and exit; <kbd>⎋</kbd> — exit</li>
+        </ul>
+
+        <h2>8. Let smart selection grab whole tokens</h2>
+        <p>
+          When you do click, Sinclair makes each click count. Double-clicking selects the whole
+          meaningful token under the pointer — a URL, an email address, a filesystem path, or a
+          git-style hex hash — instead of a single whitespace-delimited word, falling back to
+          word selection when there's no token there. Triple-click still selects the whole
+          logical line. It's on by default; set <code>smart-select = false</code> to restore
+          plain word selection.
+        </p>
+
+        <h2>9. Search every tab at once</h2>
+        <p>
+          Where <kbd>⌘F</kbd> searches the current pane, <kbd>⌘⌥F</kbd>
+          (<code>search_all</code>) opens a fuzzy picker over recent output from <em>every</em>
+          tab. Type to filter across all your sessions at once; each result is labelled with
+          its tab number, and choosing one focuses that tab. It's the answer to "which window
+          did I run that in?" — the one keystroke that finds a line no matter where it scrolled
+          past.
+        </p>
+
+        <h2>Where to next</h2>
+        <div class="cards">
+          <a href="clipboard.html"><strong>Clipboard, snippets &amp; pickers</strong>Clipboard history, snippets, launch profiles, and the fuzzy pickers that feed them.</a>
+          <a href="awareness.html"><strong>Triggers, notifications &amp; annotations</strong>Make a pane tell you when something happens instead of watching it.</a>
+          <a href="quickstart.html"><strong>Your first 10 minutes</strong>New here? Install, split, theme, and learn the two shortcuts that unlock the rest.</a>
+        </div>
+      </article>
+    </main>
+    <script type="module" src="docs.js"></script>
+  </body>
+</html>
