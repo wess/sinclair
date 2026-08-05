@@ -220,18 +220,21 @@ fn render_image(img: &vt::Image) -> Arc<RenderImage> {
 }
 
 /// A horizontal run of equal non-default background color, in cells.
+///
+/// Column-only: a run's row is the viewport slot of the [`RowSnapshot`]
+/// holding it. See that type for why no row index is stored here.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct BgRun {
-    pub(crate) row: usize,
     pub(crate) col: usize,
     pub(crate) len: usize,
     pub(crate) color: Rgb,
 }
 
 /// A contiguous run of glyphs sharing one style, ready for shaping.
+///
+/// Column-only, for the reason given on [`RowSnapshot`].
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct Span {
-    pub(crate) row: usize,
     pub(crate) col: usize,
     pub(crate) text: String,
     /// Columns covered (wide characters cover two).
@@ -256,9 +259,10 @@ pub(crate) struct CursorSnap {
 
 /// A cell rendered with custom box-drawing/block geometry instead of a
 /// font glyph.
+///
+/// Column-only, for the reason given on [`RowSnapshot`].
 #[derive(Clone)]
 pub(crate) struct BoxCell {
-    pub(crate) row: usize,
     pub(crate) col: usize,
     pub(crate) ch: char,
     pub(crate) fg: Rgb,
@@ -266,6 +270,13 @@ pub(crate) struct BoxCell {
 
 /// One visible row's resolved primitives. Reference counting lets partial
 /// damage carry unchanged rows across frames without cloning their strings.
+///
+/// Deliberately holds no row index, and neither do the primitives inside it:
+/// a row's position is its index in [`Snapshot::rows`], nothing else. A
+/// scroll re-homes these objects to new viewport slots ([`Reuse::Scrolled`]),
+/// so any row index stored in here would be stale the moment the screen
+/// scrolls — the row would keep painting at the slot it was first built at
+/// and collide with whatever legitimately owns that slot.
 pub(crate) struct RowSnapshot {
     pub(crate) source_revision: u64,
     pub(crate) bg_runs: Vec<BgRun>,
@@ -636,14 +647,12 @@ fn build_snapshot(
             let width = if cell.is_wide() { 2 } else { 1 };
 
             if bg != colors.bg {
+                // Both runs are this row's, so adjacency is a column test.
                 match bg_runs.last_mut() {
-                    Some(run)
-                        if run.row == row_i && run.col + run.len == col && run.color == bg =>
-                    {
+                    Some(run) if run.col + run.len == col && run.color == bg => {
                         run.len += width;
                     }
                     _ => bg_runs.push(BgRun {
-                        row: row_i,
                         col,
                         len: width,
                         color: bg,
@@ -656,7 +665,6 @@ fn build_snapshot(
             }
             if crate::boxdraw::covers(cell.ch) {
                 boxes.push(BoxCell {
-                    row: row_i,
                     col,
                     ch: cell.ch,
                     fg,
@@ -684,7 +692,6 @@ fn build_snapshot(
                 Some(span)
                     if width == 1
                         && !span.has_wide
-                        && span.row == row_i
                         && span.col + span.width == col
                         && span.fg == fg
                         && span.flags == style =>
@@ -696,7 +703,6 @@ fn build_snapshot(
                     let mut text = String::new();
                     cell.write_grapheme(&mut text);
                     spans.push(Span {
-                        row: row_i,
                         col,
                         text,
                         width,

@@ -122,7 +122,7 @@ fn snapshot_merges_background_runs() {
     let snap = take_snapshot(&mut term, &test_colors(), None);
     assert_eq!(snap.bg_runs.len(), 1);
     let run = &snap.bg_runs[0];
-    assert_eq!((run.row, run.col, run.len), (0, 0, 3));
+    assert_eq!((run.col, run.len), (0, 3));
     assert_eq!(run.color, theme::default_scheme().ansi[1]);
 }
 
@@ -248,7 +248,7 @@ fn snapshot_selection_overrides_colors() {
     // Selected cells paint the selection background.
     assert_eq!(snap.bg_runs.len(), 1);
     let run = &snap.bg_runs[0];
-    assert_eq!((run.row, run.col, run.len), (0, 1, 3));
+    assert_eq!((run.col, run.len), (1, 3));
     assert_eq!(run.color, colors.selection_bg);
 }
 
@@ -552,4 +552,115 @@ fn snapkeys_compare_search_by_identity_and_colors_by_pointer() {
         height: 20.0,
     };
     assert!(!keyeq(&a, &snapkey(&term, &colors, Some(&sq), big, None)));
+}
+
+/// The text of each viewport slot, which is what that slot paints.
+fn slot_text(snap: &Snapshot) -> Vec<String> {
+    snap.rows
+        .iter()
+        .map(|row| {
+            row.spans
+                .iter()
+                .map(|s| s.text.as_str())
+                .collect::<String>()
+        })
+        .collect()
+}
+
+/// Scrolling re-homes row objects into new viewport slots, so a row's
+/// position must come from its slot and nothing else. Rows used to carry the
+/// index they were first built at, which a scroll made stale: a reused row
+/// kept painting at its original y and collided with the row that legitimately
+/// owned that slot, compositing two lines of text on top of each other.
+#[test]
+fn scrolled_reuse_paints_rows_at_their_new_slots() {
+    let colors = Rc::new(test_colors());
+    let mut cache = SnapCache::default();
+    let mut images = ImageCache::default();
+    let mut term = vt::Terminal::new(20, 4, 100);
+
+    term.feed(b"r0\r\nr1\r\nr2\r\nr3");
+    let first = snapshot_reuse(
+        &mut term,
+        &mut cache,
+        &colors,
+        None,
+        test_cell(),
+        &mut images,
+        None,
+    );
+    assert_eq!(slot_text(&first), vec!["r0", "r1", "r2", "r3"]);
+
+    // Each further line scrolls the viewport up by one: full damage plus a
+    // committed line, which is exactly the `Reuse::Scrolled` path. Drift under
+    // the old bug grew with every scroll a row survived, so scroll repeatedly.
+    for n in 4..12 {
+        term.feed(format!("\r\nr{n}").as_bytes());
+        let snap = snapshot_reuse(
+            &mut term,
+            &mut cache,
+            &colors,
+            None,
+            test_cell(),
+            &mut images,
+            None,
+        );
+        // Only the newly exposed bottom row is resolved; without reuse the
+        // assertion below would pass trivially on a full rebuild.
+        assert_eq!(cache.last_snapshot_rows(), 1, "row reuse did not happen");
+        let want: Vec<String> = (n - 3..=n).map(|i| format!("r{i}")).collect();
+        assert_eq!(slot_text(&snap), want, "after scrolling in r{n}");
+    }
+}
+
+/// The positional half of the same invariant, checked on the one paint layer
+/// that needs no window: a reused row's primitives must land at the y of the
+/// slot the row now occupies, not the slot it was first built at.
+#[test]
+fn scrolled_reuse_moves_a_rows_background_up_with_it() {
+    let colors = Rc::new(test_colors());
+    let cell = test_cell();
+    let origin = point(px(0.0), px(0.0));
+    let mut cache = SnapCache::default();
+    let mut images = ImageCache::default();
+    let mut term = vt::Terminal::new(20, 4, 100);
+
+    // A red run on the bottom row; the other rows have default backgrounds
+    // and so contribute no quads at all.
+    term.feed(b"a\r\nb\r\nc\r\n\x1b[41mDDD\x1b[0m");
+    let snap = snapshot_reuse(
+        &mut term,
+        &mut cache,
+        &colors,
+        None,
+        cell,
+        &mut images,
+        None,
+    );
+    let quads = bg_quads(&snap.rows, origin, cell);
+    assert_eq!(quads.len(), 1);
+    assert_eq!(quads[0].0.origin.y, px(3.0 * cell.height));
+
+    // Scroll it up a row at a time. Under the old code the quad stayed at
+    // y = 3 * cell height for the row's whole life on screen.
+    for slot in (0..3).rev() {
+        term.feed(b"\r\nz");
+        let snap = snapshot_reuse(
+            &mut term,
+            &mut cache,
+            &colors,
+            None,
+            cell,
+            &mut images,
+            None,
+        );
+        assert_eq!(cache.last_snapshot_rows(), 1, "row reuse did not happen");
+        let quads = bg_quads(&snap.rows, origin, cell);
+        assert_eq!(quads.len(), 1, "the red run is still the only one");
+        assert_eq!(
+            quads[0].0.origin.y,
+            px(slot as f32 * cell.height),
+            "red run should have scrolled up to slot {slot}"
+        );
+    }
 }

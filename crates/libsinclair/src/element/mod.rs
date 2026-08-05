@@ -346,31 +346,19 @@ impl Element for TerminalElement {
                 Some((bounds, img.image.clone()))
             })
             .collect();
-        let bg_quads = snap
-            .rows
-            .iter()
-            .flat_map(|row| row.bg_runs.iter())
-            .map(|run| {
-                let pos = point(
-                    origin.x + cell_w * run.col as f32,
-                    origin.y + cell_h * run.row as f32,
-                );
-                (
-                    Bounds::new(pos, size(cell_w * run.len as f32, cell_h)),
-                    colors::hsla(run.color),
-                )
-            })
-            .collect();
+        let bg_quads = bg_quads(&snap.rows, origin, self.cell);
 
+        let (box_w, box_h) = (self.cell.width, self.cell.height);
         let box_quads = snap
             .rows
             .iter()
-            .flat_map(|row| row.boxes.iter())
-            .flat_map(|b| {
-                let glyph = crate::boxdraw::rects(b.ch, self.cell.width, self.cell.height);
+            .enumerate()
+            .flat_map(|(row_i, row)| row.boxes.iter().map(move |b| (row_i, b)))
+            .flat_map(|(row_i, b)| {
+                let glyph = crate::boxdraw::rects(b.ch, box_w, box_h);
                 let cell_origin = point(
                     origin.x + cell_w * b.col as f32,
-                    origin.y + cell_h * b.row as f32,
+                    origin.y + cell_h * row_i as f32,
                 );
                 let mut color = colors::hsla(b.fg);
                 glyph
@@ -452,7 +440,7 @@ impl Element for TerminalElement {
                         .map(|(span, line)| {
                             let pos = point(
                                 origin.x + cell_w * span.col as f32,
-                                origin.y + cell_h * span.row as f32,
+                                origin.y + cell_h * row_i as f32,
                             );
                             (pos, line.clone())
                         })
@@ -568,6 +556,37 @@ impl Element for TerminalElement {
 
         self.register_pointer(bounds, frame.grid, window);
     }
+}
+
+/// Place each row's background runs for paint.
+///
+/// A row's y is its slot in `rows` and nothing else — see [`RowSnapshot`] for
+/// why a row cannot be trusted to know where it lives. The text and
+/// box-drawing layers in [`TerminalElement::prepaint`] index the same way;
+/// this one is split out because it is the layer that can be checked without
+/// a window.
+pub(crate) fn bg_quads(
+    rows: &[Rc<RowSnapshot>],
+    origin: Point<Pixels>,
+    cell: CellSize,
+) -> Vec<(Bounds<Pixels>, Hsla)> {
+    let cell_w = px(cell.width);
+    let cell_h = px(cell.height);
+    rows.iter()
+        .enumerate()
+        .flat_map(|(row_i, row)| {
+            row.bg_runs.iter().map(move |run| {
+                let pos = point(
+                    origin.x + cell_w * run.col as f32,
+                    origin.y + cell_h * row_i as f32,
+                );
+                (
+                    Bounds::new(pos, size(cell_w * run.len as f32, cell_h)),
+                    colors::hsla(run.color),
+                )
+            })
+        })
+        .collect()
 }
 
 impl IntoElement for TerminalElement {
