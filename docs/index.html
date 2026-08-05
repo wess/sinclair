@@ -3,15 +3,15 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Sinclair - GPU terminal for builders and agent teams</title>
+    <title>Sinclair - the terminal your agent team lives in</title>
     <meta
       name="description"
-      content="Sinclair is a fast GPU-accelerated terminal for macOS and Linux with splits, themes, MCP, and a local agent mesh."
+      content="Run coding agents in panes on a shared bus, each reporting whether it's working, blocked, or done - on a fast, standards-complete terminal for macOS and Linux."
     >
-    <meta property="og:title" content="Sinclair - a terminal for builders and agent teams">
+    <meta property="og:title" content="Sinclair - the terminal your agent team lives in">
     <meta
       property="og:description"
-      content="GPU rendering, meticulous VT support, live config, MCP, and a local relay for agent teams."
+      content="Run coding agents in panes on a shared bus, each reporting whether it's working, blocked, or done - on a fast, standards-complete terminal for macOS and Linux."
     >
     <meta property="og:type" content="website">
     <meta name="theme-color" content="#05070c">
@@ -48,12 +48,12 @@
           <span></span>
         </div>
         <div class="herocopy">
-          <p class="kicker">GPU terminal for command-line work that moves.</p>
-          <h1>The terminal that can keep up with your build.</h1>
+          <p class="kicker">Built for you and a team of agents.</p>
+          <h1>The terminal your agent team lives in.</h1>
           <p class="lede">
-            Sinclair is a fast, standards-focused terminal for macOS and Linux.
-            It pairs a meticulous VT core with tabs, splits, live config, MCP,
-            and a local relay for coordinating agent teams.
+            Run coding agents in panes on a shared bus, each reporting whether
+            it's working, blocked, or done — on top of a terminal that stands
+            on its own. GPU-rendered, standards-complete, macOS and Linux.
           </p>
           <div class="actions" aria-label="Primary actions">
             <a class="button primary" href="#install">Install Sinclair</a>
@@ -88,8 +88,12 @@
             </div>
             <div class="workspacegrid">
               <section class="terminalpane" aria-label="Terminal session preview">
-                <pre><code><span class="prompt">~/dev/sinclair</span> <span class="cmd">prompt open team web</span>
-<span class="ok">opened window “web” with 4 agent panes</span>
+                <pre><code><span class="prompt">~/dev/sinclair</span> <span class="cmd">relay ps</span>
+agents:
+<span class="ok">  ● lead      supervisor  ch:2</span>
+<span class="ok">  ● frontend  frontend    ch:1</span>
+<span class="ok">  ● backend   backend     ch:1</span>
+<span class="ok">  ● reviewer  reviewer    ch:1</span>
 
 <span class="prompt">~/dev/sinclair</span> <span class="cmd">cargo test -p vt screen</span>
 running 583 tests
