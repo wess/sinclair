@@ -72,6 +72,7 @@ const MANIFEST = [
     title: "Reference",
     pages: [
       { slug: "coverage", title: "Terminal coverage", href: "coverage.html" },
+      { slug: "renderer", title: "Inside the renderer", href: "renderer.html" },
       { slug: "cli", title: "CLI reference", href: "cli.html" },
     ],
   },
