@@ -283,7 +283,8 @@ fn step_cell(grid: &mut Grid, p: Point, right: bool) -> Option<Point> {
         if p.col + 1 < cols {
             Some(Point::new(p.line, p.col + 1))
         } else {
-            grid.absolute_row(p.line + 1).map(|_| Point::new(p.line + 1, 0))
+            grid.absolute_row(p.line + 1)
+                .map(|_| Point::new(p.line + 1, 0))
         }
     } else if p.col > 0 {
         Some(Point::new(p.line, p.col - 1))

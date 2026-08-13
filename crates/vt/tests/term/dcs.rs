@@ -19,7 +19,7 @@ fn sixel_dcs_decodes_and_anchors_an_image() {
     assert_eq!(images[0].image.width, 1);
     assert_eq!(images[0].image.height, 6);
     assert_eq!(images[0].line, 0); // anchored at the starting row
-    // A 6px-tall image is one 16px row; the cursor moved to the next line.
+                                   // A 6px-tall image is one 16px row; the cursor moved to the next line.
     assert_eq!(t.cursor_pos().0, 1);
 }
 

@@ -31,6 +31,19 @@ pub struct LinkHit {
     pub end_col: usize,
 }
 
+/// A filesystem path found under a viewport cell: the path text, the position
+/// a `:line:col` suffix pointed at, and the inclusive cell-column span the
+/// whole match occupies. Only a *candidate* — see [`crate::path`]; the caller
+/// resolves and checks it. See [`Term::path_at`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PathHit {
+    pub path: String,
+    pub line: Option<u32>,
+    pub column: Option<u32>,
+    pub start_col: usize,
+    pub end_col: usize,
+}
+
 /// Full terminal state. Feed pty bytes with [`Terminal::feed`], drain
 /// responses for the pty with [`Terminal::take_output`], and read cells via
 /// the grid/row accessors when rendering.
@@ -641,6 +654,38 @@ impl Terminal {
             if col >= start_col && col <= end_col {
                 return Some(LinkHit {
                     url: chars[start..end].iter().collect(),
+                    start_col,
+                    end_col,
+                });
+            }
+        }
+        None
+    }
+
+    /// The path candidate under a viewport cell, if the row's text has one
+    /// there. Returns candidates, not verified paths: the caller resolves the
+    /// text against a working directory and checks the filesystem.
+    ///
+    /// A cell covered by a URL yields nothing — an `http://` run is a link, and
+    /// offering it as a path as well would put two different answers under one
+    /// click.
+    pub fn path_at(&mut self, row: usize, col: usize) -> Option<PathHit> {
+        if row >= self.rows() || self.link_at(row, col).is_some() {
+            return None;
+        }
+        let cells = self.visible_row(row).cells.clone();
+        let mut chars = Vec::new();
+        let mut col_of = Vec::new();
+        row_chars(&cells, &mut chars, &mut col_of);
+        for span in crate::path::find(&chars) {
+            let start_col = col_of[span.start];
+            let last = col_of[span.end - 1];
+            let end_col = last + usize::from(cells[last].is_wide());
+            if col >= start_col && col <= end_col {
+                return Some(PathHit {
+                    path: span.text,
+                    line: span.line,
+                    column: span.column,
                     start_col,
                     end_col,
                 });

@@ -489,7 +489,11 @@ fn visible_rows_read_back_through_compacted_history() {
         plain.set_display_offset(offset);
         packed.set_display_offset(offset);
         for r in 0..plain.rows() {
-            assert_eq!(plain.row_text(r), packed.row_text(r), "offset {offset} row {r}");
+            assert_eq!(
+                plain.row_text(r),
+                packed.row_text(r),
+                "offset {offset} row {r}"
+            );
         }
     }
 }

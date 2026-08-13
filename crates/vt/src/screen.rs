@@ -71,7 +71,9 @@ impl Screen {
     /// the full screen. Tab stops on surviving columns are kept; columns
     /// beyond the old width get the default every-8 pattern.
     pub fn resize(&mut self, cols: usize, rows: usize) {
-        let (row, col) = self.grid.resize(cols, rows, (self.cursor.row, self.cursor.col));
+        let (row, col) = self
+            .grid
+            .resize(cols, rows, (self.cursor.row, self.cursor.col));
         self.cursor.row = row;
         self.cursor.col = col;
         self.cursor.pending_wrap = false;
