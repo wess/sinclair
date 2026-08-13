@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Run your first agent team — Sinclair docs</title>
+    <meta name="description" content="A hands-on walkthrough: enable the relay, launch a supervisor and two workers, drive them from one pane, and watch them coordinate over the local bus.">
+    <meta name="theme-color" content="#05070c">
+    <link rel="icon" href="icon.png">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="docs.css">
+  </head>
+  <body class="docs">
+    <a class="skip" href="#doc-main">Skip to content</a>
+    <main id="doc-main" class="doc-main">
+      <article class="doc-article" data-doc-page="agentteams">
+        <p class="kicker">Tutorial</p>
+        <h1>Run your first agent team</h1>
+        <p class="lede">
+          One agent is an assistant. A <em>team</em> is a supervisor delegating to workers
+          that message each other, run in their own panes, and park for free between tasks.
+          In about ten minutes you'll enable Sinclair's built-in relay, open a team into a
+          tiled tab, give the supervisor a job, and watch the work flow across the bus.
+        </p>
+
+        <div class="callout note">
+          <p>You'll need at least one agent CLI installed — this tutorial uses
+          <a href="https://www.anthropic.com/claude-code">Claude Code</a> (<code>claude</code>).
+          Codex, Gemini, and Ollama also work; see
+          <a href="agents.html#supported-agents">Supported agents</a>. The
+          <a href="agents.html">Agent mesh</a> reference has the full picture behind
+          everything here.</p>
+        </div>
+
+        <h2>1. Turn on the relay</h2>
+        <p>
+          Open <strong>Settings → AI</strong> with <kbd>⌘,</kbd> and flip on two switches:
+          <strong>Enable AI features</strong> (the master switch — off means no network
+          activity at all) and <strong>Relay agent mesh</strong>. That's enough; the relay
+          daemon starts on demand. The same settings round-trip through the config file:
+        </p>
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "ai-enabled": true,
+  "relay-enabled": true,
+  "relay-start-on-launch": true   <span class="c">// optional: bring the mesh up automatically</span>
+}</code></pre>
+        <p>
+          With the mesh on, an <strong>AI</strong> menu appears in the menu bar and a live
+          status dot shows next to the setting — green when the server is listening. The
+          relay is a separate sidecar process, so a hang in the mesh can never take down your
+          terminal.
+        </p>
+
+        <h2>2. Open a team the fast way</h2>
+        <p>
+          The quickest start is a built-in team. In the <strong>AI</strong> menu, open
+          <strong>Teams ▸ web</strong>. Sinclair opens a window for the team, tiles it into four
+          panes — drag any divider to resize — and launches an agent in each:
+        </p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Pane</th><th>Role</th><th>What it is</th></tr></thead>
+            <tbody>
+              <tr><td><strong>lead</strong></td><td><code>supervisor</code></td><td>The driver — you type to it. It delegates and gathers replies.</td></tr>
+              <tr><td>frontend</td><td><code>frontend</code></td><td>A parked worker on <code>#frontend</code>.</td></tr>
+              <tr><td>backend</td><td><code>backend</code></td><td>A parked worker on <code>#backend</code>.</td></tr>
+              <tr><td>reviewer</td><td><code>reviewer</code></td><td>A parked worker that reviews changes.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          The lead is <strong>interactive</strong> — it hands control back to you so you can
+          type. The three workers <strong>park</strong>: each registered under its name,
+          joined its channel, and is now sitting in a single blocking <code>wait</code> call,
+          burning no tokens until a message arrives.
+        </p>
+        <p>
+          The team gets a <strong>window to itself</strong>, titled after the team. Every pane
+          in it is a member — no other tabs mixed in — each pane's tab carries that member's
+          name, and every divider drags to resize. The layout you were already working in is
+          untouched. Focus starts on the lead, so you can type straight away. Prefer the old
+          behavior? Set <code>relay-team-window</code> to <code>false</code> and teams open
+          into the focused pane instead.
+        </p>
+        <p>
+          Because a team fills every pane at once and you can only watch one, members launch
+          with their <strong>permission prompts skipped</strong> — otherwise a member that
+          stopped to ask would sit idle until you found its pane. Turn that off with
+          <code>relay-team-autonomy</code> if you'd rather approve each action yourself. One
+          caveat: this does <em>not</em> cover Claude Code's first-run
+          <em>folder trust</em> prompt, which is separate. The first time you run a team in a
+          directory Claude hasn't seen, answer that prompt once in each pane (or open the
+          folder in Claude Code first) and it won't come back.
+        </p>
+
+        <h2>3. Give the supervisor a job</h2>
+        <p>
+          The <strong>lead</strong> pane already has focus — type a task as you would to any
+          coding agent, but phrased as something to <em>delegate</em>:
+        </p>
+        <pre><code>Add a dark-mode toggle to the settings page. Have frontend build the UI and
+backend add the preference endpoint, then ask reviewer to check both.</code></pre>
+        <p>
+          The supervisor's role brief already tells it how to coordinate: it messages
+          <code>frontend</code> and <code>backend</code> over the bus, they wake from
+          <code>wait</code>, do the work in their own panes, report back, and call
+          <code>wait</code> again. You watch it happen across the four panes.
+        </p>
+
+        <h2>4. Watch the bus</h2>
+        <p>
+          To see the cross-agent traffic in one place, open <strong>AI → Open Feed</strong>
+          (<kbd>⌘⇧I</kbd>). It streams every message on the bus — who said what to whom — as
+          a running log. This is the single view of how the team is actually talking:
+        </p>
+        <pre><code>lead      → #frontend   build a dark-mode toggle in settings
+lead      → #backend    add GET/PUT /prefs/theme
+frontend  → lead         done — toggle wired to prefs.theme
+backend   → lead         done — endpoint live, tests green
+lead      → reviewer     please review the frontend + backend changes</code></pre>
+        <p>
+          Meanwhile each pane's tab carries a <strong>status dot</strong> — working, blocked,
+          done, or idle — so you can read the whole team at a glance without watching every
+          pane. The <a href="statushooks.html">Agent status</a> tutorial covers that in depth.
+        </p>
+
+        <h2>5. Build your own team</h2>
+        <p>
+          The <code>web</code> team is just a starting point. Two ways to make your own,
+          no TOML required:
+        </p>
+        <ul>
+          <li><strong>Add one agent at a time.</strong> <strong>AI → Agents ▸ Define
+          Agent…</strong> opens a dialog: pick a provider, name it, and choose a role preset
+          (<code>frontend</code>, <code>backend</code>, <code>reviewer</code>,
+          <code>devops</code>, <code>qa</code>, …) or toggle Custom to describe it in your own
+          words. Create adds it as a split and <em>saves</em> the definition, so it reappears
+          under <strong>Agents ▸</strong> to relaunch with one click.</li>
+          <li><strong>Design a whole team.</strong> <strong>AI → Teams ▸ Build Team…</strong>
+          opens a builder. Pick <strong>Manual</strong> to choose a layout and add member
+          rows (name + role + agent), or <strong>Guided</strong> to describe the team in plain
+          English and let Claude draft it — the draft drops into the Manual form for review
+          before you save.</li>
+        </ul>
+
+        <h2>6. The same thing from the CLI</h2>
+        <p>
+          The relay is a standalone binary, so you can drive all of this without the GUI —
+          over SSH, in CI, from a script. The verbs mirror the menu:
+        </p>
+        <pre><code>relay start                         <span class="c"># start the server (background daemon)</span>
+relay launch lead --role supervisor --lead     <span class="c"># interactive supervisor in this pane</span>
+relay launch fe   --role frontend --background <span class="c"># parked worker, monitored by the server</span>
+relay launch be   --role backend  --background
+relay launch qa   --role qa --skip-permissions  <span class="c"># unattended pane: no prompts</span>
+relay ps                            <span class="c"># registered agents + background workers</span>
+relay feed --follow                 <span class="c"># tail the bus</span>
+relay team list                     <span class="c"># available teams (project → user → built-in)</span></code></pre>
+        <p>
+          A <strong>foreground</strong> launch replaces the calling shell with the agent so
+          you can steer it; <code>--background</code> hands it to the server, which respawns
+          it on crash and logs its output. Roles are reusable identities managed like git
+          config (<code>relay role list|info|create|edit|delete</code>) and layered
+          <em>project → user → built-in</em>, so a repo can ship its own team.
+        </p>
+
+        <h2>How the coordination actually works</h2>
+        <p>
+          Every agent gets an opening harness and coordinates through a small set of MCP
+          tools it calls: <code>register</code> once, <code>send</code>/<code>post</code>/<code>broadcast</code>
+          to message an agent / a channel / everyone, <code>wait</code> to block for free
+          until messages arrive, and <code>report_status</code> to publish its state. A
+          supervisor can even grow its own team with <code>spawn</code>. The one idea that
+          makes it cheap:
+        </p>
+        <div class="callout tip">
+          <span class="label">Tip</span>
+          <p><code>wait</code> is a single blocking tool call held open as a server-sent
+          event, not a poll loop — so a parked worker costs <strong>nothing</strong> while it
+          waits. That's what makes it practical to keep a whole bench of specialists standing
+          by.</p>
+        </div>
+
+        <h2>Where to next</h2>
+        <div class="cards">
+          <a href="worktreeagents.html"><strong>Parallel agents in git worktrees</strong>Give each worker its own checkout so two agents can touch the same repo without conflicts.</a>
+          <a href="statushooks.html"><strong>Agent status at a glance</strong>Make every tab show a live working/blocked/done/idle dot.</a>
+          <a href="agents.html"><strong>Agent mesh reference</strong>Roles, teams, tiles, the full CLI, the tool list, and the security model.</a>
+        </div>
+      </article>
+    </main>
+    <script type="module" src="docs.js"></script>
+  </body>
+</html>

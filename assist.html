@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Assist: type less, understand more — Sinclair docs</title>
+    <meta name="description" content="Fish-style ghost text, a completion popup, Tab cycling, plain-language explanations of command output, and composing commands from a description — all local, instant, and offline.">
+    <meta name="theme-color" content="#05070c">
+    <link rel="icon" href="icon.png">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="docs.css">
+  </head>
+  <body class="docs">
+    <a class="skip" href="#doc-main">Skip to content</a>
+    <main id="doc-main" class="doc-main">
+      <article class="doc-article" data-doc-page="assist">
+        <p class="kicker">Tutorial</p>
+        <h1>Assist: type less, understand more</h1>
+        <p class="lede">
+          Sinclair ships a set of assists that live where you type: ghost-text completions
+          drawn from your own history, a ranked popup, a one-keystroke explanation of whatever
+          a command just printed, and a composer that turns a plain-English request into a
+          drafted command. The point that matters: <strong>these are local heuristics, not a
+          cloud call</strong> — instant, offline, and private by default, with one clearly
+          marked optional AI fallback.
+        </p>
+
+        <div class="callout note">
+          <p>On macOS, <kbd>⌘</kbd> is the modifier; on Linux, read it as <kbd>⌃</kbd> (Ctrl).
+          Everything here is remappable and reachable from the command palette
+          (<kbd>⌘⇧P</kbd>).</p>
+        </div>
+
+        <h2>1. Ghost text — on by default</h2>
+        <p>
+          Start typing a command you've run before. The rest of it appears as dim
+          <em>ghost text</em> past your cursor — fish-style. With the cursor at the end of the
+          line, press <kbd>→</kbd> or <kbd>End</kbd> to accept it; keep typing to ignore it.
+          Candidates come from three local sources, all on by default: your captured command
+          history, a built-in list of common commands, and filesystem paths under your working
+          directory.
+        </p>
+        <p>
+          Two more surfaces are one setting away in
+          <code>~/.config/sinclair/settings.json</code>:
+        </p>
+        <pre><code>{
+  "autosuggest-popup": true,   <span class="c">// ranked dropdown under the cursor</span>
+  "autosuggest-tab": true      <span class="c">// Tab cycles through completions inline</span>
+}</code></pre>
+        <div class="callout tip">
+          <span class="label">Tip</span>
+          <p>The ranking is tuned by the <code>autosuggest-assist</code> source (on by
+          default): the tightest completion wins, so short, recent matches beat long, stale
+          history lines. Every source is an independent toggle — <code>autosuggest-history</code>,
+          <code>autosuggest-commands</code>, <code>autosuggest-paths</code> — if you want, say,
+          history-only suggestions.</p>
+        </div>
+
+        <h2>2. Explain what just happened</h2>
+        <p>
+          A command fails with a wall of text. Press <kbd>⌘⇧E</kbd>
+          (<code>explain_output</code>): Sinclair grabs your <em>selection</em> — or, with
+          nothing selected, the <em>last command's output block</em> (via shell integration's
+          prompt marks) — and opens an in-pane panel with a plain-language reading of it and
+          the key line pulled out. <kbd>esc</kbd> or <kbd>enter</kbd> dismisses it.
+        </p>
+        <p>
+          This is a fast, deterministic analyzer that recognizes the shapes of common failures
+          — permission and credential errors, <em>not found</em>s, timeouts, and generic error
+          reports. It's not a chat model; it answers instantly and never sends your output
+          anywhere.
+        </p>
+
+        <h2>3. Compose a command from a description</h2>
+        <p>
+          Press <kbd>⌘⇧G</kbd> (<code>compose_command</code>) and describe what you want —
+          <em>find large files</em>, <em>what's listening on a port</em>, <em>disk usage</em>,
+          <em>files modified this week</em>. <kbd>enter</kbd> <strong>types the matching
+          command at your prompt</strong> — it never runs it — so you review, edit, and press
+          <kbd>enter</kbd> yourself.
+        </p>
+        <p>
+          The composer matches a small set of common requests. When it has no answer it says
+          <em>no match</em> and sends nothing to your shell — a miss is explicit, never your
+          own words echoed back as a "command." <kbd>esc</kbd> closes the panel.
+        </p>
+
+        <h2>4. The optional AI fallback</h2>
+        <p>
+          One assist can go beyond local: with <code>"autosuggest-ai": true</code>, when
+          <em>nothing local</em> completes your line, Sinclair asks the Claude CLI in the
+          background — passing your last few commands as context — and shows the reply as the
+          same accept-with-<kbd>→</kbd> ghost text. It's off by default and needs the
+          <code>claude</code> CLI (configure its path under <em>Settings → AI</em>). Local
+          candidates always win when they exist.
+        </p>
+
+        <h2>5. The safety net for pastes</h2>
+        <p>
+          The same assist engine can inspect what you <em>paste</em>: multi-line blobs and
+          dangerous patterns (<code>rm -rf</code>, <code>curl … | sh</code>, <code>sudo</code>,
+          writes to <code>/dev</code>) get a confirmation with the reasons listed before
+          anything reaches your shell. It's covered in
+          <a href="clipboard.html">Clipboard, snippets &amp; pickers</a> — enable it with
+          <code>"clipboard-paste-protection": true</code>.
+        </p>
+
+        <h2>Where to next</h2>
+        <div class="cards">
+          <a href="navigate.html"><strong>Navigate &amp; select</strong>Semantic search over command blocks — the other thing shell integration unlocks.</a>
+          <a href="clipboard.html"><strong>Clipboard, snippets &amp; pickers</strong>Paste protection in practice, plus history, redaction, and snippets.</a>
+          <a href="agentteams.html"><strong>Run an agent team</strong>When a heuristic isn't enough: put real coding agents in real panes.</a>
+        </div>
+      </article>
+    </main>
+    <script type="module" src="docs.js"></script>
+  </body>
+</html>

@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Inside the renderer — Sinclair docs</title>
+    <meta name="description" content="What a GPU terminal actually costs on an idle frame: a 2,984-byte struct in the hot path, a cache that re-keyed itself every frame, and the rendering bug both of them hid.">
+    <meta name="theme-color" content="#05070c">
+    <link rel="icon" href="icon.png">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="docs.css">
+  </head>
+  <body class="docs">
+    <a class="skip" href="#doc-main">Skip to content</a>
+    <main id="doc-main" class="doc-main">
+      <article class="doc-article" data-doc-page="renderer">
+        <p class="kicker">Reference</p>
+        <h1>Inside the renderer</h1>
+        <p class="lede">
+          A terminal that is doing nothing should cost nothing. Getting there
+          meant finding a 2,984-byte struct being copied hundreds of times per
+          frame, a cache that rebuilt itself every frame to discover nothing had
+          changed, and a rendering bug that both of them had been hiding.
+        </p>
+
+        <h2>What a frame costs</h2>
+        <p>
+          Sinclair paints its grid as a custom <code>Element</code> on
+          <a href="https://github.com/zed-industries/zed">gpui</a>: background
+          quads, then batched shaped text runs, then the cursor. The interesting
+          question is what happens on the <em>second</em> frame, when most of the
+          screen is identical to the first.
+        </p>
+        <p>
+          The obvious answer is to lay the whole grid out again. It is simple,
+          it is always correct, and it is what gpui's own terminal does — its
+          <code>layout_grid</code> runs fresh from <code>prepaint</code> and
+          produces its rectangles and text runs per frame, with no cross-frame
+          row cache anywhere in the file. For an editor with a terminal panel in
+          the corner, that is a perfectly sensible trade.
+        </p>
+        <p>
+          Sinclair leans harder on the terminal being the whole window, so it
+          adds a layer gpui's does not have: a cross-frame row cache. Each
+          visible row becomes a <code>RowSnapshot</code> held behind an
+          <code>Rc</code>, reused across frames in one of two ways — by viewport
+          index when the terminal's per-row damage says the row is untouched, or
+          matched by revision after a scroll has rotated rows into new slots.
+          <code>vt</code>'s <code>Row::revision</code>, a process-wide counter
+          bumped on every <code>touch()</code>, exists purely so the renderer can
+          recognize a row it has already resolved.
+        </p>
+        <p>Measured on a 200×50 grid, release build:</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Frame</th><th>Snapshot cost</th></tr></thead>
+            <tbody>
+              <tr><td>Idle — no damage, whole-snapshot reuse</td><td><strong>71 ns</strong></td></tr>
+              <tr><td>Scrolled — one new line, rest re-homed</td><td>17.4 µs</td></tr>
+              <tr><td>Full rebuild — every cell re-resolved</td><td>91.2 µs</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          Row reuse is worth roughly 5× on scrolling output, and the idle path is
+          effectively free. That last number is what makes the rest of this page
+          embarrassing.
+        </p>
+
+        <h2>The 2,984&#8209;byte struct</h2>
+        <p>
+          gpui's <code>ShapedLine</code> is 2,984 bytes. Not because a shaped
+          line of text is large, but because its <code>decoration_runs</code>
+          field is a <code>SmallVec&lt;[DecorationRun; 32]&gt;</code> — thirty-two
+          runs of inline capacity, sitting in the struct whether you use them or
+          not. A terminal span only ever has one decoration run.
+        </p>
+        <p>
+          <code>prepaint</code> was copying one of those per span into the
+          frame's draw list, plus a throwaway <code>Vec</code> per row. On a
+          200×50 grid that is roughly <strong>450 KB memcpy'd and allocated every
+          frame</strong> — including idle frames, where the snapshot layer above
+          it had just finished its work in 71 nanoseconds. The cache was doing
+          its job perfectly and then handing off to a loop that undid the benefit.
+        </p>
+        <p>
+          The fix is unglamorous: share the shaped lines by <code>Rc</code> and
+          build the draw list in a single exact-capacity pass. The per-span entry
+          went from 2,992 bytes to 16.
+        </p>
+        <div class="callout note">
+          <p>
+            <strong>The general lesson.</strong> Never store a
+            <code>ShapedLine</code> by value in a per-frame collection. Its size
+            is dominated by inline capacity you are not using, and
+            <code>size_of</code> is the only way you will ever find out — it does
+            not show up as an obvious hot loop in a profile, just a
+            uniformly slightly-too-slow frame.
+          </p>
+        </div>
+
+        <h2>The cache that rebuilt itself to learn nothing</h2>
+        <p>
+          A second cache sits below the first: shaped rows keyed by
+          <code>RowSnapshot</code> pointer identity, so a row that survives a
+          scroll keeps its shaped text instead of being re-shaped in its new
+          slot.
+        </p>
+        <p>
+          Every frame, it drained the entire <code>Vec&lt;Option&lt;ShapedRow&gt;&gt;</code>
+          into a fresh <code>HashMap&lt;*const RowSnapshot, ShapedRow&gt;</code>,
+          then rebuilt the vector from the map. On the overwhelmingly common
+          frame where nothing scrolled, it did all of that to discover that every
+          row was exactly where it had left it.
+        </p>
+        <p>
+          Now unmoved rows settle in place with a single pointer compare, and
+          only rows that actually moved go through the map — which is the scroll
+          case the re-homing exists for in the first place. A 50-row idle frame
+          went from <strong>3.9 µs and an allocation to 74 ns and none</strong>,
+          about 53×.
+        </p>
+        <p>
+          That logic lives in <code>realign_shaped_rows</code>, a free function,
+          specifically so it can be tested without standing up a window —
+          including the duplicate-row case, which is the one that bites.
+        </p>
+
+        <h2>The bug underneath</h2>
+        <p>
+          Row reuse shipped before this, and it shipped with a defect worth
+          describing, because it is the natural failure mode of the whole
+          approach.
+        </p>
+        <p>
+          A scroll rotates row objects into new viewport slots. The renderer
+          re-homes them by revision, so an unchanged row is neither re-resolved
+          nor re-shaped — that is the point. But each row's primitives
+          (<code>BgRun</code>, <code>Span</code>, <code>BoxCell</code>) baked in
+          the row index they were <em>first built at</em>, and paint positioned
+          by that stored index rather than the row's current slot.
+        </p>
+        <p>
+          So a reused row kept painting at its original y for as long as it
+          survived on screen, drifting further from its real slot with every
+          scroll it lived through, until several rows landed on the same y and
+          composited their glyphs on top of one another. Fast scrolling output
+          that reuses rows across many frames — <code>brew upgrade</code>, a
+          build log — turned into unreadable overlapping text. Slow output looked
+          perfect.
+        </p>
+        <p>
+          The fix was to delete the row index from all three primitives. A row's
+          position is now its index in <code>Snapshot::rows</code> and nothing
+          else, so no per-row copy exists that a scroll can make stale; the paint
+          layers take the slot from <code>enumerate()</code>.
+        </p>
+        <div class="callout note">
+          <p>
+            <strong>The invariant.</strong> Never store a row or viewport index
+            inside a <code>RowSnapshot</code> or its primitives. Reuse moves
+            those objects between slots, and any index they carry is a copy that
+            reuse can invalidate.
+          </p>
+        </div>
+
+        <h2>Testing a cache you cannot see</h2>
+        <p>
+          A rendering cache fails by looking right most of the time, which makes
+          example-based tests nearly useless. The guard is differential: two
+          terminals are fed identical bytes, one driven through the real damage
+          tracking and row reuse, the other rebuilt from scratch at every step,
+          and their rows, cursor, and offset are asserted equal.
+        </p>
+        <p>
+          The corpora cover scrolling, cursor-addressed redraws, styled/wide/box-drawing
+          cells, alt-screen switches and scrollback changes, plus a seeded fuzz
+          over six seeds and six hundred steps each. A missed damage mark or a
+          bad reuse key cannot hide behind being usually correct.
+        </p>
+        <p>
+          The overlap bug also earned a dedicated regression test that asserts
+          painted quad geometry rather than text placement. That distinction
+          matters: the row objects were always in the correct slots, so a test
+          checking which text landed in which slot passed the whole time. Only
+          the <em>baked index</em> was stale, and only the background quads'
+          coordinates revealed it.
+        </p>
+
+        <h2>What is still there</h2>
+        <p>
+          Known remaining per-frame costs, all currently judged not worth the
+          churn — listed because the useful version of a performance page is the
+          one that admits what it has not fixed:
+        </p>
+        <ul>
+          <li><code>Frame</code> is about 6,160 bytes, because the cursor glyph and ghost still hold a <code>ShapedLine</code> by value — once per frame each, rather than once per span.</li>
+          <li>Pointer registration boxes four closures per frame.</li>
+          <li>The snapshot key clones the search query string every frame while search is open.</li>
+          <li>Building a snapshot fills a 256-entry palette-override array per rebuild.</li>
+        </ul>
+        <p>
+          Sinclair exposes the counters to check any of this yourself:
+          <code>SnapCache::stats()</code> reports frames, whole-snapshot reuse,
+          resolved rows and shaped rows, so
+          <code>shaped_rows / frames</code> tells you directly how much reuse you
+          are actually getting on your workload. See
+          <a href="https://github.com/wess/sinclair/blob/main/docs/performance.md">performance.md</a>
+          for the full set and the resource budgets around them.
+        </p>
+      </article>
+    </main>
+    <script type="module" src="docs.js"></script>
+  </body>
+</html>
