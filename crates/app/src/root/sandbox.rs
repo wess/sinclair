@@ -58,11 +58,19 @@ impl WorkspaceView {
         }
         match &self.sandbox {
             Some(ready) => {
-                let who = if ready.adopted { ready.owner.label() } else { "Sinclair" };
+                let who = if ready.adopted {
+                    ready.owner.label()
+                } else {
+                    "Sinclair"
+                };
                 format!(
                     "Running \u{00b7} {} pane{} \u{00b7} {who}",
                     self.sandbox_panes.len(),
-                    if self.sandbox_panes.len() == 1 { "" } else { "s" }
+                    if self.sandbox_panes.len() == 1 {
+                        ""
+                    } else {
+                        "s"
+                    }
                 )
             }
             None if !self.opts.sandbox_enabled => "Off for this project".to_string(),

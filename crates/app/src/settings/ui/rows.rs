@@ -15,7 +15,13 @@ impl SettingsView {
             Control::Slider(n) => self.slider(s, *n, cx).into_any_element(),
             Control::Choice(c) => self.choice_button(s, *c, cx).into_any_element(),
             Control::Text { get, placeholder } => self
-                .text_input(EditTarget::Field(s.key), get(&self.opts), placeholder, 230.0, cx)
+                .text_input(
+                    EditTarget::Field(s.key),
+                    get(&self.opts),
+                    placeholder,
+                    230.0,
+                    cx,
+                )
                 .into_any_element(),
             // List settings render as groups, not rows.
             Control::List(_) => div().into_any_element(),
@@ -61,7 +67,11 @@ impl SettingsView {
     }
 
     /// The `↺` reset that removes a key from settings.json.
-    pub(crate) fn reset_button(&self, key: &'static str, cx: &mut Context<Self>) -> impl IntoElement {
+    pub(crate) fn reset_button(
+        &self,
+        key: &'static str,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
         div()
             .text_size(px(13.0))
             .text_color(hsla(MUTED))
@@ -102,7 +112,9 @@ impl SettingsView {
         let mut groups: Vec<AnyElement> = Vec::new();
         for s in settings {
             match &s.control {
-                Control::List(kind) => groups.push(self.list_group(s, *kind, cx).into_any_element()),
+                Control::List(kind) => {
+                    groups.push(self.list_group(s, *kind, cx).into_any_element())
+                }
                 _ => rows.push(self.setting_row(s, cx)),
             }
         }
@@ -119,10 +131,12 @@ impl SettingsView {
         let query = self.search();
         let mut out: Vec<AnyElement> = Vec::new();
         for section in Section::ALL {
-            let mut matched: Vec<&'static Setting> =
-                schema::in_section(section).filter(|s| s.matches(&query)).collect();
+            let mut matched: Vec<&'static Setting> = schema::in_section(section)
+                .filter(|s| s.matches(&query))
+                .collect();
             // Macros and Sidebar have no schema entries; match them by name.
-            let macros_hit = section == Section::Macros && word_match(&query, "macros replay shortcut");
+            let macros_hit =
+                section == Section::Macros && word_match(&query, "macros replay shortcut");
             let sidebar_hit = super::sidebar::matches_search(section, &query);
             if matched.is_empty() && !macros_hit && !sidebar_hit {
                 continue;
@@ -146,7 +160,9 @@ impl SettingsView {
                 div()
                     .pt_4()
                     .text_color(hsla(MUTED))
-                    .child(SharedString::from(format!("No settings match \u{201c}{query}\u{201d}")))
+                    .child(SharedString::from(format!(
+                        "No settings match \u{201c}{query}\u{201d}"
+                    )))
                     .into_any_element(),
             );
         }

@@ -84,7 +84,10 @@ pub fn resolve_in(root: Option<&std::path::Path>, name: &str) -> Option<Role> {
         Some(r) => layered::project_dir_in(r, KIND),
         None => layered::project_dir(KIND),
     };
-    for (d, src) in [(project, Source::Project), (layered::user_dir(KIND), Source::User)] {
+    for (d, src) in [
+        (project, Source::Project),
+        (layered::user_dir(KIND), Source::User),
+    ] {
         if let Ok(text) = std::fs::read_to_string(layered::file_in(&d, name)) {
             return parse(name, &text, src).ok();
         }
@@ -165,7 +168,10 @@ fn create(name: &str, user: bool) -> Result<()> {
     }
     let path = layered::file_in(&layered::dir(KIND, user), name);
     if path.exists() {
-        bail!("role `{name}` already exists at {} — use `edit`", path.display());
+        bail!(
+            "role `{name}` already exists at {} — use `edit`",
+            path.display()
+        );
     }
     layered::open_editor(&path, scaffold(name), &check)
 }
@@ -185,7 +191,10 @@ fn delete(name: &str, user: bool) -> Result<()> {
         if layered::builtin(BUILTINS, name).is_some() {
             bail!("`{name}` is a built-in role; create an override to change it");
         }
-        bail!("no {} role named `{name}`", if user { "user" } else { "project" });
+        bail!(
+            "no {} role named `{name}`",
+            if user { "user" } else { "project" }
+        );
     }
     std::fs::remove_file(&path)?;
     println!("deleted {}", path.display());
@@ -222,7 +231,10 @@ fn serialize(role: Role) -> String {
             .join(", ");
         out.push_str(&format!("tools = [{list}]\n"));
     }
-    out.push_str(&format!("description = \"\"\"\n{}\n\"\"\"\n", role.description));
+    out.push_str(&format!(
+        "description = \"\"\"\n{}\n\"\"\"\n",
+        role.description
+    ));
     out
 }
 

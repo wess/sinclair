@@ -78,12 +78,14 @@ impl PluginManager {
         window.on_next_frame(move |window, cx| window.focus(&search_focus, cx));
 
         let mut subs = Vec::new();
-        subs.push(cx.subscribe(&search, |this, _src, event: &TextInputEvent, cx| {
-            if let TextInputEvent::Change(text) = event {
-                this.query = text.clone();
-                cx.notify();
-            }
-        }));
+        subs.push(
+            cx.subscribe(&search, |this, _src, event: &TextInputEvent, cx| {
+                if let TextInputEvent::Change(text) = event {
+                    this.query = text.clone();
+                    cx.notify();
+                }
+            }),
+        );
 
         let mut this = Self {
             opts,
@@ -249,14 +251,14 @@ impl Render for PluginManager {
             .installed
             .iter()
             .filter(|p| {
-                matches(&p.name)
-                    || matches(&p.id)
-                    || p.description.as_deref().is_some_and(matches)
+                matches(&p.name) || matches(&p.id) || p.description.as_deref().is_some_and(matches)
             })
             .enumerate()
             .map(|(i, p)| {
                 let uninstall = self.managed_name(p);
-                let busy = uninstall.as_ref().is_some_and(|n| self.busy.as_deref() == Some(n));
+                let busy = uninstall
+                    .as_ref()
+                    .is_some_and(|n| self.busy.as_deref() == Some(n));
                 self.plugin_row(
                     i,
                     &p.name,
@@ -282,14 +284,14 @@ impl Render for PluginManager {
             .disabled
             .iter()
             .filter(|p| {
-                matches(&p.name)
-                    || matches(&p.id)
-                    || p.description.as_deref().is_some_and(matches)
+                matches(&p.name) || matches(&p.id) || p.description.as_deref().is_some_and(matches)
             })
             .enumerate()
             .map(|(i, p)| {
                 let uninstall = self.managed_name(p);
-                let busy = uninstall.as_ref().is_some_and(|n| self.busy.as_deref() == Some(n));
+                let busy = uninstall
+                    .as_ref()
+                    .is_some_and(|n| self.busy.as_deref() == Some(n));
                 self.plugin_row(
                     20_000 + i,
                     &p.name,
@@ -347,18 +349,13 @@ impl Render for PluginManager {
             .collect();
 
         let section = |label: &str, count: usize| {
-            div()
-                .flex()
-                .items_center()
-                .gap_2()
-                .pt_2()
-                .child(
-                    div()
-                        .text_size(px(11.0))
-                        .font_weight(FontWeight::BOLD)
-                        .text_color(dim)
-                        .child(format!("{} ({count})", label.to_uppercase())),
-                )
+            div().flex().items_center().gap_2().pt_2().child(
+                div()
+                    .text_size(px(11.0))
+                    .font_weight(FontWeight::BOLD)
+                    .text_color(dim)
+                    .child(format!("{} ({count})", label.to_uppercase())),
+            )
         };
 
         let mut list = div()
@@ -413,21 +410,24 @@ impl Render for PluginManager {
             )
             .child(self.search.clone())
             .child(list)
-            .child(
-                div()
-                    .text_size(px(11.0))
-                    .text_color(dim)
-                    .child(self.status.clone().unwrap_or_else(|| {
-                        "Install from the catalog, or uninstall a managed plugin.".to_string()
-                    })),
-            )
+            .child(div().text_size(px(11.0)).text_color(dim).child(
+                self.status.clone().unwrap_or_else(|| {
+                    "Install from the catalog, or uninstall a managed plugin.".to_string()
+                }),
+            ))
     }
 }
 
 /// What the trailing button on a plugin row does.
 enum RowAction {
-    Install { name: String, busy: bool },
-    Uninstall { name: String, busy: bool },
+    Install {
+        name: String,
+        busy: bool,
+    },
+    Uninstall {
+        name: String,
+        busy: bool,
+    },
     /// A plugin referenced from config (absolute path) — can't be uninstalled.
     External,
 }

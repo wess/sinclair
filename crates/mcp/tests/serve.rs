@@ -1,7 +1,11 @@
 use super::*;
 
 fn tools() -> Vec<Tool> {
-    vec![Tool::new("echo", "echoes input", json!({ "type": "object" }))]
+    vec![Tool::new(
+        "echo",
+        "echoes input",
+        json!({ "type": "object" }),
+    )]
 }
 
 fn handle(name: &str, args: &Value) -> Result<Value, String> {
@@ -30,10 +34,9 @@ fn notifications_get_no_reply() {
 
 #[test]
 fn malformed_json_gets_a_parse_error() {
-    let reply: Value = serde_json::from_str(
-        &reply_for("{not json", &tools(), &json!({}), &handle).unwrap(),
-    )
-    .unwrap();
+    let reply: Value =
+        serde_json::from_str(&reply_for("{not json", &tools(), &json!({}), &handle).unwrap())
+            .unwrap();
     assert_eq!(reply["error"]["code"], -32700);
     assert_eq!(reply["id"], Value::Null);
 }

@@ -592,6 +592,12 @@ impl TerminalView {
         self.session.with_term(|term| (term.cols(), term.rows()))
     }
 
+    /// The live session, for read-only surfaces (the tab peek's miniatures)
+    /// that render this pane's screen without owning the pane.
+    pub fn session(&self) -> &Arc<Session> {
+        &self.session
+    }
+
     /// Apply a reloaded appearance. A font/size change shifts the cell box,
     /// so the next layout pass re-grids and resizes the session; here we
     /// just swap the fields and repaint.
@@ -826,6 +832,20 @@ impl TerminalView {
         self.cwd().and_then(|osc| crate::session::cwdpath(&osc))
     }
 
+    /// What a cmd-click on a path does: resolve the candidate against this
+    /// pane's working directory and, if it is real, show it in the file
+    /// manager. Built per frame, capturing the cwd as it stands — the pane may
+    /// have `cd`-ed since the last one, and a path is relative to where it was
+    /// printed.
+    fn path_hook(&self) -> Rc<libsinclair::pointer::PathHook> {
+        let cwd = self.cwd_path();
+        Rc::new(move |hit: vt::PathHit, _cx: &mut gpui::App| {
+            if let Some(path) = crate::reveal::resolve(&hit.path, cwd.as_deref()) {
+                crate::reveal::reveal(&path);
+            }
+        })
+    }
+
     /// Clear the attention indicator (the user is now looking at this pane).
     fn clear_attention(&mut self, cx: &mut Context<Self>) {
         if self.attention {
@@ -945,25 +965,28 @@ impl Render for TerminalView {
                 .absolute()
                 .size_full()
             })
-            .child(TerminalElement::new(
-                self.session.clone(),
-                self.colors.clone(),
-                self.font.clone(),
-                self.font_size,
-                self.cell,
-                self.pad,
-                cursor_shape(self.cursor_default),
-                self.mouse.clone(),
-                self.copy_on_select,
-                self.copy.clone(),
-                self.smart_select,
-                self.middle_click_paste,
-                self.pane_active,
-                query,
-                self.suggestion_ghost(),
-                self.image_cache.clone(),
-                self.snap_cache.clone(),
-            ))
+            .child(
+                TerminalElement::new(
+                    self.session.clone(),
+                    self.colors.clone(),
+                    self.font.clone(),
+                    self.font_size,
+                    self.cell,
+                    self.pad,
+                    cursor_shape(self.cursor_default),
+                    self.mouse.clone(),
+                    self.copy_on_select,
+                    self.copy.clone(),
+                    self.smart_select,
+                    self.middle_click_paste,
+                    self.pane_active,
+                    query,
+                    self.suggestion_ghost(),
+                    self.image_cache.clone(),
+                    self.snap_cache.clone(),
+                )
+                .on_path(self.path_hook()),
+            )
             .children(self.bell_overlay())
             .children(self.badge_overlay(cx))
             .children(self.suggestion_popup_overlay(cx))

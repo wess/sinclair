@@ -36,8 +36,14 @@ fn seqrow_resolves_scrollback_and_live_rows() {
     let sb_len = term.grid().scrollback().len();
     assert_eq!(committed, 8);
     // Scrollback sequence 2 is "line2"; live row 0 (sequence 8) is "line8".
-    assert_eq!(seqrow(&mut term, 2, committed, sb_len).as_deref(), Some("line2"));
-    assert_eq!(seqrow(&mut term, 8, committed, sb_len).as_deref(), Some("line8"));
+    assert_eq!(
+        seqrow(&mut term, 2, committed, sb_len).as_deref(),
+        Some("line2")
+    );
+    assert_eq!(
+        seqrow(&mut term, 8, committed, sb_len).as_deref(),
+        Some("line8")
+    );
     // Past the live grid: nothing.
     assert_eq!(seqrow(&mut term, committed + 3, committed, sb_len), None);
 }
@@ -55,7 +61,10 @@ fn seqrow_returns_none_for_evicted_rows() {
     // Sequences 0..4 fell off the ring.
     assert_eq!(seqrow(&mut term, 0, committed, sb_len), None);
     assert_eq!(seqrow(&mut term, 3, committed, sb_len), None);
-    assert_eq!(seqrow(&mut term, 4, committed, sb_len).as_deref(), Some("line4"));
+    assert_eq!(
+        seqrow(&mut term, 4, committed, sb_len).as_deref(),
+        Some("line4")
+    );
 }
 
 #[test]
@@ -68,7 +77,9 @@ fn notify_limit_drops_bursts_and_reports_them() {
     assert_eq!(limit.admit(t0 + Duration::from_millis(200), "third"), None);
     // Past the gap: delivered, carrying the drop count.
     assert_eq!(
-        limit.admit(t0 + Duration::from_secs(2), "fourth").as_deref(),
+        limit
+            .admit(t0 + Duration::from_secs(2), "fourth")
+            .as_deref(),
         Some("fourth (+2 dropped)")
     );
     // Counter reset after reporting.

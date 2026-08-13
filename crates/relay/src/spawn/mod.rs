@@ -249,7 +249,9 @@ async fn monitor(app: App, spec: Spec, worker: Worker) {
 /// worker had been up and healthy) restarts at the base delay.
 fn backoff(n: u32) -> std::time::Duration {
     let shift = n.saturating_sub(1).min(16);
-    RESTART_BACKOFF.saturating_mul(1u32 << shift).min(RESTART_BACKOFF_MAX)
+    RESTART_BACKOFF
+        .saturating_mul(1u32 << shift)
+        .min(RESTART_BACKOFF_MAX)
 }
 
 /// Stop a worker by name. Returns false if unknown.
@@ -297,7 +299,10 @@ mod tests {
         let n = N.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         let path = std::env::temp_dir().join(format!("relay-spawn-{}-{n}.db", std::process::id()));
         let pool = db::open(path.to_str().unwrap()).await.unwrap();
-        (App::new(pool, "http://127.0.0.1:0".into(), "t".into()), path)
+        (
+            App::new(pool, "http://127.0.0.1:0".into(), "t".into()),
+            path,
+        )
     }
 
     fn cleanup(path: &std::path::Path) {
@@ -344,8 +349,13 @@ mod tests {
     async fn duplicate_name_is_rejected_without_overwriting() {
         let (app, path) = app().await;
         let original = fake("backend");
-        app.workers.lock().await.insert("backend".into(), original.clone());
-        let err = launch(&app, spec("backend")).await.expect_err("duplicate must bail");
+        app.workers
+            .lock()
+            .await
+            .insert("backend".into(), original.clone());
+        let err = launch(&app, spec("backend"))
+            .await
+            .expect_err("duplicate must bail");
         assert!(err.to_string().contains("already exists"));
         let held = app.workers.lock().await.get("backend").cloned().unwrap();
         assert!(
@@ -360,7 +370,11 @@ mod tests {
     /// healthy, which restarts at the base delay.
     #[test]
     fn backoff_grows_and_caps() {
-        assert_eq!(backoff(0), RESTART_BACKOFF, "a healthy run restarts promptly");
+        assert_eq!(
+            backoff(0),
+            RESTART_BACKOFF,
+            "a healthy run restarts promptly"
+        );
         assert_eq!(backoff(1), RESTART_BACKOFF);
         assert_eq!(backoff(2), RESTART_BACKOFF * 2);
         assert_eq!(backoff(3), RESTART_BACKOFF * 4);
@@ -392,7 +406,9 @@ mod tests {
                 workers.insert(format!("w{i}"), fake(&format!("w{i}")));
             }
         }
-        let err = launch(&app, spec("overflow")).await.expect_err("cap must bail");
+        let err = launch(&app, spec("overflow"))
+            .await
+            .expect_err("cap must bail");
         assert!(err.to_string().contains("cap reached"));
         assert!(!app.workers.lock().await.contains_key("overflow"));
         cleanup(&path);
@@ -415,7 +431,10 @@ mod tests {
         };
         // Live worker: stop succeeds, row deleted.
         db::save_worker(&app.db, &persisted).await.unwrap();
-        app.workers.lock().await.insert("backend".into(), fake("backend"));
+        app.workers
+            .lock()
+            .await
+            .insert("backend".into(), fake("backend"));
         assert!(stop_and_forget(&app, "backend").await);
         assert!(db::load_workers(&app.db).await.unwrap().is_empty());
         // Stale row, no live worker: reported as unknown but cleaned up.

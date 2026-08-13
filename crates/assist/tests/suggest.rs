@@ -24,5 +24,8 @@ fn ghost_returns_suffix_of_best() {
 fn rank_puts_closest_completion_first() {
     let c = v(&["git status --short", "git st", "git stash"]);
     // "git st" is already the input, so it's excluded; shortest suffix wins.
-    assert_eq!(rank("git st", &c, 10), v(&["git stash", "git status --short"]));
+    assert_eq!(
+        rank("git st", &c, 10),
+        v(&["git stash", "git status --short"])
+    );
 }

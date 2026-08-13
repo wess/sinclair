@@ -11,7 +11,8 @@ pub fn team_list() -> Vec<String> {
     else {
         return Vec::new();
     };
-    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_or(serde_json::Value::Null);
+    let v: serde_json::Value =
+        serde_json::from_slice(&out.stdout).unwrap_or(serde_json::Value::Null);
     v.as_array()
         .map(|a| {
             a.iter()
@@ -51,7 +52,11 @@ pub fn team_info(name: &str) -> Option<(String, Vec<TeamMember>)> {
 /// owner of team storage. `--user` writes to the user dir; otherwise it's the
 /// project dir resolved against `cwd` (the focused pane's directory). Returns
 /// the saved team name on success, or an error message.
-pub fn save_team(spec: &TeamSpec, user: bool, cwd: Option<&std::path::Path>) -> Result<String, String> {
+pub fn save_team(
+    spec: &TeamSpec,
+    user: bool,
+    cwd: Option<&std::path::Path>,
+) -> Result<String, String> {
     use std::io::Write;
     let json = serde_json::to_string(spec).map_err(|e| e.to_string())?;
     let mut cmd = std::process::Command::new(binary());
@@ -64,7 +69,9 @@ pub fn save_team(spec: &TeamSpec, user: bool, cwd: Option<&std::path::Path>) -> 
     cmd.stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped());
-    let mut child = cmd.spawn().map_err(|e| format!("could not run relay: {e}"))?;
+    let mut child = cmd
+        .spawn()
+        .map_err(|e| format!("could not run relay: {e}"))?;
     child
         .stdin
         .take()
@@ -76,7 +83,11 @@ pub fn save_team(spec: &TeamSpec, user: bool, cwd: Option<&std::path::Path>) -> 
         Ok(spec.name.clone())
     } else {
         let err = String::from_utf8_lossy(&out.stderr).trim().to_string();
-        Err(if err.is_empty() { "team save failed".into() } else { err })
+        Err(if err.is_empty() {
+            "team save failed".into()
+        } else {
+            err
+        })
     }
 }
 
@@ -129,11 +140,7 @@ pub fn generate_team(
 /// Ask Claude for a single next-command suggestion completing `input`, given
 /// recent history for context. Returns the full command line (which must start
 /// with `input`) or `None`. Blocking — run off the UI thread.
-pub fn suggest_command(
-    opts: &config::Options,
-    recent: &[String],
-    input: &str,
-) -> Option<String> {
+pub fn suggest_command(opts: &config::Options, recent: &[String], input: &str) -> Option<String> {
     let bin = claude_binary(opts);
     let history = recent.join("\n");
     let prompt = format!(
@@ -142,7 +149,11 @@ pub fn suggest_command(
          Reply with ONLY the single most likely full command line, starting with exactly \
          what they typed, no prose, no backticks, no explanation."
     );
-    let out = std::process::Command::new(&bin).arg("-p").arg(&prompt).output().ok()?;
+    let out = std::process::Command::new(&bin)
+        .arg("-p")
+        .arg(&prompt)
+        .output()
+        .ok()?;
     if !out.status.success() {
         return None;
     }
@@ -252,7 +263,11 @@ pub fn launch_member(
 ) -> String {
     let flag = if lead { " --lead" } else { "" };
     let opt = if optimize { " --optimize" } else { "" };
-    let auto = if opts.relay_team_autonomy { " --skip-permissions" } else { "" };
+    let auto = if opts.relay_team_autonomy {
+        " --skip-permissions"
+    } else {
+        ""
+    };
     let agent = agent.trim();
     let agent_flag = if agent.is_empty() {
         String::new()

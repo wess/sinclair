@@ -137,7 +137,12 @@ impl TerminalView {
         self.semantic_jump(cx);
     }
 
-    pub(crate) fn assist_key(&mut self, ks: &gpui::Keystroke, mods: input::Mods, cx: &mut Context<Self>) {
+    pub(crate) fn assist_key(
+        &mut self,
+        ks: &gpui::Keystroke,
+        mods: input::Mods,
+        cx: &mut Context<Self>,
+    ) {
         if mods.cmd || mods.ctrl {
             return;
         }

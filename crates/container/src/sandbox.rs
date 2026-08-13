@@ -92,11 +92,21 @@ pub struct Limits {
 impl Limits {
     fn args(&self) -> Vec<String> {
         let mut out = Vec::new();
-        if let Some(m) = self.memory.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+        if let Some(m) = self
+            .memory
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        {
             out.push("--memory".to_string());
             out.push(m.to_string());
         }
-        if let Some(c) = self.cpus.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+        if let Some(c) = self
+            .cpus
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        {
             out.push("--cpus".to_string());
             out.push(c.to_string());
         }
@@ -177,10 +187,7 @@ impl Sandbox {
                 // Stamped so VS Code's Dev Containers extension and the
                 // `devcontainer` CLI find this container for the same folder
                 // rather than building a second one beside it.
-                (
-                    "devcontainer.local_folder".to_string(),
-                    project.to_string(),
-                ),
+                ("devcontainer.local_folder".to_string(), project.to_string()),
             ],
         }
     }
@@ -226,7 +233,12 @@ impl Sandbox {
             argv.push("-e".to_string());
             argv.push(format!("{k}={v}"));
         }
-        if let Some(u) = self.user.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+        if let Some(u) = self
+            .user
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        {
             argv.push("--user".to_string());
             argv.push(u.to_string());
         }
@@ -263,9 +275,7 @@ impl Sandbox {
         let mut argv = self.exec_prefix(cwd);
         argv.push("sh".to_string());
         argv.push("-c".to_string());
-        argv.push(
-            "command -v bash >/dev/null 2>&1 && exec bash -l || exec sh -l".to_string(),
-        );
+        argv.push("command -v bash >/dev/null 2>&1 && exec bash -l || exec sh -l".to_string());
         argv
     }
 
@@ -285,7 +295,12 @@ impl Sandbox {
             "exec".to_string(),
             "-it".to_string(),
         ];
-        if let Some(u) = self.user.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+        if let Some(u) = self
+            .user
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        {
             argv.push("--user".to_string());
             argv.push(u.to_string());
         }
@@ -346,7 +361,15 @@ pub fn state_argv(engine: Engine, name: &str) -> Vec<String> {
 
 /// Parse the output of [`state_argv`].
 pub fn parse_state(output: &str) -> State {
-    match output.trim().lines().next().unwrap_or("").trim().to_ascii_lowercase().as_str() {
+    match output
+        .trim()
+        .lines()
+        .next()
+        .unwrap_or("")
+        .trim()
+        .to_ascii_lowercase()
+        .as_str()
+    {
         "running" | "up" => State::Running,
         "created" | "configured" => State::Created,
         "paused" => State::Paused,
@@ -364,7 +387,11 @@ pub fn name_for(project: &str) -> String {
         .rsplit('/')
         .find(|s| !s.is_empty())
         .unwrap_or("project");
-    format!("sinclair-sbx-{}-{}", slug(base), crate::hash::short(project))
+    format!(
+        "sinclair-sbx-{}-{}",
+        slug(base),
+        crate::hash::short(project)
+    )
 }
 
 /// The named volume holding the agent `$HOME` for a project.

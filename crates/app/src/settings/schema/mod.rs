@@ -203,7 +203,13 @@ pub(crate) fn toggle(
     section: Section,
     get: fn(&Options) -> bool,
 ) -> Setting {
-    Setting { key, label, desc, section, control: Control::Toggle(get) }
+    Setting {
+        key,
+        label,
+        desc,
+        section,
+        control: Control::Toggle(get),
+    }
 }
 
 pub(crate) fn slider(
@@ -221,7 +227,14 @@ pub(crate) fn slider(
         label,
         desc,
         section,
-        control: Control::Slider(Slider { get, min, max, step, int, auto_zero: false }),
+        control: Control::Slider(Slider {
+            get,
+            min,
+            max,
+            step,
+            int,
+            auto_zero: false,
+        }),
     }
 }
 
@@ -233,7 +246,13 @@ pub(crate) fn text(
     get: fn(&Options) -> String,
     placeholder: &'static str,
 ) -> Setting {
-    Setting { key, label, desc, section, control: Control::Text { get, placeholder } }
+    Setting {
+        key,
+        label,
+        desc,
+        section,
+        control: Control::Text { get, placeholder },
+    }
 }
 
 pub(crate) fn choice(
@@ -245,11 +264,27 @@ pub(crate) fn choice(
     variants: fn() -> Vec<String>,
     unset: Option<&'static str>,
 ) -> Setting {
-    Setting { key, label, desc, section, control: Control::Choice(Choice { get, variants, unset }) }
+    Setting {
+        key,
+        label,
+        desc,
+        section,
+        control: Control::Choice(Choice {
+            get,
+            variants,
+            unset,
+        }),
+    }
 }
 
 pub(crate) fn list(kind: ListKind, desc: &'static str, section: Section) -> Setting {
-    Setting { key: kind.key(), label: kind.label(), desc, section, control: Control::List(kind) }
+    Setting {
+        key: kind.key(),
+        label: kind.label(),
+        desc,
+        section,
+        control: Control::List(kind),
+    }
 }
 
 /// Clone an `Option<String>` field for display.

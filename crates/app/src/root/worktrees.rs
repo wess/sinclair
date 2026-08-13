@@ -21,7 +21,12 @@ impl WorkspaceView {
     /// (a `worktree add` materializes a full checkout), opening the tab in the
     /// completion callback. The keybind-action path; the MCP verb stays the
     /// synchronous [`Self::worktree_create`] so it can answer its caller.
-    pub(crate) fn worktree_create_bg(&mut self, spec: &str, window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn worktree_create_bg(
+        &mut self,
+        spec: &str,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let repo = match self.repo_dir(cx) {
             Ok(repo) => repo,
             Err(e) => {
@@ -56,7 +61,12 @@ impl WorkspaceView {
 
     /// Remove a worktree on the background executor; fires `worktree_removed`
     /// on completion. The keybind-action counterpart of [`Self::worktree_remove`].
-    pub(crate) fn worktree_remove_bg(&mut self, path: &str, window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn worktree_remove_bg(
+        &mut self,
+        path: &str,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let repo = match self.repo_dir(cx) {
             Ok(repo) => repo,
             Err(e) => {

@@ -94,7 +94,11 @@ impl Recipe {
             packages.join(" ")
         ));
 
-        let npm: Vec<&str> = self.agents.iter().filter_map(|a| agent_package(a)).collect();
+        let npm: Vec<&str> = self
+            .agents
+            .iter()
+            .filter_map(|a| agent_package(a))
+            .collect();
         if !npm.is_empty() {
             out.push_str(&format!("RUN npm install -g {}\n", npm.join(" ")));
         }
@@ -120,7 +124,10 @@ impl Recipe {
     /// The image tag for this recipe. Changing the recipe changes the tag, so
     /// a stale image is never silently reused.
     pub fn tag(&self) -> String {
-        format!("sinclair-sandbox:{}", crate::hash::short(&self.dockerfile()))
+        format!(
+            "sinclair-sandbox:{}",
+            crate::hash::short(&self.dockerfile())
+        )
     }
 
     /// Argv building this recipe. The Dockerfile goes in on stdin (`-`), so

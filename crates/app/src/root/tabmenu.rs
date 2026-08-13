@@ -16,8 +16,8 @@ impl WorkspaceView {
     /// Open the context menu for `item` at the pointer.
     ///
     /// The menu is rebuilt each time rather than kept around: its entries close
-    /// over the item that was clicked, and "Close Other Tabs" has to be hidden
-    /// when there are no others.
+    /// over the item that was clicked, and the bulk-close entries have to be
+    /// hidden when there is nothing for them to close.
     pub(crate) fn open_tab_menu(
         &mut self,
         item: ItemId,
@@ -28,7 +28,14 @@ impl WorkspaceView {
         let Some(handle) = window.window_handle().downcast::<Self>() else {
             return;
         };
-        let others = self.group.read(cx).items().len() > 1;
+        // Every bulk close is scoped to the strip the tab was right-clicked in.
+        // Tabs live per-pane, so the tabs a menu talks about are the ones beside
+        // the tab it was opened from — reaching into the other panes from here
+        // would close terminals the user cannot even see from this menu.
+        let strip = self.tab_strip_of(item, cx);
+        let index = strip.iter().position(|i| *i == item);
+        let others = strip.len() > 1;
+        let to_right = index.is_some_and(|i| i + 1 < strip.len());
         // Item handlers run *inside* this window's update, so the action is
         // deferred: dispatching straight into the same window re-enters it,
         // the update is refused, and the menu closes having done nothing.
@@ -40,12 +47,20 @@ impl WorkspaceView {
                 });
             }
         };
-        let close_others = move |_w: &mut Window, cx: &mut App| {
-            cx.defer(move |cx| {
-                let _ = handle
-                    .update(cx, |view, window, cx| view.close_other_items(item, window, cx));
-            });
+        let close_all = move |doomed: Vec<ItemId>| {
+            move |_w: &mut Window, cx: &mut App| {
+                let doomed = doomed.clone();
+                cx.defer(move |cx| {
+                    let _ = handle.update(cx, |view, window, cx| {
+                        for id in doomed {
+                            view.close_item(id, window, cx);
+                        }
+                    });
+                });
+            }
         };
+        let rest: Vec<ItemId> = strip.iter().copied().filter(|i| *i != item).collect();
+        let after: Vec<ItemId> = index.map(|i| strip[i + 1..].to_vec()).unwrap_or_default();
 
         let menu = cx.new(|cx| {
             let mut menu = guise::ContextMenu::new(cx)
@@ -55,7 +70,10 @@ impl WorkspaceView {
                 .item("Split Down", run(Action::NewSplit(SplitDirection::Down)))
                 .divider();
             if others {
-                menu = menu.item("Close Other Tabs", close_others);
+                menu = menu.item("Close Other Tabs", close_all(rest));
+            }
+            if to_right {
+                menu = menu.item("Close Tabs to the Right", close_all(after));
             }
             menu.danger_item("Close Tab", run(Action::CloseTab))
         });
@@ -64,23 +82,13 @@ impl WorkspaceView {
         cx.notify();
     }
 
-    /// Close every item except `keep`. Collected first: closing mutates the
-    /// group, so iterating it while closing would walk a list being rewritten.
-    pub(crate) fn close_other_items(
-        &mut self,
-        keep: ItemId,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let doomed: Vec<ItemId> = self
-            .group
-            .read(cx)
-            .items()
-            .into_iter()
-            .filter(|id| *id != keep)
-            .collect();
-        for id in doomed {
-            self.close_item(id, window, cx);
-        }
+    /// The items in the tab strip `item` sits in, in strip order. Empty if the
+    /// item has already left the group.
+    fn tab_strip_of(&self, item: ItemId, cx: &App) -> Vec<ItemId> {
+        let group = self.group.read(cx);
+        group
+            .pane_of(item)
+            .and_then(|pane| group.pane_items(pane).map(<[_]>::to_vec))
+            .unwrap_or_default()
     }
 }

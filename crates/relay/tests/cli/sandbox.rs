@@ -14,7 +14,12 @@ fn no_name_means_a_host_launch() {
 fn engine_defaults_to_docker() {
     let s = Sandbox::resolve(Some("c"), None, None).unwrap();
     assert_eq!(s.engine, Engine::Docker);
-    assert_eq!(Sandbox::resolve(Some("c"), Some("podman"), None).unwrap().engine, Engine::Podman);
+    assert_eq!(
+        Sandbox::resolve(Some("c"), Some("podman"), None)
+            .unwrap()
+            .engine,
+        Engine::Podman
+    );
 }
 
 #[test]
@@ -44,7 +49,10 @@ fn podman_uses_its_own_gateway_name() {
 #[test]
 fn a_routable_endpoint_is_left_alone() {
     let s = sbx();
-    assert_eq!(s.endpoint("http://10.0.0.4:7777/mcp"), "http://10.0.0.4:7777/mcp");
+    assert_eq!(
+        s.endpoint("http://10.0.0.4:7777/mcp"),
+        "http://10.0.0.4:7777/mcp"
+    );
 }
 
 #[test]
@@ -61,8 +69,14 @@ fn wrap_execs_through_a_login_shell_in_the_workdir() {
 #[test]
 fn env_reaches_the_container() {
     // Codex takes its bearer token by env var; it has to survive the wrap.
-    let argv = sbx().wrap("codex", &[], &[("RELAY_TOKEN".to_string(), "secret".to_string())]);
-    assert!(argv.windows(2).any(|w| w[0] == "-e" && w[1] == "RELAY_TOKEN=secret"));
+    let argv = sbx().wrap(
+        "codex",
+        &[],
+        &[("RELAY_TOKEN".to_string(), "secret".to_string())],
+    );
+    assert!(argv
+        .windows(2)
+        .any(|w| w[0] == "-e" && w[1] == "RELAY_TOKEN=secret"));
 }
 
 #[test]
@@ -70,11 +84,17 @@ fn prompts_with_quotes_and_newlines_survive() {
     let prompt = "You're the lead.\nReport to 'supervisor'.";
     let argv = sbx().wrap("claude", &["-p".to_string(), prompt.to_string()], &[]);
     let line = argv.last().unwrap();
-    assert!(line.contains(r"'\''"), "single quotes must be escaped, not dropped");
+    assert!(
+        line.contains(r"'\''"),
+        "single quotes must be escaped, not dropped"
+    );
     assert!(line.contains('\n'), "the prompt keeps its newlines");
 }
 
 #[test]
 fn workdir_defaults_when_unset() {
-    assert_eq!(Sandbox::resolve(Some("c"), None, None).unwrap().workdir, ".");
+    assert_eq!(
+        Sandbox::resolve(Some("c"), None, None).unwrap().workdir,
+        "."
+    );
 }

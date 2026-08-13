@@ -146,14 +146,12 @@ impl SettingsView {
     ) -> AnyElement {
         // Disabled ends read as muted rather than vanishing, so the row's
         // control block keeps a stable width down the list.
-        let up = self
-            .step_button("\u{2191}", index > 0, cx, move |docks| {
-                dock::reorder(docks, side, index, -1)
-            });
-        let down = self
-            .step_button("\u{2193}", index + 1 < count, cx, move |docks| {
-                dock::reorder(docks, side, index, 1)
-            });
+        let up = self.step_button("\u{2191}", index > 0, cx, move |docks| {
+            dock::reorder(docks, side, index, -1)
+        });
+        let down = self.step_button("\u{2193}", index + 1 < count, cx, move |docks| {
+            dock::reorder(docks, side, index, 1)
+        });
         let across_glyph = match side {
             SidebarSide::Left => "\u{2192}",
             SidebarSide::Right => "\u{2190}",
@@ -194,8 +192,8 @@ impl SettingsView {
         cx: &mut Context<Self>,
         edit: impl Fn(&mut Docks) + 'static,
     ) -> impl IntoElement {
-        let button = button_box(glyph.to_string())
-            .text_color(hsla(if enabled { TEXT } else { LINE }));
+        let button =
+            button_box(glyph.to_string()).text_color(hsla(if enabled { TEXT } else { LINE }));
         if !enabled {
             return button;
         }
@@ -299,7 +297,12 @@ impl SettingsView {
                 self.row(
                     self.icon(panel.icon(), px(18.0)),
                     &self.label_of(panel),
-                    div().flex().items_center().gap_2().child(to_left).child(to_right),
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap_2()
+                        .child(to_left)
+                        .child(to_right),
                 )
                 .into_any_element(),
             );

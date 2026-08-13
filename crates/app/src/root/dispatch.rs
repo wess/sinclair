@@ -42,7 +42,12 @@ impl WorkspaceView {
     }
 
     /// Dispatch handler shared by every keybinding.
-    pub(crate) fn runbind(&mut self, action: &RunBind, window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn runbind(
+        &mut self,
+        action: &RunBind,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let Some(kb) = self.keybinds.get(action.0) else {
             return;
         };
@@ -60,7 +65,12 @@ impl WorkspaceView {
     }
 
     /// Dispatch a keybind-less menu item via its `menu_actions` index.
-    pub(crate) fn menupick(&mut self, action: &MenuPick, window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn menupick(
+        &mut self,
+        action: &MenuPick,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         if let Some(config_action) = self.menu_actions.get(action.0).cloned() {
             self.dispatch(config_action, window, cx);
         }
@@ -127,6 +137,8 @@ impl WorkspaceView {
                 self.focusactive(window, cx);
                 cx.notify();
             }
+            Action::TabSwitcher(step) => self.tab_switcher(step, window, cx),
+            Action::TabPeek => self.toggle_peek(cx),
             Action::MoveTab(delta) => self.movetab(delta, cx),
             Action::Copy => self.onfocused(cx, |v, cx| v.copy_selection(cx)),
             Action::CopyCommandOutput => self.onfocused(cx, |v, cx| v.copy_command_output(cx)),
@@ -198,13 +210,21 @@ impl WorkspaceView {
             }
             Action::SaveBuffer => self.save_buffer(cx),
             Action::ToggleQuickTerminal => crate::quick::toggle(cx),
-            Action::RelayFeed => {
-                self.splitcommand(&crate::relay::feed_command(), SplitAxis::Vertical, false, window, cx)
-            }
+            Action::RelayFeed => self.splitcommand(
+                &crate::relay::feed_command(),
+                SplitAxis::Vertical,
+                false,
+                window,
+                cx,
+            ),
             Action::RelayLaunch => crate::agentpicker::open(window, cx),
-            Action::RelayLog => {
-                self.splitcommand(&crate::relay::log_command(), SplitAxis::Vertical, false, window, cx)
-            }
+            Action::RelayLog => self.splitcommand(
+                &crate::relay::log_command(),
+                SplitAxis::Vertical,
+                false,
+                window,
+                cx,
+            ),
             Action::RelayStart => {
                 crate::relay::start(&self.opts);
                 crate::relaywatch::start(&self.opts, cx);
@@ -301,7 +321,12 @@ impl WorkspaceView {
             eprintln!("sinclair: macro recording stopped: nothing captured");
             return;
         }
-        self.open_rename(crate::rename::Target::Macro(commands), String::new(), window, cx);
+        self.open_rename(
+            crate::rename::Target::Macro(commands),
+            String::new(),
+            window,
+            cx,
+        );
     }
 
     /// Persist a recorded macro under `name` (coerced to a safe id), then make
@@ -318,7 +343,9 @@ impl WorkspaceView {
         match macros::save(&dir, &macros::Macro::new(name.clone(), commands)) {
             Ok(()) => {
                 self.macros = loadmacros();
-                eprintln!("sinclair: saved macro `{name}` (bind it with `keybind = ...=macro:{name}`)");
+                eprintln!(
+                    "sinclair: saved macro `{name}` (bind it with `keybind = ...=macro:{name}`)"
+                );
             }
             Err(error) => eprintln!("sinclair: failed to save macro: {error}"),
         }
@@ -326,7 +353,11 @@ impl WorkspaceView {
     }
 
     /// Replay a saved macro into the focused pane.
-    pub(crate) fn replay_macro(&mut self, name: &str, cx: &mut Context<Self>) -> Result<(), String> {
+    pub(crate) fn replay_macro(
+        &mut self,
+        name: &str,
+        cx: &mut Context<Self>,
+    ) -> Result<(), String> {
         let commands = self
             .macros
             .iter()

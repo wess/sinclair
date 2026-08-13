@@ -200,6 +200,16 @@ pub enum Action {
     GotoTab(i32),
     PreviousTab,
     NextTab,
+    /// Open the tab switcher and step through it, most-recently-used first.
+    /// The parameter is the signed step, defaulting to `1`; bind `-1` to the
+    /// same key with shift to walk it backwards. Held-modifier gesture: it
+    /// commits when the modifier the binding fired with is released.
+    TabSwitcher(i32),
+    /// Toggle the tab peek: live miniatures of every tab in the window, in a
+    /// strip under the tab bar. Opened this way it stays until it is dismissed
+    /// and takes the arrow keys; hovering the tab bar opens the same strip
+    /// without the keyboard (see `tab-peek-hover`).
+    TabPeek,
     /// Move the current tab by a signed delta.
     MoveTab(i32),
     Copy,
@@ -357,9 +367,7 @@ impl Action {
             "new_window" => only(Self::NewWindow, &name, param),
             "new_tab" => only(Self::NewTab, &name, param),
             "new_container_tab" | "new_os_tab" => only(Self::NewContainerTab, &name, param),
-            "attach_container" | "attach_to_container" => {
-                only(Self::AttachContainer, &name, param)
-            }
+            "attach_container" | "attach_to_container" => only(Self::AttachContainer, &name, param),
             "sandbox_shell" => only(Self::SandboxShell, &name, param),
             "toggle_sandbox" => only(Self::ToggleSandbox, &name, param),
             "sandbox_start" => only(Self::SandboxStart, &name, param),
@@ -399,6 +407,17 @@ impl Action {
             }
             "previous_tab" => only(Self::PreviousTab, &name, param),
             "next_tab" => only(Self::NextTab, &name, param),
+            "tab_switcher" => {
+                let n = match param {
+                    None => 1,
+                    Some(p) => int(&name, Some(p))?,
+                };
+                if n == 0 {
+                    return Err("tab_switcher requires a non-zero step".to_string());
+                }
+                Ok(Self::TabSwitcher(n))
+            }
+            "tab_peek" | "peek_tabs" => only(Self::TabPeek, &name, param),
             "move_tab" => Ok(Self::MoveTab(int(&name, param)?)),
             "copy_to_clipboard" | "copy" => only(Self::Copy, &name, param),
             "copy_command_output" | "copy_last_output" => {
@@ -406,9 +425,7 @@ impl Action {
             }
             "hints" | "open_url_hint" => only(Self::Hints, &name, param),
             "copy_mode" | "toggle_copy_mode" => only(Self::CopyMode, &name, param),
-            "clipboard_history" | "paste_history" => {
-                only(Self::ClipboardHistory, &name, param)
-            }
+            "clipboard_history" | "paste_history" => only(Self::ClipboardHistory, &name, param),
             "unicode_picker" | "insert_emoji" => only(Self::UnicodePicker, &name, param),
             "snippets" | "workflows" => only(Self::Snippets, &name, param),
             "search_all" | "global_search" => only(Self::SearchAll, &name, param),
@@ -477,9 +494,7 @@ impl Action {
             "toggle_read_only" => only(Self::ToggleReadOnly, &name, param),
             "toggle_broadcast" | "broadcast_input" => only(Self::ToggleBroadcast, &name, param),
             "toggle_recording" | "record_session" => only(Self::ToggleRecording, &name, param),
-            "export_recording" => {
-                Ok(Self::ExportRecording(param.unwrap_or("gif").to_string()))
-            }
+            "export_recording" => Ok(Self::ExportRecording(param.unwrap_or("gif").to_string())),
             "save_buffer" => only(Self::SaveBuffer, &name, param),
             "toggle_quick_terminal" | "quick_terminal" => {
                 only(Self::ToggleQuickTerminal, &name, param)
@@ -540,6 +555,8 @@ impl Action {
             Self::GotoTab(n) => format!("goto_tab:{n}"),
             Self::PreviousTab => "previous_tab".into(),
             Self::NextTab => "next_tab".into(),
+            Self::TabSwitcher(n) => format!("tab_switcher:{n}"),
+            Self::TabPeek => "tab_peek".into(),
             Self::MoveTab(n) => format!("move_tab:{n}"),
             Self::Copy => "copy_to_clipboard".into(),
             Self::CopyCommandOutput => "copy_command_output".into(),

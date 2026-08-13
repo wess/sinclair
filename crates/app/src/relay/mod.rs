@@ -66,7 +66,10 @@ pub fn save_agent_def(def: AgentDef) {
     defs.retain(|d| d.name != def.name);
     defs.push(def);
     let _ = std::fs::create_dir_all(home());
-    let _ = std::fs::write(defs_path(), serde_json::to_vec_pretty(&defs).unwrap_or_default());
+    let _ = std::fs::write(
+        defs_path(),
+        serde_json::to_vec_pretty(&defs).unwrap_or_default(),
+    );
 }
 
 /// Build the launch command for a previously-saved agent.
@@ -278,8 +281,7 @@ pub fn custom_tools(opts: &config::Options) -> Vec<(String, String)> {
         .filter_map(|e| {
             let (label, tmpl) = e.split_once('|')?;
             let (label, tmpl) = (label.trim(), tmpl.trim());
-            (!label.is_empty() && !tmpl.is_empty())
-                .then(|| (label.to_string(), tmpl.to_string()))
+            (!label.is_empty() && !tmpl.is_empty()).then(|| (label.to_string(), tmpl.to_string()))
         })
         .collect()
 }
@@ -298,7 +300,6 @@ pub(crate) fn agent_verifies(opts: &config::Options, provider: &str) -> bool {
         _ => true,
     }
 }
-
 
 /// Path to the relay server's log file.
 pub fn log_path() -> PathBuf {
@@ -321,12 +322,19 @@ pub fn test_tool(tool: &str, path: Option<&str>) -> Result<String, String> {
             .map(|_| "Ollama reachable".to_string())
             .map_err(|_| "not running — start `ollama serve`".to_string());
     }
-    let bin = path.map(str::trim).filter(|p| !p.is_empty()).unwrap_or(tool);
+    let bin = path
+        .map(str::trim)
+        .filter(|p| !p.is_empty())
+        .unwrap_or(tool);
     match std::process::Command::new(bin).arg("--version").output() {
         Ok(out) if out.status.success() => {
             let v = String::from_utf8_lossy(&out.stdout);
             let line = v.lines().next().unwrap_or("ok").trim();
-            Ok(if line.is_empty() { "ok".into() } else { line.to_string() })
+            Ok(if line.is_empty() {
+                "ok".into()
+            } else {
+                line.to_string()
+            })
         }
         Ok(_) => Err(format!("`{bin} --version` failed")),
         Err(_) => {

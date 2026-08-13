@@ -27,7 +27,10 @@ fn appimage() -> Install {
 fn github_release_json_parses() {
     let r = parse(BODY.as_bytes()).unwrap();
     assert_eq!(r.version, "1.26.0");
-    assert_eq!(r.url, "https://github.com/wess/sinclair/releases/tag/v1.26.0");
+    assert_eq!(
+        r.url,
+        "https://github.com/wess/sinclair/releases/tag/v1.26.0"
+    );
     assert_eq!(r.assets.len(), 4);
     assert_eq!(r.assets[0].size, 87357960);
 }
@@ -68,7 +71,11 @@ fn appimage_picks_the_running_architecture() {
     // built for the other architecture over a working install.
     let r = parse(BODY.as_bytes()).unwrap();
     let asset = r.asset_for(&appimage()).unwrap();
-    let want = if std::env::consts::ARCH == "aarch64" { "https://d/arm" } else { "https://d/intel" };
+    let want = if std::env::consts::ARCH == "aarch64" {
+        "https://d/arm"
+    } else {
+        "https://d/intel"
+    };
     assert_eq!(asset.url, want);
 }
 

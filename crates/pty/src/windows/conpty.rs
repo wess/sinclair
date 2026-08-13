@@ -43,10 +43,9 @@ pub fn create(size: Winsize) -> io::Result<(Pcon, OwnedHandle, OwnedHandle)> {
     let (in_read, in_write) = pipe()?;
     let (out_read, out_write) = pipe()?;
 
-    let handle = unsafe {
-        CreatePseudoConsole(coord(size), to_handle(&in_read), to_handle(&out_write), 0)
-    }
-    .map_err(io::Error::other)?;
+    let handle =
+        unsafe { CreatePseudoConsole(coord(size), to_handle(&in_read), to_handle(&out_write), 0) }
+            .map_err(io::Error::other)?;
 
     // ConPTY duplicates the ends it needs; drop our copies of them.
     drop(in_read);

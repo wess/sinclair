@@ -12,7 +12,11 @@ fn tempdir(name: &str) -> PathBuf {
 fn explicit_path_can_be_directory_or_manifest() {
     let dir = tempdir("explicit");
     let manifest = dir.join(MANIFEST);
-    std::fs::write(&manifest, "id = \"tools\"\n[[command]]\nid = \"top\"\nrun = \"top\"\n").unwrap();
+    std::fs::write(
+        &manifest,
+        "id = \"tools\"\n[[command]]\nid = \"top\"\nrun = \"top\"\n",
+    )
+    .unwrap();
     let (plugins, diags) = loadmanifests(vec![dir.clone(), manifest]);
     assert!(diags.is_empty(), "{diags:?}");
     assert_eq!(plugins.len(), 1);
@@ -46,8 +50,7 @@ fn first_manifest_for_an_id_wins() {
 
 #[test]
 fn unreadable_manifest_reports_diagnostic() {
-    let (plugins, diags) =
-        loadmanifests(vec![PathBuf::from("/definitely/missing/plugin.toml")]);
+    let (plugins, diags) = loadmanifests(vec![PathBuf::from("/definitely/missing/plugin.toml")]);
     assert!(plugins.is_empty());
     assert_eq!(diags.len(), 1);
     assert!(diags[0].message.contains("failed to read"));

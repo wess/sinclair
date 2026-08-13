@@ -22,7 +22,10 @@ pub fn serve(tools: Vec<Tool>, handler: &Handler<'_>) {
     for line in stdin.lock().lines() {
         let Ok(line) = line else { break };
         if let Some(reply) = reply_for(&line, &tools, &server_info, handler) {
-            if writeln!(stdout, "{reply}").and_then(|()| stdout.flush()).is_err() {
+            if writeln!(stdout, "{reply}")
+                .and_then(|()| stdout.flush())
+                .is_err()
+            {
                 break;
             }
         }
@@ -32,7 +35,12 @@ pub fn serve(tools: Vec<Tool>, handler: &Handler<'_>) {
 /// The reply owed for one input line, or `None` when it warrants none (blank
 /// lines and notifications). Every other line gets an answer — a client that
 /// sent a broken request is waiting on one.
-fn reply_for(line: &str, tools: &[Tool], server_info: &Value, handler: &Handler<'_>) -> Option<String> {
+fn reply_for(
+    line: &str,
+    tools: &[Tool],
+    server_info: &Value,
+    handler: &Handler<'_>,
+) -> Option<String> {
     let trimmed = line.trim();
     if trimmed.is_empty() {
         return None;
@@ -44,8 +52,16 @@ fn reply_for(line: &str, tools: &[Tool], server_info: &Value, handler: &Handler<
 }
 
 /// Produce the reply for one message, or `None` for notifications.
-fn dispatch(msg: &Value, tools: &[Tool], server_info: &Value, handler: &Handler<'_>) -> Option<String> {
-    let method = msg.get("method").and_then(Value::as_str).unwrap_or_default();
+fn dispatch(
+    msg: &Value,
+    tools: &[Tool],
+    server_info: &Value,
+    handler: &Handler<'_>,
+) -> Option<String> {
+    let method = msg
+        .get("method")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
     let Some(id) = msg.get("id").cloned() else {
         // Only a genuine notification gets silence; any other id-less message
         // is an invalid request.
@@ -76,7 +92,10 @@ fn dispatch(msg: &Value, tools: &[Tool], server_info: &Value, handler: &Handler<
 /// Handle `tools/call`: invoke the handler and wrap the result as MCP content.
 fn call(id: &Value, msg: &Value, handler: &Handler<'_>) -> String {
     let params = msg.get("params").cloned().unwrap_or_else(|| json!({}));
-    let name = params.get("name").and_then(Value::as_str).unwrap_or_default();
+    let name = params
+        .get("name")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
     if name.is_empty() {
         return err(id, -32602, "tools/call requires a tool name");
     }
@@ -119,8 +138,7 @@ fn ok(id: &Value, result: Value) -> String {
 }
 
 fn err(id: &Value, code: i64, message: &str) -> String {
-    json!({ "jsonrpc": "2.0", "id": id, "error": { "code": code, "message": message } })
-        .to_string()
+    json!({ "jsonrpc": "2.0", "id": id, "error": { "code": code, "message": message } }).to_string()
 }
 
 #[cfg(test)]

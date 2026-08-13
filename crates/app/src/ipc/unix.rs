@@ -151,7 +151,10 @@ pub fn run_cli(args: &[String]) -> i32 {
     };
     match request(op, &parsed) {
         Ok(result) => {
-            println!("{}", serde_json::to_string_pretty(&result).unwrap_or_default());
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&result).unwrap_or_default()
+            );
             0
         }
         Err(e) => {
@@ -211,7 +214,10 @@ pub fn listen(cx: &mut App) {
     let listener = match bind(&path) {
         Ok(listener) => listener,
         Err(reason) => {
-            eprintln!("sinclair: ipc: not listening on {}: {reason}", path.display());
+            eprintln!(
+                "sinclair: ipc: not listening on {}: {reason}",
+                path.display()
+            );
             return;
         }
     };
@@ -268,15 +274,28 @@ fn serve(stream: UnixStream, jobs: &futures::channel::mpsc::UnboundedSender<Job>
     }
     let response = match serde_json::from_str::<Value>(line.trim()) {
         Ok(req) => {
-            let op = req.get("op").and_then(Value::as_str).unwrap_or_default().to_string();
+            let op = req
+                .get("op")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string();
             let args = req.get("args").cloned().unwrap_or(Value::Null);
             let (tx, rx) = std::sync::mpsc::channel();
-            if jobs.unbounded_send(Job { op, args, reply: tx }).is_err() {
+            if jobs
+                .unbounded_send(Job {
+                    op,
+                    args,
+                    reply: tx,
+                })
+                .is_err()
+            {
                 json!({ "ok": false, "error": "sinclair is shutting down" })
             } else {
                 match rx.recv_timeout(DISPATCH_TIMEOUT) {
                     Ok(response) => response,
-                    Err(_) => json!({ "ok": false, "error": "the terminal did not answer in time" }),
+                    Err(_) => {
+                        json!({ "ok": false, "error": "the terminal did not answer in time" })
+                    }
                 }
             }
         }
@@ -294,14 +313,18 @@ fn serve(stream: UnixStream, jobs: &futures::channel::mpsc::UnboundedSender<Job>
 fn bind(path: &Path) -> Result<UnixListener, String> {
     if let Some(dir) = path.parent() {
         if !ensure_private_dir(dir) {
-            return Err(format!("{} is not a private per-user directory", dir.display()));
+            return Err(format!(
+                "{} is not a private per-user directory",
+                dir.display()
+            ));
         }
     }
     let listener = match UnixListener::bind(path) {
         Ok(listener) => listener,
         Err(_) if UnixStream::connect(path).is_err() => {
             let _ = std::fs::remove_file(path);
-            UnixListener::bind(path).map_err(|e| format!("bind after clearing a stale socket: {e}"))?
+            UnixListener::bind(path)
+                .map_err(|e| format!("bind after clearing a stale socket: {e}"))?
         }
         Err(_) => return Err("another instance already owns the socket".to_string()),
     };

@@ -50,6 +50,12 @@ pub fn openable(url: &str) -> bool {
 /// their own policy (redaction, clipboard history) on top.
 pub type CopyHook = dyn Fn(String, &mut App);
 
+/// What an open-modifier click on a filesystem path does. The scanner behind
+/// [`vt::Terminal::path_at`] only reports *candidates* — resolving one against
+/// a working directory and deciding whether it exists is the host's job, so a
+/// host that sets no hook simply has no path clicks.
+pub type PathHook = dyn Fn(vt::PathHit, &mut App);
+
 /// The default [`CopyHook`]: a plain system-clipboard write.
 pub fn clipboard_copy(text: String, cx: &mut App) {
     cx.write_to_clipboard(ClipboardItem::new_string(text));
@@ -67,6 +73,9 @@ pub struct Pointer {
     pub rows: usize,
     pub copy_on_select: bool,
     pub copy: Rc<CopyHook>,
+    /// What an open-modifier click on a path does. `None` (the default) leaves
+    /// paths inert, exactly as before there was a scanner for them.
+    pub path: Option<Rc<PathHook>>,
     pub smart_select: bool,
     pub middle_click_paste: bool,
 }
@@ -136,8 +145,9 @@ pub fn down(p: &Pointer, e: &MouseDownEvent, window: &mut Window, _cx: &mut App)
 
     // Middle-click paste (X-style): send the current selection to the pty.
     if e.button == gpui::MouseButton::Middle && p.middle_click_paste {
-        let (text, bracketed) =
-            p.session.with_term(|t| (t.selection_text(), t.bracketed_paste()));
+        let (text, bracketed) = p
+            .session
+            .with_term(|t| (t.selection_text(), t.bracketed_paste()));
         if let Some(text) = text.filter(|t| !t.is_empty()) {
             let _ = p.session.write(&input::encode_paste(&text, bracketed));
             window.refresh();
@@ -259,17 +269,37 @@ pub fn up(p: &Pointer, e: &MouseUpEvent, window: &mut Window, cx: &mut App) {
         (s.selecting, s.pressed.is_some(), s.dragged)
     };
 
-    if open_mod(&m)
-        && opens_link(p.bounds.contains(&e.position), pressed_here, dragged)
-    {
+    if open_mod(&m) && opens_link(p.bounds.contains(&e.position), pressed_here, dragged) {
         let (row, col) = cell_at(p, e.position);
         let url = p.session.with_term(|t| t.link_at(row, col).map(|l| l.url));
-        if let Some(url) = url {
-            if openable(&url) {
-                cx.open_url(&url);
-            } else {
-                eprintln!("sinclair: refused to open link with disallowed scheme: {url}");
+        // A path is only looked for where there is no link: `path_at` already
+        // declines a cell a URL covers, and asking twice would scan the row for
+        // nothing on every click that lands on one.
+        let path = match (&url, &p.path) {
+            (None, Some(_)) => p.session.with_term(|t| t.path_at(row, col)),
+            _ => None,
+        };
+        let acted = match (url, path) {
+            (Some(url), _) => {
+                if openable(&url) {
+                    cx.open_url(&url);
+                } else {
+                    eprintln!("sinclair: refused to open link with disallowed scheme: {url}");
+                }
+                true
             }
+            (None, Some(hit)) => {
+                // The hook resolves and checks the candidate, so a click on
+                // text that merely looked like a path does nothing — including
+                // not clearing the selection under it.
+                if let Some(hook) = p.path.clone() {
+                    hook(hit, cx);
+                }
+                true
+            }
+            (None, None) => false,
+        };
+        if acted {
             p.session.with_term(|t| t.clear_selection());
             let mut s = p.state.borrow_mut();
             s.selecting = false;

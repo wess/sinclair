@@ -62,9 +62,17 @@ impl TerminalView {
         let hints = links
             .into_iter()
             .zip(labels)
-            .map(|((row, start_col, _end, url), label)| Hint { row, start_col, label, url })
+            .map(|((row, start_col, _end, url), label)| Hint {
+                row,
+                start_col,
+                label,
+                url,
+            })
             .collect();
-        self.hints = Some(Hints { hints, typed: String::new() });
+        self.hints = Some(Hints {
+            hints,
+            typed: String::new(),
+        });
         cx.notify();
     }
 

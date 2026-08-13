@@ -75,7 +75,8 @@ pub fn save(dir: &Path, mac: &Macro) -> Result<(), String> {
         .join("\n");
     let path = file(dir, &mac.name);
     let tmp = path.with_extension(format!("{EXT}.tmp"));
-    std::fs::write(&tmp, format!("{body}\n")).map_err(|e| format!("write {}: {e}", tmp.display()))?;
+    std::fs::write(&tmp, format!("{body}\n"))
+        .map_err(|e| format!("write {}: {e}", tmp.display()))?;
     std::fs::rename(&tmp, &path).map_err(|e| format!("write {}: {e}", path.display()))
 }
 

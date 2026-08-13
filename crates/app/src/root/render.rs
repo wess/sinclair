@@ -35,6 +35,21 @@ impl Render for WorkspaceView {
         if has_image {
             winbg.a = winbg.a.min(0.85);
         }
+        // The order the tab switcher walks. Recorded here because every path
+        // that changes the active item ends in a repaint, and a repaint is the
+        // only point they all pass through — hooking the activation paths
+        // one by one is how a switcher ends up quietly missing one of them.
+        // `touch_recent` ignores this while the switcher is open, so cycling
+        // cannot reorder the list it is walking.
+        let active = self.group.read(cx).active_item();
+        if self.recent.first() != Some(&active) {
+            self.touch_recent(active);
+        }
+
+        let switching = self.switcher.is_some();
+        // Only a pinned peek takes keys: one opened by hovering the tab bar
+        // must leave the shell below exactly as reachable as it was.
+        let peeking = self.peek.as_ref().is_some_and(|p| p.pinned);
         let mut base = div()
             .relative()
             .size_full()
@@ -44,7 +59,42 @@ impl Render for WorkspaceView {
             .on_action(cx.listener(Self::runbind))
             .on_action(cx.listener(Self::showdocs))
             .on_action(cx.listener(Self::showabout))
-            .on_action(cx.listener(Self::menupick));
+            .on_action(cx.listener(Self::menupick))
+            // Only while the switcher is up: this fires on every modifier press
+            // and release in the window, and there is nothing else to spend
+            // that on.
+            .when(switching, |d| {
+                d.on_modifiers_changed(cx.listener(
+                    |this, ev: &gpui::ModifiersChangedEvent, window, cx| {
+                        this.switcher_modifiers(ev.modifiers, window, cx);
+                    },
+                ))
+                // Captured, because the focused terminal would otherwise eat
+                // the escape and send it to the shell.
+                .capture_key_down(cx.listener(
+                    |this, ev: &gpui::KeyDownEvent, _w, cx| {
+                        if ev.keystroke.key == "escape" {
+                            this.cancel_switcher(cx);
+                            cx.stop_propagation();
+                        }
+                    },
+                ))
+            })
+            // Same reason, for the keys that drive an open peek. Everything
+            // else still reaches the terminal, so a peek left open does not
+            // put the window in a mode.
+            .when(peeking, |d| {
+                d.capture_key_down(cx.listener(|this, ev: &gpui::KeyDownEvent, window, cx| {
+                    match ev.keystroke.key.as_str() {
+                        "escape" => this.close_peek(cx),
+                        "left" => this.step_peek(-1, cx),
+                        "right" => this.step_peek(1, cx),
+                        "enter" => this.commit_peek(window, cx),
+                        _ => return,
+                    }
+                    cx.stop_propagation();
+                }))
+            });
         // Background layers (painted first, behind the chrome): the image, then a
         // translucent tint. Without an image the tint is just the window fill.
         if let Some(path) = self.opts.background_image.clone() {
@@ -57,14 +107,7 @@ impl Render for WorkspaceView {
                     .object_fit(gpui::ObjectFit::Cover),
             );
         }
-        base = base.child(
-            div()
-                .absolute()
-                .top_0()
-                .left_0()
-                .size_full()
-                .bg(winbg),
-        );
+        base = base.child(div().absolute().top_0().left_0().size_full().bg(winbg));
 
         // No separate titlebar: the pane group's top-row tab bar *is* the
         // titlebar (it reserves the traffic-light inset and drags the window).
@@ -90,14 +133,16 @@ impl Render for WorkspaceView {
         // Content row: [left dock?] [splits] [right dock?]. Each dock is a
         // stack of collapsible sections at its own configured width, and is
         // hidden entirely while closed.
-        let left = self
-            .docks[SidebarSide::Left.index()]
+        let left = self.docks[SidebarSide::Left.index()]
             .open
             .then(|| self.dock_column(SidebarSide::Left, cx));
-        let right = self
-            .docks[SidebarSide::Right.index()]
+        let right = self.docks[SidebarSide::Right.index()]
             .open
             .then(|| self.dock_column(SidebarSide::Right, cx));
+        // The peek hangs inside the splits column rather than the window, so
+        // its strip spans the tabs it previews and stops at a dock's edge.
+        let strip = self.peek_strip(window, cx);
+        let band = self.peek_hover_band(cx);
         base = base.child(
             div()
                 .w_full()
@@ -106,7 +151,16 @@ impl Render for WorkspaceView {
                 .flex()
                 .flex_row()
                 .children(left)
-                .child(div().flex_1().min_w(px(0.0)).h_full().child(content))
+                .child(
+                    div()
+                        .relative()
+                        .flex_1()
+                        .min_w(px(0.0))
+                        .h_full()
+                        .child(content)
+                        .children(strip)
+                        .children(band),
+                )
                 .children(right),
         );
 
@@ -136,6 +190,10 @@ impl Render for WorkspaceView {
             base = base.child(spot.clone());
         }
 
+        if let Some(overlay) = self.switcher_overlay(cx) {
+            base = base.child(overlay);
+        }
+
         // The active in-window dialog (rename), if any.
         // The context menu renders nothing while closed, so it can stay in the
         // tree until the next open replaces it.
@@ -147,7 +205,10 @@ impl Render for WorkspaceView {
         }
 
         #[cfg(target_os = "linux")]
-        if matches!(window.window_decorations(), gpui::Decorations::Client { .. }) {
+        if matches!(
+            window.window_decorations(),
+            gpui::Decorations::Client { .. }
+        ) {
             base = base.child(crate::titlebar::resize_handles());
         }
 

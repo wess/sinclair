@@ -65,8 +65,7 @@ fn hangup_terminates_the_group() {
 
 #[test]
 fn kill_terminates_a_hangup_ignoring_group() {
-    let mut pty =
-        Pty::spawn(&command(&["/bin/sh", "-c", "trap '' HUP; sleep 30"])).expect("spawn");
+    let mut pty = Pty::spawn(&command(&["/bin/sh", "-c", "trap '' HUP; sleep 30"])).expect("spawn");
     let control = pty.control().expect("control");
     std::thread::sleep(std::time::Duration::from_millis(100)); // let the trap install
     control.hangup().expect("hangup");

@@ -14,7 +14,7 @@ use gpui::{
 };
 use guise::{Alert, Button, Progress, Size, Variant};
 
-use updater::{Check, Install, Release, Relaunch, Stage};
+use updater::{Check, Install, Relaunch, Release, Stage};
 
 /// This build's version.
 pub(crate) fn current() -> &'static str {
@@ -75,7 +75,9 @@ pub fn start_from_config(cx: &mut App) {
 fn poll(cx: &mut App) {
     let executor = cx.background_executor().clone();
     cx.spawn(async move |cx| loop {
-        let found = executor.spawn(async { updater::check(current(), &updater::detect()) }).await;
+        let found = executor
+            .spawn(async { updater::check(current(), &updater::detect()) })
+            .await;
         cx.update(|cx| apply(found, false, cx));
         executor.timer(updater::POLL).await;
     })
@@ -87,7 +89,9 @@ fn poll(cx: &mut App) {
 pub fn check_now(cx: &mut App) {
     let executor = cx.background_executor().clone();
     cx.spawn(async move |cx| {
-        let found = executor.spawn(async { updater::check(current(), &updater::detect()) }).await;
+        let found = executor
+            .spawn(async { updater::check(current(), &updater::detect()) })
+            .await;
         cx.update(|cx| apply(found, true, cx));
     })
     .detach();
@@ -101,7 +105,10 @@ fn apply(found: Result<Check, String>, manual: bool, cx: &mut App) {
         // window's Update button would start a concurrent one.
         Ok(Check::Ready(_)) if is_installing(cx) => {}
         Ok(Check::Ready(rel)) => {
-            let seen = cx.try_global::<Notified>().map(|n| n.0 == rel.version).unwrap_or(false);
+            let seen = cx
+                .try_global::<Notified>()
+                .map(|n| n.0 == rel.version)
+                .unwrap_or(false);
             if manual || !seen {
                 cx.set_global(Notified(rel.version.clone()));
                 open(rel, cx);
@@ -137,7 +144,9 @@ fn save_sessions(cx: &mut App) {
         .active_window()
         .and_then(|w| w.downcast::<crate::root::WorkspaceView>())
         .or_else(|| {
-            cx.windows().into_iter().find_map(|w| w.downcast::<crate::root::WorkspaceView>())
+            cx.windows()
+                .into_iter()
+                .find_map(|w| w.downcast::<crate::root::WorkspaceView>())
         });
     if let Some(handle) = workspace {
         let _ = handle.update(cx, |view, _window, cx| view.save_state(cx));
@@ -164,7 +173,9 @@ pub fn open(release: Release, cx: &mut App) {
         },
     );
     if let Ok(handle) = handle {
-        handle.update(cx, |_v, window, _cx| window.activate_window()).ok();
+        handle
+            .update(cx, |_v, window, _cx| window.activate_window())
+            .ok();
     }
 }
 
@@ -226,7 +237,9 @@ fn report(outcome: Outcome, cx: &mut App) {
         },
     );
     if let Ok(handle) = handle {
-        handle.update(cx, |_v, window, _cx| window.activate_window()).ok();
+        handle
+            .update(cx, |_v, window, _cx| window.activate_window())
+            .ok();
     }
 }
 
@@ -362,7 +375,13 @@ impl UpdatePromptView {
     fn new(release: Release, _window: &mut Window, cx: &mut Context<Self>) -> Self {
         let install = updater::detect();
         let installable = install.is_in_place() && release.asset_for(&install).is_some();
-        Self { release, install, focus: cx.focus_handle(), phase: Phase::Idle, installable }
+        Self {
+            release,
+            install,
+            focus: cx.focus_handle(),
+            phase: Phase::Idle,
+            installable,
+        }
     }
 
     fn action_label(&self) -> &'static str {
@@ -542,9 +561,13 @@ impl Render for UpdatePromptView {
             .gap(px(10.0))
             .child(drag_strip())
             .child(
-                div().text_size(px(16.0)).font_weight(FontWeight::BOLD).child(SharedString::from(
-                    format!("Sinclair {} is available", self.release.version),
-                )),
+                div()
+                    .text_size(px(16.0))
+                    .font_weight(FontWeight::BOLD)
+                    .child(SharedString::from(format!(
+                        "Sinclair {} is available",
+                        self.release.version
+                    ))),
             )
             .child(
                 div()

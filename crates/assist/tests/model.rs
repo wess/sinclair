@@ -17,7 +17,10 @@ fn compose_match_makes_a_miss_explicit() {
 
 #[test]
 fn compose_shim_echoes_a_miss() {
-    assert_eq!(compose("show listening ports"), "lsof -iTCP -sTCP:LISTEN -n -P");
+    assert_eq!(
+        compose("show listening ports"),
+        "lsof -iTCP -sTCP:LISTEN -n -P"
+    );
     assert_eq!(compose("  write my novel "), "write my novel");
 }
 

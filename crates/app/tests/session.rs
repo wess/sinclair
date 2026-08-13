@@ -28,7 +28,10 @@ fn options_honors_command_and_cwd() {
 
 #[test]
 fn options_empty_command_falls_back_to_shell() {
-    let opts = config::Options { shell: Some("   ".to_string()), ..Default::default() };
+    let opts = config::Options {
+        shell: Some("   ".to_string()),
+        ..Default::default()
+    };
     let session = options(&opts, 80, 24, None);
     assert!(session.spawn.login);
     assert!(!session.spawn.argv.is_empty());

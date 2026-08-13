@@ -19,7 +19,11 @@ pub fn parse_json_str(text: &str) -> (Options, Vec<Diagnostic>) {
     let members = match json::root(text) {
         Ok(members) => members,
         Err(e) => {
-            diags.push(Diagnostic { line: e.line, key: String::new(), message: e.message });
+            diags.push(Diagnostic {
+                line: e.line,
+                key: String::new(),
+                message: e.message,
+            });
             return (opts, diags);
         }
     };
@@ -37,11 +41,19 @@ pub fn parse_json_str(text: &str) -> (Options, Vec<Diagnostic>) {
             Ok(values) => {
                 for v in values {
                     if let Err(message) = apply(&mut opts, &defaults, &m.key, &v) {
-                        diags.push(Diagnostic { line: m.line, key: m.key.clone(), message });
+                        diags.push(Diagnostic {
+                            line: m.line,
+                            key: m.key.clone(),
+                            message,
+                        });
                     }
                 }
             }
-            Err(message) => diags.push(Diagnostic { line: m.line, key: m.key.clone(), message }),
+            Err(message) => diags.push(Diagnostic {
+                line: m.line,
+                key: m.key.clone(),
+                message,
+            }),
         }
     }
 
@@ -119,7 +131,10 @@ pub fn encode_list(values: &[String]) -> String {
     if values.is_empty() {
         return "[]".to_string();
     }
-    let items: Vec<String> = values.iter().map(|v| format!("    {}", json::quote(v))).collect();
+    let items: Vec<String> = values
+        .iter()
+        .map(|v| format!("    {}", json::quote(v)))
+        .collect();
     format!("[\n{}\n  ]", items.join(",\n"))
 }
 

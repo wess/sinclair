@@ -132,7 +132,11 @@ fn scan(text: &str) -> Option<(Vec<Span>, usize)> {
         pos += 1;
         pos += count_trivia(&text[pos..]);
         skip_value(text, &mut pos)?;
-        spans.push(Span { key, start, end: pos });
+        spans.push(Span {
+            key,
+            start,
+            end: pos,
+        });
     }
 }
 
@@ -224,10 +228,9 @@ fn skip_value(text: &str, pos: &mut usize) -> Option<()> {
         }
         _ => {
             // A bare word or number: run to the next delimiter.
-            while bytes
-                .get(*pos)
-                .is_some_and(|&b| !matches!(b, b',' | b'}' | b']' | b'/') && !b.is_ascii_whitespace())
-            {
+            while bytes.get(*pos).is_some_and(|&b| {
+                !matches!(b, b',' | b'}' | b']' | b'/') && !b.is_ascii_whitespace()
+            }) {
                 *pos += 1;
             }
         }

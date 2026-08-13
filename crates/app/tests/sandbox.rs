@@ -43,7 +43,11 @@ fn the_project_is_identity_mounted() {
     // worktree created on either side resolves from the other.
     let s = build(&opts(), &env(None));
     assert_eq!(s.sandbox.workdir, PROJECT);
-    assert!(s.sandbox.mounts.iter().any(|m| m.is_identity() && m.source == PROJECT));
+    assert!(s
+        .sandbox
+        .mounts
+        .iter()
+        .any(|m| m.is_identity() && m.source == PROJECT));
 }
 
 #[test]
@@ -93,7 +97,10 @@ fn devcontainer_env_reaches_the_container() {
         ..DevContainer::default()
     };
     let s = build(&opts(), &env(Some(&dc)));
-    assert!(s.sandbox.env.contains(&("TOKEN".to_string(), "abc".to_string())));
+    assert!(s
+        .sandbox
+        .env
+        .contains(&("TOKEN".to_string(), "abc".to_string())));
 }
 
 #[test]
@@ -105,8 +112,14 @@ fn settings_env_wins_over_the_devcontainer() {
     let mut o = opts();
     o.sandbox_env = vec!["TOKEN=from-settings".to_string()];
     let s = build(&o, &env(Some(&dc)));
-    assert!(s.sandbox.env.contains(&("TOKEN".to_string(), "from-settings".to_string())));
-    assert_eq!(s.sandbox.env.iter().filter(|(k, _)| k == "TOKEN").count(), 1);
+    assert!(s
+        .sandbox
+        .env
+        .contains(&("TOKEN".to_string(), "from-settings".to_string())));
+    assert_eq!(
+        s.sandbox.env.iter().filter(|(k, _)| k == "TOKEN").count(),
+        1
+    );
 }
 
 #[test]
@@ -116,7 +129,13 @@ fn bad_mounts_and_env_are_notes_not_failures() {
     o.sandbox_env = vec!["NOEQUALS".to_string()];
     let s = build(&o, &env(None));
     assert!(s.sandbox.mounts.iter().any(|m| m.target == "/mnt"));
-    assert_eq!(s.notes.iter().filter(|n| n.contains("sandbox-mount")).count(), 1);
+    assert_eq!(
+        s.notes
+            .iter()
+            .filter(|n| n.contains("sandbox-mount"))
+            .count(),
+        1
+    );
     assert!(s.notes.iter().any(|n| n.contains("sandbox-env")));
 }
 
@@ -142,7 +161,10 @@ fn an_unknown_network_falls_back_with_a_note() {
 fn user_host_resolves_to_the_projects_owner() {
     let mut o = opts();
     o.sandbox_user = Some("host".to_string());
-    assert_eq!(build(&o, &env(None)).sandbox.user.as_deref(), Some("501:20"));
+    assert_eq!(
+        build(&o, &env(None)).sandbox.user.as_deref(),
+        Some("501:20")
+    );
 }
 
 #[test]
@@ -156,7 +178,10 @@ fn user_root_leaves_the_flag_off() {
 fn an_explicit_uid_passes_through() {
     let mut o = opts();
     o.sandbox_user = Some("1000:1000".to_string());
-    assert_eq!(build(&o, &env(None)).sandbox.user.as_deref(), Some("1000:1000"));
+    assert_eq!(
+        build(&o, &env(None)).sandbox.user.as_deref(),
+        Some("1000:1000")
+    );
 }
 
 #[test]
@@ -248,7 +273,10 @@ fn a_malformed_devcontainer_mount_is_a_note_not_a_failure() {
         ..DevContainer::default()
     };
     let s = build(&opts(), &env(Some(&dc)));
-    assert!(s.notes.iter().any(|n| n.contains("devcontainer.json mounts")));
+    assert!(s
+        .notes
+        .iter()
+        .any(|n| n.contains("devcontainer.json mounts")));
 }
 
 #[test]
@@ -257,7 +285,10 @@ fn remote_user_is_followed_when_settings_do_not_override() {
         remote_user: Some("node".to_string()),
         ..DevContainer::default()
     };
-    assert_eq!(build(&opts(), &env(Some(&dc))).sandbox.user.as_deref(), Some("node"));
+    assert_eq!(
+        build(&opts(), &env(Some(&dc))).sandbox.user.as_deref(),
+        Some("node")
+    );
 }
 
 #[test]
@@ -268,5 +299,8 @@ fn an_explicit_sandbox_user_beats_remote_user() {
     };
     let mut o = opts();
     o.sandbox_user = Some("1000:1000".to_string());
-    assert_eq!(build(&o, &env(Some(&dc))).sandbox.user.as_deref(), Some("1000:1000"));
+    assert_eq!(
+        build(&o, &env(Some(&dc))).sandbox.user.as_deref(),
+        Some("1000:1000")
+    );
 }

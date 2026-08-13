@@ -25,8 +25,11 @@ pub fn from_config(opts: &config::Options, dark: bool) -> Colors {
     // ANSI slots (0..=15) ride through the scheme; higher indices only exist
     // in the built palette.
     type Slots = Vec<(u8, String)>;
-    let (ansi, extended): (Slots, Slots) =
-        opts.palette.iter().cloned().partition(|(index, _)| *index < 16);
+    let (ansi, extended): (Slots, Slots) = opts
+        .palette
+        .iter()
+        .cloned()
+        .partition(|(index, _)| *index < 16);
     let scheme = theme::apply_overrides(
         base,
         opts.background.as_deref(),

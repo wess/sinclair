@@ -59,8 +59,7 @@ fn invalid_bytes_flush_lossily() {
     rec.output(&[0xff, b'x']).unwrap(); // 0xff is never valid UTF-8
     let saved = rec.finish().unwrap();
     let text = read(&saved);
-    let event: serde_json::Value =
-        serde_json::from_str(text.lines().nth(1).unwrap()).unwrap();
+    let event: serde_json::Value = serde_json::from_str(text.lines().nth(1).unwrap()).unwrap();
     // The invalid byte becomes U+FFFD; the valid byte survives.
     assert!(event[2].as_str().unwrap().ends_with('x'));
     let _ = std::fs::remove_file(&saved);

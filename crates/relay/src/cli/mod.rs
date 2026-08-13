@@ -17,7 +17,11 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
-#[command(name = "relay", version, about = "Supervisor → team mesh for coding agents")]
+#[command(
+    name = "relay",
+    version,
+    about = "Supervisor → team mesh for coding agents"
+)]
 pub struct Cli {
     /// State directory shared by all relay calls (default: ./.relay).
     #[arg(long, global = true)]

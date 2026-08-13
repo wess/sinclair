@@ -13,8 +13,8 @@
 
 mod serve;
 
-pub use serve::{serve, Handler};
 use serde_json::Value;
+pub use serve::{serve, Handler};
 
 /// MCP protocol revision advertised in the `initialize` reply.
 pub const PROTOCOL_VERSION: &str = "2024-11-05";

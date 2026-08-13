@@ -27,7 +27,10 @@ impl NotifyLimit {
     /// The body to post now (annotated with how many notifications were
     /// dropped since the last one), or `None` to suppress this one.
     pub(crate) fn admit(&mut self, now: Instant, body: &str) -> Option<String> {
-        if self.last.is_some_and(|t| now.duration_since(t) < NOTIFY_GAP) {
+        if self
+            .last
+            .is_some_and(|t| now.duration_since(t) < NOTIFY_GAP)
+        {
             self.dropped += 1;
             return None;
         }
@@ -102,7 +105,14 @@ impl TerminalView {
                     }
                 }
             }
-            (fires, if start == u64::MAX { end } else { end.max(start) })
+            (
+                fires,
+                if start == u64::MAX {
+                    end
+                } else {
+                    end.max(start)
+                },
+            )
         });
         self.trigger_hwm = mark;
         for (title, body) in fires {
@@ -120,7 +130,8 @@ impl TerminalView {
     /// A faint watermark badge in the pane corner, when configured.
     pub(crate) fn badge_overlay(&self, cx: &gpui::App) -> Option<gpui::AnyElement> {
         let template = crate::badge::template(cx)?;
-        let text = crate::badge::render(&template, self.cwd().as_deref(), &crate::badge::hostname());
+        let text =
+            crate::badge::render(&template, self.cwd().as_deref(), &crate::badge::hostname());
         if text.trim().is_empty() {
             return None;
         }
@@ -170,7 +181,11 @@ impl TerminalView {
             });
         } else if let Some((path, ts)) = recording_target() {
             let title = self.title().to_string();
-            if self.session.start_recording(path, Some(&title), Some(ts)).is_err() {
+            if self
+                .session
+                .start_recording(path, Some(&title), Some(ts))
+                .is_err()
+            {
                 self.assist = Some(Assist::Message {
                     title: "Recording failed".to_string(),
                     body: "could not create the cast file".to_string(),

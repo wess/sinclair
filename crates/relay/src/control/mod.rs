@@ -27,7 +27,6 @@ pub fn routes() -> Router<App> {
         .route("/control/send", post(send))
 }
 
-
 #[derive(Deserialize)]
 struct RegisterReq {
     name: String,
@@ -38,7 +37,9 @@ struct RegisterReq {
 }
 
 async fn register(State(app): State<App>, Json(r): Json<RegisterReq>) -> Json<Value> {
-    let ok = db::upsert_agent(&app.db, &r.name, &r.role, "").await.is_ok();
+    let ok = db::upsert_agent(&app.db, &r.name, &r.role, "")
+        .await
+        .is_ok();
     for ch in &r.channels {
         let _ = db::subscribe(&app.db, &r.name, ch).await;
     }

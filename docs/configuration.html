@@ -151,6 +151,9 @@
             <tr><td><code>autosuggest-assist</code></td><td>bool</td><td><code>true</code></td><td>Rank suggestions with the local assist model rather than plain recency.</td></tr>
             <tr><td><code>session-restore</code></td><td>bool</td><td><code>false</code></td><td>Restore windows and splits from the previous run.</td></tr>
             <tr><td><code>tab-title-show-host</code></td><td>bool</td><td><code>false</code></td><td>Keep the <code>user@host:</code> prefix shells write into their title. Off by default, so tabs show just the path. A label you set by hand is never rewritten.</td></tr>
+            <tr><td><code>tab-peek</code></td><td>bool</td><td><code>true</code></td><td>Allow the tab peek: a strip of live miniatures of every tab, dropped under the tab bar by <code>tab_peek</code> (⌘E) or the View menu. It covers the top of the terminal rather than resizing it, so nothing reflows.</td></tr>
+            <tr><td><code>tab-peek-hover</code></td><td>int</td><td><code>0</code></td><td>Milliseconds the pointer must rest on the tab bar before the peek drops on its own; it closes again when the pointer leaves. <code>0</code> means only the keybinding and the menu open it.</td></tr>
+            <tr><td><code>tab-peek-height</code></td><td>int</td><td><code>120</code></td><td>Height of a peek card in px (60–400). Card width follows each tab's own grid, so a card keeps the shape of the screen it shows.</td></tr>
           </tbody>
         </table></div>
 

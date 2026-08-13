@@ -20,7 +20,10 @@ pub(crate) fn install(
         .ok_or("this release hasn't published an AppImage for this architecture yet")?;
     // Stage *next to* the target, not in the temp dir: the final rename must
     // not cross filesystems (`/tmp` is often tmpfs), or it fails with EXDEV.
-    let name = target.file_name().and_then(|n| n.to_str()).unwrap_or("Sinclair.AppImage");
+    let name = target
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("Sinclair.AppImage");
     let staged = target.with_file_name(format!(".{name}.update"));
     let total = asset.size;
     on_stage(Stage::Downloading { done: 0, total });

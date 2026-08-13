@@ -43,7 +43,12 @@ impl HelpView {
         row
     }
 
-    fn sidebar_item(&self, index: usize, selected: bool, cx: &mut Context<Self>) -> impl IntoElement {
+    fn sidebar_item(
+        &self,
+        index: usize,
+        selected: bool,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
         let article = &ARTICLES[index];
         let mut bg = hsla(if selected { BLUE } else { SIDEBAR_BG });
         bg.a = if selected { 1.0 } else { 0.0 };
@@ -68,7 +73,12 @@ impl HelpView {
             )
     }
 
-    pub(crate) fn sidebar(&self, visible: &[usize], current: Option<usize>, cx: &mut Context<Self>) -> impl IntoElement {
+    pub(crate) fn sidebar(
+        &self,
+        visible: &[usize],
+        current: Option<usize>,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
         let mut col = div()
             .w(px(SIDEBAR))
             .h_full()
@@ -175,7 +185,12 @@ impl HelpView {
             .pb_1()
             .text_color(hsla(BODY))
             .line_height(px(22.0))
-            .child(div().w(px(12.0)).flex_none().child(SharedString::from("\u{2022}")))
+            .child(
+                div()
+                    .w(px(12.0))
+                    .flex_none()
+                    .child(SharedString::from("\u{2022}")),
+            )
             .child(div().flex_1().child(SharedString::from(text.to_string())))
             .into_any_element()
     }
@@ -183,7 +198,12 @@ impl HelpView {
     /// A run of keybindings rendered as one rounded panel with separators,
     /// matching the Settings list style.
     fn keylist(&self, keys: &[(&str, &str)]) -> gpui::AnyElement {
-        let mut panel = div().mt_1().flex().flex_col().rounded(px(10.0)).bg(hsla(PANEL));
+        let mut panel = div()
+            .mt_1()
+            .flex()
+            .flex_col()
+            .rounded(px(10.0))
+            .bg(hsla(PANEL));
         for (i, (label, shortcut)) in keys.iter().enumerate() {
             if i > 0 {
                 panel = panel.child(div().mx_3().h(px(1.0)).bg(hsla(LINE)));
@@ -195,7 +215,11 @@ impl HelpView {
                     .flex()
                     .items_center()
                     .justify_between()
-                    .child(div().text_color(hsla(TEXT)).child(SharedString::from(*label)))
+                    .child(
+                        div()
+                            .text_color(hsla(TEXT))
+                            .child(SharedString::from(*label)),
+                    )
                     .child(
                         div()
                             .px_2()

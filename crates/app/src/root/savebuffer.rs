@@ -30,9 +30,10 @@ impl WorkspaceView {
         cx.spawn(async move |_this, _cx| {
             if let Ok(Ok(Some(path))) = rx.await {
                 std::thread::spawn(move || match std::fs::write(&path, text) {
-                    Ok(()) => {
-                        crate::view::post_os_notification("Buffer saved", &path.display().to_string())
-                    }
+                    Ok(()) => crate::view::post_os_notification(
+                        "Buffer saved",
+                        &path.display().to_string(),
+                    ),
                     Err(e) => crate::view::post_os_notification("Save failed", &e.to_string()),
                 });
             }

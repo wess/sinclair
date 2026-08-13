@@ -7,11 +7,11 @@
 // Linux-only drawing below; macOS/Windows have native controls and only read
 // the inset constant.
 #[cfg(target_os = "linux")]
+use crate::colors::{self, Colors};
+#[cfg(target_os = "linux")]
 use gpui::prelude::*;
 #[cfg(target_os = "linux")]
 use gpui::{div, px, MouseButton, WindowControlArea};
-#[cfg(target_os = "linux")]
-use crate::colors::{self, Colors};
 
 /// macOS traffic-light clearance reserved at the left of the group's top-row
 /// tab bar (see `WorkspaceView::build_group`).
@@ -98,12 +98,60 @@ pub fn resize_handles() -> impl IntoElement {
     div()
         .absolute()
         .inset_0()
-        .child(edge("rs-top", ResizeEdge::Top).top_0().left_0().right_0().h(t))
-        .child(edge("rs-bottom", ResizeEdge::Bottom).bottom_0().left_0().right_0().h(t))
-        .child(edge("rs-left", ResizeEdge::Left).top_0().bottom_0().left_0().w(t))
-        .child(edge("rs-right", ResizeEdge::Right).top_0().bottom_0().right_0().w(t))
-        .child(edge("rs-tl", ResizeEdge::TopLeft).top_0().left_0().w(c).h(c))
-        .child(edge("rs-tr", ResizeEdge::TopRight).top_0().right_0().w(c).h(c))
-        .child(edge("rs-bl", ResizeEdge::BottomLeft).bottom_0().left_0().w(c).h(c))
-        .child(edge("rs-br", ResizeEdge::BottomRight).bottom_0().right_0().w(c).h(c))
+        .child(
+            edge("rs-top", ResizeEdge::Top)
+                .top_0()
+                .left_0()
+                .right_0()
+                .h(t),
+        )
+        .child(
+            edge("rs-bottom", ResizeEdge::Bottom)
+                .bottom_0()
+                .left_0()
+                .right_0()
+                .h(t),
+        )
+        .child(
+            edge("rs-left", ResizeEdge::Left)
+                .top_0()
+                .bottom_0()
+                .left_0()
+                .w(t),
+        )
+        .child(
+            edge("rs-right", ResizeEdge::Right)
+                .top_0()
+                .bottom_0()
+                .right_0()
+                .w(t),
+        )
+        .child(
+            edge("rs-tl", ResizeEdge::TopLeft)
+                .top_0()
+                .left_0()
+                .w(c)
+                .h(c),
+        )
+        .child(
+            edge("rs-tr", ResizeEdge::TopRight)
+                .top_0()
+                .right_0()
+                .w(c)
+                .h(c),
+        )
+        .child(
+            edge("rs-bl", ResizeEdge::BottomLeft)
+                .bottom_0()
+                .left_0()
+                .w(c)
+                .h(c),
+        )
+        .child(
+            edge("rs-br", ResizeEdge::BottomRight)
+                .bottom_0()
+                .right_0()
+                .w(c)
+                .h(c),
+        )
 }

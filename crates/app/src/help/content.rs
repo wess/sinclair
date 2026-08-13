@@ -1,4 +1,3 @@
-
 /// One block of rendered documentation.
 pub(crate) enum Block {
     /// A section heading within an article.
@@ -83,6 +82,15 @@ pub(crate) const ARTICLES: &[Article] = &[
             Block::Key("Previous tab", "\u{2318} \u{21e7} ["),
             Block::Key("Next tab", "\u{2318} \u{21e7} ]"),
             Block::Key("Jump to tab 1-9", "\u{2318} 1 \u{2026} \u{2318} 9"),
+            Block::Heading("Peeking at every tab"),
+            Block::Para(
+                "The peek drops a strip of live miniatures under the tab bar \u{2014} one per \
+                 tab, updating as they run \u{2014} without resizing anything underneath. \
+                 Arrow keys walk it, Return switches, Escape dismisses. Set \
+                 `tab-peek-hover` to a number of milliseconds to have it open on its own \
+                 while the pointer rests on the tab bar.",
+            ),
+            Block::Key("Peek at tabs", "\u{2318} E"),
             Block::Heading("Closing"),
             Block::Key("Close tab", "\u{2318} \u{2325} W"),
             Block::Key("Close window", "\u{2318} \u{21e7} W"),

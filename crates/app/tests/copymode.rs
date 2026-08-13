@@ -29,7 +29,10 @@ fn converted_points_select_scrollback_text() {
     assert_eq!(term.selection_text().as_deref(), Some("line2"));
 
     // And a live row: global index sb + 0 is "line8" (the top live row).
-    term.start_selection(vt::SelectionMode::Cell, vt::Point::new(vtline(sb as isize, sb), 0));
+    term.start_selection(
+        vt::SelectionMode::Cell,
+        vt::Point::new(vtline(sb as isize, sb), 0),
+    );
     term.update_selection(vt::Point::new(vtline(sb as isize, sb), 9));
     assert_eq!(term.selection_text().as_deref(), Some("line8"));
 }

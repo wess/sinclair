@@ -79,7 +79,11 @@ fn an_appimage_for_another_architecture_is_not_installed() {
     let dir = scratch("otherarch");
     let target = dir.join("Sinclair.AppImage");
     std::fs::write(&target, b"working").unwrap();
-    let other = if std::env::consts::ARCH == "aarch64" { "x86_64" } else { "aarch64" };
+    let other = if std::env::consts::ARCH == "aarch64" {
+        "x86_64"
+    } else {
+        "aarch64"
+    };
     let release = Release {
         version: "9.9.9".to_string(),
         url: String::new(),

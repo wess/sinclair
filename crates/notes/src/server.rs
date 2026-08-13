@@ -90,7 +90,10 @@ pub async fn run(port: u16, token: String, hosted: bool) {
         .route("/api/tree", get(tree))
         .route(
             "/api/file",
-            get(file_get).put(file_put).post(file_post).delete(file_delete),
+            get(file_get)
+                .put(file_put)
+                .post(file_post)
+                .delete(file_delete),
         )
         .route("/api/file/rename", post(file_rename))
         .route("/api/file/move", post(file_move))
@@ -174,11 +177,17 @@ fn ok(v: Value) -> Response {
 }
 
 fn err(e: impl std::fmt::Display) -> Response {
-    (StatusCode::BAD_REQUEST, Json(json!({ "error": e.to_string() }))).into_response()
+    (
+        StatusCode::BAD_REQUEST,
+        Json(json!({ "error": e.to_string() })),
+    )
+        .into_response()
 }
 
 fn broadcast_changed(state: &AppState, path: &str) {
-    let _ = state.tx.send(json!({ "type": "changed", "path": path }).to_string());
+    let _ = state
+        .tx
+        .send(json!({ "type": "changed", "path": path }).to_string());
 }
 
 fn mark_self(state: &AppState, rel: &str) {
@@ -394,13 +403,21 @@ async fn open_probed(s: &Arc<AppState>, dir: &str, create: bool) -> Response {
 
 async fn vault_open(State(s): State<Arc<AppState>>, Json(body): Json<Value>) -> Response {
     touch(&s);
-    let path = body.get("path").and_then(Value::as_str).unwrap_or_default().to_string();
+    let path = body
+        .get("path")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
     open_probed(&s, &path, false).await
 }
 
 async fn vault_create(State(s): State<Arc<AppState>>, Json(body): Json<Value>) -> Response {
     touch(&s);
-    let path = body.get("path").and_then(Value::as_str).unwrap_or_default().to_string();
+    let path = body
+        .get("path")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
     open_probed(&s, &path, true).await
 }
 
@@ -442,7 +459,10 @@ async fn tree(State(s): State<Arc<AppState>>) -> Response {
     }
 }
 
-async fn file_get(State(s): State<Arc<AppState>>, Query(q): Query<HashMap<String, String>>) -> Response {
+async fn file_get(
+    State(s): State<Arc<AppState>>,
+    Query(q): Query<HashMap<String, String>>,
+) -> Response {
     touch(&s);
     let path = q.get("path").cloned().unwrap_or_default();
     match with_vault(&s, move |v| v.read(&path)).await {
@@ -453,8 +473,16 @@ async fn file_get(State(s): State<Arc<AppState>>, Query(q): Query<HashMap<String
 
 async fn file_put(State(s): State<Arc<AppState>>, Json(body): Json<Value>) -> Response {
     touch(&s);
-    let path = body.get("path").and_then(Value::as_str).unwrap_or_default().to_string();
-    let content = body.get("content").and_then(Value::as_str).unwrap_or_default().to_string();
+    let path = body
+        .get("path")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    let content = body
+        .get("content")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
     mark_self(&s, &path);
     match with_vault(&s, move |v| v.write(&path, &content)).await {
         Ok(()) => ok(json!({ "ok": true })),
@@ -464,7 +492,11 @@ async fn file_put(State(s): State<Arc<AppState>>, Json(body): Json<Value>) -> Re
 
 async fn file_post(State(s): State<Arc<AppState>>, Json(body): Json<Value>) -> Response {
     touch(&s);
-    let parent = body.get("parent").and_then(Value::as_str).unwrap_or_default().to_string();
+    let parent = body
+        .get("parent")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
     let kind = body.get("kind").and_then(Value::as_str).unwrap_or("file");
     let kind = if kind == "dir" { "dir" } else { "file" };
     match with_vault(&s, move |v| v.create_file(&parent, kind)).await {
@@ -478,7 +510,11 @@ async fn file_post(State(s): State<Arc<AppState>>, Json(body): Json<Value>) -> R
 
 async fn file_delete(State(s): State<Arc<AppState>>, Json(body): Json<Value>) -> Response {
     touch(&s);
-    let path = body.get("path").and_then(Value::as_str).unwrap_or_default().to_string();
+    let path = body
+        .get("path")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
     let removed = path.clone();
     match with_vault(&s, move |v| v.remove(&path)).await {
         Ok(()) => {
@@ -491,8 +527,16 @@ async fn file_delete(State(s): State<Arc<AppState>>, Json(body): Json<Value>) ->
 
 async fn file_rename(State(s): State<Arc<AppState>>, Json(body): Json<Value>) -> Response {
     touch(&s);
-    let path = body.get("path").and_then(Value::as_str).unwrap_or_default().to_string();
-    let title = body.get("title").and_then(Value::as_str).unwrap_or_default().to_string();
+    let path = body
+        .get("path")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    let title = body
+        .get("title")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
     match with_vault(&s, move |v| v.rename(&path, &title)).await {
         Ok(dest) => {
             broadcast_changed(&s, &dest);
@@ -504,8 +548,16 @@ async fn file_rename(State(s): State<Arc<AppState>>, Json(body): Json<Value>) ->
 
 async fn file_move(State(s): State<Arc<AppState>>, Json(body): Json<Value>) -> Response {
     touch(&s);
-    let from = body.get("from").and_then(Value::as_str).unwrap_or_default().to_string();
-    let to = body.get("to").and_then(Value::as_str).unwrap_or_default().to_string();
+    let from = body
+        .get("from")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    let to = body
+        .get("to")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
     match with_vault(&s, move |v| v.move_to(&from, &to)).await {
         Ok(dest) => {
             broadcast_changed(&s, &dest);
@@ -515,7 +567,10 @@ async fn file_move(State(s): State<Arc<AppState>>, Json(body): Json<Value>) -> R
     }
 }
 
-async fn resolve(State(s): State<Arc<AppState>>, Query(q): Query<HashMap<String, String>>) -> Response {
+async fn resolve(
+    State(s): State<Arc<AppState>>,
+    Query(q): Query<HashMap<String, String>>,
+) -> Response {
     touch(&s);
     let title = q.get("title").cloned().unwrap_or_default();
     match with_vault(&s, move |v| v.resolve(&title)).await {
@@ -598,7 +653,11 @@ async fn pick_folder() -> Option<String> {
     #[cfg(target_os = "linux")]
     let cmd = {
         let mut c = tokio::process::Command::new("zenity");
-        c.args(["--file-selection", "--directory", "--title=Choose a vault folder"]);
+        c.args([
+            "--file-selection",
+            "--directory",
+            "--title=Choose a vault folder",
+        ]);
         c
     };
     #[cfg(not(any(target_os = "macos", target_os = "linux")))]
@@ -638,12 +697,17 @@ mod tests {
     async fn probe_accepts_a_real_folder() {
         let dir = std::env::temp_dir().join("sinclairnotesprobeok");
         std::fs::create_dir_all(&dir).unwrap();
-        assert_eq!(probe_dir(dir.to_string_lossy().into_owned(), false).await, Ok(()));
+        assert_eq!(
+            probe_dir(dir.to_string_lossy().into_owned(), false).await,
+            Ok(())
+        );
     }
 
     #[tokio::test]
     async fn probe_reports_missing_folder() {
-        let e = probe_dir("/definitely/not/here".into(), false).await.unwrap_err();
+        let e = probe_dir("/definitely/not/here".into(), false)
+            .await
+            .unwrap_err();
         assert!(e.contains("no such folder"), "{e}");
     }
 
@@ -654,7 +718,9 @@ mod tests {
         let dir = std::env::temp_dir().join("sinclairnotesprobedeny");
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o000)).unwrap();
-        let e = probe_dir(dir.to_string_lossy().into_owned(), false).await.unwrap_err();
+        let e = probe_dir(dir.to_string_lossy().into_owned(), false)
+            .await
+            .unwrap_err();
         std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o755)).unwrap();
         assert!(e.contains("Privacy & Security"), "{e}");
     }
@@ -663,7 +729,10 @@ mod tests {
     async fn probe_create_makes_the_folder() {
         let dir = std::env::temp_dir().join("sinclairnotesprobecreate/nested");
         let _ = std::fs::remove_dir_all(std::env::temp_dir().join("sinclairnotesprobecreate"));
-        assert_eq!(probe_dir(dir.to_string_lossy().into_owned(), true).await, Ok(()));
+        assert_eq!(
+            probe_dir(dir.to_string_lossy().into_owned(), true).await,
+            Ok(())
+        );
         assert!(dir.is_dir());
     }
 }

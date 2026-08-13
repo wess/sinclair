@@ -12,7 +12,10 @@ fn name_validation() {
 
 #[test]
 fn sanitize_coerces_free_text() {
-    assert_eq!(sanitize_name("Build And Test").as_deref(), Some("build-and-test"));
+    assert_eq!(
+        sanitize_name("Build And Test").as_deref(),
+        Some("build-and-test")
+    );
     assert_eq!(sanitize_name("deploy_prod").as_deref(), Some("deploy-prod"));
     assert_eq!(sanitize_name("  spaced  ").as_deref(), Some("spaced"));
     assert_eq!(sanitize_name("a--b").as_deref(), Some("a-b"));

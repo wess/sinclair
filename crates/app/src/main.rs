@@ -28,10 +28,9 @@ mod mcpbridge;
 mod notes;
 mod notify;
 mod ospicker;
-mod paths;
 mod panelui;
+mod paths;
 mod pluginmanager;
-mod webview;
 mod quick;
 mod redact;
 mod relay;
@@ -39,6 +38,7 @@ mod relaywatch;
 mod reload;
 mod rename;
 mod resume;
+mod reveal;
 mod root;
 mod sandbox;
 mod session;
@@ -47,6 +47,7 @@ mod settings;
 mod shellinteg;
 mod sidecar;
 mod suggest;
+mod switcher;
 mod tabbar;
 mod teambuilder;
 mod tiles;
@@ -55,6 +56,7 @@ mod trigger;
 mod updateui;
 mod view;
 mod wasmhost;
+mod webview;
 mod worktree;
 
 use std::rc::Rc;
@@ -221,12 +223,7 @@ fn open_default_window(opts: config::Options, cx: &mut App) {
         .flatten()
         .and_then(|s| s.window)
         .filter(|w| w.usable())
-        .map(|w| {
-            Bounds::new(
-                point(px(w.x), px(w.y)),
-                size(px(w.width), px(w.height)),
-            )
-        });
+        .map(|w| Bounds::new(point(px(w.x), px(w.y)), size(px(w.width), px(w.height))));
     open_window(
         opts, colors, font, font_size, cell, pad, None, None, place, None, cx,
     );

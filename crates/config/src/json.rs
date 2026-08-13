@@ -31,7 +31,10 @@ pub struct Error {
 
 /// Parse a complete JSONC document into a value.
 pub fn parse(text: &str) -> Result<Value, Error> {
-    let mut p = Cursor { text: text.as_bytes(), pos: 0 };
+    let mut p = Cursor {
+        text: text.as_bytes(),
+        pos: 0,
+    };
     p.skip_trivia();
     let value = p.value()?;
     p.skip_trivia();
@@ -45,14 +48,20 @@ pub fn parse(text: &str) -> Result<Value, Error> {
 /// comment-only) document is an empty list; anything but an object at the
 /// top level is an error.
 pub fn root(text: &str) -> Result<Vec<Member>, Error> {
-    let mut p = Cursor { text: text.as_bytes(), pos: 0 };
+    let mut p = Cursor {
+        text: text.as_bytes(),
+        pos: 0,
+    };
     p.skip_trivia();
     if p.pos >= p.text.len() {
         return Ok(Vec::new());
     }
     match parse(text)? {
         Value::Obj(members) => Ok(members),
-        _ => Err(Error { line: 1, message: "expected a `{ ... }` object at the top level".into() }),
+        _ => Err(Error {
+            line: 1,
+            message: "expected a `{ ... }` object at the top level".into(),
+        }),
     }
 }
 
@@ -92,7 +101,10 @@ struct Cursor<'a> {
 
 impl Cursor<'_> {
     fn err(&self, message: &str) -> Error {
-        Error { line: self.line(), message: message.to_string() }
+        Error {
+            line: self.line(),
+            message: message.to_string(),
+        }
     }
 
     fn line(&self) -> usize {

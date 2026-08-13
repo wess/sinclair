@@ -1,7 +1,12 @@
 use super::*;
 
 fn bounds(width: f32, height: f32) -> WindowState {
-    WindowState { x: 100.0, y: 80.0, width, height }
+    WindowState {
+        x: 100.0,
+        y: 80.0,
+        width,
+        height,
+    }
 }
 
 #[test]
@@ -9,7 +14,13 @@ fn usable_accepts_ordinary_geometry() {
     assert!(bounds(1200.0, 800.0).usable());
     // Negative origins are fine: a second display can sit left of or above the
     // primary one, and those windows have negative coordinates.
-    assert!(WindowState { x: -1800.0, y: -400.0, width: 900.0, height: 600.0 }.usable());
+    assert!(WindowState {
+        x: -1800.0,
+        y: -400.0,
+        width: 900.0,
+        height: 600.0
+    }
+    .usable());
 }
 
 #[test]
@@ -39,7 +50,11 @@ fn window_and_dock_state_round_trip() {
         active: 0,
         window: Some(bounds(1440.0, 900.0)),
         docks: Some([
-            DockState { open: true, width: 320.0, sections: vec![("terminals".into(), false)] },
+            DockState {
+                open: true,
+                width: 320.0,
+                sections: vec![("terminals".into(), false)],
+            },
             DockState::default(),
         ]),
     };

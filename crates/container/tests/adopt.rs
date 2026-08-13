@@ -16,7 +16,12 @@ fn find_argv_filters_on_the_devcontainer_label() {
 
 #[test]
 fn sinclair_owned_is_recognised() {
-    let out = row("abc", "sinclair-sbx-api-1", "running", "sinclair.owner=sinclair,sinclair.sandbox=1");
+    let out = row(
+        "abc",
+        "sinclair-sbx-api-1",
+        "running",
+        "sinclair.owner=sinclair,sinclair.sandbox=1",
+    );
     let found = parse_found(&out);
     assert_eq!(found[0].owner, Owner::Sinclair);
     assert!(found[0].owner.may_remove());

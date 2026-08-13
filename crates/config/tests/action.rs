@@ -242,7 +242,10 @@ fn to_config_round_trips() {
 
 #[test]
 fn text_and_esc_decode_escapes() {
-    assert_eq!(Action::parse("text:\\x01"), Ok(Action::SendText(vec![0x01])));
+    assert_eq!(
+        Action::parse("text:\\x01"),
+        Ok(Action::SendText(vec![0x01]))
+    );
     assert_eq!(
         Action::parse("text:\\e\\t\\n\\r\\0"),
         Ok(Action::SendText(vec![0x1b, b'\t', b'\n', b'\r', 0x00]))

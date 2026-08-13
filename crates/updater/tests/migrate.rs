@@ -6,7 +6,9 @@ fn nothing(_: &Path) -> bool {
 }
 
 fn exe(bundle: &str) -> PathBuf {
-    PathBuf::from(format!("/Applications/{bundle}.app/Contents/MacOS/sinclair"))
+    PathBuf::from(format!(
+        "/Applications/{bundle}.app/Contents/MacOS/sinclair"
+    ))
 }
 
 #[test]

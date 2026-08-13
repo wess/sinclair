@@ -115,11 +115,7 @@ impl ListKind {
         match self {
             ListKind::FontFamily => o.font_family.clone(),
             ListKind::FontFeature => o.font_feature.clone(),
-            ListKind::Palette => o
-                .palette
-                .iter()
-                .map(|(n, c)| format!("{n}={c}"))
-                .collect(),
+            ListKind::Palette => o.palette.iter().map(|(n, c)| format!("{n}={c}")).collect(),
             ListKind::Plugin => o.plugin.clone(),
             ListKind::Keybind => {
                 let (binds, _) = config::resolve(&o.keybind);

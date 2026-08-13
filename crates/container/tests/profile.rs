@@ -3,7 +3,9 @@ use super::*;
 #[test]
 fn builtins_present() {
     let b = builtin();
-    assert!(b.iter().any(|p| p.label == "Debian" && p.image == "debian:latest"));
+    assert!(b
+        .iter()
+        .any(|p| p.label == "Debian" && p.image == "debian:latest"));
     assert!(b.iter().any(|p| p.label == "Alpine" && p.command == "sh"));
 }
 
@@ -43,7 +45,10 @@ fn user_overrides_builtin_by_label() {
     assert!(errors.is_empty());
     // Override replaces in place, keeps count = builtin + 1 custom.
     assert_eq!(merged.len(), builtin().len() + 1);
-    let debian = merged.iter().find(|p| p.label.eq_ignore_ascii_case("debian")).unwrap();
+    let debian = merged
+        .iter()
+        .find(|p| p.label.eq_ignore_ascii_case("debian"))
+        .unwrap();
     assert_eq!(debian.image, "debian:bookworm");
     assert!(merged.iter().any(|p| p.label == "Custom"));
 }

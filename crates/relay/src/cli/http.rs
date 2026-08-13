@@ -57,9 +57,15 @@ pub fn post_timeout(addr: &str, path: &str, body: &str, secs: u64) -> Result<Str
     request(addr, "POST", path, Some(body), secs)
 }
 
-fn request(addr: &str, method: &str, path: &str, body: Option<&str>, read_secs: u64) -> Result<String> {
-    let mut stream = TcpStream::connect(addr)
-        .map_err(|e| anyhow!("cannot reach server at {addr}: {e}"))?;
+fn request(
+    addr: &str,
+    method: &str,
+    path: &str,
+    body: Option<&str>,
+    read_secs: u64,
+) -> Result<String> {
+    let mut stream =
+        TcpStream::connect(addr).map_err(|e| anyhow!("cannot reach server at {addr}: {e}"))?;
     stream.set_read_timeout(Some(Duration::from_secs(read_secs)))?;
     stream.set_write_timeout(Some(Duration::from_secs(5)))?;
 

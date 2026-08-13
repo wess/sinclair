@@ -53,7 +53,10 @@ impl WindowState {
     /// clamps an off-screen window back onto a real display, which is the
     /// behaviour people expect when they undock a laptop.
     pub fn usable(&self) -> bool {
-        self.width >= 200.0 && self.height >= 200.0 && self.width < 30_000.0 && self.height < 30_000.0
+        self.width >= 200.0
+            && self.height >= 200.0
+            && self.width < 30_000.0
+            && self.height < 30_000.0
     }
 }
 

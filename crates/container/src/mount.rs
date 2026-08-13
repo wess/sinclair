@@ -81,7 +81,9 @@ impl Mount {
                 "rw" => Self::checked(source, target, false),
                 other => Err(format!("unknown mount mode `{other}` (ro|rw)")),
             },
-            _ => Err(format!("`{raw}` has too many `:` parts (source:target[:ro])")),
+            _ => Err(format!(
+                "`{raw}` has too many `:` parts (source:target[:ro])"
+            )),
         }
     }
 

@@ -13,7 +13,11 @@ pub fn ps() -> Result<()> {
             for ag in a {
                 println!(
                     "  {} {:<14} {:<16} ch:{}",
-                    if ag["online"].as_bool().unwrap_or(false) { "●" } else { "○" },
+                    if ag["online"].as_bool().unwrap_or(false) {
+                        "●"
+                    } else {
+                        "○"
+                    },
                     ag["name"].as_str().unwrap_or("?"),
                     ag["role"].as_str().unwrap_or(""),
                     ag["channels"].as_i64().unwrap_or(0),

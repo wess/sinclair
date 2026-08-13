@@ -34,7 +34,10 @@ fn main() {
         std::env::var("SINCLAIR_SERVICE_TOKEN").ok().as_deref(),
     );
 
-    let rt = match tokio::runtime::Builder::new_multi_thread().enable_all().build() {
+    let rt = match tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+    {
         Ok(rt) => rt,
         Err(e) => {
             eprintln!("notes: runtime: {e}");

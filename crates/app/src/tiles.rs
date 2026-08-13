@@ -190,7 +190,13 @@ pub fn slug(name: &str) -> String {
         .trim()
         .to_lowercase()
         .chars()
-        .map(|c| if c.is_ascii_alphanumeric() || c == '.' { c } else { '-' })
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '.' {
+                c
+            } else {
+                '-'
+            }
+        })
         .collect();
     s.trim_matches('-').to_string()
 }
@@ -199,7 +205,10 @@ pub fn save(name: &str, layout: &Layout) -> std::io::Result<PathBuf> {
     let dir = layouts_dir();
     std::fs::create_dir_all(&dir)?;
     let path = dir.join(format!("{}.json", slug(name)));
-    std::fs::write(&path, serde_json::to_string_pretty(layout).unwrap_or_default())?;
+    std::fs::write(
+        &path,
+        serde_json::to_string_pretty(layout).unwrap_or_default(),
+    )?;
     Ok(path)
 }
 
@@ -221,7 +230,12 @@ mod tests {
     #[test]
     fn main_bottom_is_top_over_row() {
         match generate("main-bottom", 4) {
-            Layout::Split { axis, first, second, .. } => {
+            Layout::Split {
+                axis,
+                first,
+                second,
+                ..
+            } => {
                 assert!(matches!(axis, Ax::V));
                 assert_eq!(first.leaves(), 1);
                 assert_eq!(second.leaves(), 3);

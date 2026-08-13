@@ -61,7 +61,8 @@ pub fn ensure(spec: &Spec, report: &dyn Fn(Stage)) -> Result<Ready, String> {
 
     // Someone else's container for this project, already up: enter it rather
     // than building a parallel one.
-    if let Some(f) = adopt::best(&found).filter(|f| f.owner == Owner::Foreign && f.state.is_running())
+    if let Some(f) =
+        adopt::best(&found).filter(|f| f.owner == Owner::Foreign && f.state.is_running())
     {
         notes.push(format!(
             "Attached to `{}`, a container Sinclair did not create. It will not be stopped or \
@@ -115,7 +116,9 @@ pub fn ensure(spec: &Spec, report: &dyn Fn(Stage)) -> Result<Ready, String> {
 /// The container's current state, or [`State::Missing`] when the engine cannot
 /// be reached at all (which surfaces as a create attempt and a real error).
 fn state(sandbox: &Sandbox) -> Result<State, String> {
-    Ok(container::parse_state(&run(&sandbox.state_argv()).unwrap_or_default()))
+    Ok(container::parse_state(
+        &run(&sandbox.state_argv()).unwrap_or_default(),
+    ))
 }
 
 /// Build the recipe's image, piping the generated Dockerfile in on stdin so

@@ -23,7 +23,11 @@ fn oversized_frames_error_instead_of_wrapping() {
         "{\"version\":2,\"width\":1,\"height\":1}\n[0.0, \"o\", \"x\"]\n".to_owned(),
     ))
     .unwrap();
-    let opts = Options { cols: Some(1), rows: Some(1), ..Options::default() };
+    let opts = Options {
+        cols: Some(1),
+        rows: Some(1),
+        ..Options::default()
+    };
     let mut renderer = Renderer::new(&cast, &opts, HugeCells);
     let out = std::env::temp_dir().join("sinclairgiftoolarge.gif");
     let _ = std::fs::remove_file(&out);

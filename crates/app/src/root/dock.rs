@@ -449,10 +449,7 @@ pub fn tokens_of(dock: &Dock, token_of: impl Fn(SidebarPanel) -> String) -> Vec<
     if dock.sections.is_empty() {
         return vec![EMPTY.to_string()];
     }
-    dock.sections
-        .iter()
-        .map(|s| token_of(s.panel))
-        .collect()
+    dock.sections.iter().map(|s| token_of(s.panel)).collect()
 }
 
 /// The tokens of every collapsed section across both docks, for

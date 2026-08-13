@@ -215,7 +215,9 @@ pub async fn call(app: &App, session: &str, name: &str, args: &Value) -> Reply {
     }
 
     let Some(me) = app.name_of(session).await else {
-        return Reply::plain(fail("not registered on this connection — call 'register' first"));
+        return Reply::plain(fail(
+            "not registered on this connection — call 'register' first",
+        ));
     };
     // Heartbeat: every tool call refreshes this agent's `last_seen`, so one that
     // stops calling (and is not parked on `wait`) ages out of the live set.
@@ -324,7 +326,10 @@ async fn dispatch(app: &App, me: &str, name: &str, args: &Value) -> Value {
         },
         "whoami" => {
             let subs = db::subs_of(&app.db, me).await.unwrap_or_default();
-            text(serde_json::to_string_pretty(&json!({"name": me, "channels": subs})).unwrap_or_default())
+            text(
+                serde_json::to_string_pretty(&json!({"name": me, "channels": subs}))
+                    .unwrap_or_default(),
+            )
         }
         "spawn" => {
             let Some(wname) = arg(args, "name") else {
@@ -336,10 +341,13 @@ async fn dispatch(app: &App, me: &str, name: &str, args: &Value) -> Value {
             // Default the worker to the relay state dir, never the daemon's own
             // cwd — a Finder-launched app leaves the daemon in `/`, which no
             // agent can work from.
-            let cwd = arg(args, "cwd").map(str::to_string).unwrap_or_else(|| {
-                crate::cli::paths::abs_dir().to_string_lossy().into_owned()
-            });
-            let keep_alive = args.get("keep_alive").and_then(Value::as_bool).unwrap_or(true);
+            let cwd = arg(args, "cwd")
+                .map(str::to_string)
+                .unwrap_or_else(|| crate::cli::paths::abs_dir().to_string_lossy().into_owned());
+            let keep_alive = args
+                .get("keep_alive")
+                .and_then(Value::as_bool)
+                .unwrap_or(true);
 
             // The same pipeline `relay launch` uses; the differences from the
             // CLI plane are deliberate and spelled out here: a spawned worker is
@@ -444,7 +452,10 @@ async fn drain(app: &App, me: &str, block: bool) -> Reply {
                 ack,
             }
         }
-        Err(e) => Reply::plain(fail(format!("{name} failed: {e}", name = if block { "wait" } else { "inbox" }))),
+        Err(e) => Reply::plain(fail(format!(
+            "{name} failed: {e}",
+            name = if block { "wait" } else { "inbox" }
+        ))),
     }
 }
 
@@ -474,7 +485,10 @@ mod tests {
         let n = N.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         let path = std::env::temp_dir().join(format!("relay-tools-{}-{n}.db", std::process::id()));
         let pool = crate::db::open(path.to_str().unwrap()).await.unwrap();
-        (App::new(pool, "http://127.0.0.1:0".into(), "t".into()), path)
+        (
+            App::new(pool, "http://127.0.0.1:0".into(), "t".into()),
+            path,
+        )
     }
 
     fn cleanup(path: &std::path::Path) {
@@ -512,13 +526,22 @@ mod tests {
     #[tokio::test]
     async fn an_empty_park_is_success_not_an_error() {
         let (app, path) = app().await;
-        db::upsert_agent(&app.db, "backend", "backend", "").await.unwrap();
+        db::upsert_agent(&app.db, "backend", "backend", "")
+            .await
+            .unwrap();
         app.bind("s1", "backend").await;
         let reply = call(&app, "s1", "wait", &json!({})).await;
-        assert_eq!(reply.body["isError"], json!(false), "an idle park is not a failure");
+        assert_eq!(
+            reply.body["isError"],
+            json!(false),
+            "an idle park is not a failure"
+        );
         let text = reply.body["content"][0]["text"].as_str().unwrap();
         assert!(text.contains("call wait again"), "got {text}");
-        assert!(reply.ack.is_none(), "nothing was delivered, so nothing to ack");
+        assert!(
+            reply.ack.is_none(),
+            "nothing was delivered, so nothing to ack"
+        );
         cleanup(&path);
     }
 
@@ -527,7 +550,9 @@ mod tests {
     #[tokio::test]
     async fn a_delivered_message_carries_its_ack() {
         let (app, path) = app().await;
-        db::upsert_agent(&app.db, "backend", "backend", "").await.unwrap();
+        db::upsert_agent(&app.db, "backend", "backend", "")
+            .await
+            .unwrap();
         app.bind("s1", "backend").await;
         let id = crate::bus::deliver(&app, "lead", "direct", Some("backend"), "ship it")
             .await

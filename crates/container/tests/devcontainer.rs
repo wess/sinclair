@@ -43,14 +43,21 @@ fn identity_mapping_is_detected() {
     .unwrap();
     assert_eq!(dc.workspace_folder_for(PROJECT), PROJECT);
     assert!(dc.is_identity_mapped(PROJECT));
-    assert!(dc.workspace_mount.unwrap().contains("source=/Users/wess/code/api,target=/Users/wess/code/api"));
+    assert!(dc
+        .workspace_mount
+        .unwrap()
+        .contains("source=/Users/wess/code/api,target=/Users/wess/code/api"));
 }
 
 #[test]
 fn shutdown_action_decides_whether_closing_the_editor_kills_agents() {
     assert!(parse(r#"{"image":"x"}"#, PROJECT).unwrap().stops_on_close());
-    assert!(parse(r#"{"shutdownAction":"stopContainer"}"#, PROJECT).unwrap().stops_on_close());
-    assert!(!parse(r#"{"shutdownAction":"none"}"#, PROJECT).unwrap().stops_on_close());
+    assert!(parse(r#"{"shutdownAction":"stopContainer"}"#, PROJECT)
+        .unwrap()
+        .stops_on_close());
+    assert!(!parse(r#"{"shutdownAction":"none"}"#, PROJECT)
+        .unwrap()
+        .stops_on_close());
 }
 
 #[test]
@@ -85,18 +92,25 @@ fn dockerfile_build_is_read() {
 #[test]
 fn post_create_normalises_all_three_shapes() {
     assert_eq!(
-        parse(r#"{"postCreateCommand":"npm i"}"#, PROJECT).unwrap().post_create,
-        vec!["npm i"]
-    );
-    assert_eq!(
-        parse(r#"{"postCreateCommand":["npm","i"]}"#, PROJECT).unwrap().post_create,
-        vec!["npm i"]
-    );
-    assert_eq!(
-        parse(r#"{"postCreateCommand":{"deps":"npm i","build":"npm run build"}}"#, PROJECT)
+        parse(r#"{"postCreateCommand":"npm i"}"#, PROJECT)
             .unwrap()
-            .post_create
-            .len(),
+            .post_create,
+        vec!["npm i"]
+    );
+    assert_eq!(
+        parse(r#"{"postCreateCommand":["npm","i"]}"#, PROJECT)
+            .unwrap()
+            .post_create,
+        vec!["npm i"]
+    );
+    assert_eq!(
+        parse(
+            r#"{"postCreateCommand":{"deps":"npm i","build":"npm run build"}}"#,
+            PROJECT
+        )
+        .unwrap()
+        .post_create
+        .len(),
         2
     );
 }

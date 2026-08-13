@@ -84,15 +84,32 @@ fn launch_member_quotes_hostile_values() {
         None,
     );
     // Every interpolated value stays a single quoted shell token.
-    assert!(cmd.contains(" launch 'x'\\''; rm -rf /;'\\'''"), "member not quoted: {cmd}");
-    assert!(cmd.contains("--role 'worker role'"), "role not quoted: {cmd}");
-    assert!(cmd.contains("--agent '$(whoami)'"), "agent not quoted: {cmd}");
+    assert!(
+        cmd.contains(" launch 'x'\\''; rm -rf /;'\\'''"),
+        "member not quoted: {cmd}"
+    );
+    assert!(
+        cmd.contains("--role 'worker role'"),
+        "role not quoted: {cmd}"
+    );
+    assert!(
+        cmd.contains("--agent '$(whoami)'"),
+        "agent not quoted: {cmd}"
+    );
     assert!(cmd.contains(" --lead"));
 }
 
 #[test]
 fn launch_member_omits_empty_agent_flag() {
-    let cmd = launch_member(&config::Options::default(), "lead", "supervisor", "  ", false, true, None);
+    let cmd = launch_member(
+        &config::Options::default(),
+        "lead",
+        "supervisor",
+        "  ",
+        false,
+        true,
+        None,
+    );
     assert!(!cmd.contains("--agent "));
     assert!(cmd.contains("--optimize"));
     assert!(cmd.contains(" launch 'lead' --role 'supervisor'"));
@@ -120,7 +137,10 @@ fn team_autonomy_off_keeps_the_prompts() {
         ..config::Options::default()
     };
     let cmd = launch_member(&opts, "backend", "backend", "claude", false, false, None);
-    assert!(!cmd.contains("--skip-permissions"), "bypassed anyway: {cmd}");
+    assert!(
+        !cmd.contains("--skip-permissions"),
+        "bypassed anyway: {cmd}"
+    );
 }
 
 /// A member with a named provider also picks up that provider's configured
@@ -132,7 +152,10 @@ fn launch_member_forwards_configured_provider_flags() {
         ..config::Options::default()
     };
     let cmd = launch_member(&opts, "backend", "backend", "claude", false, false, None);
-    assert!(cmd.contains("--agent-arg '--append-system-prompt'"), "{cmd}");
+    assert!(
+        cmd.contains("--agent-arg '--append-system-prompt'"),
+        "{cmd}"
+    );
     assert!(cmd.contains("--agent-arg 'be terse'"), "{cmd}");
     // A member inheriting its role's agent has no provider to look flags up
     // under, so it gets none — the permission bypass covers it instead.
@@ -151,7 +174,11 @@ fn team_layout_gives_every_member_a_pane() {
         .map(|n| (n.to_string(), "worker".to_string(), String::new()))
         .collect();
     let panes = team_layout(&opts, "columns", &members, None);
-    assert_eq!(panes.layout.leaves(), members.len(), "a member with no pane can't launch");
+    assert_eq!(
+        panes.layout.leaves(),
+        members.len(),
+        "a member with no pane can't launch"
+    );
     assert_eq!(panes.commands.len(), members.len());
     assert!(panes.commands.iter().all(Option::is_some));
     assert!(panes.commands[0].as_ref().unwrap().contains(" --lead"));

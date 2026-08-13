@@ -46,7 +46,10 @@ impl WorkspaceView {
         let SidebarPanel::Plugin(i) = panel else {
             return panel.label().to_string();
         };
-        let Some(decl) = panel_defs(&self.plugins).nth(i).and_then(|p| p.panel.as_ref()) else {
+        let Some(decl) = panel_defs(&self.plugins)
+            .nth(i)
+            .and_then(|p| p.panel.as_ref())
+        else {
             return "Plugin".to_string();
         };
         if let Some(title) = self
@@ -199,7 +202,11 @@ impl WorkspaceView {
     /// can't touch the gpui context mid-call, so it parks the text and we apply
     /// it here, the way queued commands are applied.
     pub(crate) fn apply_wasm_clipboard(&mut self, cx: &mut Context<Self>) {
-        let Some(text) = self.gui_wasm.as_ref().and_then(|gw| gw.take_clipboard_write()) else {
+        let Some(text) = self
+            .gui_wasm
+            .as_ref()
+            .and_then(|gw| gw.take_clipboard_write())
+        else {
             return;
         };
         cx.write_to_clipboard(gpui::ClipboardItem::new_string(text));
@@ -233,7 +240,12 @@ impl WorkspaceView {
     }
 
     /// Render a wasm plugin's panel synchronously into the panel cache.
-    fn render_wasm_panel(&mut self, plugin: &plugin::Plugin, panel_id: &str, cx: &mut Context<Self>) {
+    fn render_wasm_panel(
+        &mut self,
+        plugin: &plugin::Plugin,
+        panel_id: &str,
+        cx: &mut Context<Self>,
+    ) {
         let cwd = self.focused_cwd(cx);
         let clipboard = cx.read_from_clipboard().and_then(|i| i.text());
         let rendered = match self.ensure_gui_wasm() {
@@ -276,7 +288,8 @@ impl WorkspaceView {
         self.apply_wasm_clipboard(cx);
         self.drain_wasm_commands(window, cx);
         if let Err(e) = result {
-            self.plugin_panels.insert(panel_id.to_string(), error_response(&e));
+            self.plugin_panels
+                .insert(panel_id.to_string(), error_response(&e));
             cx.notify();
         } else {
             self.render_wasm_panel(plugin, panel_id, cx);
@@ -307,7 +320,10 @@ impl WorkspaceView {
         let SidebarPanel::Plugin(index) = panel else {
             return div().into_any_element();
         };
-        let panel_id = match panel_defs(&self.plugins).nth(index).and_then(|p| p.panel.as_ref()) {
+        let panel_id = match panel_defs(&self.plugins)
+            .nth(index)
+            .and_then(|p| p.panel.as_ref())
+        {
             Some(pn) => pn.id.clone(),
             None => return div().into_any_element(),
         };

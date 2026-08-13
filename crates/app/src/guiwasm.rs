@@ -113,8 +113,8 @@ impl GuiWasm {
                 id: plugin.id.clone(),
             });
             // Enforce consent: link only the capabilities the user granted.
-            let caps = plugin::Installed::load()
-                .effective_capabilities(&plugin.id, &plugin.capabilities);
+            let caps =
+                plugin::Installed::load().effective_capabilities(&plugin.id, &plugin.capabilities);
             self.rt
                 .ensure(&plugin.id, &wasm, &caps, host)
                 .map_err(|e| e.to_string())?;

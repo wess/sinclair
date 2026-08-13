@@ -104,7 +104,10 @@ fn running_containers() -> (bool, Vec<container::Running>) {
         return (false, Vec::new());
     };
     let argv = container::ps_argv(engine);
-    let rows = match std::process::Command::new(&argv[0]).args(&argv[1..]).output() {
+    let rows = match std::process::Command::new(&argv[0])
+        .args(&argv[1..])
+        .output()
+    {
         Ok(out) if out.status.success() => {
             container::parse_ps(&String::from_utf8_lossy(&out.stdout))
         }
@@ -125,8 +128,7 @@ impl AttachPickerView {
     fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         let (available, running) = running_containers();
 
-        let input =
-            cx.new(|cx| TextInput::new(cx).placeholder("or type a container name or id"));
+        let input = cx.new(|cx| TextInput::new(cx).placeholder("or type a container name or id"));
         let focus = cx.focus_handle();
 
         // Focus the field after the first paint. Focusing here during
@@ -221,7 +223,11 @@ impl Render for AttachPickerView {
         }
         for (i, r) in self.running.iter().enumerate() {
             let running = r.clone();
-            let name = if r.name.is_empty() { r.id.clone() } else { r.name.clone() };
+            let name = if r.name.is_empty() {
+                r.id.clone()
+            } else {
+                r.name.clone()
+            };
             let mut row = div()
                 .id(("attach-row", i))
                 .flex()

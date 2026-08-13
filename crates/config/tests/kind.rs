@@ -28,6 +28,9 @@ fn every_key_is_known_to_apply() {
 #[test]
 fn keys_are_unique() {
     for (i, (a, _)) in KEYS.iter().enumerate() {
-        assert!(!KEYS[i + 1..].iter().any(|(b, _)| a == b), "duplicate key `{a}`");
+        assert!(
+            !KEYS[i + 1..].iter().any(|(b, _)| a == b),
+            "duplicate key `{a}`"
+        );
     }
 }

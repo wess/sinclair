@@ -157,7 +157,8 @@ impl App {
     /// Truthful liveness: parked on `wait`, or active (touched) within
     /// [`ACTIVE_WINDOW_SECS`]. A crashed agent satisfies neither.
     pub fn is_live(&self, name: &str, last_seen: i64) -> bool {
-        self.is_parked(name) || crate::protocol::now().saturating_sub(last_seen) <= ACTIVE_WINDOW_SECS
+        self.is_parked(name)
+            || crate::protocol::now().saturating_sub(last_seen) <= ACTIVE_WINDOW_SECS
     }
 
     /// Signal that the live roster/worker state changed so `/control/events`

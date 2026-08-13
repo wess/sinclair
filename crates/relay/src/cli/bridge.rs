@@ -101,8 +101,12 @@ fn turn(a: &AgentArgs, relay: &str, ollama: &str, sender: &str, body: &str) -> R
 fn exec_tool(a: &AgentArgs, relay: &str, name: &str, args: &Value) -> String {
     let body = args["body"].as_str().unwrap_or("");
     let payload = match name {
-        "send" => json!({ "from": a.name, "kind": "direct", "target": args["to"].as_str(), "body": body }),
-        "post" => json!({ "from": a.name, "kind": "channel", "target": args["channel"].as_str(), "body": body }),
+        "send" => {
+            json!({ "from": a.name, "kind": "direct", "target": args["to"].as_str(), "body": body })
+        }
+        "post" => {
+            json!({ "from": a.name, "kind": "channel", "target": args["channel"].as_str(), "body": body })
+        }
         "broadcast" => json!({ "from": a.name, "kind": "broadcast", "body": body }),
         other => return format!("unknown tool '{other}'"),
     };
@@ -114,21 +118,33 @@ fn exec_tool(a: &AgentArgs, relay: &str, name: &str, args: &Value) -> String {
 
 fn tool_defs() -> Value {
     json!([
-        tool("send", "Send a direct message to one agent by name.", json!({
-            "type": "object",
-            "properties": { "to": {"type":"string"}, "body": {"type":"string"} },
-            "required": ["to", "body"]
-        })),
-        tool("post", "Post a message to a channel.", json!({
-            "type": "object",
-            "properties": { "channel": {"type":"string"}, "body": {"type":"string"} },
-            "required": ["channel", "body"]
-        })),
-        tool("broadcast", "Send a message to every agent.", json!({
-            "type": "object",
-            "properties": { "body": {"type":"string"} },
-            "required": ["body"]
-        })),
+        tool(
+            "send",
+            "Send a direct message to one agent by name.",
+            json!({
+                "type": "object",
+                "properties": { "to": {"type":"string"}, "body": {"type":"string"} },
+                "required": ["to", "body"]
+            })
+        ),
+        tool(
+            "post",
+            "Post a message to a channel.",
+            json!({
+                "type": "object",
+                "properties": { "channel": {"type":"string"}, "body": {"type":"string"} },
+                "required": ["channel", "body"]
+            })
+        ),
+        tool(
+            "broadcast",
+            "Send a message to every agent.",
+            json!({
+                "type": "object",
+                "properties": { "body": {"type":"string"} },
+                "required": ["body"]
+            })
+        ),
     ])
 }
 

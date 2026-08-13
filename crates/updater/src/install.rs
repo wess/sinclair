@@ -1,8 +1,8 @@
 //! Install detection and the install/relaunch entry points.
 
-use std::path::PathBuf;
 #[cfg(any(target_os = "macos", test))]
 use std::path::Path;
+use std::path::PathBuf;
 
 use crate::Release;
 

@@ -41,7 +41,9 @@ fn exec_runs_in_the_given_directory() {
     r.cwd = Some(dir.to_string_lossy().into_owned());
     let out = exec(r, None).unwrap();
     assert_eq!(
-        std::path::Path::new(out.stdout.trim()).canonicalize().unwrap(),
+        std::path::Path::new(out.stdout.trim())
+            .canonicalize()
+            .unwrap(),
         dir
     );
 }
@@ -52,7 +54,9 @@ fn exec_falls_back_to_the_default_directory() {
     let dir = std::env::temp_dir().canonicalize().unwrap();
     let out = exec(req("pwd", &[]), Some(dir.clone())).unwrap();
     assert_eq!(
-        std::path::Path::new(out.stdout.trim()).canonicalize().unwrap(),
+        std::path::Path::new(out.stdout.trim())
+            .canonicalize()
+            .unwrap(),
         dir
     );
 }
@@ -73,7 +77,10 @@ fn exec_rejects_an_empty_program() {
 #[test]
 fn exec_clamps_huge_output() {
     let out = exec(
-        req("sh", &["-c", &format!("yes x | head -c {}", EXEC_MAX_OUTPUT * 2)]),
+        req(
+            "sh",
+            &["-c", &format!("yes x | head -c {}", EXEC_MAX_OUTPUT * 2)],
+        ),
         None,
     )
     .unwrap();
@@ -101,7 +108,10 @@ fn clamp_cuts_on_a_char_boundary() {
     let mut bytes = vec![b'a'; EXEC_MAX_OUTPUT - 1];
     bytes.extend_from_slice("é".as_bytes()); // two bytes, so it straddles
     let text = clamp(&bytes);
-    assert!(!text.contains('\u{fffd}'), "clamped output has a replacement char");
+    assert!(
+        !text.contains('\u{fffd}'),
+        "clamped output has a replacement char"
+    );
     assert_eq!(text.len(), EXEC_MAX_OUTPUT - 1);
 }
 

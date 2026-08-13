@@ -1,7 +1,11 @@
 use super::*;
 
 fn sbx() -> Sandbox {
-    Sandbox::for_project(Engine::Docker, "/Users/wess/code/api", "sinclair-sandbox:abc")
+    Sandbox::for_project(
+        Engine::Docker,
+        "/Users/wess/code/api",
+        "sinclair-sandbox:abc",
+    )
 }
 
 #[test]
@@ -32,7 +36,10 @@ fn create_argv_is_detached_and_keeps_alive() {
     assert_eq!(&argv[..3], &["docker", "run", "-d"]);
     assert!(argv.contains(&"--init".to_string()));
     // Not `sleep infinity` — busybox rejects it.
-    assert_eq!(&argv[argv.len() - 3..], &["sh", "-c", "while :; do sleep 3600; done"]);
+    assert_eq!(
+        &argv[argv.len() - 3..],
+        &["sh", "-c", "while :; do sleep 3600; done"]
+    );
 }
 
 #[test]
@@ -49,7 +56,10 @@ fn create_argv_carries_labels_and_gateway() {
 #[test]
 fn podman_uses_its_own_gateway_name() {
     let s = Sandbox::for_project(Engine::Podman, "/repo", "img");
-    assert!(s.create_argv().join(" ").contains("host.containers.internal:host-gateway"));
+    assert!(s
+        .create_argv()
+        .join(" ")
+        .contains("host.containers.internal:host-gateway"));
 }
 
 #[test]
@@ -87,7 +97,10 @@ fn shell_argv_is_a_login_shell_in_the_project() {
 
 #[test]
 fn exec_argv_honors_a_worktree_cwd() {
-    let argv = sbx().exec_argv("claude --version", Some("/Users/wess/code/api/.worktrees/ui"));
+    let argv = sbx().exec_argv(
+        "claude --version",
+        Some("/Users/wess/code/api/.worktrees/ui"),
+    );
     let w = argv.iter().position(|a| a == "-w").unwrap();
     assert_eq!(argv[w + 1], "/Users/wess/code/api/.worktrees/ui");
     assert_eq!(&argv[argv.len() - 2..], &["-lc", "claude --version"]);
@@ -97,10 +110,16 @@ fn exec_argv_honors_a_worktree_cwd() {
 fn home_env_points_at_the_volume() {
     let s = sbx().with_home_volume("vol");
     assert!(s.env.iter().any(|(k, v)| k == "HOME" && v == HOME_DIR));
-    assert!(s.mounts.iter().any(|m| m.source == "vol" && m.target == HOME_DIR));
+    assert!(s
+        .mounts
+        .iter()
+        .any(|m| m.source == "vol" && m.target == HOME_DIR));
     // Env reaches an exec too, not just create — a bare `docker exec` would
     // otherwise land in the image's HOME and miss the agent's credentials.
-    assert!(s.shell_argv(None).join(" ").contains(&format!("HOME={HOME_DIR}")));
+    assert!(s
+        .shell_argv(None)
+        .join(" ")
+        .contains(&format!("HOME={HOME_DIR}")));
 }
 
 #[test]

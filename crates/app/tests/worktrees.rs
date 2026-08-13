@@ -8,7 +8,10 @@ fn spec_without_branch() {
 
 #[test]
 fn spec_with_branch() {
-    assert_eq!(split_spec("../feature@my-branch"), ("../feature", Some("my-branch")));
+    assert_eq!(
+        split_spec("../feature@my-branch"),
+        ("../feature", Some("my-branch"))
+    );
     assert_eq!(split_spec("wt@wip"), ("wt", Some("wip")));
 }
 

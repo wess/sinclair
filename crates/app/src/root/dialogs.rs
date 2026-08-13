@@ -24,7 +24,12 @@ impl WorkspaceView {
     pub(crate) fn open_annotate(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let id = self.group.read(cx).active_item();
         if self.focused_terminal(cx).is_some() {
-            self.open_rename(crate::rename::Target::Annotate(id), String::new(), window, cx);
+            self.open_rename(
+                crate::rename::Target::Annotate(id),
+                String::new(),
+                window,
+                cx,
+            );
         }
     }
 

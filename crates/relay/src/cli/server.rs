@@ -191,7 +191,9 @@ fn health_marker(body: &str) -> bool {
 
 /// True when whatever answers HTTP at `addr` identifies itself as relay.
 fn is_relay(addr: &str) -> bool {
-    http::get(addr, "/health").map(|b| health_marker(&b)).unwrap_or(false)
+    http::get(addr, "/health")
+        .map(|b| health_marker(&b))
+        .unwrap_or(false)
 }
 
 /// A fresh 256-bit token as hex (two v4 UUIDs concatenated).
@@ -204,7 +206,11 @@ fn gen_token() -> String {
 }
 
 /// Reject any request whose `Authorization: Bearer …` doesn't match the token.
-async fn auth(State(app): State<App>, req: axum::extract::Request, next: axum::middleware::Next) -> Response {
+async fn auth(
+    State(app): State<App>,
+    req: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> Response {
     let presented = req
         .headers()
         .get(AUTHORIZATION)
@@ -302,12 +308,17 @@ pub fn start(args: ServeArgs) -> Result<()> {
         // A daemon that couldn't bind (or crashed) exits immediately — surface
         // its actual error instead of polling a dead address.
         if let Ok(Some(status)) = child.try_wait() {
-            return Err(anyhow!("server exited at startup ({status}): {}", log_tail()));
+            return Err(anyhow!(
+                "server exited at startup ({status}): {}",
+                log_tail()
+            ));
         }
         // Ready means *our* child wrote the record (it does so once the socket
         // is bound) and the listener answers as relay — a stale record or a
         // foreign service holding the port can't pass as success.
-        let Ok(info) = paths::read_info() else { continue };
+        let Ok(info) = paths::read_info() else {
+            continue;
+        };
         if info.pid != child.id() || !is_relay(&info.addr) {
             continue;
         }

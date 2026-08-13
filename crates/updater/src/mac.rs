@@ -38,7 +38,10 @@ pub(crate) fn install(
     struct Unmount(std::path::PathBuf);
     impl Drop for Unmount {
         fn drop(&mut self) {
-            let _ = Command::new("hdiutil").args(["detach", "-quiet"]).arg(&self.0).status();
+            let _ = Command::new("hdiutil")
+                .args(["detach", "-quiet"])
+                .arg(&self.0)
+                .status();
         }
     }
 

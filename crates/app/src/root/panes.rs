@@ -158,7 +158,11 @@ impl WorkspaceView {
     }
 
     /// Spawn an item inheriting the focused item's working directory.
-    pub(crate) fn spawn_default(&mut self, window: &mut Window, cx: &mut Context<Self>) -> Option<ItemId> {
+    pub(crate) fn spawn_default(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Option<ItemId> {
         let inherit = self.focused_cwd_path(cx);
         let options = session::options(&self.opts, SPAWN_COLS, SPAWN_ROWS, inherit);
         self.spawn(options, window, cx)

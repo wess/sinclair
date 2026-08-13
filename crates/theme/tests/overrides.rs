@@ -41,8 +41,7 @@ fn field_overrides_apply() {
 
 #[test]
 fn partial_override_leaves_rest() {
-    let out =
-        apply_overrides(base(), Some("#101010"), None, None, None, None, None, &[]).unwrap();
+    let out = apply_overrides(base(), Some("#101010"), None, None, None, None, None, &[]).unwrap();
     assert_eq!(out.background, hex("#101010"));
     assert_eq!(out.foreground, base().foreground);
     assert_eq!(out.cursor, base().cursor);
@@ -60,8 +59,7 @@ fn ansi_overrides_apply() {
 
 #[test]
 fn bad_hex_is_reported() {
-    let err =
-        apply_overrides(base(), Some("nope"), None, None, None, None, None, &[]).unwrap_err();
+    let err = apply_overrides(base(), Some("nope"), None, None, None, None, None, &[]).unwrap_err();
     match err {
         OverrideError::Hex { field, value, .. } => {
             assert_eq!(field, "background");
@@ -91,8 +89,7 @@ fn out_of_range_index_is_reported() {
 #[test]
 fn errors_display() {
     assert!(OverrideError::Index(200).to_string().contains("200"));
-    let err =
-        apply_overrides(base(), None, Some("xx"), None, None, None, None, &[]).unwrap_err();
+    let err = apply_overrides(base(), None, Some("xx"), None, None, None, None, &[]).unwrap_err();
     let msg = err.to_string();
     assert!(msg.contains("foreground") && msg.contains("xx"));
 }

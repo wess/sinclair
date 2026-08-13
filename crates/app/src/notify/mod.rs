@@ -44,7 +44,12 @@ pub fn send(title: &str, body: &str) {
 #[cfg(target_os = "macos")]
 fn osascript(title: &str, body: &str) {
     let esc = |s: &str| s.replace('\\', "\\\\").replace('"', "\\\"");
-    let script =
-        format!("display notification \"{}\" with title \"{}\"", esc(body), esc(title));
-    let _ = std::process::Command::new("osascript").args(["-e", &script]).output();
+    let script = format!(
+        "display notification \"{}\" with title \"{}\"",
+        esc(body),
+        esc(title)
+    );
+    let _ = std::process::Command::new("osascript")
+        .args(["-e", &script])
+        .output();
 }

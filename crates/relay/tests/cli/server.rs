@@ -2,7 +2,10 @@ use super::*;
 
 #[test]
 fn resolve_defaults_addr_and_db() {
-    let args = ServeArgs { addr: None, db: None };
+    let args = ServeArgs {
+        addr: None,
+        db: None,
+    };
     let (addr, db) = resolve(&args);
     assert_eq!(addr, "127.0.0.1:7777");
     assert!(db.ends_with("relay.db"));

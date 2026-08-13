@@ -78,7 +78,10 @@ pub fn scan(kind: &str, builtins: &[(&str, &str)]) -> BTreeMap<String, Source> {
     for (n, _) in builtins {
         seen.insert((*n).to_string(), Source::Builtin);
     }
-    for (d, src) in [(user_dir(kind), Source::User), (project_dir(kind), Source::Project)] {
+    for (d, src) in [
+        (user_dir(kind), Source::User),
+        (project_dir(kind), Source::Project),
+    ] {
         if let Ok(entries) = std::fs::read_dir(&d) {
             for e in entries.flatten() {
                 let path = e.path();
@@ -108,7 +111,11 @@ fn editor() -> String {
 /// Open `$EDITOR` on a temp seed, run `check(name, text)` on the result, and
 /// only then move it into place — a draft that fails to parse is left behind
 /// for another attempt instead of clobbering the target.
-pub fn open_editor(target: &Path, seed: String, check: &dyn Fn(&str, &str) -> Result<()>) -> Result<()> {
+pub fn open_editor(
+    target: &Path,
+    seed: String,
+    check: &dyn Fn(&str, &str) -> Result<()>,
+) -> Result<()> {
     if let Some(parent) = target.parent() {
         std::fs::create_dir_all(parent)?;
     }

@@ -16,7 +16,9 @@ fn layout_wants_alt_classifies_us_layouts() {
     // Layouts that rely on Option for everyday characters keep composing.
     assert!(!layout_wants_alt("com.apple.keylayout.German"));
     assert!(!layout_wants_alt("com.apple.keylayout.British"));
-    assert!(!layout_wants_alt("com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese"));
+    assert!(!layout_wants_alt(
+        "com.apple.inputmethod.Kotoeri.RomajiTyping.Japanese"
+    ));
 }
 
 const OPT: input::Mods = input::Mods {
@@ -76,13 +78,11 @@ fn option_as_alt_meta_prefixes_base_key() {
 fn non_macos_and_no_option_pass_through() {
     // Off the macOS path, text passes through untouched even with the
     // compose policy.
-    let (mods, text) =
-        option_policy(config::OptionAsAlt::False, false, true, "b", Some("b"), OPT);
+    let (mods, text) = option_policy(config::OptionAsAlt::False, false, true, "b", Some("b"), OPT);
     assert!(mods.alt);
     assert_eq!(text, Some("b"));
     // Option not actually held: untouched regardless of policy.
-    let (mods, text) =
-        option_policy(config::OptionAsAlt::False, true, false, "b", Some("b"), OPT);
+    let (mods, text) = option_policy(config::OptionAsAlt::False, true, false, "b", Some("b"), OPT);
     assert!(mods.alt);
     assert_eq!(text, Some("b"));
 }

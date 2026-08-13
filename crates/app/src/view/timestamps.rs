@@ -87,13 +87,9 @@ impl TerminalView {
         if !enabled(cx) || self.line_times.is_empty() {
             return None;
         }
-        let (sb_len, offset, rows) = self.session.with_term(|t| {
-            (
-                t.grid().scrollback().len(),
-                t.display_offset(),
-                t.rows(),
-            )
-        });
+        let (sb_len, offset, rows) = self
+            .session
+            .with_term(|t| (t.grid().scrollback().len(), t.display_offset(), t.rows()));
         let top = sb_len.saturating_sub(offset);
         let now = now_secs();
         let mut color = crate::colors::hsla(self.colors.fg);

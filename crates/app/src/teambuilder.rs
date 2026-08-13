@@ -12,7 +12,9 @@ use gpui::{
     MouseButton, SharedString, Subscription, TitlebarOptions, Window, WindowBounds,
     WindowControlArea, WindowOptions,
 };
-use guise::{Button, SegmentedControl, SegmentedControlEvent, Select, TextInput, TextInputEvent, Variant};
+use guise::{
+    Button, SegmentedControl, SegmentedControlEvent, Select, TextInput, TextInputEvent, Variant,
+};
 
 use crate::relay::{TeamMemberSpec, TeamSpec, TEAM_SHAPES};
 use crate::root::WorkspaceView;
@@ -97,11 +99,23 @@ impl TeamBuilderView {
         providers.extend(crate::relay::enabled_agents(&opts));
         Self::load_roles(cx);
 
-        let mode = cx.new(|cx| SegmentedControl::new(cx).data(["Manual", "Guided"]).selected(0));
-        let name =
-            cx.new(|cx| TextInput::new(cx).label("Team name").placeholder("my-team"));
-        let layout = cx.new(|cx| Select::new(cx).label("Layout").data(shape_list()).selected(0));
-        let scope = cx.new(|cx| SegmentedControl::new(cx).data(["User", "Project"]).selected(0));
+        let mode = cx.new(|cx| {
+            SegmentedControl::new(cx)
+                .data(["Manual", "Guided"])
+                .selected(0)
+        });
+        let name = cx.new(|cx| TextInput::new(cx).label("Team name").placeholder("my-team"));
+        let layout = cx.new(|cx| {
+            Select::new(cx)
+                .label("Layout")
+                .data(shape_list())
+                .selected(0)
+        });
+        let scope = cx.new(|cx| {
+            SegmentedControl::new(cx)
+                .data(["User", "Project"])
+                .selected(0)
+        });
         let desc = cx.new(|cx| {
             TextInput::new(cx)
                 .label("Describe the team")
@@ -110,14 +124,23 @@ impl TeamBuilderView {
         let focus = cx.focus_handle();
 
         // Seed one member so the manual form is usable immediately.
-        let members = vec![member_row(cx, &roles, &providers, "lead", Some("supervisor"), None)];
+        let members = vec![member_row(
+            cx,
+            &roles,
+            &providers,
+            "lead",
+            Some("supervisor"),
+            None,
+        )];
 
         let me = cx.entity().downgrade();
         let mut subs = Vec::new();
-        subs.push(cx.subscribe(&mode, |this, _src, ev: &SegmentedControlEvent, cx| {
-            this.guided = ev.0 == 1;
-            cx.notify();
-        }));
+        subs.push(
+            cx.subscribe(&mode, |this, _src, ev: &SegmentedControlEvent, cx| {
+                this.guided = ev.0 == 1;
+                cx.notify();
+            }),
+        );
         subs.push(window.subscribe(&desc, cx, move |_src, ev, window, app| {
             if let TextInputEvent::Submit(_) = ev {
                 me.update(app, |this, cx| this.generate(window, cx)).ok();
@@ -189,17 +212,46 @@ impl TeamBuilderView {
     fn apply_spec(&mut self, spec: TeamSpec, cx: &mut Context<Self>) {
         self.name = cx.new({
             let v = spec.name.clone();
-            move |cx| TextInput::new(cx).label("Team name").placeholder("my-team").value(&v)
+            move |cx| {
+                TextInput::new(cx)
+                    .label("Team name")
+                    .placeholder("my-team")
+                    .value(&v)
+            }
         });
-        let li = TEAM_SHAPES.iter().position(|s| *s == spec.layout).unwrap_or(0);
-        self.layout = cx.new(|cx| Select::new(cx).label("Layout").data(shape_list()).selected(li));
+        let li = TEAM_SHAPES
+            .iter()
+            .position(|s| *s == spec.layout)
+            .unwrap_or(0);
+        self.layout = cx.new(|cx| {
+            Select::new(cx)
+                .label("Layout")
+                .data(shape_list())
+                .selected(li)
+        });
         self.members = spec
             .members
             .iter()
-            .map(|m| member_row(cx, &self.roles, &self.providers, &m.name, m.role.as_deref(), m.agent.as_deref()))
+            .map(|m| {
+                member_row(
+                    cx,
+                    &self.roles,
+                    &self.providers,
+                    &m.name,
+                    m.role.as_deref(),
+                    m.agent.as_deref(),
+                )
+            })
             .collect();
         if self.members.is_empty() {
-            self.members.push(member_row(cx, &self.roles, &self.providers, "lead", Some("supervisor"), None));
+            self.members.push(member_row(
+                cx,
+                &self.roles,
+                &self.providers,
+                "lead",
+                Some("supervisor"),
+                None,
+            ));
         }
         self.have_form = true;
     }
@@ -257,7 +309,11 @@ impl TeamBuilderView {
             return;
         }
         let li = self.layout.read(cx).selected_index().unwrap_or(0);
-        let layout = TEAM_SHAPES.get(li).copied().unwrap_or("columns").to_string();
+        let layout = TEAM_SHAPES
+            .get(li)
+            .copied()
+            .unwrap_or("columns")
+            .to_string();
         let members: Vec<TeamMemberSpec> = self
             .members
             .iter()
@@ -269,8 +325,16 @@ impl TeamBuilderView {
                 let ri = row.role.read(cx).selected_index().unwrap_or(0);
                 let role = self.roles.get(ri).cloned();
                 let pi = row.provider.read(cx).selected_index().unwrap_or(0);
-                let agent = if pi == 0 { None } else { self.providers.get(pi).cloned() };
-                Some(TeamMemberSpec { name: mname, role, agent })
+                let agent = if pi == 0 {
+                    None
+                } else {
+                    self.providers.get(pi).cloned()
+                };
+                Some(TeamMemberSpec {
+                    name: mname,
+                    role,
+                    agent,
+                })
             })
             .collect();
         if members.is_empty() {
@@ -279,7 +343,11 @@ impl TeamBuilderView {
             return;
         }
         let user = self.scope.read(cx).selected_index() == 0;
-        let spec = TeamSpec { name, layout, members };
+        let spec = TeamSpec {
+            name,
+            layout,
+            members,
+        };
         let Some(handle) = window.window_handle().downcast::<Self>() else {
             return;
         };
@@ -332,17 +400,25 @@ fn member_row(
 ) -> MemberRow {
     let seed = name.to_string();
     let name_in = cx.new(move |cx| TextInput::new(cx).placeholder("member name").value(&seed));
-    let ri = role.and_then(|r| roles.iter().position(|x| x == r)).unwrap_or(0);
+    let ri = role
+        .and_then(|r| roles.iter().position(|x| x == r))
+        .unwrap_or(0);
     let role_sel = cx.new({
         let data = roles.to_vec();
         move |cx| Select::new(cx).label("Role").data(data).selected(ri)
     });
-    let pi = provider.and_then(|p| providers.iter().position(|x| x == p)).unwrap_or(0);
+    let pi = provider
+        .and_then(|p| providers.iter().position(|x| x == p))
+        .unwrap_or(0);
     let prov_sel = cx.new({
         let data = providers.to_vec();
         move |cx| Select::new(cx).label("Agent").data(data).selected(pi)
     });
-    MemberRow { name: name_in, role: role_sel, provider: prov_sel }
+    MemberRow {
+        name: name_in,
+        role: role_sel,
+        provider: prov_sel,
+    }
 }
 
 fn shape_list() -> Vec<String> {
@@ -351,10 +427,18 @@ fn shape_list() -> Vec<String> {
 
 /// The built-in roles, shown until (or in place of) the relay-provided list.
 fn fallback_roles() -> Vec<String> {
-    ["supervisor", "worker", "frontend", "backend", "reviewer", "devops", "qa"]
-        .iter()
-        .map(|s| s.to_string())
-        .collect()
+    [
+        "supervisor",
+        "worker",
+        "frontend",
+        "backend",
+        "reviewer",
+        "devops",
+        "qa",
+    ]
+    .iter()
+    .map(|s| s.to_string())
+    .collect()
 }
 
 impl Render for TeamBuilderView {
@@ -369,7 +453,11 @@ impl Render for TeamBuilderView {
         // Guided input (only in the Guided tab).
         let guided_ui = if self.guided {
             let gen = me.clone();
-            let label = if self.busy { "Generating…" } else { "Generate" };
+            let label = if self.busy {
+                "Generating…"
+            } else {
+                "Generate"
+            };
             Some(
                 div()
                     .flex()
@@ -407,7 +495,13 @@ impl Render for TeamBuilderView {
                         .rounded(px(8.0))
                         .bg(t.surface().hsla())
                         .child(row.name.clone())
-                        .child(div().flex().gap(px(8.0)).child(row.role.clone()).child(row.provider.clone()))
+                        .child(
+                            div()
+                                .flex()
+                                .gap(px(8.0))
+                                .child(row.role.clone())
+                                .child(row.provider.clone()),
+                        )
                         .child(
                             div().flex().justify_end().child(
                                 Button::new(SharedString::from(format!("team-rm-{i}")), "Remove")
@@ -458,12 +552,19 @@ impl Render for TeamBuilderView {
         };
 
         let status = self.status.clone().map(|s| {
-            div().text_size(px(12.0)).text_color(dim).child(SharedString::from(s))
+            div()
+                .text_size(px(12.0))
+                .text_color(dim)
+                .child(SharedString::from(s))
         });
 
         let save = me.clone();
         let show_save = self.have_form;
-        let save_label = if self.saving { "Saving…" } else { "Save Team" };
+        let save_label = if self.saving {
+            "Saving…"
+        } else {
+            "Save Team"
+        };
         let footer = div()
             .flex()
             .justify_end()
@@ -496,7 +597,12 @@ impl Render for TeamBuilderView {
             .pb(px(16.0))
             .gap(px(12.0))
             .child(drag_strip())
-            .child(div().text_size(px(15.0)).font_weight(FontWeight::BOLD).child("Team Builder"))
+            .child(
+                div()
+                    .text_size(px(15.0))
+                    .font_weight(FontWeight::BOLD)
+                    .child("Team Builder"),
+            )
             .child(self.mode.clone())
             .children(guided_ui)
             .children(status)

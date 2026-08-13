@@ -217,6 +217,19 @@ pub struct Options {
     /// default, so tabs show just the path (the host wraps to two lines and
     /// reads poorly in a narrow tab).
     pub tab_title_show_host: bool,
+    /// File key: `tab-peek` - whether the tab peek can be opened at all: a
+    /// strip of live miniatures of every tab in the window, dropped under the
+    /// tab bar without resizing the terminal underneath. On by default; it
+    /// costs nothing until it is opened.
+    pub tab_peek: bool,
+    /// File key: `tab-peek-hover` - milliseconds the pointer must rest on the
+    /// tab bar before the peek drops on its own. `0` (the default) means only
+    /// the keybinding and the menu open it.
+    pub tab_peek_hover: u32,
+    /// File key: `tab-peek-height` - height of a peek card in px (clamped to
+    /// 60..=400). Card width follows from the tab's own grid, so a card always
+    /// has the shape of the screen it shows.
+    pub tab_peek_height: u32,
     /// File key: `palette`, repeated `N=#rrggbb` entries (accumulated).
     pub palette: Vec<(u8, String)>,
     /// File key: `plugin`, repeated plugin directories or manifest paths.
@@ -405,7 +418,11 @@ impl Options {
     /// The theme name to use for the given OS appearance. When `theme-light` /
     /// `theme-dark` are set they win for that appearance; otherwise `theme`.
     pub fn theme_for(&self, dark: bool) -> &str {
-        let picked = if dark { &self.theme_dark } else { &self.theme_light };
+        let picked = if dark {
+            &self.theme_dark
+        } else {
+            &self.theme_light
+        };
         if picked.is_empty() {
             &self.theme
         } else {
@@ -472,6 +489,9 @@ impl Default for Options {
             autosuggest_assist: true,
             session_restore: false,
             tab_title_show_host: false,
+            tab_peek: true,
+            tab_peek_hover: 0,
+            tab_peek_height: 120,
             palette: Vec::new(),
             plugin: Vec::new(),
             container: Vec::new(),

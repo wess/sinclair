@@ -57,7 +57,10 @@ fn remove_last_member_without_trailing_comma() {
     let text = "{\n  \"font-size\": 14,\n  \"theme\": \"nord\"\n}\n";
     let out = remove(text, "theme").unwrap();
     assert!(!out.contains("theme"));
-    assert_eq!(crate::settings::user_keys(&out), vec!["font-size".to_string()]);
+    assert_eq!(
+        crate::settings::user_keys(&out),
+        vec!["font-size".to_string()]
+    );
 }
 
 #[test]

@@ -20,7 +20,7 @@ use terminal::Session;
 use crate::colors::{self, Colors};
 use crate::metrics::{self, CellSize, Padding};
 use crate::mouse::MouseState;
-use crate::pointer::CopyHook;
+use crate::pointer::{CopyHook, PathHook};
 
 #[cfg(test)]
 use theme::Rgb;
@@ -123,6 +123,9 @@ pub struct TerminalElement {
     /// What to do with text captured by copy-on-select; hosts can layer
     /// redaction or clipboard history on top of the plain clipboard write.
     copy: Rc<CopyHook>,
+    /// What an open-modifier click on a filesystem path does. Opt-in via
+    /// [`TerminalElement::on_path`]; unset, paths are inert.
+    path: Option<Rc<PathHook>>,
     smart_select: bool,
     middle_click_paste: bool,
     /// Whether this pane holds keyboard focus; an unfocused pane paints a
@@ -171,6 +174,7 @@ impl TerminalElement {
             mouse,
             copy_on_select,
             copy,
+            path: None,
             smart_select,
             middle_click_paste,
             focused,
@@ -179,6 +183,15 @@ impl TerminalElement {
             image_cache,
             snap_cache,
         }
+    }
+
+    /// Make open-modifier clicks on filesystem paths do something. The hook
+    /// receives a *candidate* — see [`crate::pointer::PathHook`]. A builder
+    /// rather than another constructor argument: this one is opt-in, and the
+    /// constructor is long enough already.
+    pub fn on_path(mut self, hook: Rc<PathHook>) -> Self {
+        self.path = Some(hook);
+        self
     }
 
     fn resize(&self, desired: ResizeRequest, current: (usize, usize), cx: &mut App) {

@@ -40,7 +40,11 @@ fn current_refuses_an_unreadable_existing_file() {
     std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o000)).unwrap();
     // Root can read anything; the check is meaningless in that case.
     if unsafe { libc::geteuid() } != 0 {
-        assert_eq!(current(&path), None, "unreadable config must refuse the write");
+        assert_eq!(
+            current(&path),
+            None,
+            "unreadable config must refuse the write"
+        );
     }
     std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
     let _ = std::fs::remove_dir_all(&dir);

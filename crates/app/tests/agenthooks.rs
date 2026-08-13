@@ -16,7 +16,9 @@ fn install_adds_all_events() {
 #[test]
 fn install_quotes_an_exe_path_with_spaces() {
     let out = install_into(json!({}), "/Applications/My Apps/sinclair");
-    let cmd = out["hooks"]["Stop"][0]["hooks"][0]["command"].as_str().unwrap();
+    let cmd = out["hooks"]["Stop"][0]["hooks"][0]["command"]
+        .as_str()
+        .unwrap();
     assert_eq!(cmd, "'/Applications/My Apps/sinclair' agent-status done");
 }
 
@@ -46,7 +48,10 @@ fn install_preserves_foreign_settings_and_hooks() {
     let stop = out["hooks"]["Stop"].as_array().unwrap();
     assert_eq!(stop.len(), 2);
     assert_eq!(stop[0]["hooks"][0]["command"], json!("echo bye"));
-    assert!(stop[1]["hooks"][0]["command"].as_str().unwrap().contains("agent-status"));
+    assert!(stop[1]["hooks"][0]["command"]
+        .as_str()
+        .unwrap()
+        .contains("agent-status"));
 }
 
 #[test]

@@ -270,6 +270,13 @@ fn auto_slider(
         label,
         desc,
         section,
-        control: Control::Slider(Slider { get, min, max, step, int: true, auto_zero: true }),
+        control: Control::Slider(Slider {
+            get,
+            min,
+            max,
+            step,
+            int: true,
+            auto_zero: true,
+        }),
     }
 }

@@ -27,7 +27,12 @@ fn appdir(app: &str) -> Option<PathBuf> {
     if home.is_empty() {
         return None;
     }
-    Some(PathBuf::from(home).join(".config").join(app).join("plugins"))
+    Some(
+        PathBuf::from(home)
+            .join(".config")
+            .join(app)
+            .join("plugins"),
+    )
 }
 
 /// Load explicitly configured plugin directories, the user's installed plugins,

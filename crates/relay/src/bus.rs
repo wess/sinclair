@@ -237,7 +237,10 @@ mod tests {
         let n = N.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         let path = std::env::temp_dir().join(format!("relay-bus-{}-{n}.db", std::process::id()));
         let pool = db::open(path.to_str().unwrap()).await.unwrap();
-        (App::new(pool, "http://127.0.0.1:0".into(), "t".into()), path)
+        (
+            App::new(pool, "http://127.0.0.1:0".into(), "t".into()),
+            path,
+        )
     }
 
     fn cleanup(path: &std::path::Path) {
@@ -256,11 +259,17 @@ mod tests {
             .await
             .unwrap();
         // backend registers only afterwards.
-        db::upsert_agent(&app.db, "backend", "backend", "").await.unwrap();
+        db::upsert_agent(&app.db, "backend", "backend", "")
+            .await
+            .unwrap();
         let msgs = await_messages(&app, "backend", false, Duration::from_millis(10))
             .await
             .unwrap();
-        assert_eq!(msgs.len(), 1, "queued task should survive late registration");
+        assert_eq!(
+            msgs.len(),
+            1,
+            "queued task should survive late registration"
+        );
         assert_eq!(msgs[0].body, "build the api");
         cleanup(&path);
     }
@@ -270,7 +279,9 @@ mod tests {
     #[tokio::test]
     async fn unacked_drain_is_redelivered_until_acked() {
         let (app, path) = app().await;
-        db::upsert_agent(&app.db, "backend", "backend", "").await.unwrap();
+        db::upsert_agent(&app.db, "backend", "backend", "")
+            .await
+            .unwrap();
         deliver(&app, "manager", "direct", Some("backend"), "task 1")
             .await
             .unwrap();
@@ -297,8 +308,12 @@ mod tests {
     #[tokio::test]
     async fn ack_never_rewinds_the_cursor() {
         let (app, path) = app().await;
-        db::upsert_agent(&app.db, "backend", "backend", "").await.unwrap();
-        deliver(&app, "manager", "direct", Some("backend"), "one").await.unwrap();
+        db::upsert_agent(&app.db, "backend", "backend", "")
+            .await
+            .unwrap();
+        deliver(&app, "manager", "direct", Some("backend"), "one")
+            .await
+            .unwrap();
         let id2 = deliver(&app, "manager", "direct", Some("backend"), "two")
             .await
             .unwrap();
@@ -307,7 +322,10 @@ mod tests {
         let msgs = await_messages(&app, "backend", false, Duration::from_millis(10))
             .await
             .unwrap();
-        assert!(msgs.is_empty(), "an out-of-order ack must not replay history");
+        assert!(
+            msgs.is_empty(),
+            "an out-of-order ack must not replay history"
+        );
         cleanup(&path);
     }
 
@@ -318,7 +336,10 @@ mod tests {
         let (app, path) = app().await;
         app.db.close().await;
         let res = await_messages(&app, "backend", false, Duration::from_millis(10)).await;
-        assert!(res.is_err(), "a closed pool must be an error, not an empty inbox");
+        assert!(
+            res.is_err(),
+            "a closed pool must be an error, not an empty inbox"
+        );
         cleanup(&path);
     }
 
@@ -328,7 +349,9 @@ mod tests {
     #[tokio::test]
     async fn saturated_pool_queues_then_backs_off() {
         let (app, path) = app().await;
-        db::upsert_agent(&app.db, "backend", "backend", "").await.unwrap();
+        db::upsert_agent(&app.db, "backend", "backend", "")
+            .await
+            .unwrap();
         let _all = app
             .waits
             .acquire_many(crate::state::MAX_PARKED_WAITS as u32)
@@ -350,7 +373,9 @@ mod tests {
     #[tokio::test]
     async fn saturated_pool_respects_a_shorter_deadline() {
         let (app, path) = app().await;
-        db::upsert_agent(&app.db, "backend", "backend", "").await.unwrap();
+        db::upsert_agent(&app.db, "backend", "backend", "")
+            .await
+            .unwrap();
         let _all = app
             .waits
             .acquire_many(crate::state::MAX_PARKED_WAITS as u32)
@@ -369,7 +394,9 @@ mod tests {
     async fn deliver_bumps_the_feed_tip() {
         let (app, path) = app().await;
         let mut rx = app.feed_tip.subscribe();
-        let id = deliver(&app, "manager", "broadcast", None, "hi").await.unwrap();
+        let id = deliver(&app, "manager", "broadcast", None, "hi")
+            .await
+            .unwrap();
         rx.changed().await.unwrap();
         assert_eq!(*rx.borrow(), id);
         cleanup(&path);
@@ -380,17 +407,27 @@ mod tests {
     #[tokio::test]
     async fn waiter_entries_are_evicted_after_the_wait() {
         let (app, path) = app().await;
-        db::upsert_agent(&app.db, "backend", "backend", "").await.unwrap();
+        db::upsert_agent(&app.db, "backend", "backend", "")
+            .await
+            .unwrap();
         assert_eq!(app.waiter_count(), 0);
         let _ = await_messages(&app, "backend", false, Duration::from_millis(10))
             .await
             .unwrap();
-        assert_eq!(app.waiter_count(), 0, "a finished wait leaves no entry behind");
+        assert_eq!(
+            app.waiter_count(),
+            0,
+            "a finished wait leaves no entry behind"
+        );
         let g1 = app.waiter("backend");
         let g2 = app.waiter("backend");
         assert_eq!(app.waiter_count(), 1);
         drop(g1);
-        assert_eq!(app.waiter_count(), 1, "entry survives while a waiter remains");
+        assert_eq!(
+            app.waiter_count(),
+            1,
+            "entry survives while a waiter remains"
+        );
         drop(g2);
         assert_eq!(app.waiter_count(), 0);
         cleanup(&path);
@@ -432,22 +469,42 @@ mod tests {
     #[tokio::test]
     async fn status_report_and_wait() {
         let (app, path) = app().await;
-        db::upsert_agent(&app.db, "worker", "worker", "").await.unwrap();
+        db::upsert_agent(&app.db, "worker", "worker", "")
+            .await
+            .unwrap();
         // Nothing reported yet: an empty `want` (any non-empty) does not match.
         let s = await_status(&app, "worker", &[], false, Duration::from_millis(10))
             .await
             .unwrap();
         assert_eq!(s, "", "no status reported yet");
         report_status(&app, "worker", "working").await.unwrap();
-        let s = await_status(&app, "worker", &["done".into()], false, Duration::from_millis(10))
-            .await
-            .unwrap();
-        assert_eq!(s, "working", "returns current status when it does not match");
+        let s = await_status(
+            &app,
+            "worker",
+            &["done".into()],
+            false,
+            Duration::from_millis(10),
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            s, "working",
+            "returns current status when it does not match"
+        );
         report_status(&app, "worker", "done").await.unwrap();
-        let s = await_status(&app, "worker", &["done".into(), "blocked".into()], false, Duration::from_millis(10))
-            .await
-            .unwrap();
-        assert_eq!(s, "done", "matches once the target reaches the wanted state");
+        let s = await_status(
+            &app,
+            "worker",
+            &["done".into(), "blocked".into()],
+            false,
+            Duration::from_millis(10),
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            s, "done",
+            "matches once the target reaches the wanted state"
+        );
         cleanup(&path);
     }
 
@@ -456,13 +513,21 @@ mod tests {
     #[tokio::test]
     async fn wait_status_wakes_on_report() {
         let (app, path) = app().await;
-        db::upsert_agent(&app.db, "builder", "worker", "").await.unwrap();
+        db::upsert_agent(&app.db, "builder", "worker", "")
+            .await
+            .unwrap();
         let waiter = {
             let app = app.clone();
             tokio::spawn(async move {
-                await_status(&app, "builder", &["done".into()], true, Duration::from_secs(5))
-                    .await
-                    .unwrap()
+                await_status(
+                    &app,
+                    "builder",
+                    &["done".into()],
+                    true,
+                    Duration::from_secs(5),
+                )
+                .await
+                .unwrap()
             })
         };
         // Give the waiter a moment to park, then flip the status.
@@ -483,7 +548,9 @@ mod tests {
     #[tokio::test]
     async fn a_channel_post_wakes_a_parked_subscriber() {
         let (app, path) = app().await;
-        db::upsert_agent(&app.db, "backend", "worker", "").await.unwrap();
+        db::upsert_agent(&app.db, "backend", "worker", "")
+            .await
+            .unwrap();
         db::subscribe(&app.db, "backend", "devops").await.unwrap();
         let waiter = {
             let app = app.clone();
@@ -511,7 +578,9 @@ mod tests {
     #[tokio::test]
     async fn a_direct_message_wakes_a_parked_recipient() {
         let (app, path) = app().await;
-        db::upsert_agent(&app.db, "backend", "worker", "").await.unwrap();
+        db::upsert_agent(&app.db, "backend", "worker", "")
+            .await
+            .unwrap();
         let waiter = {
             let app = app.clone();
             tokio::spawn(async move {
@@ -541,7 +610,9 @@ mod tests {
         deliver(&app, "manager", "broadcast", None, "standup in 5")
             .await
             .unwrap();
-        db::upsert_agent(&app.db, "late", "worker", "").await.unwrap();
+        db::upsert_agent(&app.db, "late", "worker", "")
+            .await
+            .unwrap();
         let msgs = await_messages(&app, "late", false, Duration::from_millis(10))
             .await
             .unwrap();

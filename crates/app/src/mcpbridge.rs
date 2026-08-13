@@ -20,10 +20,7 @@ use crate::wasmhost::WasmRuntime;
 /// `[[tool]]`s run here in-process on a resident WASM instance, so agents see
 /// the plugins' tools alongside the built-ins. Blocks until stdin closes.
 pub fn run_stdio() {
-    let plugins = config::load()
-        .0
-        .plugin
-        .clone();
+    let plugins = config::load().0.plugin.clone();
     let plugins = plugin::load(&plugins).0;
     let (tools, routes) = all_tools(&plugins);
     // Resident WASM instances, created lazily. `None` if the engine can't start;
@@ -263,11 +260,16 @@ pub fn handle(op: &str, args: &Value, cx: &mut App) -> Result<Value, String> {
     // Debug builds skip the gate: `sinclair ipc` is the documented dev drive
     // surface and is compiled out of release builds.
     if op != "report_agent" && !cfg!(debug_assertions) && !mcp_enabled(cx) {
-        return Err("the MCP server is disabled (Settings \u{2192} AI \u{2192} MCP server)".to_string());
+        return Err(
+            "the MCP server is disabled (Settings \u{2192} AI \u{2192} MCP server)".to_string(),
+        );
     }
     if op == "notify" {
         let body = args.get("body").and_then(Value::as_str).unwrap_or_default();
-        let title = args.get("title").and_then(Value::as_str).unwrap_or("Sinclair");
+        let title = args
+            .get("title")
+            .and_then(Value::as_str)
+            .unwrap_or("Sinclair");
         crate::view::post_os_notification(title, body);
         return Ok(json!({ "ok": true }));
     }
@@ -276,8 +278,15 @@ pub fn handle(op: &str, args: &Value, cx: &mut App) -> Result<Value, String> {
     // workspaces for the pane rather than dispatching to the frontmost.
     if op == "report_agent" {
         let token = args.get("pane").and_then(Value::as_u64).unwrap_or(0);
-        let state = args.get("state").and_then(Value::as_str).unwrap_or_default().to_string();
-        let session = args.get("session").and_then(Value::as_str).map(str::to_string);
+        let state = args
+            .get("state")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string();
+        let session = args
+            .get("session")
+            .and_then(Value::as_str)
+            .map(str::to_string);
         let mut applied = false;
         for handle in cx.windows() {
             let Some(workspace) = handle.downcast::<WorkspaceView>() else {
@@ -299,7 +308,9 @@ pub fn handle(op: &str, args: &Value, cx: &mut App) -> Result<Value, String> {
     let op = op.to_string();
     let args = args.clone();
     workspace
-        .update(cx, |view, window, cx| view.mcp_dispatch(&op, &args, window, cx))
+        .update(cx, |view, window, cx| {
+            view.mcp_dispatch(&op, &args, window, cx)
+        })
         .map_err(|_| "terminal window is gone".to_string())?
 }
 

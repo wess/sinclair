@@ -76,7 +76,7 @@ pub struct Spec<'a> {
 /// `wait`, costing nothing until a teammate sends it work. A `driver` (the
 /// human-facing lead of a team, or a supervisor launched on its own) instead
 /// stays interactive: it registers, then hands control back to the human in its
-/// terminal and only calls `wait` to gather replies *after* it has delegated, 
+/// terminal and only calls `wait` to gather replies *after* it has delegated,
 /// never parking the human out of their own session.
 ///
 /// `optimize` trades the verbose, spelled-out protocol for a terse one-line
@@ -97,7 +97,10 @@ pub fn harness_prompt(
     } else if optimize {
         format!(" `join` {};", channels.join(", "))
     } else {
-        format!("- After registering, `join` these channels: {}.\n", channels.join(", "))
+        format!(
+            "- After registering, `join` these channels: {}.\n",
+            channels.join(", ")
+        )
     };
     let brief = if brief.trim().is_empty() {
         String::new()
@@ -109,14 +112,19 @@ pub fn harness_prompt(
         .map(|t| format!("\nYour standing focus: {}\n", t.trim()))
         .unwrap_or_default();
     let protocol = match (optimize, interactive) {
-        (true, true) => "Protocol: `register` name=\"{name}\" role=\"{role}\".{join} Stay \
+        (true, true) => {
+            "Protocol: `register` name=\"{name}\" role=\"{role}\".{join} Stay \
              interactive for the human's goal, split it into tasks, delegate with `send`/`post`, \
              then `wait` for replies and report back. An empty or failed `wait` means replies \
-             are still coming — call it again rather than giving up.\n",
-        (true, false) => "Protocol: `register` name=\"{name}\" role=\"{role}\".{join} Then loop: \
+             are still coming — call it again rather than giving up.\n"
+        }
+        (true, false) => {
+            "Protocol: `register` name=\"{name}\" role=\"{role}\".{join} Then loop: \
              `wait` for work, do it, report with `send`/`post`, `wait` again. An empty or failed \
-             `wait` is normal — call it again. Never stop the loop.\n",
-        (false, true) => "Protocol — follow exactly:\n\
+             `wait` is normal — call it again. Never stop the loop.\n"
+        }
+        (false, true) => {
+            "Protocol — follow exactly:\n\
              - Call `register` with name=\"{name}\" and role=\"{role}\" first.\n\
              {join}\
              - Then stop and let the human in this terminal give you a goal — do NOT \
@@ -128,8 +136,10 @@ pub fn harness_prompt(
              whenever you need their input.\n\
              - `wait` returning no messages, or failing with an error, does NOT mean the \
              work is finished — it is a normal timeout. Call `wait` again until every \
-             task you delegated has reported back.\n",
-        (false, false) => "Protocol — follow exactly:\n\
+             task you delegated has reported back.\n"
+        }
+        (false, false) => {
+            "Protocol — follow exactly:\n\
              - Call `register` with name=\"{name}\" and role=\"{role}\" first.\n\
              {join}\
              - Call `wait` to receive work; it blocks until a message arrives.\n\
@@ -139,9 +149,13 @@ pub fn harness_prompt(
              expected — it just means nothing arrived in time. Call `wait` again \
              immediately. Never treat it as a reason to stop or to report a problem.\n\
              - ALWAYS end your turn by calling `wait` again so you stay reachable. \
-             Never stop the wait-loop.\n",
+             Never stop the wait-loop.\n"
+        }
     };
-    let protocol = protocol.replace("{name}", name).replace("{role}", role).replace("{join}", &join);
+    let protocol = protocol
+        .replace("{name}", name)
+        .replace("{role}", role)
+        .replace("{join}", &join);
     let intro = if optimize {
         format!("You are \"{name}\" ({role}) on the Relay mesh (`relay` MCP tools).\n")
     } else {
@@ -353,7 +367,10 @@ mod tests {
         let extra = vec!["--dangerously-skip-permissions".to_string()];
         let launch = build(&spec("claude", &extra)).unwrap();
         assert_eq!(launch.program, "claude");
-        assert_eq!(launch.args.last().unwrap(), "--dangerously-skip-permissions");
+        assert_eq!(
+            launch.args.last().unwrap(),
+            "--dangerously-skip-permissions"
+        );
     }
 
     /// An unattended interactive pane (a team split) needs the bypass just as
@@ -364,8 +381,14 @@ mod tests {
         let mut s = spec("claude", &[]);
         s.skip_perms = true;
         let launch = build(&s).unwrap();
-        assert!(!launch.args.iter().any(|a| a == "-p"), "should stay interactive");
-        assert!(launch.args.iter().any(|a| a == "--dangerously-skip-permissions"));
+        assert!(
+            !launch.args.iter().any(|a| a == "-p"),
+            "should stay interactive"
+        );
+        assert!(launch
+            .args
+            .iter()
+            .any(|a| a == "--dangerously-skip-permissions"));
     }
 
     #[test]
@@ -373,7 +396,10 @@ mod tests {
         let mut s = spec("codex", &[]);
         s.skip_perms = true;
         let launch = build(&s).unwrap();
-        assert!(!launch.args.iter().any(|a| a == "exec"), "should stay interactive");
+        assert!(
+            !launch.args.iter().any(|a| a == "exec"),
+            "should stay interactive"
+        );
         assert!(launch.args.iter().any(|a| a == "approval_policy=\"never\""));
     }
 
@@ -383,7 +409,11 @@ mod tests {
         s.skip_perms = true;
         assert!(build(&s).unwrap().args.iter().any(|a| a == "--yolo"));
         // And stays off when it wasn't asked for.
-        assert!(!build(&spec("gemini", &[])).unwrap().args.iter().any(|a| a == "--yolo"));
+        assert!(!build(&spec("gemini", &[]))
+            .unwrap()
+            .args
+            .iter()
+            .any(|a| a == "--yolo"));
     }
 
     /// Relay knows the bypass flag for the agents it builds argv for, and only
@@ -394,7 +424,10 @@ mod tests {
         let mut s = spec("ollama", &[]);
         s.skip_perms = true;
         let launch = build(&s).unwrap();
-        assert!(!launch.args.iter().any(|a| a.contains("skip-permissions") || a == "--yolo"));
+        assert!(!launch
+            .args
+            .iter()
+            .any(|a| a.contains("skip-permissions") || a == "--yolo"));
 
         let mut s = spec("claude", &[]);
         s.custom = Some("myagent --prompt {prompt}");
@@ -457,7 +490,11 @@ mod tests {
         s.allowed_tools = &tools;
         s.model = Some("claude-sonnet-4-6");
         let launch = build(&s).unwrap();
-        let at = launch.args.iter().position(|a| a == "--allowedTools").unwrap();
+        let at = launch
+            .args
+            .iter()
+            .position(|a| a == "--allowedTools")
+            .unwrap();
         assert_eq!(launch.args[at + 1], "Read");
         assert_eq!(launch.args[at + 2], "Bash(git commit:*)");
         assert_eq!(launch.args[at + 3], "--model");
@@ -479,7 +516,9 @@ mod tests {
         let launch = build(&s).unwrap();
         let cfg = launch.args.join(" ");
         assert!(
-            cfg.contains(&format!("mcp_servers.relay.bearer_token_env_var=\"{TOKEN_ENV}\"")),
+            cfg.contains(&format!(
+                "mcp_servers.relay.bearer_token_env_var=\"{TOKEN_ENV}\""
+            )),
             "codex must be told which env var holds the token, got: {cfg}"
         );
         assert_eq!(
@@ -519,7 +558,8 @@ mod tests {
     /// process exits.
     #[test]
     fn every_shape_survives_an_empty_or_failed_wait() {
-        for (interactive, optimize) in [(false, false), (false, true), (true, false), (true, true)] {
+        for (interactive, optimize) in [(false, false), (false, true), (true, false), (true, true)]
+        {
             let p = harness_prompt("a", "worker", "", &[], None, interactive, optimize);
             assert!(
                 p.contains("empty or failed `wait`") || p.contains("failing with an error"),
@@ -540,7 +580,10 @@ mod tests {
         // Ollama is a bridge, not an agent CLI — host flags must not leak in.
         let extra = vec!["--dangerously-skip-permissions".to_string()];
         let launch = build(&spec("ollama", &extra)).unwrap();
-        assert!(!launch.args.iter().any(|a| a == "--dangerously-skip-permissions"));
+        assert!(!launch
+            .args
+            .iter()
+            .any(|a| a == "--dangerously-skip-permissions"));
     }
 
     #[test]

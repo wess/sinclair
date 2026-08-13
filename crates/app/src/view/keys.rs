@@ -68,7 +68,12 @@ impl TerminalView {
     /// Every other key is left to the normal bubble-phase [`Self::key_down`]
     /// so keybinding precedence is unchanged. Overlays and read-only panes are
     /// deferred to the bubble handler, which already routes those cases.
-    pub(crate) fn capture_key(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn capture_key(
+        &mut self,
+        event: &KeyDownEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         if event.keystroke.key != "tab" {
             return;
         }
@@ -84,7 +89,12 @@ impl TerminalView {
         self.key_down(event, window, cx);
     }
 
-    pub(crate) fn key_down(&mut self, event: &KeyDownEvent, _window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn key_down(
+        &mut self,
+        event: &KeyDownEvent,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let keystroke = &event.keystroke;
         let mods = input::Mods {
             shift: keystroke.modifiers.shift,
@@ -159,7 +169,12 @@ impl TerminalView {
     /// a key-up into bytes (`encode_key` returns `None` otherwise), so this is a
     /// no-op in normal use. Overlays that own the keyboard suppress it, matching
     /// [`Self::key_down`].
-    pub(crate) fn key_up(&mut self, event: &KeyUpEvent, _window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn key_up(
+        &mut self,
+        event: &KeyUpEvent,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         if self.context_menu.is_some()
             || self.copy_mode_active()
             || self.hints_active()

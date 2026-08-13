@@ -22,7 +22,9 @@ impl SettingsView {
                 continue;
             }
             match &s.control {
-                Control::List(kind) => groups.push(self.list_group(s, *kind, cx).into_any_element()),
+                Control::List(kind) => {
+                    groups.push(self.list_group(s, *kind, cx).into_any_element())
+                }
                 _ => rows.push(self.setting_row(s, cx)),
             }
         }
@@ -50,10 +52,20 @@ impl SettingsView {
             .flex()
             .items_center()
             .justify_center()
-            .child(div().w(px(10.0)).h(px(10.0)).rounded(px(5.0)).bg(hsla(color)));
+            .child(
+                div()
+                    .w(px(10.0))
+                    .h(px(10.0))
+                    .rounded(px(5.0))
+                    .bg(hsla(color)),
+            );
         let status = div()
             .text_color(hsla(color))
-            .child(SharedString::from(if running { "Running" } else { "Stopped" }));
+            .child(SharedString::from(if running {
+                "Running"
+            } else {
+                "Stopped"
+            }));
         self.row(dot, "Relay server", status).into_any_element()
     }
 

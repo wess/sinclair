@@ -76,7 +76,11 @@ pub fn enforce_contrast(fg: Rgb, bg: Rgb, min: f32) -> Rgb {
     let mut hi = 1.0f32;
     let lerp = |t: f32| {
         let mix = |a: u8, b: u8| (a as f32 + (b as f32 - a as f32) * t).round() as u8;
-        Rgb::new(mix(fg.r, target.r), mix(fg.g, target.g), mix(fg.b, target.b))
+        Rgb::new(
+            mix(fg.r, target.r),
+            mix(fg.g, target.g),
+            mix(fg.b, target.b),
+        )
     };
     // Binary-search the smallest blend toward `target` that meets `min`.
     for _ in 0..12 {

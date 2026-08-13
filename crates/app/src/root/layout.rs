@@ -15,7 +15,8 @@ impl WorkspaceView {
             ResizeDir::Up => Direction::Up,
             ResizeDir::Down => Direction::Down,
         };
-        self.group.update(cx, |g, cx| g.resize_focused(dir, RESIZE_STEP, cx));
+        self.group
+            .update(cx, |g, cx| g.resize_focused(dir, RESIZE_STEP, cx));
     }
 
     /// Resize the window back to the configured default cell grid.
@@ -52,10 +53,32 @@ impl WorkspaceView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some(item) = self.spawn_default(window, cx) else {
+        let pane = self.group.read(cx).focused_pane();
+        self.split_pane(pane, axis, first, window, cx);
+    }
+
+    /// Split a named pane, which is what a click on that pane's own split
+    /// control asks for. Keyboard and menu splits go through [`Self::split`]
+    /// and mean the focused one.
+    pub(crate) fn split_pane(
+        &mut self,
+        pane: PaneId,
+        axis: SplitAxis,
+        first: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let inherit = self
+            .group
+            .read(cx)
+            .panes_with_items()
+            .into_iter()
+            .find(|(p, _, _)| *p == pane)
+            .and_then(|(_, _, active)| self.item_cwd_path(active, cx));
+        let options = session::options(&self.opts, SPAWN_COLS, SPAWN_ROWS, inherit);
+        let Some(item) = self.spawn(options, window, cx) else {
             return;
         };
-        let pane = self.group.read(cx).focused_pane();
         self.group.update(cx, |g, cx| {
             g.split(pane, axis, first, item, cx);
         });
@@ -63,14 +86,25 @@ impl WorkspaceView {
         cx.notify();
     }
 
-    pub(crate) fn focusdir(&mut self, direction: Direction, window: &mut Window, cx: &mut Context<Self>) {
-        self.group.update(cx, |g, cx| g.focus_direction(direction, cx));
+    pub(crate) fn focusdir(
+        &mut self,
+        direction: Direction,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.group
+            .update(cx, |g, cx| g.focus_direction(direction, cx));
         self.focusactive(window, cx);
         cx.notify();
     }
 
     /// Cycle focus to the previous/next pane in the group's layout order.
-    pub(crate) fn cyclesplit(&mut self, forward: bool, window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn cyclesplit(
+        &mut self,
+        forward: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let (panes, focused) = {
             let g = self.group.read(cx);
             (g.tree().panes(), g.focused_pane())

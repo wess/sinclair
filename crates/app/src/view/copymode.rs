@@ -32,7 +32,11 @@ impl TerminalView {
         }
         let (line, col) = self.session.with_term(|t| {
             let (vp_row, col) = t.cursor_pos();
-            let base = t.grid().scrollback().len().saturating_sub(t.display_offset());
+            let base = t
+                .grid()
+                .scrollback()
+                .len()
+                .saturating_sub(t.display_offset());
             ((base + vp_row) as isize, col)
         });
         self.copy_mode = Some(CopyMode {
@@ -71,8 +75,9 @@ impl TerminalView {
         let (mut line, mut col, mut selecting) = (cm.line, cm.col, cm.selecting);
         let key = ks.key.as_str();
         let ch = ks.key_char.as_deref().unwrap_or("");
-        let (rows, cols, sb) =
-            self.session.with_term(|t| (t.rows(), t.cols(), t.grid().scrollback().len()));
+        let (rows, cols, sb) = self
+            .session
+            .with_term(|t| (t.rows(), t.cols(), t.grid().scrollback().len()));
         let max_line = (sb + rows).saturating_sub(1) as isize;
         let last_col = cols.saturating_sub(1);
 
@@ -137,7 +142,10 @@ impl TerminalView {
         let cm = self.copy_mode.as_ref()?;
         let (base, rows) = self.session.with_term(|t| {
             (
-                t.grid().scrollback().len().saturating_sub(t.display_offset()),
+                t.grid()
+                    .scrollback()
+                    .len()
+                    .saturating_sub(t.display_offset()),
                 t.rows(),
             )
         });

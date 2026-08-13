@@ -51,8 +51,8 @@ impl WasmRuntime {
                 .map_err(|e| format!("read {}: {e}", wasm_path.display()))?;
             let host = Box::new(SocketHost::new(plugin.id.clone(), plugin.path.clone()));
             // Enforce consent: link only the capabilities the user granted.
-            let caps = plugin::Installed::load()
-                .effective_capabilities(&plugin.id, &plugin.capabilities);
+            let caps =
+                plugin::Installed::load().effective_capabilities(&plugin.id, &plugin.capabilities);
             self.rt
                 .ensure(&plugin.id, &wasm, &caps, host)
                 .map_err(|e| e.to_string())?;
@@ -82,7 +82,12 @@ impl SocketHost {
 
 /// Per-plugin key/value store directory.
 fn storage_dir(id: &str) -> Option<std::path::PathBuf> {
-    Some(plugin::defaultdir()?.parent()?.join("pluginstorage").join(id))
+    Some(
+        plugin::defaultdir()?
+            .parent()?
+            .join("pluginstorage")
+            .join(id),
+    )
 }
 
 /// Read a per-plugin storage value.
@@ -136,7 +141,12 @@ pub(crate) fn exec(
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
-    if let Some(dir) = request.cwd.as_deref().map(std::path::PathBuf::from).or(default_cwd) {
+    if let Some(dir) = request
+        .cwd
+        .as_deref()
+        .map(std::path::PathBuf::from)
+        .or(default_cwd)
+    {
         cmd.current_dir(dir);
     }
     no_console(&mut cmd);
@@ -329,15 +339,14 @@ pub(crate) fn fetch(request: HttpRequest) -> Result<HttpResponse, String> {
     if let Some(body) = &request.body {
         let body_in = dir.join("upload");
         std::fs::write(&body_in, body).map_err(|e| e.to_string())?;
-        cmd.arg("--data-binary").arg(format!("@{}", body_in.display()));
+        cmd.arg("--data-binary")
+            .arg(format!("@{}", body_in.display()));
     }
 
     // `--` so a url beginning with `-` can't be read as an option.
     cmd.arg("--").arg(&request.url).stdin(Stdio::null());
     no_console(&mut cmd);
-    let out = cmd
-        .output()
-        .map_err(|e| format!("curl: {e}"))?;
+    let out = cmd.output().map_err(|e| format!("curl: {e}"))?;
 
     // A non-2xx is a real response, not a host failure — `--fail-with-body`
     // still wrote the body, and the plugin gets the status to act on. Only a
@@ -500,7 +509,13 @@ mod tests;
 fn sanitize(key: &str) -> String {
     let cleaned: String = key
         .chars()
-        .map(|c| if c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == '_' { c } else { '_' })
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect();
     if cleaned.is_empty() {
         "_".to_string()

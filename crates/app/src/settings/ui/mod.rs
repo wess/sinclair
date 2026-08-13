@@ -126,7 +126,12 @@ impl SettingsView {
                 sel_bg.a = 0.35;
                 field = field
                     .child(SharedString::from(before))
-                    .child(div().bg(sel_bg).rounded(px(2.0)).child(SharedString::from(selected)))
+                    .child(
+                        div()
+                            .bg(sel_bg)
+                            .rounded(px(2.0))
+                            .child(SharedString::from(selected)),
+                    )
                     .child(SharedString::from(after));
             } else {
                 let (before, after) = self.query.split();
@@ -186,15 +191,13 @@ impl SettingsView {
                     .text_color(hsla(BLUE))
                     .child(SharedString::from("User")),
             )
-            .child(
-                button_box("Edit in settings.json").on_mouse_down(
-                    MouseButton::Left,
-                    cx.listener(|_this, _ev, _window, cx| {
-                        super::open_settings_file();
-                        cx.stop_propagation();
-                    }),
-                ),
-            )
+            .child(button_box("Edit in settings.json").on_mouse_down(
+                MouseButton::Left,
+                cx.listener(|_this, _ev, _window, cx| {
+                    super::open_settings_file();
+                    cx.stop_propagation();
+                }),
+            ))
     }
 
     /// The page title and monospace group label shown when browsing. Sections

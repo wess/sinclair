@@ -55,13 +55,25 @@ pub fn apply(opts: &mut Options, d: &Options, key: &str, val: &str) -> Result<()
             };
         }
         "theme" => {
-            opts.theme = if empty { d.theme.clone() } else { val.to_string() };
+            opts.theme = if empty {
+                d.theme.clone()
+            } else {
+                val.to_string()
+            };
         }
         "theme-light" => {
-            opts.theme_light = if empty { d.theme_light.clone() } else { val.to_string() };
+            opts.theme_light = if empty {
+                d.theme_light.clone()
+            } else {
+                val.to_string()
+            };
         }
         "theme-dark" => {
-            opts.theme_dark = if empty { d.theme_dark.clone() } else { val.to_string() };
+            opts.theme_dark = if empty {
+                d.theme_dark.clone()
+            } else {
+                val.to_string()
+            };
         }
         "timestamps" => {
             opts.timestamps = if empty {
@@ -136,11 +148,18 @@ pub fn apply(opts: &mut Options, d: &Options, key: &str, val: &str) -> Result<()
             }
         }
         "background-image" => {
-            opts.background_image =
-                if empty { d.background_image.clone() } else { Some(val.to_string()) };
+            opts.background_image = if empty {
+                d.background_image.clone()
+            } else {
+                Some(val.to_string())
+            };
         }
         "badge" => {
-            opts.badge = if empty { d.badge.clone() } else { Some(val.to_string()) };
+            opts.badge = if empty {
+                d.badge.clone()
+            } else {
+                Some(val.to_string())
+            };
         }
         "profile" => {
             if empty {
@@ -376,46 +395,96 @@ pub fn apply(opts: &mut Options, d: &Options, key: &str, val: &str) -> Result<()
             };
         }
         "auto-update" => {
-            opts.auto_update =
-                if empty { d.auto_update } else { value::parse_bool(val).ok_or_else(|| bad("boolean", val))? };
+            opts.auto_update = if empty {
+                d.auto_update
+            } else {
+                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+            };
         }
         "autosuggest-ghost" => {
-            opts.autosuggest_ghost =
-                if empty { d.autosuggest_ghost } else { value::parse_bool(val).ok_or_else(|| bad("boolean", val))? };
+            opts.autosuggest_ghost = if empty {
+                d.autosuggest_ghost
+            } else {
+                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+            };
         }
         "autosuggest-popup" => {
-            opts.autosuggest_popup =
-                if empty { d.autosuggest_popup } else { value::parse_bool(val).ok_or_else(|| bad("boolean", val))? };
+            opts.autosuggest_popup = if empty {
+                d.autosuggest_popup
+            } else {
+                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+            };
         }
         "autosuggest-tab" => {
-            opts.autosuggest_tab =
-                if empty { d.autosuggest_tab } else { value::parse_bool(val).ok_or_else(|| bad("boolean", val))? };
+            opts.autosuggest_tab = if empty {
+                d.autosuggest_tab
+            } else {
+                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+            };
         }
         "autosuggest-ai" => {
-            opts.autosuggest_ai =
-                if empty { d.autosuggest_ai } else { value::parse_bool(val).ok_or_else(|| bad("boolean", val))? };
+            opts.autosuggest_ai = if empty {
+                d.autosuggest_ai
+            } else {
+                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+            };
         }
         "autosuggest-history" => {
-            opts.autosuggest_history =
-                if empty { d.autosuggest_history } else { value::parse_bool(val).ok_or_else(|| bad("boolean", val))? };
+            opts.autosuggest_history = if empty {
+                d.autosuggest_history
+            } else {
+                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+            };
         }
         "autosuggest-commands" => {
-            opts.autosuggest_commands =
-                if empty { d.autosuggest_commands } else { value::parse_bool(val).ok_or_else(|| bad("boolean", val))? };
+            opts.autosuggest_commands = if empty {
+                d.autosuggest_commands
+            } else {
+                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+            };
         }
         "autosuggest-paths" => {
-            opts.autosuggest_paths =
-                if empty { d.autosuggest_paths } else { value::parse_bool(val).ok_or_else(|| bad("boolean", val))? };
+            opts.autosuggest_paths = if empty {
+                d.autosuggest_paths
+            } else {
+                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+            };
         }
         "autosuggest-assist" => {
-            opts.autosuggest_assist =
-                if empty { d.autosuggest_assist } else { value::parse_bool(val).ok_or_else(|| bad("boolean", val))? };
+            opts.autosuggest_assist = if empty {
+                d.autosuggest_assist
+            } else {
+                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+            };
         }
         "tab-title-show-host" => {
             opts.tab_title_show_host = if empty {
                 d.tab_title_show_host
             } else {
                 value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+            };
+        }
+        "tab-peek" => {
+            opts.tab_peek = if empty {
+                d.tab_peek
+            } else {
+                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+            };
+        }
+        "tab-peek-hover" => {
+            opts.tab_peek_hover = if empty {
+                d.tab_peek_hover
+            } else {
+                value::parse_u32(val).ok_or_else(|| bad("non-negative integer", val))?
+            };
+        }
+        "tab-peek-height" => {
+            opts.tab_peek_height = if empty {
+                d.tab_peek_height
+            } else {
+                value::parse_u32(val)
+                    .ok_or_else(|| bad("non-negative integer", val))?
+                    .clamp(60, 400)
             };
         }
         "mouse-hide-while-typing" => {
@@ -483,24 +552,46 @@ pub fn apply(opts: &mut Options, d: &Options, key: &str, val: &str) -> Result<()
             };
         }
         "sandbox-image" => {
-            opts.sandbox_image = if empty { d.sandbox_image.clone() } else { Some(val.to_string()) };
+            opts.sandbox_image = if empty {
+                d.sandbox_image.clone()
+            } else {
+                Some(val.to_string())
+            };
         }
         "sandbox-base" => {
-            opts.sandbox_base = if empty { d.sandbox_base.clone() } else { Some(val.to_string()) };
+            opts.sandbox_base = if empty {
+                d.sandbox_base.clone()
+            } else {
+                Some(val.to_string())
+            };
         }
         "sandbox-user" => {
-            opts.sandbox_user = if empty { d.sandbox_user.clone() } else { Some(val.to_string()) };
+            opts.sandbox_user = if empty {
+                d.sandbox_user.clone()
+            } else {
+                Some(val.to_string())
+            };
         }
         "sandbox-network" => {
-            opts.sandbox_network =
-                if empty { d.sandbox_network.clone() } else { Some(val.to_string()) };
+            opts.sandbox_network = if empty {
+                d.sandbox_network.clone()
+            } else {
+                Some(val.to_string())
+            };
         }
         "sandbox-memory" => {
-            opts.sandbox_memory =
-                if empty { d.sandbox_memory.clone() } else { Some(val.to_string()) };
+            opts.sandbox_memory = if empty {
+                d.sandbox_memory.clone()
+            } else {
+                Some(val.to_string())
+            };
         }
         "sandbox-cpus" => {
-            opts.sandbox_cpus = if empty { d.sandbox_cpus.clone() } else { Some(val.to_string()) };
+            opts.sandbox_cpus = if empty {
+                d.sandbox_cpus.clone()
+            } else {
+                Some(val.to_string())
+            };
         }
         "sandbox-packages" => {
             if empty {

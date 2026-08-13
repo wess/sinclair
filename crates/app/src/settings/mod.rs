@@ -206,7 +206,9 @@ impl SettingsView {
 
     fn reload(&mut self) {
         self.reload_opts();
-        self.macros = macros::defaultdir().map(|d| macros::load(&d)).unwrap_or_default();
+        self.macros = macros::defaultdir()
+            .map(|d| macros::load(&d))
+            .unwrap_or_default();
         self.plugins = crate::root::loadplugins(&self.opts);
     }
 
@@ -218,7 +220,10 @@ impl SettingsView {
     fn reload_opts(&mut self) {
         let (opts, diagnostics) = config::load();
         for d in &diagnostics {
-            eprintln!("sinclair: settings line {}: {} ({})", d.line, d.message, d.key);
+            eprintln!(
+                "sinclair: settings line {}: {} ({})",
+                d.line, d.message, d.key
+            );
         }
         self.opts = opts;
         self.userkeys = config::default_path()
@@ -244,7 +249,11 @@ impl SettingsView {
 
     /// Remove a key from settings.json, restoring the built-in default.
     fn reset(&mut self, key: &'static str, cx: &mut Context<Self>) {
-        if self.editing.as_ref().is_some_and(|(t, _)| *t == EditTarget::Field(key)) {
+        if self
+            .editing
+            .as_ref()
+            .is_some_and(|(t, _)| *t == EditTarget::Field(key))
+        {
             self.editing = None;
         }
         crate::confwrite::remove(key);
@@ -277,7 +286,11 @@ impl SettingsView {
 
     /// Expand or collapse a Choice setting's variant list.
     fn toggle_choice(&mut self, key: &'static str, cx: &mut Context<Self>) {
-        self.open_choice = if self.open_choice == Some(key) { None } else { Some(key) };
+        self.open_choice = if self.open_choice == Some(key) {
+            None
+        } else {
+            Some(key)
+        };
         cx.notify();
     }
 
@@ -298,7 +311,10 @@ impl SettingsView {
     fn macro_shortcut(&self, name: &str) -> Option<String> {
         let action = config::Action::MacroReplay(name.to_string());
         let (binds, _) = config::resolve(&self.opts.keybind);
-        binds.iter().find(|kb| kb.action == action).map(|kb| kb.trigger())
+        binds
+            .iter()
+            .find(|kb| kb.action == action)
+            .map(|kb| kb.trigger())
     }
 
     /// Arm capture so the next chord becomes `name`'s replay shortcut.
@@ -377,7 +393,12 @@ impl SettingsView {
     }
 
     /// Begin renaming a saved macro inline (the Macros section's ✎ button).
-    pub(crate) fn start_macro_rename(&mut self, old: String, window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn start_macro_rename(
+        &mut self,
+        old: String,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.editing = Some((EditTarget::MacroName(old.clone()), TextEdit::new(&old)));
         self.capturing = false;
         self.capture_macro = None;
@@ -432,8 +453,18 @@ impl SettingsView {
         cx.notify();
     }
 
-    fn start_item(&mut self, kind: ListKind, idx: usize, window: &mut Window, cx: &mut Context<Self>) {
-        let current = kind.values(&self.opts).get(idx).cloned().unwrap_or_default();
+    fn start_item(
+        &mut self,
+        kind: ListKind,
+        idx: usize,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let current = kind
+            .values(&self.opts)
+            .get(idx)
+            .cloned()
+            .unwrap_or_default();
         self.editing = Some((EditTarget::Item(kind, idx), TextEdit::new(&current)));
         self.capturing = false;
         window.focus(&self.focus, cx);
@@ -449,7 +480,13 @@ impl SettingsView {
 
     /// Arm trigger capture for the binding currently being edited, starting the
     /// edit first if needed. Bound to the per-row "record" button.
-    fn record_item(&mut self, kind: ListKind, idx: usize, window: &mut Window, cx: &mut Context<Self>) {
+    fn record_item(
+        &mut self,
+        kind: ListKind,
+        idx: usize,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.start_item(kind, idx, window, cx);
         self.capturing = true;
         cx.notify();
@@ -646,8 +683,17 @@ fn capture_trigger(ks: &gpui::Keystroke) -> Option<String> {
     let key = ks.key.to_ascii_lowercase();
     if matches!(
         key.as_str(),
-        "" | "cmd" | "command" | "super" | "ctrl" | "control" | "alt" | "option" | "shift"
-            | "fn" | "function" | "capslock"
+        "" | "cmd"
+            | "command"
+            | "super"
+            | "ctrl"
+            | "control"
+            | "alt"
+            | "option"
+            | "shift"
+            | "fn"
+            | "function"
+            | "capslock"
     ) {
         return None;
     }

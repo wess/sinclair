@@ -152,7 +152,9 @@ fn command_for(exe: &str, state: &str) -> String {
 
 fn settings_path(project: bool) -> Option<PathBuf> {
     if project {
-        return std::env::current_dir().ok().map(|d| d.join(".claude").join("settings.json"));
+        return std::env::current_dir()
+            .ok()
+            .map(|d| d.join(".claude").join("settings.json"));
     }
     std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".claude").join("settings.json"))
 }

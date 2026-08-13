@@ -36,6 +36,8 @@ pub mod element;
 #[cfg(feature = "ui")]
 pub mod pointer;
 #[cfg(feature = "ui")]
+pub mod preview;
+#[cfg(feature = "ui")]
 pub mod termview;
 
 // The full stack, so embedders need only this crate in their Cargo.toml.
@@ -52,5 +54,7 @@ pub use terminal::{Event, Session, SessionOptions};
 
 #[cfg(feature = "ui")]
 pub use element::{CursorShape, SearchQuery, SnapCache, TerminalElement};
+#[cfg(feature = "ui")]
+pub use preview::Preview;
 #[cfg(feature = "ui")]
 pub use termview::{TermOptions, TermView};

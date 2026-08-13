@@ -271,13 +271,16 @@ impl SettingsView {
                     if let Some(b) = this.slider_bounds.get(s.key).copied() {
                         let width = f32::from(b.size.width);
                         if width > 0.0 {
-                            let frac = (f32::from(event.position.x - b.left()) / width).clamp(0.0, 1.0);
+                            let frac =
+                                (f32::from(event.position.x - b.left()) / width).clamp(0.0, 1.0);
                             this.slide_to(s, frac, cx);
                         }
                     }
                 }),
             )
-            .on_drag(SliderDrag(s.key), |_drag, _offset, _window, cx| cx.new(|_| Empty))
+            .on_drag(SliderDrag(s.key), |_drag, _offset, _window, cx| {
+                cx.new(|_| Empty)
+            })
             .on_drag_move::<SliderDrag>(cx.listener(
                 move |this, event: &DragMoveEvent<SliderDrag>, _window, cx| {
                     // Every track's listener fires for any slider drag; act only
@@ -288,26 +291,22 @@ impl SettingsView {
                     let b = event.bounds;
                     let width = f32::from(b.size.width);
                     if width > 0.0 {
-                        let frac = (f32::from(event.event.position.x - b.left()) / width).clamp(0.0, 1.0);
+                        let frac =
+                            (f32::from(event.event.position.x - b.left()) / width).clamp(0.0, 1.0);
                         this.slide_to(s, frac, cx);
                     }
                 },
             ));
 
-        div()
-            .flex()
-            .items_center()
-            .gap_3()
-            .child(track)
-            .child(
-                div()
-                    .w(px(56.0))
-                    .flex()
-                    .justify_end()
-                    .text_size(px(13.0))
-                    .text_color(hsla(TEXT))
-                    .child(SharedString::from(n.display(&self.opts))),
-            )
+        div().flex().items_center().gap_3().child(track).child(
+            div()
+                .w(px(56.0))
+                .flex()
+                .justify_end()
+                .text_size(px(13.0))
+                .text_color(hsla(TEXT))
+                .child(SharedString::from(n.display(&self.opts))),
+        )
     }
 
     /// The closed dropdown: the current value plus a stacked chevron pair,
@@ -431,11 +430,12 @@ impl SettingsView {
             ));
         }
 
-        let dismiss = |this: &mut Self, _e: &MouseDownEvent, _w: &mut Window, cx: &mut Context<Self>| {
-            this.open_choice = None;
-            cx.stop_propagation();
-            cx.notify();
-        };
+        let dismiss =
+            |this: &mut Self, _e: &MouseDownEvent, _w: &mut Window, cx: &mut Context<Self>| {
+                this.open_choice = None;
+                cx.stop_propagation();
+                cx.notify();
+            };
         Some(
             deferred(
                 div()

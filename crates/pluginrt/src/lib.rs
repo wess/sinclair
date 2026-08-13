@@ -199,7 +199,10 @@ impl PluginInstance {
             bindings::prompt::plugin::host_fs::add_to_linker(&mut linker, |s: &mut State| s)?;
         }
         if caps.contains("clipboard") {
-            bindings::prompt::plugin::host_clipboard::add_to_linker(&mut linker, |s: &mut State| s)?;
+            bindings::prompt::plugin::host_clipboard::add_to_linker(
+                &mut linker,
+                |s: &mut State| s,
+            )?;
         }
         if caps.contains("notify") {
             bindings::prompt::plugin::host_notify::add_to_linker(&mut linker, |s: &mut State| s)?;

@@ -59,15 +59,19 @@ pub async fn handle(State(app): State<App>, headers: HeaderMap, body: Bytes) -> 
         Outcome::Now(v) => {
             let mut resp = Json(v).into_response();
             if is_initialize {
-                let session = incoming_session
-                    .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+                let session = incoming_session.unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
                 if let Ok(hv) = HeaderValue::from_str(&session) {
                     resp.headers_mut().insert(SESSION_HEADER, hv);
                 }
             }
             resp
         }
-        Outcome::Tool { id, name, args, progress } => {
+        Outcome::Tool {
+            id,
+            name,
+            args,
+            progress,
+        } => {
             // Every tool call must name its session. Defaulting a missing header
             // to "" used to bucket every such client under one key, so the
             // second agent to `register` silently took over the first one's
@@ -163,7 +167,10 @@ mod tests {
         let path =
             std::env::temp_dir().join(format!("relay-transport-{}-{n}.db", std::process::id()));
         let pool = crate::db::open(path.to_str().unwrap()).await.unwrap();
-        (App::new(pool, "http://127.0.0.1:0".into(), "t".into()), path)
+        (
+            App::new(pool, "http://127.0.0.1:0".into(), "t".into()),
+            path,
+        )
     }
 
     fn cleanup(path: &std::path::Path) {
@@ -173,7 +180,9 @@ mod tests {
     }
 
     async fn body_json(resp: Response) -> Value {
-        let bytes = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+        let bytes = axum::body::to_bytes(resp.into_body(), 1 << 20)
+            .await
+            .unwrap();
         serde_json::from_slice(&bytes).unwrap()
     }
 
@@ -202,7 +211,9 @@ mod tests {
 
     /// Collect every SSE `data:` payload from a streamed tool response.
     async fn sse_frames(resp: Response) -> Vec<Value> {
-        let bytes = axum::body::to_bytes(resp.into_body(), 1 << 22).await.unwrap();
+        let bytes = axum::body::to_bytes(resp.into_body(), 1 << 22)
+            .await
+            .unwrap();
         String::from_utf8_lossy(&bytes)
             .lines()
             .filter_map(|l| l.strip_prefix("data:"))
@@ -222,7 +233,10 @@ mod tests {
         let v = body_json(resp).await;
         assert_eq!(v["error"]["code"], serde_json::json!(-32600));
         assert!(
-            v["error"]["message"].as_str().unwrap().contains("mcp-session-id"),
+            v["error"]["message"]
+                .as_str()
+                .unwrap()
+                .contains("mcp-session-id"),
             "the error must name the missing header, got {v}"
         );
         cleanup(&path);
@@ -248,7 +262,9 @@ mod tests {
     #[tokio::test]
     async fn a_parked_wait_emits_progress_frames() {
         let (app, path) = app().await;
-        crate::db::upsert_agent(&app.db, "backend", "backend", "").await.unwrap();
+        crate::db::upsert_agent(&app.db, "backend", "backend", "")
+            .await
+            .unwrap();
         app.bind("s1", "backend").await;
         let mut headers = HeaderMap::new();
         headers.insert(SESSION_HEADER, HeaderValue::from_static("s1"));
@@ -265,13 +281,23 @@ mod tests {
             "a full park at this interval should emit several frames, got {}",
             progress.len()
         );
-        assert_eq!(progress[0]["params"]["progressToken"], serde_json::json!("p1"));
+        assert_eq!(
+            progress[0]["params"]["progressToken"],
+            serde_json::json!("p1")
+        );
         let vals: Vec<u64> = progress
             .iter()
             .map(|f| f["params"]["progress"].as_u64().unwrap())
             .collect();
-        assert!(vals.windows(2).all(|w| w[1] > w[0]), "progress must increase: {vals:?}");
-        assert_eq!(frames.last().unwrap()["id"], serde_json::json!(1), "the response comes last");
+        assert!(
+            vals.windows(2).all(|w| w[1] > w[0]),
+            "progress must increase: {vals:?}"
+        );
+        assert_eq!(
+            frames.last().unwrap()["id"],
+            serde_json::json!(1),
+            "the response comes last"
+        );
         cleanup(&path);
     }
 
@@ -280,13 +306,19 @@ mod tests {
     #[tokio::test]
     async fn no_progress_token_still_answers() {
         let (app, path) = app().await;
-        crate::db::upsert_agent(&app.db, "backend", "backend", "").await.unwrap();
+        crate::db::upsert_agent(&app.db, "backend", "backend", "")
+            .await
+            .unwrap();
         app.bind("s1", "backend").await;
         let mut headers = HeaderMap::new();
         headers.insert(SESSION_HEADER, HeaderValue::from_static("s1"));
         let resp = handle(State(app), headers, call_body("whoami", false)).await;
         let frames = sse_frames(resp).await;
-        assert_eq!(frames.len(), 1, "expected just the response, got {frames:?}");
+        assert_eq!(
+            frames.len(),
+            1,
+            "expected just the response, got {frames:?}"
+        );
         assert_eq!(frames[0]["id"], serde_json::json!(1));
         cleanup(&path);
     }

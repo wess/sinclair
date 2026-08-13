@@ -318,10 +318,11 @@ pub async fn since(pool: &SqlitePool, since: i64, limit: i64) -> Result<Vec<Mess
 /// it. `horizon` is `now - ACTIVE_WINDOW`; the caller sleeps until the returned
 /// agent's window lapses and re-emits the roster then.
 pub async fn next_expiry(pool: &SqlitePool, horizon: i64) -> Result<Option<i64>> {
-    let row: (Option<i64>,) = sqlx::query_as("SELECT MIN(last_seen) FROM agents WHERE last_seen > ?1")
-        .bind(horizon)
-        .fetch_one(pool)
-        .await?;
+    let row: (Option<i64>,) =
+        sqlx::query_as("SELECT MIN(last_seen) FROM agents WHERE last_seen > ?1")
+            .bind(horizon)
+            .fetch_one(pool)
+            .await?;
     Ok(row.0)
 }
 
@@ -368,10 +369,11 @@ pub async fn channel_subs(pool: &SqlitePool, channel: &str) -> Result<Vec<String
 }
 
 pub async fn subs_of(pool: &SqlitePool, agent: &str) -> Result<Vec<String>> {
-    let rows: Vec<(String,)> = sqlx::query_as("SELECT channel FROM subs WHERE agent = ?1 ORDER BY channel")
-        .bind(agent)
-        .fetch_all(pool)
-        .await?;
+    let rows: Vec<(String,)> =
+        sqlx::query_as("SELECT channel FROM subs WHERE agent = ?1 ORDER BY channel")
+            .bind(agent)
+            .fetch_all(pool)
+            .await?;
     Ok(rows.into_iter().map(|r| r.0).collect())
 }
 
@@ -381,7 +383,9 @@ pub async fn subs_of(pool: &SqlitePool, agent: &str) -> Result<Vec<String>> {
 /// from `last_seen` plus the in-memory parked set (see [`crate::state::App`]).
 /// `status` is the agent's last self-reported semantic work state (empty when
 /// none).
-pub async fn list_agents(pool: &SqlitePool) -> Result<Vec<(String, String, String, bool, i64, i64)>> {
+pub async fn list_agents(
+    pool: &SqlitePool,
+) -> Result<Vec<(String, String, String, bool, i64, i64)>> {
     let rows: Vec<(String, String, String, i64, i64, i64)> = sqlx::query_as(
         r#"
         SELECT a.name, a.role, a.status, a.online,
@@ -450,15 +454,17 @@ pub async fn load_workers(pool: &SqlitePool) -> Result<Vec<PersistedWorker>> {
     .await?;
     Ok(rows
         .into_iter()
-        .map(|(name, role, program, args, cwd, ka, session_id)| PersistedWorker {
-            name,
-            role,
-            program,
-            args: serde_json::from_str(&args).unwrap_or_default(),
-            cwd,
-            keep_alive: ka != 0,
-            session_id,
-        })
+        .map(
+            |(name, role, program, args, cwd, ka, session_id)| PersistedWorker {
+                name,
+                role,
+                program,
+                args: serde_json::from_str(&args).unwrap_or_default(),
+                cwd,
+                keep_alive: ka != 0,
+                session_id,
+            },
+        )
         .collect())
 }
 
@@ -520,11 +526,17 @@ mod tests {
     async fn since_binds_the_limit() {
         let (pool, path) = pool().await;
         for _ in 0..5 {
-            insert_message(&pool, "s", "broadcast", None, "m").await.unwrap();
+            insert_message(&pool, "s", "broadcast", None, "m")
+                .await
+                .unwrap();
         }
         let first = ids(&pool).await[0];
         let msgs = since(&pool, first, 2).await.unwrap();
-        assert_eq!(msgs.len(), 2, "the limit parameter must apply on the since>0 branch");
+        assert_eq!(
+            msgs.len(),
+            2,
+            "the limit parameter must apply on the since>0 branch"
+        );
         cleanup(&path);
     }
 
@@ -533,7 +545,10 @@ mod tests {
     #[test]
     fn prune_floor_respects_cursors_up_to_the_hard_cap() {
         // Everyone caught up: the feed retention rules.
-        assert_eq!(prune_floor(20_000, Some(20_000)), 20_000 - MESSAGE_RETENTION);
+        assert_eq!(
+            prune_floor(20_000, Some(20_000)),
+            20_000 - MESSAGE_RETENTION
+        );
         // No registered readers: same.
         assert_eq!(prune_floor(20_000, None), 20_000 - MESSAGE_RETENTION);
         // A lagging reader holds the floor at its cursor.
@@ -557,14 +572,23 @@ mod tests {
         // Jump the tip far past the retention window, then insert normally so
         // pruning runs.
         insert_with_id(&pool, MESSAGE_RETENTION + 10).await;
-        insert_message(&pool, "s", "broadcast", None, "tip").await.unwrap();
+        insert_message(&pool, "s", "broadcast", None, "tip")
+            .await
+            .unwrap();
         let remaining = ids(&pool).await;
         assert!(
             remaining.contains(&3),
             "message 3 is unread by 'slow' and inside the backlog bound — it must survive"
         );
-        assert!(!remaining.contains(&1), "consumed history below the cursor is pruned");
-        assert_eq!(cursor(&pool, "slow").await, 2, "a preserved backlog leaves the cursor alone");
+        assert!(
+            !remaining.contains(&1),
+            "consumed history below the cursor is pruned"
+        );
+        assert_eq!(
+            cursor(&pool, "slow").await,
+            2,
+            "a preserved backlog leaves the cursor alone"
+        );
         cleanup(&path);
     }
 
@@ -577,10 +601,19 @@ mod tests {
         upsert_agent(&pool, "slow", "worker", "").await.unwrap();
         insert_with_id(&pool, 1).await;
         insert_with_id(&pool, MAX_BACKLOG + 100).await;
-        insert_message(&pool, "s", "broadcast", None, "tip").await.unwrap();
+        insert_message(&pool, "s", "broadcast", None, "tip")
+            .await
+            .unwrap();
         let floor = prune_floor(MAX_BACKLOG + 101, Some(0));
-        assert_eq!(cursor(&pool, "slow").await, floor, "the straggler's cursor moves to the floor");
-        assert!(!ids(&pool).await.contains(&1), "its lost backlog is actually pruned");
+        assert_eq!(
+            cursor(&pool, "slow").await,
+            floor,
+            "the straggler's cursor moves to the floor"
+        );
+        assert!(
+            !ids(&pool).await.contains(&1),
+            "its lost backlog is actually pruned"
+        );
         cleanup(&path);
     }
 }

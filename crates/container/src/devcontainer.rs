@@ -107,9 +107,7 @@ pub fn parse(text: &str, project: &str) -> Result<DevContainer, String> {
             // `remoteUser` is the one the tooling actually enters as, so it
             // wins over `containerUser` whichever order they appear in.
             "remoteUser" => dc.remote_user = string(&m.value),
-            "containerUser" if dc.remote_user.is_none() => {
-                dc.remote_user = string(&m.value)
-            }
+            "containerUser" if dc.remote_user.is_none() => dc.remote_user = string(&m.value),
             "containerEnv" => container_env = pairs(&m.value),
             "remoteEnv" => remote_env = pairs(&m.value),
             "mounts" => dc.mounts = strings(&m.value),
@@ -198,10 +196,7 @@ fn commands(v: &Value) -> Vec<String> {
                 vec![argv.join(" ")]
             }
         }
-        Value::Obj(members) => members
-            .iter()
-            .flat_map(|m| commands(&m.value))
-            .collect(),
+        Value::Obj(members) => members.iter().flat_map(|m| commands(&m.value)).collect(),
         _ => Vec::new(),
     }
 }

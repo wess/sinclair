@@ -68,9 +68,15 @@ pub struct Built {
 /// Resolve `o` into a launchable command (see the module docs).
 pub fn worker(endpoint: &str, token: &str, o: &Options) -> Result<Built> {
     let role = role::resolve_in(o.role_root, o.role);
-    let brief = role.as_ref().map(|r| r.description.clone()).unwrap_or_default();
+    let brief = role
+        .as_ref()
+        .map(|r| r.description.clone())
+        .unwrap_or_default();
 
-    let mut channels = role.as_ref().map(|r| r.channels.clone()).unwrap_or_default();
+    let mut channels = role
+        .as_ref()
+        .map(|r| r.channels.clone())
+        .unwrap_or_default();
     for c in o.channels {
         if !channels.contains(c) {
             channels.push(c.clone());

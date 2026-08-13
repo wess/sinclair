@@ -9,7 +9,12 @@ impl TerminalView {
 
     /// Right mouse button: open the context menu, unless the app is capturing
     /// the mouse (then the press is reported to the child instead).
-    pub(crate) fn right_down(&mut self, e: &MouseDownEvent, _window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn right_down(
+        &mut self,
+        e: &MouseDownEvent,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let reporting = self
             .session
             .with_term(|t| libsinclair::mouse::reports(t.mouse_mode(), e.modifiers.shift));
@@ -46,8 +51,15 @@ impl TerminalView {
     }
 
     /// A menu row that dispatches a bound [`Action`] (so it matches keybinds).
-    fn menu_action(&self, label: &'static str, action: Action, cx: &mut Context<Self>) -> gpui::Div {
-        self.menu_row(label, cx, move |_this, cx| cx.emit(ViewEvent::Action(action.clone())))
+    fn menu_action(
+        &self,
+        label: &'static str,
+        action: Action,
+        cx: &mut Context<Self>,
+    ) -> gpui::Div {
+        self.menu_row(label, cx, move |_this, cx| {
+            cx.emit(ViewEvent::Action(action.clone()))
+        })
     }
 
     fn menu_divider(&self) -> gpui::Div {
@@ -71,7 +83,29 @@ impl TerminalView {
             cols,
             rows,
         );
-        self.session.with_term(|t| t.link_at(row, col)).map(|l| l.url)
+        self.session
+            .with_term(|t| t.link_at(row, col))
+            .map(|l| l.url)
+    }
+
+    /// The real file under a window-space `pos`, or `None` when the text there
+    /// is not a path that resolves. Only called when a menu is being built, so
+    /// the filesystem check it does is per right-click, not per frame.
+    fn path_at_pos(&self, pos: Point<Pixels>) -> Option<std::path::PathBuf> {
+        let (cols, rows) = self.session.with_term(|t| (t.cols(), t.rows()));
+        let (row, col) = libsinclair::metrics::cell_at(
+            (f32::from(pos.x), f32::from(pos.y)),
+            (
+                f32::from(self.grid_bounds.origin.x),
+                f32::from(self.grid_bounds.origin.y),
+            ),
+            self.pad,
+            self.cell,
+            cols,
+            rows,
+        );
+        let hit = self.session.with_term(|t| t.path_at(row, col))?;
+        crate::reveal::resolve(&hit.path, self.cwd_path().as_deref())
     }
 
     /// Open a URL via the OS, refusing schemes outside the allow-list.
@@ -90,7 +124,10 @@ impl TerminalView {
     /// Search the web for `query` with the default browser's search.
     fn search_web(&mut self, query: &str, cx: &mut Context<Self>) {
         let q: String = query.chars().take(256).collect();
-        cx.open_url(&format!("https://www.google.com/search?q={}", percent_encode(&q)));
+        cx.open_url(&format!(
+            "https://www.google.com/search?q={}",
+            percent_encode(&q)
+        ));
     }
 
     /// macOS "Look Up": open the system dictionary for `term`.
@@ -103,7 +140,11 @@ impl TerminalView {
     /// The right-click menu overlay anchored at `pos`, with a full-pane
     /// backdrop that dismisses it on an outside click. Context-aware: shows
     /// Open/Copy Link over a URL and Look Up / Search Web over a selection.
-    pub(crate) fn context_menu_overlay(&self, pos: Point<Pixels>, cx: &mut Context<Self>) -> AnyElement {
+    pub(crate) fn context_menu_overlay(
+        &self,
+        pos: Point<Pixels>,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let link = self.link_at_pos(pos);
         let selection = self
             .session
@@ -132,6 +173,22 @@ impl TerminalView {
                 this.copy_text(copy.clone(), cx)
             }));
             menu = menu.child(self.menu_divider());
+        } else if let Some(path) = self.path_at_pos(pos) {
+            // Only ever a path that resolved, so these entries never appear
+            // over text that merely looked like one.
+            let reveal = path.clone();
+            menu = menu.child(self.menu_row(REVEAL_LABEL, cx, move |_this, _cx| {
+                crate::reveal::reveal(&reveal)
+            }));
+            let open = path.clone();
+            menu = menu.child(self.menu_row("Open", cx, move |this, cx| {
+                this.open_url(format!("file://{}", open.display()), cx)
+            }));
+            let copy = path.display().to_string();
+            menu = menu.child(self.menu_row("Copy Path", cx, move |this, cx| {
+                this.copy_text(copy.clone(), cx)
+            }));
+            menu = menu.child(self.menu_divider());
         }
 
         menu = menu
@@ -145,14 +202,18 @@ impl TerminalView {
             #[cfg(target_os = "macos")]
             {
                 let term = sel.clone();
-                menu = menu.child(self.menu_row(format!("Look Up \u{201c}{label}\u{201d}"), cx, move |this, cx| {
-                    this.look_up(&term, cx)
-                }));
+                menu = menu.child(self.menu_row(
+                    format!("Look Up \u{201c}{label}\u{201d}"),
+                    cx,
+                    move |this, cx| this.look_up(&term, cx),
+                ));
             }
             let query = sel.clone();
-            menu = menu.child(self.menu_row(format!("Search Web for \u{201c}{label}\u{201d}"), cx, move |this, cx| {
-                this.search_web(&query, cx)
-            }));
+            menu = menu.child(self.menu_row(
+                format!("Search Web for \u{201c}{label}\u{201d}"),
+                cx,
+                move |this, cx| this.search_web(&query, cx),
+            ));
         }
 
         menu = menu
@@ -164,11 +225,12 @@ impl TerminalView {
             .child(self.menu_divider())
             .child(self.menu_action("Clear", Action::ClearScreen, cx));
 
-        let dismiss = |this: &mut Self, _e: &MouseDownEvent, _w: &mut Window, cx: &mut Context<Self>| {
-            this.context_menu = None;
-            cx.stop_propagation();
-            cx.notify();
-        };
+        let dismiss =
+            |this: &mut Self, _e: &MouseDownEvent, _w: &mut Window, cx: &mut Context<Self>| {
+                this.context_menu = None;
+                cx.stop_propagation();
+                cx.notify();
+            };
         deferred(
             div()
                 .absolute()
@@ -344,6 +406,12 @@ impl TerminalView {
         cx.notify();
     }
 }
+
+/// What the platform calls showing a file in its file manager.
+#[cfg(target_os = "macos")]
+const REVEAL_LABEL: &str = "Reveal in Finder";
+#[cfg(not(target_os = "macos"))]
+const REVEAL_LABEL: &str = "Show in File Manager";
 
 /// Percent-encode a query string for a URL (RFC 3986 unreserved set kept).
 fn percent_encode(s: &str) -> String {

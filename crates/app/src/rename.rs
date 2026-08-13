@@ -95,7 +95,9 @@ impl RenameDialog {
     }
 
     fn cancel(&self, window: &mut Window, cx: &mut Context<Self>) {
-        self.root.update(cx, |ws, cx| ws.close_modal(window, cx)).ok();
+        self.root
+            .update(cx, |ws, cx| ws.close_modal(window, cx))
+            .ok();
     }
 }
 

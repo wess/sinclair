@@ -97,9 +97,16 @@ pub async fn launch(a: LaunchArgs) -> Result<()> {
             ))
         }
     } else {
-        let label = if a.cmd.is_some() { "custom" } else { built.agent.as_str() };
+        let label = if a.cmd.is_some() {
+            "custom"
+        } else {
+            built.agent.as_str()
+        };
         match &sandbox {
-            Some(s) => println!("launching {label} as '{name}' in sandbox {} on {endpoint} …", s.name),
+            Some(s) => println!(
+                "launching {label} as '{name}' in sandbox {} on {endpoint} …",
+                s.name
+            ),
             None => println!("launching {label} as '{name}' on {endpoint} …"),
         }
         // Foreground: replace this process on Unix; on Windows, run it to

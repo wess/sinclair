@@ -76,8 +76,8 @@ fn contains_token(name: &str, token: &str) -> bool {
     name.match_indices(token).any(|(i, _)| {
         let before = i == 0 || !bytes[i - 1].is_ascii_alphanumeric();
         let end = i + token.len();
-        let after = end == bytes.len()
-            || (!bytes[end].is_ascii_alphanumeric() && bytes[end] != b'_');
+        let after =
+            end == bytes.len() || (!bytes[end].is_ascii_alphanumeric() && bytes[end] != b'_');
         before && after
     })
 }
@@ -128,7 +128,10 @@ fn parse(body: &[u8]) -> Result<Release, String> {
     // `semver::parse` only reads the leading three fields — it happily accepts
     // `1.28.0-/../../..`, which `create_dir_all` would then resolve out of
     // $TMPDIR. Nothing we ship tags that way, so refuse it rather than sanitize.
-    if !version.split('.').all(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit())) {
+    if !version
+        .split('.')
+        .all(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit()))
+    {
         return Err(format!("refusing malformed release tag `{tag}`"));
     }
     let assets = v["assets"]
@@ -146,7 +149,11 @@ fn parse(body: &[u8]) -> Result<Release, String> {
         })
         .unwrap_or_default();
     let url = v["html_url"].as_str().unwrap_or("").to_string();
-    Ok(Release { version, url, assets })
+    Ok(Release {
+        version,
+        url,
+        assets,
+    })
 }
 
 /// Fetch the latest published release from GitHub and classify it against the

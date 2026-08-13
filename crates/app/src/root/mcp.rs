@@ -51,7 +51,10 @@ impl WorkspaceView {
                 self.mcp_run(text, target, window, cx)
             }
             "read_screen" => {
-                let lines = args.get("lines").and_then(Value::as_u64).map(|n| n as usize);
+                let lines = args
+                    .get("lines")
+                    .and_then(Value::as_u64)
+                    .map(|n| n as usize);
                 let text = self
                     .focused_terminal(cx)
                     .map(|v| v.read(cx).screen_text(lines))
@@ -60,7 +63,10 @@ impl WorkspaceView {
             }
             #[cfg(debug_assertions)]
             "simulate_update" => {
-                let version = args.get("version").and_then(Value::as_str).unwrap_or("9.9.9");
+                let version = args
+                    .get("version")
+                    .and_then(Value::as_str)
+                    .unwrap_or("9.9.9");
                 // `assets` opts into a release that carries the asset this
                 // platform installs from, so the prompt can be driven through
                 // its real download path instead of only the no-asset case.
@@ -258,7 +264,8 @@ impl WorkspaceView {
                 let index = args
                     .get("index")
                     .and_then(Value::as_u64)
-                    .ok_or("focus_tab requires an `index` number")? as usize;
+                    .ok_or("focus_tab requires an `index` number")?
+                    as usize;
                 let items = self.group.read(cx).items();
                 let Some(&item) = items.get(index) else {
                     return Err(format!("no tab at index {index}"));

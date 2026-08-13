@@ -103,7 +103,11 @@ pub fn parse(path: PathBuf, text: &str) -> (Option<Plugin>, Vec<Diagnostic>) {
                      `capabilities = [\"a\", \"b\"]`, `[[tool.param]]`)",
                 );
             }
-            diags.push(Diagnostic { path, line: 0, message });
+            diags.push(Diagnostic {
+                path,
+                line: 0,
+                message,
+            });
             return (None, diags);
         }
     };
@@ -114,7 +118,10 @@ pub fn parse(path: PathBuf, text: &str) -> (Option<Plugin>, Vec<Diagnostic>) {
 fn build(raw: RawManifest, path: &Path, diags: &mut Vec<Diagnostic>) -> Option<Plugin> {
     let id = required(raw.id, "id", path, diags)?;
     if !validid(&id) {
-        diags.push(diag(path, "plugin id must use lowercase letters, numbers, `.` or `-`"));
+        diags.push(diag(
+            path,
+            "plugin id must use lowercase letters, numbers, `.` or `-`",
+        ));
         return None;
     }
     let name = raw.name.filter(nonblank).unwrap_or_else(|| id.clone());
@@ -146,9 +153,15 @@ fn build(raw: RawManifest, path: &Path, diags: &mut Vec<Diagnostic>) -> Option<P
     Some(Plugin {
         id,
         name,
-        version: raw.version.filter(nonblank).unwrap_or_else(|| "0.0.0".to_string()),
+        version: raw
+            .version
+            .filter(nonblank)
+            .unwrap_or_else(|| "0.0.0".to_string()),
         description: raw.description.filter(nonblank),
-        path: path.parent().map(Path::to_path_buf).unwrap_or_else(|| PathBuf::from(".")),
+        path: path
+            .parent()
+            .map(Path::to_path_buf)
+            .unwrap_or_else(|| PathBuf::from(".")),
         commands,
         runtime,
         panel,
@@ -164,7 +177,10 @@ fn build_capabilities(raw: Vec<String>, path: &Path, diags: &mut Vec<Diagnostic>
         if !CAPABILITIES.contains(&cap.as_str()) {
             diags.push(diag(
                 path,
-                &format!("unknown capability `{cap}` (one of {})", CAPABILITIES.join(", ")),
+                &format!(
+                    "unknown capability `{cap}` (one of {})",
+                    CAPABILITIES.join(", ")
+                ),
             ));
         } else if !caps.contains(&cap) {
             caps.push(cap);
@@ -210,32 +226,52 @@ fn build_runtime(raw: RawRuntime, path: &Path, diags: &mut Vec<Diagnostic>) -> O
     Some(Runtime { wasm })
 }
 
-fn build_panel(raw: RawPanel, id: &str, name: &str, path: &Path, diags: &mut Vec<Diagnostic>) -> Panel {
+fn build_panel(
+    raw: RawPanel,
+    id: &str,
+    name: &str,
+    path: &Path,
+    diags: &mut Vec<Diagnostic>,
+) -> Panel {
     let pid = raw.id.filter(nonblank).unwrap_or_else(|| id.to_string());
     if !validid(&pid) {
-        diags.push(diag(path, "panel id must use lowercase letters, numbers, `.` or `-`"));
+        diags.push(diag(
+            path,
+            "panel id must use lowercase letters, numbers, `.` or `-`",
+        ));
     }
     Panel {
         id: pid,
-        title: raw.title.filter(nonblank).unwrap_or_else(|| name.to_string()),
-        icon: raw.icon.filter(nonblank).unwrap_or_else(|| "\u{25c9}".to_string()),
+        title: raw
+            .title
+            .filter(nonblank)
+            .unwrap_or_else(|| name.to_string()),
+        icon: raw
+            .icon
+            .filter(nonblank)
+            .unwrap_or_else(|| "\u{25c9}".to_string()),
     }
 }
 
 fn build_command(raw: RawCommand, path: &Path, diags: &mut Vec<Diagnostic>) -> Option<Command> {
     let id = required(raw.id, "command id", path, diags)?;
     if !validid(&id) {
-        diags.push(diag(path, "command id must use lowercase letters, numbers, `.` or `-`"));
+        diags.push(diag(
+            path,
+            "command id must use lowercase letters, numbers, `.` or `-`",
+        ));
         return None;
     }
     let run = required(raw.run, "command run", path, diags)?;
     let mode = raw
         .mode
         .as_deref()
-        .map(|m| CommandMode::parse(m).unwrap_or_else(|| {
-            diags.push(diag(path, "invalid command mode"));
-            CommandMode::default()
-        }))
+        .map(|m| {
+            CommandMode::parse(m).unwrap_or_else(|| {
+                diags.push(diag(path, "invalid command mode"));
+                CommandMode::default()
+            })
+        })
         .unwrap_or_default();
     Some(Command {
         title: raw.title.filter(nonblank).unwrap_or_else(|| id.clone()),
@@ -251,15 +287,26 @@ fn build_trigger(raw: RawTrigger, path: &Path, diags: &mut Vec<Diagnostic>) -> O
     if !TRIGGER_EVENTS.contains(&on.as_str()) {
         diags.push(diag(
             path,
-            &format!("unknown trigger event `{on}` (one of {})", TRIGGER_EVENTS.join(", ")),
+            &format!(
+                "unknown trigger event `{on}` (one of {})",
+                TRIGGER_EVENTS.join(", ")
+            ),
         ));
         return None;
     }
     let run = raw.run.filter(nonblank);
     let notify = raw.notify.filter(nonblank);
     let invoke = raw.invoke.filter(nonblank);
-    if [&run, &notify, &invoke].iter().filter(|o| o.is_some()).count() != 1 {
-        diags.push(diag(path, "a trigger needs exactly one action: `run`, `notify`, or `invoke`"));
+    if [&run, &notify, &invoke]
+        .iter()
+        .filter(|o| o.is_some())
+        .count()
+        != 1
+    {
+        diags.push(diag(
+            path,
+            "a trigger needs exactly one action: `run`, `notify`, or `invoke`",
+        ));
         return None;
     }
     let target = raw
@@ -277,15 +324,24 @@ fn build_trigger(raw: RawTrigger, path: &Path, diags: &mut Vec<Diagnostic>) -> O
     } else if let Some(text) = notify {
         TriggerAction::Notify { text }
     } else {
-        TriggerAction::Invoke { method: invoke.expect("exactly one action") }
+        TriggerAction::Invoke {
+            method: invoke.expect("exactly one action"),
+        }
     };
-    Some(Trigger { on, when: raw.when.filter(nonblank), action })
+    Some(Trigger {
+        on,
+        when: raw.when.filter(nonblank),
+        action,
+    })
 }
 
 fn build_tool(raw: RawTool, path: &Path, diags: &mut Vec<Diagnostic>) -> Option<Tool> {
     let id = required(raw.id, "tool `id`", path, diags)?;
     if !validid(&id) {
-        diags.push(diag(path, "tool id must use lowercase letters, numbers, `.` or `-`"));
+        diags.push(diag(
+            path,
+            "tool id must use lowercase letters, numbers, `.` or `-`",
+        ));
         return None;
     }
     let description = raw.description.filter(nonblank).unwrap_or_else(|| {
@@ -293,14 +349,23 @@ fn build_tool(raw: RawTool, path: &Path, diags: &mut Vec<Diagnostic>) -> Option<
         String::new()
     });
     let params = raw.param.into_iter().filter_map(param).collect();
-    Some(Tool { id, description, params })
+    Some(Tool {
+        id,
+        description,
+        params,
+    })
 }
 
 /// Convert a raw param (table or legacy pipe-string) into a [`ToolParam`].
 fn param(raw: RawParam) -> Option<ToolParam> {
     match raw {
         RawParam::Pipe(spec) => parse_pipe_param(&spec),
-        RawParam::Table { name, kind, description, required } => Some(ToolParam {
+        RawParam::Table {
+            name,
+            kind,
+            description,
+            required,
+        } => Some(ToolParam {
             name,
             kind: normalize_kind(kind.as_deref().unwrap_or("")),
             description,
@@ -316,7 +381,12 @@ fn parse_pipe_param(spec: &str) -> Option<ToolParam> {
     let kind = normalize_kind(parts.next().unwrap_or(""));
     let description = parts.next().unwrap_or("").to_string();
     let required = matches!(parts.next().unwrap_or(""), "required" | "true" | "yes");
-    Some(ToolParam { name, kind, description, required })
+    Some(ToolParam {
+        name,
+        kind,
+        description,
+        required,
+    })
 }
 
 fn normalize_kind(kind: &str) -> String {
@@ -329,7 +399,12 @@ fn normalize_kind(kind: &str) -> String {
     .to_string()
 }
 
-fn required(value: Option<String>, name: &str, path: &Path, diags: &mut Vec<Diagnostic>) -> Option<String> {
+fn required(
+    value: Option<String>,
+    name: &str,
+    path: &Path,
+    diags: &mut Vec<Diagnostic>,
+) -> Option<String> {
     match value.filter(nonblank) {
         Some(value) => Some(value),
         None => {
@@ -356,10 +431,17 @@ fn validid(s: &str) -> bool {
 fn contained(path: &str) -> bool {
     use std::path::Component;
     Path::new(path).components().all(|c| {
-        !matches!(c, Component::RootDir | Component::Prefix(_) | Component::ParentDir)
+        !matches!(
+            c,
+            Component::RootDir | Component::Prefix(_) | Component::ParentDir
+        )
     })
 }
 
 fn diag(path: &Path, message: &str) -> Diagnostic {
-    Diagnostic { path: path.to_path_buf(), line: 0, message: message.to_string() }
+    Diagnostic {
+        path: path.to_path_buf(),
+        line: 0,
+        message: message.to_string(),
+    }
 }

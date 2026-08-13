@@ -60,7 +60,7 @@ impl WorkspaceView {
         let Some(item) = self.spawn_restored(&seed, window, cx) else {
             return;
         };
-        let new_pane = self.split_pane(host, axis.axis(), *ratio, item, cx);
+        let new_pane = self.restore_split(host, axis.axis(), *ratio, item, cx);
         self.realize_restore(first, host, host_index, panes, window, cx);
         self.realize_restore(second, new_pane, second_index, panes, window, cx);
     }
@@ -163,7 +163,12 @@ impl WorkspaceView {
         for tab in &state.tabs {
             let panes: Vec<RestoredPane> = (0..tab.cwds.len().max(tab.commands.len()))
                 .map(|i| RestoredPane {
-                    cwd: tab.cwds.get(i).cloned().flatten().map(std::path::PathBuf::from),
+                    cwd: tab
+                        .cwds
+                        .get(i)
+                        .cloned()
+                        .flatten()
+                        .map(std::path::PathBuf::from),
                     command: tab.commands.get(i).cloned().flatten(),
                     session: tab.sessions.get(i).cloned().flatten(),
                 })
@@ -255,7 +260,11 @@ impl WorkspaceView {
             // Only agent panes (those that reported a native session) carry a
             // command; ordinary shells restore fresh so nothing is re-run.
             let is_agent = it.is_some_and(|it| it.agent_session.is_some());
-            commands.push(is_agent.then(|| it.and_then(|it| it.command.clone())).flatten());
+            commands.push(
+                is_agent
+                    .then(|| it.and_then(|it| it.command.clone()))
+                    .flatten(),
+            );
             sessions.push(it.and_then(|it| it.agent_session.clone()));
         }
         let tabs = vec![crate::sessionstate::TabState {
@@ -306,9 +315,11 @@ impl WorkspaceView {
         });
     }
 
-    /// Split `host` along `axis` at `ratio`, putting `item` in the new (second)
-    /// pane. Returns the new pane id.
-    fn split_pane(
+    /// Split `host` along `axis` at `ratio`, putting an item the restore
+    /// already spawned into the new (second) pane. Returns the new pane id.
+    /// Distinct from [`Self::split_pane`], which spawns the terminal itself and
+    /// takes whatever ratio a fresh split gets.
+    fn restore_split(
         &mut self,
         host: PaneId,
         axis: SplitAxis,
@@ -358,7 +369,7 @@ impl WorkspaceView {
         if let Some(t) = titles.get(second_index) {
             self.rename_item(item, t, cx);
         }
-        let new_pane = self.split_pane(host, axis.axis(), *ratio, item, cx);
+        let new_pane = self.restore_split(host, axis.axis(), *ratio, item, cx);
         self.realize_into(first, host, host_index, commands, titles, window, cx);
         self.realize_into(second, new_pane, second_index, commands, titles, window, cx);
     }
@@ -457,11 +468,21 @@ impl WorkspaceView {
     /// Sinclair for a name and save the current arrangement as a custom tile.
     pub(crate) fn open_save_layout(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let layout = crate::tiles::from_tree(self.group.read(cx).tree().root());
-        self.open_rename(crate::rename::Target::Layout(layout), String::new(), window, cx);
+        self.open_rename(
+            crate::rename::Target::Layout(layout),
+            String::new(),
+            window,
+            cx,
+        );
     }
 
     /// Persist a captured layout under `name` and refresh the Tiles menu.
-    pub fn save_layout(&mut self, name: &str, layout: crate::tiles::Layout, cx: &mut Context<Self>) {
+    pub fn save_layout(
+        &mut self,
+        name: &str,
+        layout: crate::tiles::Layout,
+        cx: &mut Context<Self>,
+    ) {
         if name.trim().is_empty() {
             return;
         }

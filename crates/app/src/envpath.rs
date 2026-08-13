@@ -49,7 +49,10 @@ fn looks_inherited(path: &str) -> bool {
 fn login_path() -> Option<String> {
     let shell = pty::default_shell();
     let mut child = Command::new(&shell)
-        .args(["-lic", "printf '__SINCLAIRPATH__%s__SINCLAIRPATH__' \"$PATH\""])
+        .args([
+            "-lic",
+            "printf '__SINCLAIRPATH__%s__SINCLAIRPATH__' \"$PATH\"",
+        ])
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())

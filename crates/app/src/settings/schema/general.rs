@@ -1,6 +1,6 @@
 //! General section: shell, windows, clipboard, and OS-tab containers.
 
-use super::{choice, list, opt, strs, text, toggle, ListKind, Section, Setting};
+use super::{choice, list, opt, slider, strs, text, toggle, ListKind, Section, Setting};
 
 pub(super) fn settings() -> Vec<Setting> {
     let s = Section::General;
@@ -91,6 +91,31 @@ pub(super) fn settings() -> Vec<Setting> {
             "Keep the leading user@host: shells put in the terminal title.",
             s,
             |o| o.tab_title_show_host,
+        ),
+        toggle(
+            "tab-peek",
+            "Tab peek",
+            "Let a strip of live tab previews drop under the tab bar.",
+            s,
+            |o| o.tab_peek,
+        ),
+        slider(
+            "tab-peek-hover",
+            "Open peek on hover after",
+            "Milliseconds resting on the tab bar before the peek drops; 0 is off.",
+            s,
+            |o| o.tab_peek_hover as f32,
+            (0.0, 2000.0, 50.0),
+            true,
+        ),
+        slider(
+            "tab-peek-height",
+            "Peek card height",
+            "How tall each live tab preview is drawn, in pixels.",
+            s,
+            |o| o.tab_peek_height as f32,
+            (60.0, 400.0, 10.0),
+            true,
         ),
         toggle(
             "copy-on-select",

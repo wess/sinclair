@@ -175,7 +175,8 @@ impl GpuiRaster {
     /// Draw a box-drawing / block-element cell as filled geometry - the app's
     /// box rects, which tile without gaps, rather than the font's glyph.
     fn paint_box(&self, out: &mut Rgba, row: usize, col: usize, ch: char, fg: Rgb) {
-        let Some(glyph) = libsinclair::boxdraw::rects(ch, self.cell_w as f32, self.cell_h as f32) else {
+        let Some(glyph) = libsinclair::boxdraw::rects(ch, self.cell_w as f32, self.cell_h as f32)
+        else {
             return;
         };
         let alpha = (glyph.alpha.clamp(0.0, 1.0) * 255.0).round() as u8;

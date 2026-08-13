@@ -79,7 +79,12 @@ pub fn acquire(id: &str, command: &str, dir: &Path) -> Result<(u16, String), Str
     let (child, port, token) = start(command, dir)?;
     services.insert(
         id.to_string(),
-        Service { child, port, token: token.clone(), refs: stale + 1 },
+        Service {
+            child,
+            port,
+            token: token.clone(),
+            refs: stale + 1,
+        },
     );
     Ok((port, token))
 }
@@ -161,9 +166,7 @@ fn start(command: &str, dir: &Path) -> Result<(Child, u16, String), String> {
     // Hold the reservation until the last moment before the spawn, keeping the
     // window in which another local process could grab the port minimal.
     drop(reservation);
-    let mut child = cmd
-        .spawn()
-        .map_err(|e| format!("spawn `{program}`: {e}"))?;
+    let mut child = cmd.spawn().map_err(|e| format!("spawn `{program}`: {e}"))?;
     wait_ready(&mut child, port, &token)?;
     Ok((child, port, token))
 }
@@ -237,11 +240,13 @@ fn expected_proof(token: &str, nonce: &str) -> String {
     let mut h = Sha256::new();
     h.update(token.as_bytes());
     h.update(nonce.as_bytes());
-    h.finalize().iter().fold(String::with_capacity(64), |mut s, b| {
-        use std::fmt::Write;
-        let _ = write!(s, "{b:02x}");
-        s
-    })
+    h.finalize()
+        .iter()
+        .fold(String::with_capacity(64), |mut s, b| {
+            use std::fmt::Write;
+            let _ = write!(s, "{b:02x}");
+            s
+        })
 }
 
 /// One plain HTTP/1.1 GET of `/health?challenge=<nonce>`; returns the
@@ -275,7 +280,10 @@ fn probe_proof(port: u16, nonce: &str) -> Option<String> {
             }
         }
     }
-    let head = buf.windows(4).position(|w| w == b"\r\n\r\n").map(|i| &buf[..i])?;
+    let head = buf
+        .windows(4)
+        .position(|w| w == b"\r\n\r\n")
+        .map(|i| &buf[..i])?;
     let head = std::str::from_utf8(head).ok()?;
     head.lines().find_map(|line| {
         let (name, value) = line.split_once(':')?;

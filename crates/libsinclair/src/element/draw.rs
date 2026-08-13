@@ -137,6 +137,7 @@ impl TerminalElement {
             rows: grid.1,
             copy_on_select: self.copy_on_select,
             copy: self.copy.clone(),
+            path: self.path.clone(),
             smart_select: self.smart_select,
             middle_click_paste: self.middle_click_paste,
         };

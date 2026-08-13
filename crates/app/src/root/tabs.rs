@@ -170,7 +170,8 @@ impl WorkspaceView {
         };
         let to = (from as i32 + delta).clamp(0, items.len() as i32 - 1) as usize;
         if to != from {
-            self.group.update(cx, |g, cx| g.reorder_in_pane(item, to, cx));
+            self.group
+                .update(cx, |g, cx| g.reorder_in_pane(item, to, cx));
             cx.notify();
         }
     }

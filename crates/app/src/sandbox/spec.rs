@@ -77,10 +77,17 @@ pub fn build(opts: &config::Options, env: &Env) -> Spec {
     }
 
     sandbox.user = user_for(opts, env, &mut notes);
-    if let Some(raw) = opts.sandbox_network.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+    if let Some(raw) = opts
+        .sandbox_network
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
         match Network::parse(raw) {
             Some(n) => sandbox.network = n,
-            None => notes.push(format!("sandbox-network `{raw}`: expected bridge, host, or none")),
+            None => notes.push(format!(
+                "sandbox-network `{raw}`: expected bridge, host, or none"
+            )),
         }
     }
     if sandbox.network == Network::None {
@@ -121,8 +128,17 @@ pub fn build(opts: &config::Options, env: &Env) -> Spec {
 /// is already right. Otherwise a thin layer is generated, using the project's
 /// devcontainer image as the base when it has one, so agents land in the same
 /// toolchain the humans use with the agent CLIs added on top.
-fn image_for(opts: &config::Options, env: &Env, notes: &mut Vec<String>) -> (String, Option<Recipe>) {
-    if let Some(image) = opts.sandbox_image.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+fn image_for(
+    opts: &config::Options,
+    env: &Env,
+    notes: &mut Vec<String>,
+) -> (String, Option<Recipe>) {
+    if let Some(image) = opts
+        .sandbox_image
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
         return (image.to_string(), None);
     }
     let mut agents: Vec<String> = opts
@@ -183,9 +199,11 @@ fn user_for(opts: &config::Options, env: &Env, notes: &mut Vec<String>) -> Optio
         }
         "host" => {
             if env.host_user.is_none() {
-                notes.push("sandbox-user is `host` but the project's owner could not be read; \
+                notes.push(
+                    "sandbox-user is `host` but the project's owner could not be read; \
                             running as the image's user."
-                    .to_string());
+                        .to_string(),
+                );
             }
             env.host_user.clone()
         }

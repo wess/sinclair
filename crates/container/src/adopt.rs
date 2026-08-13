@@ -95,7 +95,11 @@ pub fn parse_found(output: &str) -> Vec<Found> {
                 name: name.to_string(),
                 image: image.to_string(),
                 // A container the engine reports but has no state for is gone.
-                state: if state == State::Missing { State::Exited } else { state },
+                state: if state == State::Missing {
+                    State::Exited
+                } else {
+                    state
+                },
                 owner,
                 config_file: label(&labels, "devcontainer.config_file"),
             })

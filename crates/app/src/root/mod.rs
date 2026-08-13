@@ -16,6 +16,7 @@ mod layout;
 mod mcp;
 mod menus;
 mod panes;
+mod peek;
 mod persist;
 mod pluginpanel;
 mod quickopen;
@@ -25,6 +26,7 @@ mod savebuffer;
 mod sidebar;
 mod tabmenu;
 mod tabs;
+mod tabswitcher;
 mod triggers;
 mod worktrees;
 
@@ -155,6 +157,11 @@ pub fn replays_changed(cx: &mut App, delta: i32) {
 /// Grid for a fresh pane until its first layout pass resizes it.
 const SPAWN_COLS: usize = 80;
 const SPAWN_ROWS: usize = 24;
+
+/// Height of a pane's tab bar — and, in the top row, of the titlebar the group
+/// doubles as. Anything the workspace hangs off the tab bar (the tab peek)
+/// measures from here, so the two cannot drift apart.
+pub(crate) const TAB_HEIGHT: f32 = 34.0;
 
 /// Fraction a divider moves per "Resize Split" step.
 const RESIZE_STEP: f32 = 0.05;
@@ -419,6 +426,21 @@ pub struct WorkspaceView {
     /// `relay launch` on the next start would re-register a roster the daemon
     /// may still be running.
     team: Option<String>,
+    /// Every item in the window, most recently active first. What the switcher
+    /// walks — the tabs you actually move between are rarely neighbours in the
+    /// strip, so position order is the wrong order to cycle in.
+    recent: Vec<ItemId>,
+    /// The open switcher, or `None`. See [`crate::switcher`].
+    switcher: Option<crate::switcher::Switcher>,
+    /// The open tab peek, or `None`. See [`peek`].
+    peek: Option<peek::Peek>,
+    /// Whether the pointer is over the tab bar / over the open strip. A
+    /// hover-opened peek closes once it is over neither.
+    peek_over_bar: bool,
+    peek_over_strip: bool,
+    /// Bumped on every hover change, so a scheduled open or close can tell
+    /// whether the pointer is still where it was when it was scheduled.
+    peek_gen: u64,
 }
 
 /// A team to realize in a freshly opened window. The roster becomes the
@@ -515,6 +537,12 @@ impl WorkspaceView {
             show_host,
             tab_menu: None,
             modal: None,
+            recent: Vec::new(),
+            switcher: None,
+            peek: None,
+            peek_over_bar: false,
+            peek_over_strip: false,
+            peek_gen: 0,
             containers: Vec::new(),
             engine: None,
             menu_teams: Vec::new(),
@@ -646,7 +674,7 @@ impl WorkspaceView {
         cx.new(|cx| {
             PaneGroup::new(first, cx)
                 .titlebar(leading, trailing)
-                .tab_height(34.0)
+                .tab_height(TAB_HEIGHT)
                 .on_render_item({
                     let items = items.clone();
                     move |id, _w, _cx| {
@@ -698,6 +726,9 @@ impl WorkspaceView {
                     cx.notify();
                 }
             }
+            PaneGroupEvent::SplitRequested { pane, axis, first } => {
+                self.split_pane(pane, axis, first, window, cx)
+            }
             PaneGroupEvent::CloseRequested(item) => self.close_item(item, window, cx),
             PaneGroupEvent::Activated(_) | PaneGroupEvent::FocusChanged(_) => {
                 self.focusactive(window, cx);
@@ -728,7 +759,13 @@ impl WorkspaceView {
 
     /// The focused item's working directory (resolved from its OSC-reported cwd).
     pub(crate) fn focused_cwd_path(&self, cx: &App) -> Option<std::path::PathBuf> {
-        let item = self.group.read(cx).active_item();
+        self.item_cwd_path(self.group.read(cx).active_item(), cx)
+    }
+
+    /// One item's working directory. A split asked for by a pane's own control
+    /// inherits from *that* pane, which is not the focused one when the click
+    /// is what focuses it.
+    pub(crate) fn item_cwd_path(&self, item: ItemId, cx: &App) -> Option<std::path::PathBuf> {
         self.items
             .borrow()
             .get(&item)
@@ -792,6 +829,7 @@ impl WorkspaceView {
             return;
         }
         self.on_item_closed(item, cx);
+        self.forget_recent(item);
         // Dropping the Item drops the TerminalView (and its pty/subscription).
         self.items.borrow_mut().remove(&item);
         self.group.update(cx, |g, cx| g.close_item(item, cx));
@@ -821,9 +859,12 @@ impl WorkspaceView {
         let place = display.map(|display| match drop {
             // A drag: open where the pointer let go, so the window arrives under
             // the ghost the user was already carrying.
-            Some(drop) => {
-                crate::dropped(source.origin + drop.position, drop.grab, source.size, display)
-            }
+            Some(drop) => crate::dropped(
+                source.origin + drop.position,
+                drop.grab,
+                source.size,
+                display,
+            ),
             // No gesture to honor (a menu tear): match the window the tab came
             // from and step off it, so the new window keeps its size and doesn't
             // land squarely behind its source.

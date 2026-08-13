@@ -99,7 +99,10 @@ fn navigation_and_function_keys_defer_to_legacy() {
 fn event_types_only_encoded_with_the_flag() {
     // Without report_event_types, a repeat encodes exactly like a press and a
     // release produces nothing.
-    assert_eq!(encode("a", CTRL, DIS, KeyEvent::Repeat).unwrap(), b"\x1b[97;5u");
+    assert_eq!(
+        encode("a", CTRL, DIS, KeyEvent::Repeat).unwrap(),
+        b"\x1b[97;5u"
+    );
     assert_eq!(encode("a", CTRL, DIS, KeyEvent::Release), None);
     // With the flag, repeat is `:2` and release is `:3`.
     assert_eq!(

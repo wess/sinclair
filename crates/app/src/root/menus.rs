@@ -95,8 +95,16 @@ impl WorkspaceView {
         cx.spawn(async move |this, cx| {
             let (teams, defs, tiles) = executor
                 .spawn(async move {
-                    let teams = if ai { crate::relay::team_list() } else { Vec::new() };
-                    (teams, crate::relay::list_agent_defs(), crate::tiles::list_custom())
+                    let teams = if ai {
+                        crate::relay::team_list()
+                    } else {
+                        Vec::new()
+                    };
+                    (
+                        teams,
+                        crate::relay::list_agent_defs(),
+                        crate::tiles::list_custom(),
+                    )
                 })
                 .await;
             let _ = this.update(cx, |view, cx| {
@@ -124,7 +132,8 @@ impl WorkspaceView {
             Some(MenuItem::submenu(self.sandbox_submenu(a))),
             self.pick(a, "Open Feed", Action::RelayFeed),
         ];
-        let mut t: Vec<Option<MenuItem>> = vec![self.pick(a, "Build Team\u{2026}", Action::BuildTeam)];
+        let mut t: Vec<Option<MenuItem>> =
+            vec![self.pick(a, "Build Team\u{2026}", Action::BuildTeam)];
         if !self.menu_teams.is_empty() {
             t.push(Some(MenuItem::separator()));
             for name in self.menu_teams.clone() {
@@ -165,16 +174,23 @@ impl WorkspaceView {
     }
 
     fn agents_submenu(&self, a: &mut Vec<Action>) -> Menu {
-        let mut items: Vec<Option<MenuItem>> = vec![self.pick(a, "Define Agent\u{2026}", Action::RelayLaunch)];
+        let mut items: Vec<Option<MenuItem>> =
+            vec![self.pick(a, "Define Agent\u{2026}", Action::RelayLaunch)];
         // Quick-launch: one item per configured provider that verified, launched
         // straight into a split (default role, no task) via the shared path.
         let providers = crate::relay::enabled_agents(&self.opts);
         let mut providers = match &self.verified_agents {
-            Some(ok) => providers.into_iter().filter(|p| ok.contains(p)).collect::<Vec<_>>(),
+            Some(ok) => providers
+                .into_iter()
+                .filter(|p| ok.contains(p))
+                .collect::<Vec<_>>(),
             None => providers,
         };
         // The configured default provider (`relay-default-agent`) leads the list.
-        if let Some(i) = providers.iter().position(|p| *p == self.opts.relay_default_agent) {
+        if let Some(i) = providers
+            .iter()
+            .position(|p| *p == self.opts.relay_default_agent)
+        {
             let default = providers.remove(i);
             providers.insert(0, default);
         }
@@ -200,9 +216,7 @@ impl WorkspaceView {
     /// feeds, never probed synchronously — then start/stop/restart and a jump
     /// to the server log.
     fn relay_submenu(&self, a: &mut Vec<Action>, cx: &App) -> Menu {
-        let connected = cx
-            .try_global::<RelayStatus>()
-            .is_some_and(|s| s.connected);
+        let connected = cx.try_global::<RelayStatus>().is_some_and(|s| s.connected);
         let status = if connected {
             "\u{25cf} Server running"
         } else {
@@ -337,8 +351,16 @@ impl WorkspaceView {
                 self.pick(a, "Save Buffer\u{2026}", Action::SaveBuffer),
                 Some(MenuItem::separator()),
                 Some(self.pick_checked(a, "Record Session", Action::ToggleRecording, recording)),
-                self.pick(a, "Export Recording as GIF", Action::ExportRecording("gif".into())),
-                self.pick(a, "Export Recording as MP4", Action::ExportRecording("mp4".into())),
+                self.pick(
+                    a,
+                    "Export Recording as GIF",
+                    Action::ExportRecording("gif".into()),
+                ),
+                self.pick(
+                    a,
+                    "Export Recording as MP4",
+                    Action::ExportRecording("mp4".into()),
+                ),
                 Some(MenuItem::separator()),
                 self.pick(a, "Close", Action::CloseSurface),
                 self.pick(a, "Close Tab", Action::CloseTab),
@@ -377,8 +399,14 @@ impl WorkspaceView {
                 self.pick(a, "Decrease Font Size", Action::DecreaseFontSize(1.0)),
                 Some(MenuItem::separator()),
                 self.pick(a, "Change Tab Title\u{2026}", Action::ChangeTabTitle),
-                self.pick(a, "Change Terminal Title\u{2026}", Action::ChangeTerminalTitle),
+                self.pick(
+                    a,
+                    "Change Terminal Title\u{2026}",
+                    Action::ChangeTerminalTitle,
+                ),
                 Some(self.pick_checked(a, "Terminal Read-only", Action::ToggleReadOnly, read_only)),
+                Some(MenuItem::separator()),
+                self.pick(a, "Peek at Tabs", Action::TabPeek),
                 Some(MenuItem::separator()),
                 Some(MenuItem::submenu(self.sidebar_menu(a, SidebarSide::Left))),
                 Some(MenuItem::submenu(self.sidebar_menu(a, SidebarSide::Right))),
@@ -431,7 +459,11 @@ impl WorkspaceView {
                 self.pick(a, "Select Split Above", Action::GotoSplit(SplitFocus::Up)),
                 self.pick(a, "Select Split Below", Action::GotoSplit(SplitFocus::Down)),
                 self.pick(a, "Select Split Left", Action::GotoSplit(SplitFocus::Left)),
-                self.pick(a, "Select Split Right", Action::GotoSplit(SplitFocus::Right)),
+                self.pick(
+                    a,
+                    "Select Split Right",
+                    Action::GotoSplit(SplitFocus::Right),
+                ),
             ],
         );
         let resize_split = Self::menu(
@@ -441,7 +473,11 @@ impl WorkspaceView {
                 self.pick(a, "Move Divider Up", Action::ResizeSplit(ResizeDir::Up)),
                 self.pick(a, "Move Divider Down", Action::ResizeSplit(ResizeDir::Down)),
                 self.pick(a, "Move Divider Left", Action::ResizeSplit(ResizeDir::Left)),
-                self.pick(a, "Move Divider Right", Action::ResizeSplit(ResizeDir::Right)),
+                self.pick(
+                    a,
+                    "Move Divider Right",
+                    Action::ResizeSplit(ResizeDir::Right),
+                ),
             ],
         );
         let mut items = vec![
@@ -450,7 +486,11 @@ impl WorkspaceView {
             self.pick(a, "Split Down", Action::NewSplit(SplitDirection::Down)),
             Some(MenuItem::separator()),
             self.pick(a, "Zoom Split", Action::ZoomSplit),
-            self.pick(a, "Select Previous Split", Action::GotoSplit(SplitFocus::Previous)),
+            self.pick(
+                a,
+                "Select Previous Split",
+                Action::GotoSplit(SplitFocus::Previous),
+            ),
             self.pick(a, "Select Next Split", Action::GotoSplit(SplitFocus::Next)),
             Some(MenuItem::submenu(select_split)),
             Some(MenuItem::submenu(resize_split)),

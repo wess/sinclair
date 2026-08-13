@@ -21,16 +21,24 @@ fn escapes() {
     assert_eq!(parse("\"é\"").unwrap(), Value::Str("é".into()));
     // \u escapes, including a surrogate pair.
     assert_eq!(parse("\"\\u0041\"").unwrap(), Value::Str("A".into()));
-    assert_eq!(parse("\"\\ud83d\\ude00\"").unwrap(), Value::Str("\u{1f600}".into()));
+    assert_eq!(
+        parse("\"\\ud83d\\ude00\"").unwrap(),
+        Value::Str("\u{1f600}".into())
+    );
 }
 
 #[test]
 fn objects_and_arrays() {
     let v = parse(r#"{ "a": 1, "b": [true, "x"], "c": { "d": null } }"#).unwrap();
-    let Value::Obj(members) = v else { panic!("expected object") };
+    let Value::Obj(members) = v else {
+        panic!("expected object")
+    };
     assert_eq!(members.len(), 3);
     assert_eq!(members[0].key, "a");
-    assert_eq!(members[1].value, Value::Arr(vec![Value::Bool(true), Value::Str("x".into())]));
+    assert_eq!(
+        members[1].value,
+        Value::Arr(vec![Value::Bool(true), Value::Str("x".into())])
+    );
 }
 
 #[test]
@@ -39,7 +47,10 @@ fn comments_and_trailing_commas() {
     let members = root(text).unwrap();
     assert_eq!(members.len(), 2);
     assert_eq!(members[0].line, 4);
-    assert_eq!(members[1].value, Value::Arr(vec![Value::Num(1.0), Value::Num(2.0)]));
+    assert_eq!(
+        members[1].value,
+        Value::Arr(vec![Value::Num(1.0), Value::Num(2.0)])
+    );
 }
 
 #[test]

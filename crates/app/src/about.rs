@@ -115,17 +115,15 @@ impl Render for AboutView {
             .child(img(self.icon.clone()).w(px(128.0)).h(px(128.0)).mb_5())
             .child(Title::new("Sinclair").order(2))
             .child(
-                div()
-                    .mt_1()
-                    .child(Text::new(format!("Version {VERSION}")).size(Size::Sm).dimmed()),
+                div().mt_1().child(
+                    Text::new(format!("Version {VERSION}"))
+                        .size(Size::Sm)
+                        .dimmed(),
+                ),
             )
-            .child(
-                div()
-                    .mt_4()
-                    .max_w(px(280.0))
-                    .text_center()
-                    .child(Text::new("A fast, modern terminal that gets out of your way.").size(Size::Sm)),
-            )
+            .child(div().mt_4().max_w(px(280.0)).text_center().child(
+                Text::new("A fast, modern terminal that gets out of your way.").size(Size::Sm),
+            ))
             .child(
                 div().mt_3().child(
                     Anchor::new("about-repo-link", "github.com/wess/sinclair")
@@ -135,7 +133,11 @@ impl Render for AboutView {
             )
             .child(div().flex_1())
             .child(Text::new(build_line()).size(Size::Xs).dimmed())
-            .child(div().mt_1().child(Text::new("Apache-2.0 licensed").size(Size::Xs).dimmed()))
+            .child(
+                div()
+                    .mt_1()
+                    .child(Text::new("Apache-2.0 licensed").size(Size::Xs).dimmed()),
+            )
     }
 }
 

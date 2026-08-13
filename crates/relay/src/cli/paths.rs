@@ -32,7 +32,9 @@ pub struct ServerInfo {
 }
 
 pub fn dir() -> PathBuf {
-    HOME.get().cloned().unwrap_or_else(|| PathBuf::from(".relay"))
+    HOME.get()
+        .cloned()
+        .unwrap_or_else(|| PathBuf::from(".relay"))
 }
 
 /// `dir()` resolved to an absolute path (children run in their own cwd).
@@ -41,9 +43,7 @@ pub fn abs_dir() -> PathBuf {
     if d.is_absolute() {
         d
     } else {
-        std::env::current_dir()
-            .map(|c| c.join(&d))
-            .unwrap_or(d)
+        std::env::current_dir().map(|c| c.join(&d)).unwrap_or(d)
     }
 }
 
@@ -217,7 +217,10 @@ mod tests {
         assert_eq!(timeout, TOOL_TIMEOUT_MS);
         // Comfortably longer than a full park, or it defeats the purpose.
         let park_ms = crate::tools::WAIT_MAX_SECS * 1000;
-        assert!(timeout > park_ms, "a {timeout}ms timeout cannot outlast a {park_ms}ms park");
+        assert!(
+            timeout > park_ms,
+            "a {timeout}ms timeout cannot outlast a {park_ms}ms park"
+        );
         assert_eq!(relay["type"], "http");
         assert_eq!(relay["url"], "http://127.0.0.1:7777/mcp");
         assert_eq!(relay["headers"]["Authorization"], "Bearer sekrit");

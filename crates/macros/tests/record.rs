@@ -15,7 +15,10 @@ fn captures_lines_on_enter() {
     rec.key("enter", None);
     type_str(&mut rec, "ls -la");
     rec.key("enter", None);
-    assert_eq!(rec.finish(), vec!["echo hi".to_string(), "ls -la".to_string()]);
+    assert_eq!(
+        rec.finish(),
+        vec!["echo hi".to_string(), "ls -la".to_string()]
+    );
     assert!(!rec.is_active());
 }
 

@@ -117,7 +117,10 @@ fn tool_call_and_gated_host_call() {
     // A tool that calls the gated host-commands interface reaches the host.
     let ran = plugin.call_tool("run", "{}").unwrap().unwrap();
     assert_eq!(ran, "{\"ran\":true}");
-    assert_eq!(commands.lock().unwrap().as_slice(), &["echo hi".to_string()]);
+    assert_eq!(
+        commands.lock().unwrap().as_slice(),
+        &["echo hi".to_string()]
+    );
 
     // A tool that calls the gated `host-process` interface reaches the host, and
     // the host's output comes back through.
@@ -147,7 +150,10 @@ fn missing_capability_blocks_instantiation() {
     // doesn't link it, so the component can't instantiate. That is the enforced
     // capability boundary — not an advisory flag.
     let result = PluginInstance::new(&eng, &fixture(), &[], host);
-    assert!(result.is_err(), "instantiation must fail without the commands capability");
+    assert!(
+        result.is_err(),
+        "instantiation must fail without the commands capability"
+    );
 }
 
 /// `process` is gated on its own, not carried in by another capability: the same
@@ -169,8 +175,7 @@ fn process_capability_is_gated_independently() {
 /// since the 12 MB artifact isn't committed.
 #[test]
 fn js_component_loads_and_runs_if_built() {
-    let path =
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../sdk/js/plugin.wasm");
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../sdk/js/plugin.wasm");
     if !path.exists() {
         eprintln!("skipping: sdk/js/plugin.wasm not built");
         return;
@@ -190,8 +195,7 @@ fn js_component_loads_and_runs_if_built() {
 fn runaway_guest_is_fuel_bounded() {
     let eng = engine().unwrap();
     let host = Box::new(MockHost::new(""));
-    let mut plugin =
-        PluginInstance::new(&eng, &fixture(), &granted(), host).unwrap();
+    let mut plugin = PluginInstance::new(&eng, &fixture(), &granted(), host).unwrap();
     plugin.set_fuel_budget(50_000_000); // small budget so the test is fast
     let result = plugin.call_tool("spin", "{}");
     assert!(result.is_err(), "an infinite-loop tool must trap, not hang");
@@ -214,7 +218,10 @@ fn git_plugin_runs_entirely_through_host_process() {
         ("git rev-parse --is-inside-work-tree", "true\n"),
         ("git rev-parse --abbrev-ref HEAD", "main\n"),
         ("git rev-list --left-right --count @{u}...HEAD", "2\t5\n"),
-        ("git status --porcelain", "M  src/a.rs\n M src/b.rs\n?? new.txt\n"),
+        (
+            "git status --porcelain",
+            "M  src/a.rs\n M src/b.rs\n?? new.txt\n",
+        ),
     ]);
     let execs = host.execs.clone();
     let commands = host.commands.clone();
@@ -340,7 +347,10 @@ fn sysinfo_plugin_reads_host_stats_through_host_process() {
             &[
                 ("uptime", uptime),
                 ("hostname", "studio.local\n"),
-                ("df -h .", "Filesystem Size Used Avail Capacity\n/dev/disk3s5 926Gi 412Gi 500Gi 46%\n"),
+                (
+                    "df -h .",
+                    "Filesystem Size Used Avail Capacity\n/dev/disk3s5 926Gi 412Gi 500Gi 46%\n",
+                ),
             ],
         );
         let out = plugin.call_tool("stats", "{}").unwrap().unwrap();
@@ -348,7 +358,10 @@ fn sysinfo_plugin_reads_host_stats_through_host_process() {
         assert_eq!(value["disk"]["size"], "926Gi", "{out}");
         assert_eq!(value["disk"]["avail"], "500Gi", "{out}");
         assert!(
-            value["load"].as_str().unwrap_or_default().starts_with("2.31"),
+            value["load"]
+                .as_str()
+                .unwrap_or_default()
+                .starts_with("2.31"),
             "{out}"
         );
     }
@@ -440,7 +453,11 @@ fn promptdesigner_persists_its_design_and_applies_visibly() {
     // The git segment is yellow regardless of the chosen colour, matching the
     // snippet it generates.
     assert!(
-        preview.as_array().unwrap().iter().any(|s| s["color"] == "yellow"),
+        preview
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|s| s["color"] == "yellow"),
         "{tree}"
     );
 
@@ -452,9 +469,15 @@ fn promptdesigner_persists_its_design_and_applies_visibly() {
 
     // A colour choice reaches both the preview and the generated snippet.
     plugin.on_ui_event("{\"id\":\"color:green\"}").unwrap();
-    let out = plugin.call_tool("snippet", "{\"shell\":\"zsh\"}").unwrap().unwrap();
+    let out = plugin
+        .call_tool("snippet", "{\"shell\":\"zsh\"}")
+        .unwrap()
+        .unwrap();
     let value: Value = serde_json::from_str(&out).unwrap();
-    assert!(value["snippet"].as_str().unwrap().contains("%F{green}"), "{out}");
+    assert!(
+        value["snippet"].as_str().unwrap().contains("%F{green}"),
+        "{out}"
+    );
 
     // Applying runs a visible command rather than writing files itself.
     plugin.on_ui_event("{\"id\":\"apply:zsh\"}").unwrap();
@@ -485,7 +508,10 @@ fn bundled_screentools_greps_the_screen() {
     let host = Box::new(MockHost::new("alpha\nbeta error\ngamma\ndelta error\n"));
     let mut plugin = PluginInstance::new(&eng, &wasm, &["screen".to_string()], host)
         .expect("instantiate screentools");
-    let out = plugin.call_tool("grep", "{\"query\":\"error\"}").unwrap().unwrap();
+    let out = plugin
+        .call_tool("grep", "{\"query\":\"error\"}")
+        .unwrap()
+        .unwrap();
     let value: serde_json::Value = serde_json::from_str(&out).unwrap();
     assert_eq!(value["count"], 2, "{out}");
     assert_eq!(value["matches"][0], "beta error");

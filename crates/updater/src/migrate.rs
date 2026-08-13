@@ -76,8 +76,8 @@ fn brew_owns(from: &Path, old: &str, exists: &impl Fn(&Path) -> bool) -> bool {
         return false;
     };
     let user_apps = std::env::var_os("HOME").map(|h| PathBuf::from(h).join("Applications"));
-    let in_appdir = parent == Path::new("/Applications")
-        || user_apps.as_deref().is_some_and(|p| parent == p);
+    let in_appdir =
+        parent == Path::new("/Applications") || user_apps.as_deref().is_some_and(|p| parent == p);
     if !in_appdir {
         return false;
     }

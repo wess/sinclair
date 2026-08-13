@@ -36,6 +36,9 @@ fn scrub_removes_only_rsync_staging_dirs() {
 
     assert!(!dir.join("Contents/MacOS/.~tmp~").exists());
     assert!(!dir.join("Contents/.~tmp~").exists());
-    assert_eq!(std::fs::read(dir.join("Contents/Info.plist")).unwrap(), b"keep");
+    assert_eq!(
+        std::fs::read(dir.join("Contents/Info.plist")).unwrap(),
+        b"keep"
+    );
     let _ = std::fs::remove_dir_all(&dir);
 }

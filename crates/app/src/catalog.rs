@@ -15,7 +15,9 @@ const REPO: &str = "wess/sinclair";
 /// Names of plugins available in the catalog (the directories under `plugins/`),
 /// sorted. Hits the GitHub contents API via `curl`.
 pub fn list() -> Result<Vec<String>, String> {
-    let body = fetch(&format!("https://api.github.com/repos/{REPO}/contents/plugins"))?;
+    let body = fetch(&format!(
+        "https://api.github.com/repos/{REPO}/contents/plugins"
+    ))?;
     let value: Value = serde_json::from_slice(&body).map_err(|e| format!("parse catalog: {e}"))?;
     let entries = value.as_array().ok_or("unexpected catalog response")?;
     let mut names: Vec<String> = entries
@@ -141,8 +143,7 @@ pub fn uninstall(name: &str) -> Result<(), String> {
     }
     let dir = plugin::defaultdir().ok_or("no plugin directory")?;
     let dest = dir.join(name);
-    let meta =
-        std::fs::symlink_metadata(&dest).map_err(|e| format!("{}: {e}", dest.display()))?;
+    let meta = std::fs::symlink_metadata(&dest).map_err(|e| format!("{}: {e}", dest.display()))?;
     if meta.file_type().is_symlink() {
         std::fs::remove_file(&dest).map_err(|e| format!("uninstall {name}: {e}"))?;
     } else {
@@ -197,11 +198,7 @@ fn valid_name(s: &str) -> bool {
 
 /// A downloadable file name: a plain file, never a path, traversal, or dotfile.
 fn valid_file(s: &str) -> bool {
-    !s.is_empty()
-        && s.len() <= 128
-        && !s.contains('/')
-        && !s.contains('\\')
-        && !s.starts_with('.')
+    !s.is_empty() && s.len() <= 128 && !s.contains('/') && !s.contains('\\') && !s.starts_with('.')
 }
 
 #[cfg(test)]

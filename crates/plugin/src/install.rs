@@ -46,7 +46,9 @@ impl Installed {
 
     /// Load the record, or an empty one if absent/unparsable (never fails).
     pub fn load() -> Self {
-        Self::path().map(|p| Self::load_from(&p)).unwrap_or_default()
+        Self::path()
+            .map(|p| Self::load_from(&p))
+            .unwrap_or_default()
     }
 
     /// Load the record at `path`; absent/unparsable yields an empty one.
@@ -87,7 +89,10 @@ impl Installed {
 
     /// The capabilities granted to `id` (empty if untracked).
     pub fn granted(&self, id: &str) -> &[String] {
-        self.plugins.get(id).map(|e| e.granted.as_slice()).unwrap_or(&[])
+        self.plugins
+            .get(id)
+            .map(|e| e.granted.as_slice())
+            .unwrap_or(&[])
     }
 
     /// The capabilities a plugin may actually reach: what it *declares*, narrowed

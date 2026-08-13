@@ -86,10 +86,18 @@ fn parse_list(text: &str) -> Vec<Worktree> {
         if let Some(p) = line.strip_prefix("worktree ") {
             path = Some(PathBuf::from(p.trim()));
         } else if let Some(b) = line.strip_prefix("branch ") {
-            branch = Some(b.trim().strip_prefix("refs/heads/").unwrap_or(b.trim()).to_string());
+            branch = Some(
+                b.trim()
+                    .strip_prefix("refs/heads/")
+                    .unwrap_or(b.trim())
+                    .to_string(),
+            );
         } else if line.trim().is_empty() {
             if let Some(p) = path.take() {
-                out.push(Worktree { path: p, branch: branch.take() });
+                out.push(Worktree {
+                    path: p,
+                    branch: branch.take(),
+                });
             }
             branch = None;
         }

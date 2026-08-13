@@ -26,7 +26,10 @@ detached
 #[test]
 fn resolve_absolute_vs_relative() {
     let base = std::path::Path::new("/home/me/repo");
-    assert_eq!(resolve(base, "/tmp/wt"), std::path::PathBuf::from("/tmp/wt"));
+    assert_eq!(
+        resolve(base, "/tmp/wt"),
+        std::path::PathBuf::from("/tmp/wt")
+    );
     assert_eq!(
         resolve(base, "../wt"),
         std::path::PathBuf::from("/home/me/repo/../wt")
@@ -42,7 +45,11 @@ fn create_list_remove_roundtrip() {
     let repo = base.join("repo");
     std::fs::create_dir_all(&repo).unwrap();
     let run = |args: &[&str]| {
-        Command::new("git").current_dir(&repo).args(args).output().unwrap()
+        Command::new("git")
+            .current_dir(&repo)
+            .args(args)
+            .output()
+            .unwrap()
     };
     // A minimal committed repo so HEAD exists for `worktree add`.
     run(&["init", "-q"]);
@@ -53,11 +60,16 @@ fn create_list_remove_roundtrip() {
     run(&["commit", "-qm", "init"]);
 
     let wt = create(&repo, "../wt-feature", Some("feature")).expect("create worktree");
-    assert!(wt.join(".git").exists() || wt.exists(), "worktree checked out");
+    assert!(
+        wt.join(".git").exists() || wt.exists(),
+        "worktree checked out"
+    );
 
     let worktrees = list(&repo).expect("list worktrees");
     assert!(
-        worktrees.iter().any(|w| w.branch.as_deref() == Some("feature")),
+        worktrees
+            .iter()
+            .any(|w| w.branch.as_deref() == Some("feature")),
         "created branch appears in the worktree list: {worktrees:?}"
     );
 

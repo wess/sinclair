@@ -37,10 +37,7 @@ fn compose_left(tokens: &[&str], collapsed: &[&str]) -> Dock {
 
 fn docks_of(left: &[SidebarPanel], right: &[SidebarPanel]) -> Docks {
     let mk = |panels: &[SidebarPanel]| Dock {
-        sections: panels
-            .iter()
-            .map(|p| DockSection::new(*p, true))
-            .collect(),
+        sections: panels.iter().map(|p| DockSection::new(*p, true)).collect(),
         width: 260.0,
         open: false,
     };
@@ -56,7 +53,10 @@ fn the_two_sides_default_differently() {
     assert_ne!(left, right);
     assert!(left.contains(&SidebarPanel::Terminals));
     assert!(right.contains(&SidebarPanel::Agents));
-    assert!(left.iter().all(|p| !right.contains(p)), "a section is in both defaults");
+    assert!(
+        left.iter().all(|p| !right.contains(p)),
+        "a section is in both defaults"
+    );
 }
 
 #[test]
@@ -146,7 +146,10 @@ fn reveal_finds_a_section_on_the_opposite_side() {
     assert_eq!(out.side, SidebarSide::Right);
     assert!(out.expanded && !out.added);
     assert!(docks[SidebarSide::Right.index()].open);
-    assert!(!docks[SidebarSide::Left.index()].open, "the wrong dock was opened");
+    assert!(
+        !docks[SidebarSide::Left.index()].open,
+        "the wrong dock was opened"
+    );
 }
 
 #[test]
@@ -183,7 +186,10 @@ fn toggling_a_side_open_expands_something() {
     // Opening a dock whose sections are all collapsed would show a stack of
     // headers and nothing else.
     let mut docks = docks_of(&[SidebarPanel::Terminals, SidebarPanel::Layouts], &[]);
-    docks[0].sections.iter_mut().for_each(|s| s.expanded = false);
+    docks[0]
+        .sections
+        .iter_mut()
+        .for_each(|s| s.expanded = false);
     toggle_side(&mut docks, SidebarSide::Left);
     assert!(docks[0].open);
     assert!(docks[0].sections[0].expanded);
@@ -208,7 +214,11 @@ fn move_to_transfers_between_docks() {
 fn move_to_clamps_and_ignores_bad_indices() {
     let mut docks = docks_of(&[SidebarPanel::Terminals], &[]);
     move_to(&mut docks, SidebarSide::Left, 9, SidebarSide::Right, 0);
-    assert_eq!(docks[0].sections.len(), 1, "an out-of-range move mutated a dock");
+    assert_eq!(
+        docks[0].sections.len(),
+        1,
+        "an out-of-range move mutated a dock"
+    );
     move_to(&mut docks, SidebarSide::Left, 0, SidebarSide::Right, 99);
     assert!(docks[1].holds(SidebarPanel::Terminals));
 }
@@ -292,7 +302,10 @@ fn an_emptied_dock_round_trips_as_empty() {
         resolver(NONE),
         tokenizer(NONE),
     );
-    assert!(back.sections.is_empty(), "an emptied dock came back as the defaults");
+    assert!(
+        back.sections.is_empty(),
+        "an emptied dock came back as the defaults"
+    );
 }
 
 #[test]
@@ -325,7 +338,12 @@ fn builtin_ids_and_labels_are_unique() {
     for (i, a) in SidebarPanel::ALL.iter().enumerate() {
         for b in &SidebarPanel::ALL[i + 1..] {
             assert_ne!(a.id(), b.id(), "duplicate section id `{}`", a.id());
-            assert_ne!(a.label(), b.label(), "duplicate section label `{}`", a.label());
+            assert_ne!(
+                a.label(),
+                b.label(),
+                "duplicate section label `{}`",
+                a.label()
+            );
         }
     }
 }
@@ -348,7 +366,10 @@ fn toggle_at_matches_reveal_without_the_token_round_trip() {
         let a = toggle_at(&mut by_index, SidebarSide::Left, 1).unwrap();
         let b = reveal(&mut by_token, SidebarSide::Left, SidebarPanel::Layouts);
         assert_eq!(a.0, SidebarPanel::Layouts);
-        assert_eq!(a.1, b.expanded, "index and token paths disagreed on expansion");
+        assert_eq!(
+            a.1, b.expanded,
+            "index and token paths disagreed on expansion"
+        );
         assert_eq!(by_index, by_token, "index and token paths diverged");
     }
 }
@@ -404,7 +425,10 @@ fn a_saved_session_restores_open_width_and_expansion() {
     );
     assert!(docks[0].open);
     assert_eq!(docks[0].width, 420.0);
-    assert!(!docks[0].sections[0].expanded, "terminals should have restored collapsed");
+    assert!(
+        !docks[0].sections[0].expanded,
+        "terminals should have restored collapsed"
+    );
     assert!(docks[0].sections[1].expanded);
 }
 
@@ -416,11 +440,7 @@ fn saved_state_follows_a_section_when_a_plugin_is_installed() {
     // `git` was the only plugin when the session was saved.
     let after: &'static [&'static str] = &["docker", "git"];
     let state = saved(
-        (
-            true,
-            300.0,
-            &[("terminals", true), ("plugin:git", false)],
-        ),
+        (true, 300.0, &[("terminals", true), ("plugin:git", false)]),
         (false, 260.0, &[]),
     );
 
@@ -440,13 +460,19 @@ fn saved_state_follows_a_section_when_a_plugin_is_installed() {
         .iter()
         .find(|s| tokenizer(after)(s.panel) == "plugin:git")
         .expect("git section");
-    assert!(!git.expanded, "the saved collapse followed the wrong section");
+    assert!(
+        !git.expanded,
+        "the saved collapse followed the wrong section"
+    );
     let docker = next[0]
         .sections
         .iter()
         .find(|s| tokenizer(after)(s.panel) == "plugin:docker")
         .expect("docker section");
-    assert!(docker.expanded, "a newly installed section should keep its default");
+    assert!(
+        docker.expanded,
+        "a newly installed section should keep its default"
+    );
 }
 
 /// A token for a section that no longer exists is simply dropped — the same

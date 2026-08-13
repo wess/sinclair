@@ -18,7 +18,9 @@ pub(crate) fn upsert(key: &str, value: &str) {
     if value.is_empty() {
         return remove(key);
     }
-    edit(key, |text| config::jsonedit::upsert(text, key, &config::settings::encode(key, value)));
+    edit(key, |text| {
+        config::jsonedit::upsert(text, key, &config::settings::encode(key, value))
+    });
 }
 
 /// Replace a repeated `key` with the given entries; empty removes the key.
@@ -26,7 +28,9 @@ pub(crate) fn set_list(key: &str, values: &[String]) {
     if values.is_empty() {
         return remove(key);
     }
-    edit(key, |text| config::jsonedit::upsert(text, key, &config::settings::encode_list(values)));
+    edit(key, |text| {
+        config::jsonedit::upsert(text, key, &config::settings::encode_list(values))
+    });
 }
 
 /// Remove `key` from the file, restoring the built-in default.
@@ -42,7 +46,11 @@ fn edit(key: &str, apply: impl Fn(&str) -> Option<String>) {
     let Some(text) = current(&path) else {
         return;
     };
-    let text = if text.trim().is_empty() { config::settings::starter() } else { text };
+    let text = if text.trim().is_empty() {
+        config::settings::starter()
+    } else {
+        text
+    };
     match apply(&text) {
         Some(updated) => persist(&path, &updated),
         None => eprintln!(

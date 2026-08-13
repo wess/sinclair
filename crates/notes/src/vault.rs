@@ -42,7 +42,9 @@ fn now_ms() -> u64 {
 }
 
 fn home() -> PathBuf {
-    std::env::var_os("HOME").map(PathBuf::from).unwrap_or_default()
+    std::env::var_os("HOME")
+        .map(PathBuf::from)
+        .unwrap_or_default()
 }
 
 fn config_dir() -> PathBuf {
@@ -93,7 +95,11 @@ impl Vault {
     fn remember_recent(&self, dir: &Path) {
         let _ = fs::create_dir_all(config_dir());
         let dir_s = dir.to_string_lossy().into_owned();
-        let mut list: Vec<Recent> = self.recents().into_iter().filter(|r| r.path != dir_s).collect();
+        let mut list: Vec<Recent> = self
+            .recents()
+            .into_iter()
+            .filter(|r| r.path != dir_s)
+            .collect();
         list.insert(
             0,
             Recent {
@@ -103,12 +109,22 @@ impl Vault {
             },
         );
         list.truncate(20);
-        let _ = fs::write(recents_file(), serde_json::to_vec(&list).unwrap_or_default());
+        let _ = fs::write(
+            recents_file(),
+            serde_json::to_vec(&list).unwrap_or_default(),
+        );
     }
 
     pub fn forget_recent(&self, dir: &str) {
-        let kept: Vec<Recent> = self.recents().into_iter().filter(|r| r.path != dir).collect();
-        let _ = fs::write(recents_file(), serde_json::to_vec(&kept).unwrap_or_default());
+        let kept: Vec<Recent> = self
+            .recents()
+            .into_iter()
+            .filter(|r| r.path != dir)
+            .collect();
+        let _ = fs::write(
+            recents_file(),
+            serde_json::to_vec(&kept).unwrap_or_default(),
+        );
     }
 
     // --- open / current -------------------------------------------------
@@ -244,7 +260,10 @@ impl Vault {
         let clean = title.replace(['/', '\\'], "-");
         let clean = clean.trim_end_matches(".md").trim_end_matches(".MD").trim();
         let clean = if clean.is_empty() { "Untitled" } else { clean };
-        let parent = Path::new(rel).parent().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default();
+        let parent = Path::new(rel)
+            .parent()
+            .map(|p| p.to_string_lossy().into_owned())
+            .unwrap_or_default();
         let dest = if parent.is_empty() {
             format!("{clean}{ext}")
         } else {
@@ -267,15 +286,25 @@ impl Vault {
 
     /// Resolve a `[[wiki-link]]` target to a vault path, creating it if missing.
     pub fn resolve(&self, title: &str) -> Result<String, String> {
-        let want = title.trim_end_matches(".md").trim_end_matches(".MD").to_lowercase();
+        let want = title
+            .trim_end_matches(".md")
+            .trim_end_matches(".MD")
+            .to_lowercase();
         let mut flat = Vec::new();
         collect_files(&self.tree()?, &mut flat);
-        if let Some(hit) = flat.into_iter().find(|(_, name)| name.to_lowercase() == want) {
+        if let Some(hit) = flat
+            .into_iter()
+            .find(|(_, name)| name.to_lowercase() == want)
+        {
             return Ok(hit.0);
         }
         let cleaned = title.replace(['/', '\\'], "-");
         let cleaned = cleaned.trim();
-        let base = if cleaned.is_empty() { "Untitled" } else { cleaned };
+        let base = if cleaned.is_empty() {
+            "Untitled"
+        } else {
+            cleaned
+        };
         let rel = self.unique_path("", base, ".md")?;
         self.write(&rel, &format!("# {title}\n\n"))?;
         Ok(rel)

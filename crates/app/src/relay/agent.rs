@@ -111,7 +111,8 @@ pub fn role_list() -> Vec<String> {
     else {
         return Vec::new();
     };
-    let v: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap_or(serde_json::Value::Null);
+    let v: serde_json::Value =
+        serde_json::from_slice(&out.stdout).unwrap_or(serde_json::Value::Null);
     v.as_array()
         .map(|a| {
             a.iter()
@@ -152,7 +153,11 @@ pub fn launch_agent_command(
         s.push_str(&format!(" --role {}", sh_quote(r)));
     }
     if let Some(t) = task.filter(|t| !t.is_empty()) {
-        let t = if opts.ai_optimize_tokens { minimize_prompt(t) } else { t.to_string() };
+        let t = if opts.ai_optimize_tokens {
+            minimize_prompt(t)
+        } else {
+            t.to_string()
+        };
         if !t.is_empty() {
             s.push_str(&format!(" --task {}", sh_quote(&t)));
         }
@@ -199,7 +204,13 @@ pub fn provider_label(provider: &str) -> String {
 fn unique_agent_name(provider: &str) -> String {
     let base: String = provider
         .chars()
-        .map(|c| if c.is_ascii_alphanumeric() { c.to_ascii_lowercase() } else { '-' })
+        .map(|c| {
+            if c.is_ascii_alphanumeric() {
+                c.to_ascii_lowercase()
+            } else {
+                '-'
+            }
+        })
         .collect();
     let secs = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -232,7 +243,10 @@ pub(crate) fn minimize_prompt(text: &str) -> String {
     let mut out: Vec<String> = Vec::new();
     let mut blank_run = false;
     for line in text.lines() {
-        let indent: String = line.chars().take_while(|c| *c == ' ' || *c == '\t').collect();
+        let indent: String = line
+            .chars()
+            .take_while(|c| *c == ' ' || *c == '\t')
+            .collect();
         let body = &line[indent.len()..];
         let mut compact = String::with_capacity(body.len());
         let mut prev_space = false;

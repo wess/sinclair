@@ -11,7 +11,12 @@ pub enum Outcome {
     /// A tool call to run, possibly long-lived, streamed over SSE. `progress`
     /// carries the client's `_meta.progressToken` when it supplied one, so the
     /// transport can keep the call alive with `notifications/progress`.
-    Tool { id: Value, name: String, args: Value, progress: Option<Value> },
+    Tool {
+        id: Value,
+        name: String,
+        args: Value,
+        progress: Option<Value>,
+    },
     /// A notification, no response body, just 202.
     Accepted,
 }
@@ -57,7 +62,12 @@ pub fn route(req: RpcRequest) -> Outcome {
                 .get("_meta")
                 .and_then(|m| m.get("progressToken"))
                 .cloned();
-            Outcome::Tool { id, name, args, progress }
+            Outcome::Tool {
+                id,
+                name,
+                args,
+                progress,
+            }
         }
         _ if req.id.is_none() => Outcome::Accepted,
         other => Outcome::Now(err(id, -32601, &format!("method not found: {other}"))),
@@ -107,7 +117,8 @@ mod tests {
     /// park the client aborts as idle.
     #[test]
     fn progress_token_is_carried_through() {
-        let Outcome::Tool { progress, .. } = route(tool_call(Some(json!({"progressToken": 7})))) else {
+        let Outcome::Tool { progress, .. } = route(tool_call(Some(json!({"progressToken": 7}))))
+        else {
             panic!("a tool call should route as Outcome::Tool");
         };
         assert_eq!(progress, Some(json!(7)));

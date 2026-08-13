@@ -20,8 +20,13 @@ fn main() {
         let window = cx
             .open_window(options, |window, cx| {
                 cx.new(|cx| {
-                    TermView::spawn(SessionOptions::default(), TermOptions::default(), window, cx)
-                        .expect("spawn shell")
+                    TermView::spawn(
+                        SessionOptions::default(),
+                        TermOptions::default(),
+                        window,
+                        cx,
+                    )
+                    .expect("spawn shell")
                 })
             })
             .expect("open window");

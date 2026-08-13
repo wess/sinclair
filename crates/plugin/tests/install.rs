@@ -19,8 +19,16 @@ fn disable_then_reenable() {
 #[test]
 fn record_captures_grants_and_round_trips() {
     let mut installed = Installed::default();
-    installed.record("git", "0.2.0", "catalog:git", vec!["commands".into(), "filesystem".into()]);
-    assert_eq!(installed.granted("git"), &["commands".to_string(), "filesystem".to_string()]);
+    installed.record(
+        "git",
+        "0.2.0",
+        "catalog:git",
+        vec!["commands".into(), "filesystem".into()],
+    );
+    assert_eq!(
+        installed.granted("git"),
+        &["commands".to_string(), "filesystem".to_string()]
+    );
 
     let text = toml::to_string(&installed).unwrap();
     let back: Installed = toml::from_str(&text).unwrap();
@@ -32,14 +40,23 @@ fn record_captures_grants_and_round_trips() {
 
 #[test]
 fn effective_capabilities_enforce_consent() {
-    let declared = vec!["commands".to_string(), "network".to_string(), "filesystem".to_string()];
+    let declared = vec![
+        "commands".to_string(),
+        "network".to_string(),
+        "filesystem".to_string(),
+    ];
     let mut installed = Installed::default();
 
     // Untracked (built-in / local): declared set is granted implicitly.
     assert_eq!(installed.effective_capabilities("git", &declared), declared);
 
     // Tracked with a narrower grant: the plugin can't reach `network`.
-    installed.record("git", "0.2.0", "catalog:git", vec!["commands".into(), "filesystem".into()]);
+    installed.record(
+        "git",
+        "0.2.0",
+        "catalog:git",
+        vec!["commands".into(), "filesystem".into()],
+    );
     assert_eq!(
         installed.effective_capabilities("git", &declared),
         vec!["commands".to_string(), "filesystem".to_string()]
@@ -52,10 +69,17 @@ fn grants_beyond_the_declared_set_do_not_widen() {
     let mut installed = Installed::default();
     // A grant for something the plugin never declared confers nothing, and an
     // empty grant yields nothing at all: strictly `granted ∩ declared`.
-    installed.record("git", "0.1.0", "catalog:git", vec!["network".into(), "commands".into()]);
+    installed.record(
+        "git",
+        "0.1.0",
+        "catalog:git",
+        vec!["network".into(), "commands".into()],
+    );
     assert_eq!(installed.effective_capabilities("git", &declared), declared);
     installed.record("git", "0.1.0", "catalog:git", Vec::new());
-    assert!(installed.effective_capabilities("git", &declared).is_empty());
+    assert!(installed
+        .effective_capabilities("git", &declared)
+        .is_empty());
 }
 
 #[test]
@@ -84,8 +108,12 @@ fn save_and_load_round_trip_through_a_file() {
     assert!(back.is_enabled("untracked"));
 
     // Absent or unparsable files load as empty, never fail.
-    assert!(Installed::load_from(&dir.join("absent.toml")).plugins.is_empty());
+    assert!(Installed::load_from(&dir.join("absent.toml"))
+        .plugins
+        .is_empty());
     std::fs::write(dir.join("broken.toml"), "not toml [").unwrap();
-    assert!(Installed::load_from(&dir.join("broken.toml")).plugins.is_empty());
+    assert!(Installed::load_from(&dir.join("broken.toml"))
+        .plugins
+        .is_empty());
     let _ = std::fs::remove_dir_all(&dir);
 }

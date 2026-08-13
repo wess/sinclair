@@ -20,7 +20,10 @@ fn reserved_port_is_free_for_the_child() {
         drop(reservation);
         std::net::TcpListener::bind(("127.0.0.1", port)).is_ok()
     });
-    assert!(rebound, "no reserved port was rebindable across five attempts");
+    assert!(
+        rebound,
+        "no reserved port was rebindable across five attempts"
+    );
 }
 
 #[test]
@@ -65,7 +68,10 @@ fn release_of_an_unknown_id_is_a_noop() {
 #[test]
 fn resolve_program_keeps_paths_and_unknown_names() {
     assert_eq!(resolve_program("/usr/bin/env"), "/usr/bin/env");
-    assert_eq!(resolve_program("definitelynotasibling"), "definitelynotasibling");
+    assert_eq!(
+        resolve_program("definitelynotasibling"),
+        "definitelynotasibling"
+    );
 }
 
 /// A one-shot fake sidecar: answers `/health?challenge=` with the proof that
@@ -108,7 +114,10 @@ fn fake_sidecar(respond: fn(&str) -> Option<String>) -> u16 {
 #[test]
 fn handshake_accepts_the_correct_proof() {
     let port = fake_sidecar(|nonce| Some(expected_proof("tok", nonce)));
-    let mut child = std::process::Command::new("sleep").arg("5").spawn().unwrap();
+    let mut child = std::process::Command::new("sleep")
+        .arg("5")
+        .spawn()
+        .unwrap();
     assert_eq!(wait_ready(&mut child, port, "tok"), Ok(()));
     let _ = child.kill();
     let _ = child.wait();
@@ -117,7 +126,10 @@ fn handshake_accepts_the_correct_proof() {
 #[test]
 fn handshake_rejects_a_wrong_proof() {
     let port = fake_sidecar(|_| Some("0".repeat(64)));
-    let mut child = std::process::Command::new("sleep").arg("5").spawn().unwrap();
+    let mut child = std::process::Command::new("sleep")
+        .arg("5")
+        .spawn()
+        .unwrap();
     let err = wait_ready(&mut child, port, "tok").unwrap_err();
     assert!(err.contains("readiness handshake"), "{err}");
     let _ = child.wait();
@@ -127,7 +139,10 @@ fn handshake_rejects_a_wrong_proof() {
 fn missing_proof_falls_back_to_the_settle_heuristic() {
     // A live child plus a proofless HTTP answer must still pass (legacy path).
     let port = fake_sidecar(|_| None);
-    let mut child = std::process::Command::new("sleep").arg("5").spawn().unwrap();
+    let mut child = std::process::Command::new("sleep")
+        .arg("5")
+        .spawn()
+        .unwrap();
     assert_eq!(wait_ready(&mut child, port, "tok"), Ok(()));
     let _ = child.kill();
     let _ = child.wait();

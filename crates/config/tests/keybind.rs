@@ -125,7 +125,10 @@ fn parse_chord_sequence() {
     assert_eq!(kb.mods, mods(true, false, false, false));
     assert_eq!(kb.key, "a");
     assert!(kb.is_chord());
-    assert_eq!(kb.tail, vec![(mods(false, false, false, false), "n".to_string())]);
+    assert_eq!(
+        kb.tail,
+        vec![(mods(false, false, false, false), "n".to_string())]
+    );
     assert_eq!(kb.action, Action::NewTab);
     // Round-trips through the trigger formatter.
     assert_eq!(kb.trigger(), "ctrl+a>n");
@@ -144,8 +147,12 @@ fn chord_dedup_is_by_full_sequence() {
         "ctrl+a>n=new_tab".to_string(),
     ]);
     assert!(diags.is_empty());
-    assert!(binds.iter().any(|b| b.trigger() == "ctrl+a" && b.action == Action::NewWindow));
-    assert!(binds.iter().any(|b| b.trigger() == "ctrl+a>n" && b.action == Action::NewTab));
+    assert!(binds
+        .iter()
+        .any(|b| b.trigger() == "ctrl+a" && b.action == Action::NewWindow));
+    assert!(binds
+        .iter()
+        .any(|b| b.trigger() == "ctrl+a>n" && b.action == Action::NewTab));
 }
 
 #[test]
@@ -296,11 +303,23 @@ fn invalid_entries_diagnose_and_skip() {
 fn format_trigger_round_trips() {
     let cmd_shift = mods(false, true, false, true);
     assert_eq!(format_trigger(cmd_shift, "t"), "cmd+shift+t");
-    assert_eq!(parse_trigger("cmd+shift+t").unwrap(), (cmd_shift, "t".into()));
+    assert_eq!(
+        parse_trigger("cmd+shift+t").unwrap(),
+        (cmd_shift, "t".into())
+    );
     // Punctuation keys spell out so the line never mis-splits.
-    assert_eq!(format_trigger(mods(false, false, false, true), "+"), "cmd+plus");
-    assert_eq!(format_trigger(mods(false, false, false, true), "="), "cmd+equal");
-    assert_eq!(format_trigger(mods(false, false, false, true), "["), "cmd+bracket_left");
+    assert_eq!(
+        format_trigger(mods(false, false, false, true), "+"),
+        "cmd+plus"
+    );
+    assert_eq!(
+        format_trigger(mods(false, false, false, true), "="),
+        "cmd+equal"
+    );
+    assert_eq!(
+        format_trigger(mods(false, false, false, true), "["),
+        "cmd+bracket_left"
+    );
     for key in ["plus", "equal", "bracket_left", "comma"] {
         let (m, k) = parse_trigger(&format!("cmd+{key}")).unwrap();
         assert_eq!(format_trigger(m, &k), format!("cmd+{key}"));
@@ -329,7 +348,10 @@ fn diff_round_trips_through_resolve() {
     assert!(diags.is_empty(), "{diags:?}");
 
     let key = |b: &Keybind| (b.mods, b.key.clone());
-    let mut got: Vec<_> = resolved.iter().map(|b| (key(b), b.action.clone())).collect();
+    let mut got: Vec<_> = resolved
+        .iter()
+        .map(|b| (key(b), b.action.clone()))
+        .collect();
     let mut want: Vec<_> = desired.iter().map(|b| (key(b), b.action.clone())).collect();
     got.sort_by(|a, b| format!("{a:?}").cmp(&format!("{b:?}")));
     want.sort_by(|a, b| format!("{a:?}").cmp(&format!("{b:?}")));

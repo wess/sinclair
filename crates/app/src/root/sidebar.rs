@@ -72,11 +72,9 @@ impl WorkspaceView {
             .text_color(fg);
 
         if dock.sections.is_empty() {
-            content = content
-                .child(self.dock_titlebar(side, cx))
-                .child(self.sidebar_note(
-                    "No sections here. Add some in Settings \u{2192} Sidebar.",
-                ));
+            content = content.child(self.dock_titlebar(side, cx)).child(
+                self.sidebar_note("No sections here. Add some in Settings \u{2192} Sidebar."),
+            );
         } else {
             content = content.child(self.dock_titlebar(side, cx));
             for (i, section) in dock.sections.iter().enumerate() {
@@ -87,8 +85,16 @@ impl WorkspaceView {
         let rail = self.sidebar_rail(side, cx);
         let mut row = div().flex().flex_row().h_full().flex_none();
         row = match side {
-            SidebarSide::Left => row.border_r_1().border_color(border).child(rail).child(content),
-            SidebarSide::Right => row.border_l_1().border_color(border).child(content).child(rail),
+            SidebarSide::Left => row
+                .border_r_1()
+                .border_color(border)
+                .child(rail)
+                .child(content),
+            SidebarSide::Right => row
+                .border_l_1()
+                .border_color(border)
+                .child(content)
+                .child(rail),
         };
         row.into_any_element()
     }
@@ -283,9 +289,7 @@ impl WorkspaceView {
     /// A rail glyph. Same split: static for a built-in, owned for a plugin.
     fn panel_glyph(&self, panel: SidebarPanel) -> SharedString {
         match panel {
-            SidebarPanel::Plugin(_) => {
-                SharedString::from(self.panel_icon_of(panel))
-            }
+            SidebarPanel::Plugin(_) => SharedString::from(self.panel_icon_of(panel)),
             builtin => SharedString::new_static(builtin.icon()),
         }
     }
@@ -420,10 +424,16 @@ impl WorkspaceView {
             );
         }
         body = body.child(
-            self.sidebar_row(("sb-savelayout", 0usize), "Save Current Layout…".into(), false, false, false)
-                .on_click(cx.listener(|this, _: &gpui::ClickEvent, window, cx| {
-                    this.open_save_layout(window, cx);
-                })),
+            self.sidebar_row(
+                ("sb-savelayout", 0usize),
+                "Save Current Layout…".into(),
+                false,
+                false,
+                false,
+            )
+            .on_click(cx.listener(|this, _: &gpui::ClickEvent, window, cx| {
+                this.open_save_layout(window, cx);
+            })),
         );
         body.into_any_element()
     }
@@ -461,10 +471,18 @@ impl WorkspaceView {
             );
             if self.sandbox.is_some() {
                 body = body.child(
-                    self.sidebar_row(("sb-sbx-stop", 0usize), "\u{25a0} Stop sandbox".into(), false, false, false)
-                        .on_click(cx.listener(|this, _: &gpui::ClickEvent, _w, cx| {
+                    self.sidebar_row(
+                        ("sb-sbx-stop", 0usize),
+                        "\u{25a0} Stop sandbox".into(),
+                        false,
+                        false,
+                        false,
+                    )
+                    .on_click(cx.listener(
+                        |this, _: &gpui::ClickEvent, _w, cx| {
                             this.sandbox_stop(cx);
-                        })),
+                        },
+                    )),
                 );
             }
             // Advisories from the last resolve: a devcontainer that stops when
@@ -475,10 +493,16 @@ impl WorkspaceView {
             }
         } else {
             body = body.child(
-                self.sidebar_row(("sb-sbx-on", 0usize), "\u{25b8} Use a sandbox here".into(), false, false, false)
-                    .on_click(cx.listener(|this, _: &gpui::ClickEvent, window, cx| {
-                        this.toggle_sandbox(window, cx);
-                    })),
+                self.sidebar_row(
+                    ("sb-sbx-on", 0usize),
+                    "\u{25b8} Use a sandbox here".into(),
+                    false,
+                    false,
+                    false,
+                )
+                .on_click(cx.listener(|this, _: &gpui::ClickEvent, window, cx| {
+                    this.toggle_sandbox(window, cx);
+                })),
             );
         }
 
@@ -493,7 +517,11 @@ impl WorkspaceView {
                     .container_tabs
                     .get(&c.id)
                     .is_some_and(|iid| self.items.borrow().contains_key(iid));
-                let name = if c.name.is_empty() { c.id.clone() } else { c.name.clone() };
+                let name = if c.name.is_empty() {
+                    c.id.clone()
+                } else {
+                    c.name.clone()
+                };
                 let label = format!("{name}  \u{00b7}  {}", c.image);
                 body = body.child(
                     self.sidebar_row(("sb-ctr", i), label, false, active, false)
@@ -508,11 +536,17 @@ impl WorkspaceView {
         }
 
         body = body.child(
-            self.sidebar_row(("sb-ctr-refresh", 0usize), "\u{21bb} Refresh".into(), false, false, false)
-                .on_click(cx.listener(|this, _: &gpui::ClickEvent, _w, cx| {
-                    this.refresh_containers();
-                    cx.notify();
-                })),
+            self.sidebar_row(
+                ("sb-ctr-refresh", 0usize),
+                "\u{21bb} Refresh".into(),
+                false,
+                false,
+                false,
+            )
+            .on_click(cx.listener(|this, _: &gpui::ClickEvent, _w, cx| {
+                this.refresh_containers();
+                cx.notify();
+            })),
         );
         body.into_any_element()
     }
@@ -578,7 +612,8 @@ impl WorkspaceView {
                     "{} {}  ·  {}  ch:{}{}",
                     dot, a.name, a.role, a.channels, state
                 );
-                body = body.child(self.sidebar_row(("sb-agentconn", i), label, false, false, false));
+                body =
+                    body.child(self.sidebar_row(("sb-agentconn", i), label, false, false, false));
             }
         }
 
@@ -590,7 +625,11 @@ impl WorkspaceView {
                 } else {
                     String::new()
                 };
-                let role = if w.role.is_empty() { String::new() } else { format!("  ·  {}", w.role) };
+                let role = if w.role.is_empty() {
+                    String::new()
+                } else {
+                    format!("  ·  {}", w.role)
+                };
                 let label = format!("{}{}  ·  {}{}", w.name, role, w.status, restarts);
                 body = body.child(self.sidebar_row(("sb-worker", i), label, false, false, false));
             }
@@ -668,8 +707,7 @@ impl WorkspaceView {
                                 &this.opts,
                                 &name,
                                 sandbox.as_ref(),
-                            )
-                            {
+                            ) {
                                 this.splitcommand(&cmd, SplitAxis::Horizontal, false, window, cx);
                             }
                         });
@@ -697,36 +735,54 @@ impl WorkspaceView {
                 .as_ref()
                 .map(|p| config::Action::Sidebar(format!("right:plugin:{}", p.id)))
                 .or_else(|| {
-                    plugin.commands.first().map(|c| {
-                        config::Action::PluginCommand(plugin::actionid(&plugin.id, &c.id))
-                    })
+                    plugin
+                        .commands
+                        .first()
+                        .map(|c| config::Action::PluginCommand(plugin::actionid(&plugin.id, &c.id)))
                 });
-            let name_row = self.sidebar_row(("sb-pl-name", pi), plugin.name.clone(), false, false, false);
+            let name_row =
+                self.sidebar_row(("sb-pl-name", pi), plugin.name.clone(), false, false, false);
             body = body.child(match primary {
-                Some(action) => name_row.on_click(cx.listener(
-                    move |this, _: &gpui::ClickEvent, window, cx| {
+                Some(action) => {
+                    name_row.on_click(cx.listener(move |this, _: &gpui::ClickEvent, window, cx| {
                         this.run_action(action.clone(), window, cx);
-                    },
-                )),
+                    }))
+                }
                 None => name_row,
             });
             if let Some(panel) = plugin.panel.as_ref() {
                 let token = format!("right:plugin:{}", panel.id);
                 body = body.child(
-                    self.sidebar_row(("sb-pl-open", row_id), "\u{25a4} Open panel".to_string(), true, false, false)
-                        .on_click(cx.listener(move |this, _: &gpui::ClickEvent, _w, cx| {
+                    self.sidebar_row(
+                        ("sb-pl-open", row_id),
+                        "\u{25a4} Open panel".to_string(),
+                        true,
+                        false,
+                        false,
+                    )
+                    .on_click(cx.listener(
+                        move |this, _: &gpui::ClickEvent, _w, cx| {
                             this.toggle_sidebar(&token, cx);
-                        })),
+                        },
+                    )),
                 );
                 row_id += 1;
             }
             for cmd in &plugin.commands {
                 let action = config::Action::PluginCommand(plugin::actionid(&plugin.id, &cmd.id));
                 body = body.child(
-                    self.sidebar_row(("sb-pl-cmd", row_id), format!("\u{25b8} {}", cmd.title), true, false, false)
-                        .on_click(cx.listener(move |this, _: &gpui::ClickEvent, window, cx| {
+                    self.sidebar_row(
+                        ("sb-pl-cmd", row_id),
+                        format!("\u{25b8} {}", cmd.title),
+                        true,
+                        false,
+                        false,
+                    )
+                    .on_click(cx.listener(
+                        move |this, _: &gpui::ClickEvent, window, cx| {
                             this.run_action(action.clone(), window, cx);
-                        })),
+                        },
+                    )),
                 );
                 row_id += 1;
             }
@@ -745,16 +801,30 @@ impl WorkspaceView {
             for name in available {
                 let n = name.clone();
                 body = body.child(
-                    self.sidebar_row(("sb-pl-avail", row_id), format!("\u{2913} {name}"), false, false, false)
-                        .on_click(cx.listener(move |this, _: &gpui::ClickEvent, _w, cx| {
+                    self.sidebar_row(
+                        ("sb-pl-avail", row_id),
+                        format!("\u{2913} {name}"),
+                        false,
+                        false,
+                        false,
+                    )
+                    .on_click(cx.listener(
+                        move |this, _: &gpui::ClickEvent, _w, cx| {
                             this.install_catalog_plugin(&n, cx);
-                        })),
+                        },
+                    )),
                 );
                 row_id += 1;
             }
             body = body.child(
-                self.sidebar_row(("sb-pl-refresh", row_id), "\u{21bb} Refresh catalog".to_string(), false, false, false)
-                    .on_click(cx.listener(|this, _: &gpui::ClickEvent, _w, cx| this.fetch_catalog(cx))),
+                self.sidebar_row(
+                    ("sb-pl-refresh", row_id),
+                    "\u{21bb} Refresh catalog".to_string(),
+                    false,
+                    false,
+                    false,
+                )
+                .on_click(cx.listener(|this, _: &gpui::ClickEvent, _w, cx| this.fetch_catalog(cx))),
             );
         }
         if let Some(status) = self.catalog_status.as_ref() {
@@ -779,9 +849,7 @@ impl WorkspaceView {
                     .child(self.sidebar_note("Looking for a repository\u{2026}"))
                     .into_any_element()
             }
-            Some(Err(message)) => {
-                return body.child(self.sidebar_note(message)).into_any_element()
-            }
+            Some(Err(message)) => return body.child(self.sidebar_note(message)).into_any_element(),
             Some(Ok(list)) if list.is_empty() => {
                 body = body.child(self.sidebar_note("No worktrees in this repository."));
             }
@@ -800,30 +868,43 @@ impl WorkspaceView {
                     let active = current.as_deref() == Some(tree.path.as_path());
                     let path = tree.path.to_string_lossy().into_owned();
                     body = body.child(
-                        self.sidebar_row(("sb-wt", i), label, false, active, false).on_click(
-                            cx.listener(move |this, _: &gpui::ClickEvent, window, cx| {
-                                if let Err(message) = this.worktree_open(&path, window, cx) {
-                                    eprintln!("sinclair: worktree: {message}");
-                                }
-                            }),
-                        ),
+                        self.sidebar_row(("sb-wt", i), label, false, active, false)
+                            .on_click(cx.listener(
+                                move |this, _: &gpui::ClickEvent, window, cx| {
+                                    if let Err(message) = this.worktree_open(&path, window, cx) {
+                                        eprintln!("sinclair: worktree: {message}");
+                                    }
+                                },
+                            )),
                     );
                 }
             }
         }
 
         body = body.child(
-            self.sidebar_row(("sb-wt-new", 0usize), "\u{002b} New worktree\u{2026}".into(), false, false, false)
-                .on_click(cx.listener(|this, _: &gpui::ClickEvent, window, cx| {
-                    this.open_new_worktree(window, cx);
-                })),
+            self.sidebar_row(
+                ("sb-wt-new", 0usize),
+                "\u{002b} New worktree\u{2026}".into(),
+                false,
+                false,
+                false,
+            )
+            .on_click(cx.listener(|this, _: &gpui::ClickEvent, window, cx| {
+                this.open_new_worktree(window, cx);
+            })),
         );
         body = body.child(
-            self.sidebar_row(("sb-wt-refresh", 0usize), "\u{21bb} Refresh".into(), false, false, false)
-                .on_click(cx.listener(|this, _: &gpui::ClickEvent, _w, cx| {
-                    this.refresh_worktrees(cx);
-                    cx.notify();
-                })),
+            self.sidebar_row(
+                ("sb-wt-refresh", 0usize),
+                "\u{21bb} Refresh".into(),
+                false,
+                false,
+                false,
+            )
+            .on_click(cx.listener(|this, _: &gpui::ClickEvent, _w, cx| {
+                this.refresh_worktrees(cx);
+                cx.notify();
+            })),
         );
         body.into_any_element()
     }
@@ -844,19 +925,24 @@ impl WorkspaceView {
         for (i, recent) in self.notes_recent.iter().enumerate() {
             let label = recent.name.clone();
             body = body.child(
-                self.sidebar_row(("sb-note", i), label, false, false, false).on_click(
-                    cx.listener(move |this, _: &gpui::ClickEvent, window, cx| {
+                self.sidebar_row(("sb-note", i), label, false, false, false)
+                    .on_click(cx.listener(move |this, _: &gpui::ClickEvent, window, cx| {
                         this.open_notes(window, cx);
-                    }),
-                ),
+                    })),
             );
         }
 
         body = body.child(
-            self.sidebar_row(("sb-notes-open", 0usize), "\u{25a4} Open Notes".into(), false, false, false)
-                .on_click(cx.listener(|this, _: &gpui::ClickEvent, window, cx| {
-                    this.open_notes(window, cx);
-                })),
+            self.sidebar_row(
+                ("sb-notes-open", 0usize),
+                "\u{25a4} Open Notes".into(),
+                false,
+                false,
+                false,
+            )
+            .on_click(cx.listener(|this, _: &gpui::ClickEvent, window, cx| {
+                this.open_notes(window, cx);
+            })),
         );
         body.into_any_element()
     }

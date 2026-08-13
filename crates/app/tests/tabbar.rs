@@ -22,7 +22,10 @@ fn blend_mixes_channels_independently() {
 
 #[test]
 fn strips_a_shell_login_prefix() {
-    assert_eq!(strip_host("wess@wess:~/Desktop/Dev/sinclair"), "~/Desktop/Dev/sinclair");
+    assert_eq!(
+        strip_host("wess@wess:~/Desktop/Dev/sinclair"),
+        "~/Desktop/Dev/sinclair"
+    );
     assert_eq!(strip_host("wess@wess:~"), "~");
     assert_eq!(strip_host("root@1cffe899fb41:/work"), "/work");
 }
@@ -30,7 +33,10 @@ fn strips_a_shell_login_prefix() {
 #[test]
 fn leaves_titles_that_only_look_similar() {
     // A URL: everything before the first colon is a scheme, not a login.
-    assert_eq!(strip_host("https://example.com:8080"), "https://example.com:8080");
+    assert_eq!(
+        strip_host("https://example.com:8080"),
+        "https://example.com:8080"
+    );
     // A program prefix.
     assert_eq!(strip_host("nvim: src/main.rs"), "nvim: src/main.rs");
     // A path before the colon.
@@ -40,6 +46,9 @@ fn leaves_titles_that_only_look_similar() {
     // Nothing after the colon to keep.
     assert_eq!(strip_host("a@b:"), "a@b:");
     // Plain paths pass through.
-    assert_eq!(strip_host("~/Desktop/Dev/sinclair"), "~/Desktop/Dev/sinclair");
+    assert_eq!(
+        strip_host("~/Desktop/Dev/sinclair"),
+        "~/Desktop/Dev/sinclair"
+    );
     assert_eq!(strip_host(""), "");
 }

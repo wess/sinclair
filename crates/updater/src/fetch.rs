@@ -119,7 +119,9 @@ pub(crate) fn file(
     let got = std::fs::metadata(dest).map(|m| m.len()).unwrap_or(0);
     if expected > 0 && got != expected {
         let _ = std::fs::remove_file(dest);
-        return Err(format!("download is incomplete ({got} of {expected} bytes)"));
+        return Err(format!(
+            "download is incomplete ({got} of {expected} bytes)"
+        ));
     }
     on_progress(got);
     Ok(())

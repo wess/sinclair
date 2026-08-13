@@ -23,8 +23,10 @@ fn honors_program_path() {
 
 #[test]
 fn unknown_program_unchanged() {
-    assert_eq!(resume_command("relay launch x --agent claude", "s1"),
-        "relay launch x --agent claude");
+    assert_eq!(
+        resume_command("relay launch x --agent claude", "s1"),
+        "relay launch x --agent claude"
+    );
     assert_eq!(resume_command("bash -lc echo", "s1"), "bash -lc echo");
 }
 
@@ -34,7 +36,10 @@ fn already_resuming_unchanged() {
         resume_command("claude --resume old", "new"),
         "claude --resume old"
     );
-    assert_eq!(resume_command("codex resume old", "new"), "codex resume old");
+    assert_eq!(
+        resume_command("codex resume old", "new"),
+        "codex resume old"
+    );
 }
 
 #[test]

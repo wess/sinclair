@@ -115,8 +115,11 @@ impl AgentPickerView {
                 .placeholder("loading roles\u{2026}")
                 .data(roles.clone())
         });
-        let desc =
-            cx.new(|cx| TextInput::new(cx).label("Describe").placeholder("what this agent does"));
+        let desc = cx.new(|cx| {
+            TextInput::new(cx)
+                .label("Describe")
+                .placeholder("what this agent does")
+        });
         let focus = cx.focus_handle();
 
         // Load roles off the UI thread; an empty result flips to Custom, the
@@ -135,17 +138,21 @@ impl AgentPickerView {
 
         let me = cx.entity().downgrade();
         let mut subs = Vec::new();
-        subs.push(cx.subscribe(&kind, |this, _src, event: &SegmentedControlEvent, cx| {
-            this.custom = event.0 == 1;
-            cx.notify();
-        }));
+        subs.push(
+            cx.subscribe(&kind, |this, _src, event: &SegmentedControlEvent, cx| {
+                this.custom = event.0 == 1;
+                cx.notify();
+            }),
+        );
         for field in [&name, &desc] {
             let me = me.clone();
-            subs.push(window.subscribe(field, cx, move |_src, event, window, app| {
-                if let TextInputEvent::Submit(_) = event {
-                    me.update(app, |this, cx| this.commit(window, cx)).ok();
-                }
-            }));
+            subs.push(
+                window.subscribe(field, cx, move |_src, event, window, app| {
+                    if let TextInputEvent::Submit(_) = event {
+                        me.update(app, |this, cx| this.commit(window, cx)).ok();
+                    }
+                }),
+            );
         }
 
         Self {
@@ -169,7 +176,9 @@ impl AgentPickerView {
         if roles.is_empty() {
             self.custom = true;
             self.kind = cx.new(|cx| {
-                SegmentedControl::new(cx).data(["Preset", "Custom"]).selected(1)
+                SegmentedControl::new(cx)
+                    .data(["Preset", "Custom"])
+                    .selected(1)
             });
             self._subs.push(cx.subscribe(
                 &self.kind,

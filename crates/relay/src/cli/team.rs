@@ -120,7 +120,11 @@ fn save(user: bool) -> Result<()> {
         bail!("team `{name}` needs at least one member");
     }
     let layout = spec.layout.trim();
-    let layout = if SHAPES.contains(&layout) { layout } else { "columns" };
+    let layout = if SHAPES.contains(&layout) {
+        layout
+    } else {
+        "columns"
+    };
     let toml = render_toml(name, layout, &members);
     // Validate what we're about to write with the same parser `resolve` uses.
     parse(name, &toml, Source::User)?;
@@ -221,7 +225,10 @@ fn create(name: &str, user: bool) -> Result<()> {
     }
     let path = layered::file_in(&layered::dir(KIND, user), name);
     if path.exists() {
-        bail!("team `{name}` already exists at {} — use `edit`", path.display());
+        bail!(
+            "team `{name}` already exists at {} — use `edit`",
+            path.display()
+        );
     }
     layered::open_editor(&path, scaffold(name), &check)
 }
@@ -244,7 +251,10 @@ fn delete(name: &str, user: bool) -> Result<()> {
         if layered::builtin(BUILTINS, name).is_some() {
             bail!("`{name}` is a built-in team; create an override to change it");
         }
-        bail!("no {} team named `{name}`", if user { "user" } else { "project" });
+        bail!(
+            "no {} team named `{name}`",
+            if user { "user" } else { "project" }
+        );
     }
     std::fs::remove_file(&path)?;
     println!("deleted {}", path.display());

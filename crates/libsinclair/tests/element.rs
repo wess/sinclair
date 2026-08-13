@@ -736,18 +736,18 @@ fn reuse_matches_a_full_rebuild_for_cursor_addressed_redraws() {
         100,
         &[
             b"aaa\r\nbbb\r\nccc\r\nddd\r\n",
-            b"\x1b[2A",           // up two
-            b"\x1b[2Krewritten",  // erase line, rewrite
+            b"\x1b[2A",          // up two
+            b"\x1b[2Krewritten", // erase line, rewrite
             b"\x1b[1B\rmore\x1b[K",
-            b"\x1b[H",            // home
+            b"\x1b[H", // home
             b"\x1b[Jcleared down",
             b"\x1b[4;1Hbottom",
-            b"\x1b[1;1H\x1b[1M",  // delete a line
-            b"\x1b[1L",           // insert a line
-            b"\x1b[3;5r",         // scroll region
+            b"\x1b[1;1H\x1b[1M", // delete a line
+            b"\x1b[1L",          // insert a line
+            b"\x1b[3;5r",        // scroll region
             b"\x1b[3;1Hin region\r\n\r\n\r\n",
-            b"\x1b[r",            // reset region
-            b"\x1bM\x1bM",        // reverse index twice
+            b"\x1b[r",     // reset region
+            b"\x1bM\x1bM", // reverse index twice
         ],
     );
 }
@@ -781,14 +781,14 @@ fn reuse_matches_a_full_rebuild_across_screen_and_scrollback_changes() {
         100,
         &[
             b"one\r\ntwo\r\nthree\r\nfour\r\nfive\r\nsix\r\n",
-            b"\x1b[?1049h",      // alt screen
+            b"\x1b[?1049h", // alt screen
             b"alt content\r\nmore alt\r\n",
-            b"\x1b[2J\x1b[H",    // clear alt
+            b"\x1b[2J\x1b[H", // clear alt
             b"redrawn alt\r\n",
-            b"\x1b[?1049l",      // back to primary
+            b"\x1b[?1049l", // back to primary
             b"after alt\r\n",
-            b"\x1b[3J",          // drop scrollback
-            b"\x1bc",            // RIS
+            b"\x1b[3J", // drop scrollback
+            b"\x1bc",   // RIS
             b"post reset\r\n",
         ],
     );
@@ -915,7 +915,10 @@ fn realign_follows_the_row_count_when_the_grid_resizes() {
     let mut cache: Vec<Option<ShapedRow>> = rows.iter().map(|r| Some(shaped_for(r))).collect();
     // Shrink: the cache must not keep stale slots past the end.
     let shorter: Vec<Rc<RowSnapshot>> = rows[..3].to_vec();
-    assert_eq!(realign_shaped_rows(&mut cache, &shorter), Vec::<usize>::new());
+    assert_eq!(
+        realign_shaped_rows(&mut cache, &shorter),
+        Vec::<usize>::new()
+    );
     assert_eq!(cache.len(), 3);
     // Grow: the added slots need shaping, the existing ones do not.
     let taller: Vec<Rc<RowSnapshot>> = shorter

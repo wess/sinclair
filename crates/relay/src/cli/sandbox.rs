@@ -28,12 +28,20 @@ pub struct Sandbox {
 
 impl Sandbox {
     /// Resolve the launch flags into a target, or `None` for a host launch.
-    pub fn resolve(name: Option<&str>, engine: Option<&str>, workdir: Option<&str>) -> Option<Self> {
+    pub fn resolve(
+        name: Option<&str>,
+        engine: Option<&str>,
+        workdir: Option<&str>,
+    ) -> Option<Self> {
         let name = name.map(str::trim).filter(|s| !s.is_empty())?;
         Some(Self {
             engine: Engine::parse(engine.unwrap_or("")).unwrap_or(Engine::Docker),
             name: name.to_string(),
-            workdir: workdir.map(str::trim).filter(|s| !s.is_empty()).unwrap_or(".").to_string(),
+            workdir: workdir
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .unwrap_or(".")
+                .to_string(),
         })
     }
 

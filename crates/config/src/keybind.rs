@@ -270,6 +270,15 @@ pub fn default_keybinds() -> Vec<Keybind> {
         shift: true,
         ..Mods::default()
     };
+    let ctrl = Mods {
+        ctrl: true,
+        ..Mods::default()
+    };
+    let ctrl_shift = Mods {
+        ctrl: true,
+        shift: true,
+        ..Mods::default()
+    };
     let kb = |mods: Mods, key: &str, action: Action| Keybind {
         mods,
         key: key.to_string(),
@@ -290,6 +299,12 @@ pub fn default_keybinds() -> Vec<Keybind> {
         kb(cmd_shift, "d", Action::NewSplit(SplitDirection::Down)),
         kb(cmd_shift, "[", Action::PreviousTab),
         kb(cmd_shift, "]", Action::NextTab),
+        // The alt-tab gesture, on the modifier every terminal leaves free.
+        // `cmd+tab` belongs to the OS and `cmd+shift+[`/`]` already walk the
+        // strip in order, which is the other question.
+        kb(ctrl, "tab", Action::TabSwitcher(1)),
+        kb(ctrl_shift, "tab", Action::TabSwitcher(-1)),
+        kb(cmd, "e", Action::TabPeek),
         kb(cmd_alt, "up", Action::GotoSplit(SplitFocus::Up)),
         kb(cmd_alt, "down", Action::GotoSplit(SplitFocus::Down)),
         kb(cmd_alt, "left", Action::GotoSplit(SplitFocus::Left)),

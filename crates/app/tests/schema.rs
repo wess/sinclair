@@ -17,7 +17,12 @@ fn every_entry_matches_the_config_kind_table() {
             Control::Choice(_) | Control::Text { .. } => config::Kind::Str,
             Control::List(_) => config::Kind::List,
         };
-        assert_eq!(kind, Some(expected), "`{}` control disagrees with its kind", s.key);
+        assert_eq!(
+            kind,
+            Some(expected),
+            "`{}` control disagrees with its kind",
+            s.key
+        );
     }
 }
 

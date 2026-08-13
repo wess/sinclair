@@ -17,7 +17,10 @@ impl SettingsView {
         let mut rows: Vec<AnyElement> = entries
             .iter()
             .enumerate()
-            .map(|(i, val)| self.entry_row(kind, i, val.clone(), width, cx).into_any_element())
+            .map(|(i, val)| {
+                self.entry_row(kind, i, val.clone(), width, cx)
+                    .into_any_element()
+            })
             .collect();
         rows.push(self.add_row(kind, width, cx).into_any_element());
         rows
@@ -31,7 +34,13 @@ impl SettingsView {
         width: f32,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let input = self.text_input(EditTarget::Item(kind, idx), value, kind.placeholder(), width, cx);
+        let input = self.text_input(
+            EditTarget::Item(kind, idx),
+            value,
+            kind.placeholder(),
+            width,
+            cx,
+        );
         let mut row = div()
             .w_full()
             .h(px(44.0))
@@ -53,16 +62,16 @@ impl SettingsView {
             );
         }
         row.child(
-                button_box("\u{2715}")
-                    .text_color(hsla(MUTED))
-                    .on_mouse_down(
-                        MouseButton::Left,
-                        cx.listener(move |this, _ev, _window, cx| {
-                            this.remove_item(kind, idx, cx);
-                            cx.stop_propagation();
-                        }),
-                    ),
-            )
+            button_box("\u{2715}")
+                .text_color(hsla(MUTED))
+                .on_mouse_down(
+                    MouseButton::Left,
+                    cx.listener(move |this, _ev, _window, cx| {
+                        this.remove_item(kind, idx, cx);
+                        cx.stop_propagation();
+                    }),
+                ),
+        )
     }
 
     fn add_row(&self, kind: ListKind, width: f32, cx: &mut Context<Self>) -> impl IntoElement {
@@ -70,12 +79,7 @@ impl SettingsView {
             self.editing.as_ref().map(|(t, _)| t),
             Some(EditTarget::NewItem(k)) if *k == kind
         );
-        let mut row = div()
-            .w_full()
-            .h(px(44.0))
-            .flex()
-            .items_center()
-            .gap_2();
+        let mut row = div().w_full().h(px(44.0)).flex().items_center().gap_2();
         if editing_new {
             row = row.child(self.text_input(
                 EditTarget::NewItem(kind),
@@ -199,7 +203,9 @@ impl SettingsView {
             div()
                 .text_size(px(12.5))
                 .text_color(hsla(MUTED))
-                .child(SharedString::from("Record one, then assign a shortcut here")),
+                .child(SharedString::from(
+                    "Record one, then assign a shortcut here",
+                )),
         )
         .into_any_element()
     }
@@ -236,22 +242,26 @@ impl SettingsView {
             .child(SharedString::from(text));
 
         let for_record = name.to_string();
-        let record = button_box("\u{2328}").text_color(hsla(BLUE_TEXT)).on_mouse_down(
-            MouseButton::Left,
-            cx.listener(move |this, _ev, window, cx| {
-                this.start_macro_capture(for_record.clone(), window, cx);
-                cx.stop_propagation();
-            }),
-        );
+        let record = button_box("\u{2328}")
+            .text_color(hsla(BLUE_TEXT))
+            .on_mouse_down(
+                MouseButton::Left,
+                cx.listener(move |this, _ev, window, cx| {
+                    this.start_macro_capture(for_record.clone(), window, cx);
+                    cx.stop_propagation();
+                }),
+            );
 
         let for_rename = name.to_string();
-        let rename = button_box("\u{270e}").text_color(hsla(MUTED)).on_mouse_down(
-            MouseButton::Left,
-            cx.listener(move |this, _ev, window, cx| {
-                this.start_macro_rename(for_rename.clone(), window, cx);
-                cx.stop_propagation();
-            }),
-        );
+        let rename = button_box("\u{270e}")
+            .text_color(hsla(MUTED))
+            .on_mouse_down(
+                MouseButton::Left,
+                cx.listener(move |this, _ev, window, cx| {
+                    this.start_macro_rename(for_rename.clone(), window, cx);
+                    cx.stop_propagation();
+                }),
+            );
 
         let mut control = div()
             .flex()
@@ -263,24 +273,28 @@ impl SettingsView {
         if shortcut.is_some() {
             let for_clear = name.to_string();
             control = control.child(
-                button_box("\u{21ba}").text_color(hsla(MUTED)).on_mouse_down(
-                    MouseButton::Left,
-                    cx.listener(move |this, _ev, _window, cx| {
-                        this.clear_macro_shortcut(&for_clear, cx);
-                        cx.stop_propagation();
-                    }),
-                ),
+                button_box("\u{21ba}")
+                    .text_color(hsla(MUTED))
+                    .on_mouse_down(
+                        MouseButton::Left,
+                        cx.listener(move |this, _ev, _window, cx| {
+                            this.clear_macro_shortcut(&for_clear, cx);
+                            cx.stop_propagation();
+                        }),
+                    ),
             );
         }
         let for_delete = name.to_string();
         control = control.child(
-            button_box("\u{2715}").text_color(hsla(MUTED)).on_mouse_down(
-                MouseButton::Left,
-                cx.listener(move |this, _ev, _window, cx| {
-                    this.delete_macro(&for_delete, cx);
-                    cx.stop_propagation();
-                }),
-            ),
+            button_box("\u{2715}")
+                .text_color(hsla(MUTED))
+                .on_mouse_down(
+                    MouseButton::Left,
+                    cx.listener(move |this, _ev, _window, cx| {
+                        this.delete_macro(&for_delete, cx);
+                        cx.stop_propagation();
+                    }),
+                ),
         );
 
         self.row(self.icon("\u{25b6}", px(18.0)), name, control)

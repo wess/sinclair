@@ -89,7 +89,12 @@ impl TerminalView {
     }
 
     /// Handle a keystroke while the search overlay is open.
-    pub(crate) fn search_key(&mut self, ks: &gpui::Keystroke, mods: input::Mods, cx: &mut Context<Self>) {
+    pub(crate) fn search_key(
+        &mut self,
+        ks: &gpui::Keystroke,
+        mods: input::Mods,
+        cx: &mut Context<Self>,
+    ) {
         if mods.cmd {
             // Clipboard + select-all for the search field.
             match ks.key.as_str() {
@@ -209,29 +214,28 @@ impl TerminalView {
         let mut dim = colors::hsla(self.colors.selection_fg);
         dim.a = 0.7;
 
-        let button =
-            |id: &'static str, glyph: &'static str, delta: Option<i64>| {
-                div()
-                    .id(id)
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .w(px(22.0))
-                    .h(px(22.0))
-                    .rounded(px(4.0))
-                    .hover(move |s| s.bg(hover))
-                    .child(SharedString::from(glyph))
-                    .on_click(cx.listener(move |this, _: &gpui::ClickEvent, _w, cx| {
-                        cx.stop_propagation();
-                        match delta {
-                            Some(d) => this.search_step(d, cx),
-                            None => {
-                                this.search = None;
-                                cx.notify();
-                            }
+        let button = |id: &'static str, glyph: &'static str, delta: Option<i64>| {
+            div()
+                .id(id)
+                .flex()
+                .items_center()
+                .justify_center()
+                .w(px(22.0))
+                .h(px(22.0))
+                .rounded(px(4.0))
+                .hover(move |s| s.bg(hover))
+                .child(SharedString::from(glyph))
+                .on_click(cx.listener(move |this, _: &gpui::ClickEvent, _w, cx| {
+                    cx.stop_propagation();
+                    match delta {
+                        Some(d) => this.search_step(d, cx),
+                        None => {
+                            this.search = None;
+                            cx.notify();
                         }
-                    }))
-            };
+                    }
+                }))
+        };
 
         div()
             .absolute()
