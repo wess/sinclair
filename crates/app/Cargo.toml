@@ -45,10 +45,19 @@ libc = "0.2"
 sha2 = "0.10"
 gpui = { git = "https://github.com/zed-industries/zed", rev = "96285fc1" }
 gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "96285fc1", features = ["font-kit", "wayland", "x11"] }
-# Mantine-inspired gpui component library (vendored submodule so we can
-# co-evolve it). default-features=false drops the wry/webview backend. Its
+# gpui component library (vendored submodule so we can co-evolve it). Its
 # `gpui = "0.2.2"` (crates.io) is redirected to our exact zed rev by the
 # root [patch.crates-io], so the whole tree shares one gpui.
+#
+# The submodule tracks the `sinclair-panegroup` branch, NOT a release. That
+# branch carries panegroup events this app depends on and that never landed on
+# guise main: `SplitRequested { pane, axis, first }`, `TearDrop`, and
+# `ContextMenu`. On main, `TearOff` is a tuple variant and the other three do
+# not exist, so no released guise builds here: v0.9.0 (the newest that targets
+# our zed gpui rev) fails on exactly those four. v0.13.0 fails on those *and*
+# on the gpui lineage, since 0.10+ retargeted crates.io `gpui 0.2.2` — an older
+# snapshot than rev 96285fc1 despite the matching version number. Moving to a
+# release means landing that branch on guise main first. See docs/guise.md.
 guise-ui = { path = "../../vendor/guise/crates/guise", features = ["webview"] }
 input = { path = "../input" }
 libsinclair = { path = "../libsinclair" }

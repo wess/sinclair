@@ -1,19 +1,43 @@
 # guise migration
 
 Sinclair's chrome (everything that isn't the terminal grid) is migrating onto
-[guise](https://github.com/wess/guise), our Mantine-inspired gpui component
-library, vendored as a submodule at `vendor/guise` so we can co-evolve it.
+[guise](https://github.com/wess/guise), our gpui component library, vendored as
+a submodule at `vendor/guise` so we can co-evolve it.
+
+## Why the submodule is not on a release
+
+The submodule tracks the **`sinclair-panegroup` branch**, which is not an
+ancestor of guise `main`. It carries three panegroup events this app calls and
+that never landed upstream — `SplitRequested { pane, axis, first }`,
+`TearDrop`, and `ContextMenu` — while on `main` `TearOff` is a tuple variant
+and the other three do not exist.
+
+So "bump guise" is not available as a version bump. Checked against the
+current releases (2026-08-18):
+
+- **v0.9.0** — newest guise still built against our pinned zed gpui rev
+  (`96285fc1`). Fails with exactly the four panegroup errors above.
+- **v0.13.0** — fails on those *and* on gpui: 0.10 retargeted plain crates.io
+  `gpui 0.2.2`, which despite the identical version number is an **older**
+  snapshot than rev `96285fc1` (`Window::focus` differs in arity; `window.rs`
+  differs by ~1100 lines). Building it under our `[patch]` produces 35 errors.
+
+Getting onto a release therefore means landing `sinclair-panegroup` on guise
+`main` first, and getting onto a *current* release additionally means moving
+off the zed gpui rev — which `gpui_platform` (not published to crates.io)
+currently prevents.
 
 ## How it's wired
 
 - `vendor/guise` is a git submodule (its own cargo workspace, `exclude`d from
-  ours). `crates/app` depends on `guise-ui` by path with `default-features =
-  false` (no `wry`/webview backend).
+  ours). `crates/app` depends on `guise-ui` by path with `features =
+  ["webview"]`, so the `wry` backend is built in.
 - guise tracks crates.io `gpui 0.2.2`; Sinclair builds gpui from a pinned zed git
   rev. The root `[patch.crates-io] gpui = { git = …, rev = … }` redirects
   guise's gpui onto our exact rev, so the whole tree shares **one** gpui
   (verify with `cargo tree -d`). When the zed rev is bumped, guise is rebuilt
-  against it on the `prompt-gpui-port` branch and re-pinned.
+  against it on the `sinclair-panegroup` branch — the one the submodule
+  actually tracks — and re-pinned.
 - `crates/app/src/guisetheme.rs` derives a `guise::Theme` from the active
   terminal palette (body/text/surface/border/dimmed/primary) and installs it as
   the gpui global at boot and on every live config reload, so guise components
