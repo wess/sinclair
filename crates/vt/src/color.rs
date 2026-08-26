@@ -4,13 +4,13 @@
 /// time against a theme palette (plus any OSC 4 overrides held by the term).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum Color {
-    /// The terminal default foreground/background.
-    #[default]
-    Default,
-    /// One of the 256 palette slots.
-    Indexed(u8),
-    /// Direct 24-bit color.
-    Rgb(u8, u8, u8),
+  /// The terminal default foreground/background.
+  #[default]
+  Default,
+  /// One of the 256 palette slots.
+  Indexed(u8),
+  /// Direct 24-bit color.
+  Rgb(u8, u8, u8),
 }
 
 #[cfg(test)]

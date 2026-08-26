@@ -6,13 +6,13 @@ a submodule at `vendor/guise` so we can co-evolve it.
 
 ## Why the submodule tracks a compatibility branch
 
-The submodule tracks **`sinclair-v1.5.0`**, based directly on guise v1.5.0.
+The submodule tracks **`sinclair-v1.5.3`**, based directly on guise v1.5.3.
 That release targets crates.io `gpui 0.2.2`, while Sinclair still needs zed rev
 `96285fc1` because `gpui_platform` is not published separately. The versions
 match, but the APIs do not: focus, scrolling, text painting, async updates, and
 style refinement differ between those snapshots.
 
-The branch keeps the 1.5.0 component surface and carries only what Sinclair
+The branch keeps the 1.5.3 component surface and carries only what Sinclair
 needs on top:
 
 - compatibility shims for the pinned gpui API, including runnable guise tests
@@ -22,7 +22,9 @@ needs on top:
 - Sinclair's tab sizing, overflow, reorder motion, drop affordances, tear-off
   preview, per-pane split controls, and context-menu behavior.
 
-It also preserves the v1.5.0 layout snapshot/restore API and devtools probe.
+It also preserves the v1.5.3 layout snapshot/restore API and devtools probe,
+including the text-overflow fixes for inputs, labels, picker values, table
+cells, and bounded text areas.
 This is a released Guise baseline with a pinned-gpui compatibility commit, not
 the old divergent `sinclair-panegroup` line.
 
@@ -35,7 +37,7 @@ the old divergent `sinclair-panegroup` line.
   to the pinned zed rev, so the whole tree shares **one** gpui (verify with
   `cargo tree -d`). The compatibility branch mirrors that patch so its own
   tests and examples exercise the same API. When the zed rev moves, update
-  `sinclair-v1.5.0`, run the guise gate, push it, and re-pin this submodule.
+  `sinclair-v1.5.3`, run the guise gate, push it, and re-pin this submodule.
 - `crates/app/src/guisetheme.rs` derives a `guise::Theme` from the active
   terminal palette (body/text/surface/border/dimmed/primary) and installs it as
   the gpui global at boot and on every live config reload, so guise components

@@ -14,28 +14,28 @@ mod mac;
 
 /// Post a notification without blocking the caller.
 pub fn post(title: &str, body: &str) {
-    let (title, body) = (title.to_string(), body.to_string());
-    std::thread::spawn(move || send(&title, &body));
+  let (title, body) = (title.to_string(), body.to_string());
+  std::thread::spawn(move || send(&title, &body));
 }
 
 /// Post a notification synchronously. Used by `sinclair notify`, which must
 /// wait for the helper before the process exits.
 pub fn send(title: &str, body: &str) {
-    #[cfg(target_os = "macos")]
-    {
-        if mac::send(title, body) {
-            return;
-        }
-        osascript(title, body);
+  #[cfg(target_os = "macos")]
+  {
+    if mac::send(title, body) {
+      return;
     }
-    #[cfg(target_os = "linux")]
-    {
-        let _ = std::process::Command::new("notify-send")
-            .args(["--app-name=Sinclair", "--icon=sinclair", title, body])
-            .output();
-    }
-    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
-    let _ = (title, body);
+    osascript(title, body);
+  }
+  #[cfg(target_os = "linux")]
+  {
+    let _ = std::process::Command::new("notify-send")
+      .args(["--app-name=Sinclair", "--icon=sinclair", title, body])
+      .output();
+  }
+  #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+  let _ = (title, body);
 }
 
 /// The fallback for macOS builds without a usable bundle identity (a dev build
@@ -43,13 +43,13 @@ pub fn send(title: &str, body: &str) {
 /// reason it isn't the primary path.
 #[cfg(target_os = "macos")]
 fn osascript(title: &str, body: &str) {
-    let esc = |s: &str| s.replace('\\', "\\\\").replace('"', "\\\"");
-    let script = format!(
-        "display notification \"{}\" with title \"{}\"",
-        esc(body),
-        esc(title)
-    );
-    let _ = std::process::Command::new("osascript")
-        .args(["-e", &script])
-        .output();
+  let esc = |s: &str| s.replace('\\', "\\\\").replace('"', "\\\"");
+  let script = format!(
+    "display notification \"{}\" with title \"{}\"",
+    esc(body),
+    esc(title)
+  );
+  let _ = std::process::Command::new("osascript")
+    .args(["-e", &script])
+    .output();
 }

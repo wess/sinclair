@@ -7,16 +7,16 @@ const END: &str = "\x1b[201~";
 /// marker embedded in the text so a paste cannot break out of the bracket.
 /// Non-bracketed: normalize newlines to carriage returns.
 pub fn encode_paste(text: &str, bracketed: bool) -> Vec<u8> {
-    if bracketed {
-        let sanitized = text.replace(END, "");
-        let mut out = Vec::with_capacity(START.len() + sanitized.len() + END.len());
-        out.extend_from_slice(START);
-        out.extend_from_slice(sanitized.as_bytes());
-        out.extend_from_slice(END.as_bytes());
-        out
-    } else {
-        text.replace("\r\n", "\r").replace('\n', "\r").into_bytes()
-    }
+  if bracketed {
+    let sanitized = text.replace(END, "");
+    let mut out = Vec::with_capacity(START.len() + sanitized.len() + END.len());
+    out.extend_from_slice(START);
+    out.extend_from_slice(sanitized.as_bytes());
+    out.extend_from_slice(END.as_bytes());
+    out
+  } else {
+    text.replace("\r\n", "\r").replace('\n', "\r").into_bytes()
+  }
 }
 
 #[cfg(test)]

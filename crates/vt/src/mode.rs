@@ -43,35 +43,35 @@ bitflags::bitflags! {
 /// drag implies click in every emulator that matters).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MouseMode {
-    /// No mouse reporting.
-    None,
-    /// Button press/release only (?1000).
-    Click,
-    /// Clicks plus motion while a button is held (?1002).
-    Drag,
-    /// All motion (?1003).
-    Motion,
+  /// No mouse reporting.
+  None,
+  /// Button press/release only (?1000).
+  Click,
+  /// Clicks plus motion while a button is held (?1002).
+  Drag,
+  /// All motion (?1003).
+  Motion,
 }
 
 impl MouseMode {
-    /// Derive the effective mouse mode from the mode flags.
-    pub fn from_modes(modes: Modes) -> MouseMode {
-        if modes.contains(Modes::MOUSE_MOTION) {
-            MouseMode::Motion
-        } else if modes.contains(Modes::MOUSE_DRAG) {
-            MouseMode::Drag
-        } else if modes.contains(Modes::MOUSE_CLICK) {
-            MouseMode::Click
-        } else {
-            MouseMode::None
-        }
+  /// Derive the effective mouse mode from the mode flags.
+  pub fn from_modes(modes: Modes) -> MouseMode {
+    if modes.contains(Modes::MOUSE_MOTION) {
+      MouseMode::Motion
+    } else if modes.contains(Modes::MOUSE_DRAG) {
+      MouseMode::Drag
+    } else if modes.contains(Modes::MOUSE_CLICK) {
+      MouseMode::Click
+    } else {
+      MouseMode::None
     }
+  }
 }
 
 impl Default for Modes {
-    fn default() -> Self {
-        Modes::AUTOWRAP | Modes::CURSOR_VISIBLE | Modes::ALT_SCROLL
-    }
+  fn default() -> Self {
+    Modes::AUTOWRAP | Modes::CURSOR_VISIBLE | Modes::ALT_SCROLL
+  }
 }
 
 #[cfg(test)]

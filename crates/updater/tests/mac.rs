@@ -2,43 +2,43 @@ use super::*;
 
 /// A scratch dir that cleans up after itself.
 fn scratch(name: &str) -> std::path::PathBuf {
-    let dir = std::env::temp_dir().join(format!("updater-mac-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
-    dir
+  let dir = std::env::temp_dir().join(format!("updater-mac-{name}-{}", std::process::id()));
+  let _ = std::fs::remove_dir_all(&dir);
+  std::fs::create_dir_all(&dir).unwrap();
+  dir
 }
 
 #[test]
 fn finds_the_app_in_a_mounted_image() {
-    let dir = scratch("appin");
-    std::fs::create_dir_all(dir.join("Sinclair.app/Contents")).unwrap();
-    std::fs::write(dir.join(".background"), b"").unwrap();
-    assert_eq!(app_in(&dir).unwrap(), dir.join("Sinclair.app"));
-    let _ = std::fs::remove_dir_all(&dir);
+  let dir = scratch("appin");
+  std::fs::create_dir_all(dir.join("Sinclair.app/Contents")).unwrap();
+  std::fs::write(dir.join(".background"), b"").unwrap();
+  assert_eq!(app_in(&dir).unwrap(), dir.join("Sinclair.app"));
+  let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn empty_image_is_an_error() {
-    let dir = scratch("empty");
-    assert!(app_in(&dir).is_err());
-    let _ = std::fs::remove_dir_all(&dir);
+  let dir = scratch("empty");
+  assert!(app_in(&dir).is_err());
+  let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn scrub_removes_only_rsync_staging_dirs() {
-    let dir = scratch("scrub");
-    std::fs::create_dir_all(dir.join("Contents/MacOS/.~tmp~")).unwrap();
-    std::fs::write(dir.join("Contents/MacOS/.~tmp~/sinclair"), b"half").unwrap();
-    std::fs::create_dir_all(dir.join("Contents/.~tmp~")).unwrap();
-    std::fs::write(dir.join("Contents/Info.plist"), b"keep").unwrap();
+  let dir = scratch("scrub");
+  std::fs::create_dir_all(dir.join("Contents/MacOS/.~tmp~")).unwrap();
+  std::fs::write(dir.join("Contents/MacOS/.~tmp~/sinclair"), b"half").unwrap();
+  std::fs::create_dir_all(dir.join("Contents/.~tmp~")).unwrap();
+  std::fs::write(dir.join("Contents/Info.plist"), b"keep").unwrap();
 
-    scrub_staging(&dir);
+  scrub_staging(&dir);
 
-    assert!(!dir.join("Contents/MacOS/.~tmp~").exists());
-    assert!(!dir.join("Contents/.~tmp~").exists());
-    assert_eq!(
-        std::fs::read(dir.join("Contents/Info.plist")).unwrap(),
-        b"keep"
-    );
-    let _ = std::fs::remove_dir_all(&dir);
+  assert!(!dir.join("Contents/MacOS/.~tmp~").exists());
+  assert!(!dir.join("Contents/.~tmp~").exists());
+  assert_eq!(
+    std::fs::read(dir.join("Contents/Info.plist")).unwrap(),
+    b"keep"
+  );
+  let _ = std::fs::remove_dir_all(&dir);
 }

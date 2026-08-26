@@ -3,751 +3,748 @@
 /// Direction for `new_split`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SplitDirection {
-    Right,
-    Down,
-    Left,
-    Up,
+  Right,
+  Down,
+  Left,
+  Up,
 }
 
 impl SplitDirection {
-    fn parse(s: &str) -> Option<Self> {
-        match s.to_ascii_lowercase().as_str() {
-            "right" => Some(Self::Right),
-            "down" => Some(Self::Down),
-            "left" => Some(Self::Left),
-            "up" => Some(Self::Up),
-            _ => None,
-        }
+  fn parse(s: &str) -> Option<Self> {
+    match s.to_ascii_lowercase().as_str() {
+      "right" => Some(Self::Right),
+      "down" => Some(Self::Down),
+      "left" => Some(Self::Left),
+      "up" => Some(Self::Up),
+      _ => None,
     }
+  }
 
-    fn as_str(self) -> &'static str {
-        match self {
-            Self::Right => "right",
-            Self::Down => "down",
-            Self::Left => "left",
-            Self::Up => "up",
-        }
+  fn as_str(self) -> &'static str {
+    match self {
+      Self::Right => "right",
+      Self::Down => "down",
+      Self::Left => "left",
+      Self::Up => "up",
     }
+  }
 }
 
 /// Direction to nudge a split divider for `resize_split`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ResizeDir {
-    Up,
-    Down,
-    Left,
-    Right,
+  Up,
+  Down,
+  Left,
+  Right,
 }
 
 impl ResizeDir {
-    fn parse(s: &str) -> Option<Self> {
-        match s.to_ascii_lowercase().as_str() {
-            "up" => Some(Self::Up),
-            "down" => Some(Self::Down),
-            "left" => Some(Self::Left),
-            "right" => Some(Self::Right),
-            _ => None,
-        }
+  fn parse(s: &str) -> Option<Self> {
+    match s.to_ascii_lowercase().as_str() {
+      "up" => Some(Self::Up),
+      "down" => Some(Self::Down),
+      "left" => Some(Self::Left),
+      "right" => Some(Self::Right),
+      _ => None,
     }
+  }
 
-    fn as_str(self) -> &'static str {
-        match self {
-            Self::Up => "up",
-            Self::Down => "down",
-            Self::Left => "left",
-            Self::Right => "right",
-        }
+  fn as_str(self) -> &'static str {
+    match self {
+      Self::Up => "up",
+      Self::Down => "down",
+      Self::Left => "left",
+      Self::Right => "right",
     }
+  }
 }
 
 /// Target for `goto_split`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SplitFocus {
-    Previous,
-    Next,
-    Up,
-    Down,
-    Left,
-    Right,
+  Previous,
+  Next,
+  Up,
+  Down,
+  Left,
+  Right,
 }
 
 impl SplitFocus {
-    fn parse(s: &str) -> Option<Self> {
-        match s.to_ascii_lowercase().as_str() {
-            "previous" => Some(Self::Previous),
-            "next" => Some(Self::Next),
-            "up" => Some(Self::Up),
-            "down" => Some(Self::Down),
-            "left" => Some(Self::Left),
-            "right" => Some(Self::Right),
-            _ => None,
-        }
+  fn parse(s: &str) -> Option<Self> {
+    match s.to_ascii_lowercase().as_str() {
+      "previous" => Some(Self::Previous),
+      "next" => Some(Self::Next),
+      "up" => Some(Self::Up),
+      "down" => Some(Self::Down),
+      "left" => Some(Self::Left),
+      "right" => Some(Self::Right),
+      _ => None,
     }
+  }
 
-    fn as_str(self) -> &'static str {
-        match self {
-            Self::Previous => "previous",
-            Self::Next => "next",
-            Self::Up => "up",
-            Self::Down => "down",
-            Self::Left => "left",
-            Self::Right => "right",
-        }
+  fn as_str(self) -> &'static str {
+    match self {
+      Self::Previous => "previous",
+      Self::Next => "next",
+      Self::Up => "up",
+      Self::Down => "down",
+      Self::Left => "left",
+      Self::Right => "right",
     }
+  }
 }
 
 /// Direction the selection's moving end travels for `adjust_selection`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SelectAdjust {
-    Left,
-    Right,
-    Up,
-    Down,
-    Home,
-    End,
-    PageUp,
-    PageDown,
-    /// Extend by a whole word toward the line start (macOS ⌥⇧←).
-    WordLeft,
-    /// Extend by a whole word toward the line end (macOS ⌥⇧→).
-    WordRight,
-    /// Extend from the cursor to the start of the line (macOS ⌘⇧←).
-    LineStart,
-    /// Extend from the cursor to the end of the line (macOS ⌘⇧→).
-    LineEnd,
+  Left,
+  Right,
+  Up,
+  Down,
+  Home,
+  End,
+  PageUp,
+  PageDown,
+  /// Extend by a whole word toward the line start (macOS ⌥⇧←).
+  WordLeft,
+  /// Extend by a whole word toward the line end (macOS ⌥⇧→).
+  WordRight,
+  /// Extend from the cursor to the start of the line (macOS ⌘⇧←).
+  LineStart,
+  /// Extend from the cursor to the end of the line (macOS ⌘⇧→).
+  LineEnd,
 }
 
 impl SelectAdjust {
-    fn parse(s: &str) -> Option<Self> {
-        match s.to_ascii_lowercase().as_str() {
-            "left" => Some(Self::Left),
-            "right" => Some(Self::Right),
-            "up" => Some(Self::Up),
-            "down" => Some(Self::Down),
-            "home" => Some(Self::Home),
-            "end" => Some(Self::End),
-            "page_up" => Some(Self::PageUp),
-            "page_down" => Some(Self::PageDown),
-            "word_left" => Some(Self::WordLeft),
-            "word_right" => Some(Self::WordRight),
-            "line_start" => Some(Self::LineStart),
-            "line_end" => Some(Self::LineEnd),
-            _ => None,
-        }
+  fn parse(s: &str) -> Option<Self> {
+    match s.to_ascii_lowercase().as_str() {
+      "left" => Some(Self::Left),
+      "right" => Some(Self::Right),
+      "up" => Some(Self::Up),
+      "down" => Some(Self::Down),
+      "home" => Some(Self::Home),
+      "end" => Some(Self::End),
+      "page_up" => Some(Self::PageUp),
+      "page_down" => Some(Self::PageDown),
+      "word_left" => Some(Self::WordLeft),
+      "word_right" => Some(Self::WordRight),
+      "line_start" => Some(Self::LineStart),
+      "line_end" => Some(Self::LineEnd),
+      _ => None,
     }
+  }
 
-    fn as_str(self) -> &'static str {
-        match self {
-            Self::Left => "left",
-            Self::Right => "right",
-            Self::Up => "up",
-            Self::Down => "down",
-            Self::Home => "home",
-            Self::End => "end",
-            Self::PageUp => "page_up",
-            Self::PageDown => "page_down",
-            Self::WordLeft => "word_left",
-            Self::WordRight => "word_right",
-            Self::LineStart => "line_start",
-            Self::LineEnd => "line_end",
-        }
+  fn as_str(self) -> &'static str {
+    match self {
+      Self::Left => "left",
+      Self::Right => "right",
+      Self::Up => "up",
+      Self::Down => "down",
+      Self::Home => "home",
+      Self::End => "end",
+      Self::PageUp => "page_up",
+      Self::PageDown => "page_down",
+      Self::WordLeft => "word_left",
+      Self::WordRight => "word_right",
+      Self::LineStart => "line_start",
+      Self::LineEnd => "line_end",
     }
+  }
 }
 
 /// A keybind action. Names like `new_tab`, `goto_tab:3`,
 /// `increase_font_size:1`, `unbind`, ...
 #[derive(Debug, Clone, PartialEq)]
 pub enum Action {
-    /// Open a fresh top-level window.
-    NewWindow,
-    NewTab,
-    /// Open the OS picker to launch a container-backed tab (a fresh Debian,
-    /// Ubuntu, … userland). See the `container` crate.
-    NewContainerTab,
-    /// Open the picker listing already-running containers to attach a tab to
-    /// one of them (an interactive shell via `exec`). See the `container` crate.
-    AttachContainer,
-    /// Open a shell in this project's shared sandbox, starting (or building)
-    /// the container first if it is not already up.
-    SandboxShell,
-    /// Turn the sandbox on or off for this project, writing `sandbox-enabled`.
-    ToggleSandbox,
-    /// Bring the sandbox container up without opening a pane.
-    SandboxStart,
-    /// Stop the sandbox container. Panes inside it end with it.
-    SandboxStop,
-    /// Rebuild the sandbox image and recreate the container from it. Anything
-    /// written outside the mounted project is lost, which is the point.
-    SandboxRebuild,
-    /// Show what the sandbox is doing right now: image, state, attached panes.
-    SandboxStatus,
-    CloseSurface,
-    /// Close the current tab and all its panes.
-    CloseTab,
-    /// Close the current window.
-    CloseWindow,
-    /// Close every open window.
-    CloseAllWindows,
-    NewSplit(SplitDirection),
-    GotoSplit(SplitFocus),
-    /// Toggle maximizing the focused split pane to fill the tab.
-    ZoomSplit,
-    /// Reset every split divider in the tab to an even 50/50.
-    EqualizeSplits,
-    /// Nudge the divider next to the focused pane in a direction.
-    ResizeSplit(ResizeDir),
-    /// 1-based tab index; negative counts from the end (`-1` = last).
-    GotoTab(i32),
-    PreviousTab,
-    NextTab,
-    /// Open the tab switcher and step through it, most-recently-used first.
-    /// The parameter is the signed step, defaulting to `1`; bind `-1` to the
-    /// same key with shift to walk it backwards. Held-modifier gesture: it
-    /// commits when the modifier the binding fired with is released.
-    TabSwitcher(i32),
-    /// Toggle the tab peek: live miniatures of every tab in the window, in a
-    /// strip under the tab bar. Opened this way it stays until it is dismissed
-    /// and takes the arrow keys; hovering the tab bar opens the same strip
-    /// without the keyboard (see `tab-peek-hover`).
-    TabPeek,
-    /// Move the current tab by a signed delta.
-    MoveTab(i32),
-    Copy,
-    /// Copy the most recent finished command's output (OSC 133 blocks).
-    CopyCommandOutput,
-    /// Enter hint mode: label visible URLs and open one by keyboard.
-    Hints,
-    /// Toggle copy mode: a vi-style keyboard cursor for selecting text.
-    CopyMode,
-    /// Open the clipboard-history picker and paste a chosen recent copy.
-    ClipboardHistory,
-    /// Open the emoji / symbol insert picker.
-    UnicodePicker,
-    /// Open the snippet (workflow) picker.
-    Snippets,
-    /// Global search: recent output across all tabs.
-    SearchAll,
-    /// Open the profile (named launch) picker.
-    Profiles,
-    /// Annotate the current line with a note.
-    Annotate,
-    Paste,
-    /// Select the entire terminal buffer (scrollback + screen).
-    SelectAll,
-    /// Extend the active selection's moving end one step. With no active
-    /// selection the binding is a no-op and the key falls through to its
-    /// normal escape sequence, so shift+navigation stays "performable".
-    AdjustSelection(SelectAdjust),
-    /// Write raw bytes straight to the pty. Built from
-    /// `text:<chars>` (literal, with `\xNN`/`\e`/`\n`… escapes) and
-    /// `esc:<chars>` (an ESC prefix plus those chars). Used for the macOS
-    /// readline navigation defaults (word/line motion).
-    SendText(Vec<u8>),
-    IncreaseFontSize(f32),
-    DecreaseFontSize(f32),
-    ResetFontSize,
-    ScrollPageUp,
-    ScrollPageDown,
-    ScrollToTop,
-    ScrollToBottom,
-    /// Jump the viewport by a signed number of shell prompts (negative =
-    /// toward the top/older).
-    JumpToPrompt(i32),
-    ClearScreen,
-    /// Toggle the scrollback search overlay.
-    ToggleSearch,
-    /// Toggle semantic search across prompt/output blocks.
-    ToggleSemanticSearch,
-    /// Explain selected output, falling back to the last prompt block.
-    ExplainOutput,
-    /// Compose a shell command from natural language and insert it.
-    ComposeCommand,
-    /// Run a command contributed by a plugin, addressed as `plugin/command`.
-    PluginCommand(String),
-    /// Toggle command-macro recording: start capturing typed commands, or
-    /// stop and name/save the capture.
-    MacroRecord,
-    /// Replay a saved macro by name (`macro:<name>`).
-    MacroReplay(String),
-    /// Open the fuzzy command palette.
-    CommandPalette,
-    /// Open the Notes markdown-vault surface.
-    Notes,
-    /// Open the guise Spotlight quick-open (commands + plugins).
-    QuickOpen,
-    /// Toggle the settings panel.
-    ToggleSettings,
-    /// Open the documentation window.
-    ShowHelp,
-    ToggleFullscreen,
-    /// Minimize the window to the Dock.
-    MinimizeWindow,
-    /// Standard macOS window zoom (green button).
-    ZoomWindow,
-    /// Hide every Sinclair window (macOS "Hide").
-    HideAll,
-    /// Bring all Sinclair windows to the front.
-    BringAllToFront,
-    /// Resize the window back to the configured default cell grid.
-    ReturnToDefaultSize,
-    /// Persist the current window's cell grid as the default size.
-    UseAsDefault,
-    /// Sinclair for and set the active tab's label.
-    ChangeTabTitle,
-    /// Sinclair for and set the focused pane's title.
-    ChangeTerminalTitle,
-    /// Toggle input gating on the focused pane.
-    ToggleReadOnly,
-    /// Toggle mirroring typed input to every pane in the active tab.
-    ToggleBroadcast,
-    /// Start/stop recording the focused pane as an asciinema cast.
-    ToggleRecording,
-    /// Render the most recent `.cast` recording to a shareable file. The
-    /// payload is the output extension: `gif` (default), `mp4`, `mov`, or `webm`.
-    ExportRecording(String),
-    /// Save the focused terminal's whole buffer (scrollback + screen) to a text
-    /// file chosen via the native save dialog.
-    SaveBuffer,
-    /// Toggle the Quake-style dropdown quick terminal.
-    ToggleQuickTerminal,
-    /// Open the Relay agent-mesh feed in a split.
-    RelayFeed,
-    /// Launch a Relay agent in a split (prompts for a name).
-    RelayLaunch,
-    /// Tail the Relay server log in a split.
-    RelayLog,
-    /// Start the Relay server daemon.
-    RelayStart,
-    /// Stop the Relay server daemon.
-    RelayStop,
-    /// Restart the Relay server daemon.
-    RelayRestart,
-    /// Create a git worktree at the given path (branched from HEAD) and open it
-    /// in a new tab. The payload is the worktree path; append `@branch` to name
-    /// the branch (else the path's basename is used).
-    WorktreeCreate(String),
-    /// Open an existing git worktree path in a new tab.
-    WorktreeOpen(String),
-    /// Remove the git worktree at the given path (`git worktree remove`).
-    WorktreeRemove(String),
-    /// Apply a tile layout by id (preset or saved custom).
-    Tile(String),
-    /// Save the current tab's layout as a named custom tile.
-    SaveLayout,
-    /// Show/toggle a side drawer. Payload is `side` (`left`/`right`, toggles the
-    /// side with its default panel) or `side:panel` (e.g. `left:relay`) to show
-    /// a specific panel; re-selecting the active panel collapses that side.
-    Sidebar(String),
-    /// Open a Relay team by name (tiled agents).
-    OpenTeam(String),
-    /// Open the Team Builder window (manual or AI-guided team assembly).
-    BuildTeam,
-    /// Check GitHub for a newer release now and prompt to update.
-    CheckUpdates,
-    /// Launch a previously-saved agent by name.
-    AgentDef(String),
-    /// Quick-launch a configured provider (e.g. `claude`, `codex`) as a one-off
-    /// agent in a split, with default role and no task.
-    LaunchAgent(String),
-    /// Open the Plugin Manager window (search / install / uninstall).
-    ManagePlugins,
-    Quit,
-    /// The special `unbind` action: removes the trigger's binding.
-    Unbound,
+  /// Open a fresh top-level window.
+  NewWindow,
+  NewTab,
+  /// Open the OS picker to launch a container-backed tab (a fresh Debian,
+  /// Ubuntu, … userland). See the `container` crate.
+  NewContainerTab,
+  /// Open the picker listing already-running containers to attach a tab to
+  /// one of them (an interactive shell via `exec`). See the `container` crate.
+  AttachContainer,
+  /// Open a shell in this project's shared sandbox, starting (or building)
+  /// the container first if it is not already up.
+  SandboxShell,
+  /// Turn the sandbox on or off for this project, writing `sandbox-enabled`.
+  ToggleSandbox,
+  /// Bring the sandbox container up without opening a pane.
+  SandboxStart,
+  /// Stop the sandbox container. Panes inside it end with it.
+  SandboxStop,
+  /// Rebuild the sandbox image and recreate the container from it. Anything
+  /// written outside the mounted project is lost, which is the point.
+  SandboxRebuild,
+  /// Show what the sandbox is doing right now: image, state, attached panes.
+  SandboxStatus,
+  CloseSurface,
+  /// Close the current tab and all its panes.
+  CloseTab,
+  /// Close the current window.
+  CloseWindow,
+  /// Close every open window.
+  CloseAllWindows,
+  NewSplit(SplitDirection),
+  GotoSplit(SplitFocus),
+  /// Toggle maximizing the focused split pane to fill the tab.
+  ZoomSplit,
+  /// Reset every split divider in the tab to an even 50/50.
+  EqualizeSplits,
+  /// Nudge the divider next to the focused pane in a direction.
+  ResizeSplit(ResizeDir),
+  /// 1-based tab index; negative counts from the end (`-1` = last).
+  GotoTab(i32),
+  PreviousTab,
+  NextTab,
+  /// Open the tab switcher and step through it, most-recently-used first.
+  /// The parameter is the signed step, defaulting to `1`; bind `-1` to the
+  /// same key with shift to walk it backwards. Held-modifier gesture: it
+  /// commits when the modifier the binding fired with is released.
+  TabSwitcher(i32),
+  /// Toggle the tab peek: live miniatures of every tab in the window, in a
+  /// strip under the tab bar. Opened this way it stays until it is dismissed
+  /// and takes the arrow keys; hovering the tab bar opens the same strip
+  /// without the keyboard (see `tab-peek-hover`).
+  TabPeek,
+  /// Move the current tab by a signed delta.
+  MoveTab(i32),
+  Copy,
+  /// Copy the most recent finished command's output (OSC 133 blocks).
+  CopyCommandOutput,
+  /// Enter hint mode: label visible URLs and open one by keyboard.
+  Hints,
+  /// Toggle copy mode: a vi-style keyboard cursor for selecting text.
+  CopyMode,
+  /// Open the clipboard-history picker and paste a chosen recent copy.
+  ClipboardHistory,
+  /// Open the emoji / symbol insert picker.
+  UnicodePicker,
+  /// Open the snippet (workflow) picker.
+  Snippets,
+  /// Global search: recent output across all tabs.
+  SearchAll,
+  /// Open the profile (named launch) picker.
+  Profiles,
+  /// Annotate the current line with a note.
+  Annotate,
+  Paste,
+  /// Select the entire terminal buffer (scrollback + screen).
+  SelectAll,
+  /// Extend the active selection's moving end one step. With no active
+  /// selection the binding is a no-op and the key falls through to its
+  /// normal escape sequence, so shift+navigation stays "performable".
+  AdjustSelection(SelectAdjust),
+  /// Write raw bytes straight to the pty. Built from
+  /// `text:<chars>` (literal, with `\xNN`/`\e`/`\n`… escapes) and
+  /// `esc:<chars>` (an ESC prefix plus those chars). Used for the macOS
+  /// readline navigation defaults (word/line motion).
+  SendText(Vec<u8>),
+  IncreaseFontSize(f32),
+  DecreaseFontSize(f32),
+  ResetFontSize,
+  ScrollPageUp,
+  ScrollPageDown,
+  ScrollToTop,
+  ScrollToBottom,
+  /// Jump the viewport by a signed number of shell prompts (negative =
+  /// toward the top/older).
+  JumpToPrompt(i32),
+  ClearScreen,
+  /// Toggle the scrollback search overlay.
+  ToggleSearch,
+  /// Toggle semantic search across prompt/output blocks.
+  ToggleSemanticSearch,
+  /// Explain selected output, falling back to the last prompt block.
+  ExplainOutput,
+  /// Compose a shell command from natural language and insert it.
+  ComposeCommand,
+  /// Run a command contributed by a plugin, addressed as `plugin/command`.
+  PluginCommand(String),
+  /// Toggle command-macro recording: start capturing typed commands, or
+  /// stop and name/save the capture.
+  MacroRecord,
+  /// Replay a saved macro by name (`macro:<name>`).
+  MacroReplay(String),
+  /// Open the fuzzy command palette.
+  CommandPalette,
+  /// Open the Notes markdown-vault surface.
+  Notes,
+  /// Open the guise Spotlight quick-open (commands + plugins).
+  QuickOpen,
+  /// Toggle the settings panel.
+  ToggleSettings,
+  /// Open the documentation window.
+  ShowHelp,
+  ToggleFullscreen,
+  /// Minimize the window to the Dock.
+  MinimizeWindow,
+  /// Standard macOS window zoom (green button).
+  ZoomWindow,
+  /// Hide every Sinclair window (macOS "Hide").
+  HideAll,
+  /// Bring all Sinclair windows to the front.
+  BringAllToFront,
+  /// Resize the window back to the configured default cell grid.
+  ReturnToDefaultSize,
+  /// Persist the current window's cell grid as the default size.
+  UseAsDefault,
+  /// Sinclair for and set the active tab's label.
+  ChangeTabTitle,
+  /// Sinclair for and set the focused pane's title.
+  ChangeTerminalTitle,
+  /// Toggle input gating on the focused pane.
+  ToggleReadOnly,
+  /// Toggle mirroring typed input to every pane in the active tab.
+  ToggleBroadcast,
+  /// Start/stop recording the focused pane as an asciinema cast.
+  ToggleRecording,
+  /// Render the most recent `.cast` recording to a shareable file. The
+  /// payload is the output extension: `gif` (default), `mp4`, `mov`, or `webm`.
+  ExportRecording(String),
+  /// Save the focused terminal's whole buffer (scrollback + screen) to a text
+  /// file chosen via the native save dialog.
+  SaveBuffer,
+  /// Toggle the Quake-style dropdown quick terminal.
+  ToggleQuickTerminal,
+  /// Open the Relay agent-mesh feed in a split.
+  RelayFeed,
+  /// Launch a Relay agent in a split (prompts for a name).
+  RelayLaunch,
+  /// Tail the Relay server log in a split.
+  RelayLog,
+  /// Start the Relay server daemon.
+  RelayStart,
+  /// Stop the Relay server daemon.
+  RelayStop,
+  /// Restart the Relay server daemon.
+  RelayRestart,
+  /// Create a git worktree at the given path (branched from HEAD) and open it
+  /// in a new tab. The payload is the worktree path; append `@branch` to name
+  /// the branch (else the path's basename is used).
+  WorktreeCreate(String),
+  /// Open an existing git worktree path in a new tab.
+  WorktreeOpen(String),
+  /// Remove the git worktree at the given path (`git worktree remove`).
+  WorktreeRemove(String),
+  /// Apply a tile layout by id (preset or saved custom).
+  Tile(String),
+  /// Save the current tab's layout as a named custom tile.
+  SaveLayout,
+  /// Show/toggle a side drawer. Payload is `side` (`left`/`right`, toggles the
+  /// side with its default panel) or `side:panel` (e.g. `left:relay`) to show
+  /// a specific panel; re-selecting the active panel collapses that side.
+  Sidebar(String),
+  /// Open a Relay team by name (tiled agents).
+  OpenTeam(String),
+  /// Open the Team Builder window (manual or AI-guided team assembly).
+  BuildTeam,
+  /// Check GitHub for a newer release now and prompt to update.
+  CheckUpdates,
+  /// Launch a previously-saved agent by name.
+  AgentDef(String),
+  /// Quick-launch a configured provider (e.g. `claude`, `codex`) as a one-off
+  /// agent in a split, with default role and no task.
+  LaunchAgent(String),
+  /// Open the Plugin Manager window (search / install / uninstall).
+  ManagePlugins,
+  Quit,
+  /// The special `unbind` action: removes the trigger's binding.
+  Unbound,
 }
 
 impl Action {
-    /// Parse `name` or `name:param`. Unknown names or bad params are errors.
-    pub fn parse(s: &str) -> Result<Self, String> {
-        let (name, param, raw) = match s.split_once(':') {
-            Some((n, p)) => (n.trim().to_ascii_lowercase(), Some(p.trim()), Some(p)),
-            None => (s.trim().to_ascii_lowercase(), None, None),
+  /// Parse `name` or `name:param`. Unknown names or bad params are errors.
+  pub fn parse(s: &str) -> Result<Self, String> {
+    let (name, param, raw) = match s.split_once(':') {
+      Some((n, p)) => (n.trim().to_ascii_lowercase(), Some(p.trim()), Some(p)),
+      None => (s.trim().to_ascii_lowercase(), None, None),
+    };
+    match name.as_str() {
+      "new_window" => only(Self::NewWindow, &name, param),
+      "new_tab" => only(Self::NewTab, &name, param),
+      "new_container_tab" | "new_os_tab" => only(Self::NewContainerTab, &name, param),
+      "attach_container" | "attach_to_container" => only(Self::AttachContainer, &name, param),
+      "sandbox_shell" => only(Self::SandboxShell, &name, param),
+      "toggle_sandbox" => only(Self::ToggleSandbox, &name, param),
+      "sandbox_start" => only(Self::SandboxStart, &name, param),
+      "sandbox_stop" => only(Self::SandboxStop, &name, param),
+      "sandbox_rebuild" => only(Self::SandboxRebuild, &name, param),
+      "sandbox_status" => only(Self::SandboxStatus, &name, param),
+      "close_surface" => only(Self::CloseSurface, &name, param),
+      "close_tab" => only(Self::CloseTab, &name, param),
+      "close_window" => only(Self::CloseWindow, &name, param),
+      "close_all_windows" => only(Self::CloseAllWindows, &name, param),
+      "new_split" => {
+        let p = req(&name, param)?;
+        let dir =
+          SplitDirection::parse(p).ok_or_else(|| format!("invalid new_split direction `{p}`"))?;
+        Ok(Self::NewSplit(dir))
+      }
+      "goto_split" => {
+        let p = req(&name, param)?;
+        let focus =
+          SplitFocus::parse(p).ok_or_else(|| format!("invalid goto_split target `{p}`"))?;
+        Ok(Self::GotoSplit(focus))
+      }
+      "zoom_split" | "toggle_split_zoom" => only(Self::ZoomSplit, &name, param),
+      "equalize_splits" => only(Self::EqualizeSplits, &name, param),
+      "resize_split" => {
+        let p = req(&name, param)?;
+        let dir =
+          ResizeDir::parse(p).ok_or_else(|| format!("invalid resize_split direction `{p}`"))?;
+        Ok(Self::ResizeSplit(dir))
+      }
+      "goto_tab" => {
+        let n = int(&name, param)?;
+        if n == 0 {
+          return Err("goto_tab requires a non-zero index".to_string());
+        }
+        Ok(Self::GotoTab(n))
+      }
+      "previous_tab" => only(Self::PreviousTab, &name, param),
+      "next_tab" => only(Self::NextTab, &name, param),
+      "tab_switcher" => {
+        let n = match param {
+          None => 1,
+          Some(p) => int(&name, Some(p))?,
         };
-        match name.as_str() {
-            "new_window" => only(Self::NewWindow, &name, param),
-            "new_tab" => only(Self::NewTab, &name, param),
-            "new_container_tab" | "new_os_tab" => only(Self::NewContainerTab, &name, param),
-            "attach_container" | "attach_to_container" => only(Self::AttachContainer, &name, param),
-            "sandbox_shell" => only(Self::SandboxShell, &name, param),
-            "toggle_sandbox" => only(Self::ToggleSandbox, &name, param),
-            "sandbox_start" => only(Self::SandboxStart, &name, param),
-            "sandbox_stop" => only(Self::SandboxStop, &name, param),
-            "sandbox_rebuild" => only(Self::SandboxRebuild, &name, param),
-            "sandbox_status" => only(Self::SandboxStatus, &name, param),
-            "close_surface" => only(Self::CloseSurface, &name, param),
-            "close_tab" => only(Self::CloseTab, &name, param),
-            "close_window" => only(Self::CloseWindow, &name, param),
-            "close_all_windows" => only(Self::CloseAllWindows, &name, param),
-            "new_split" => {
-                let p = req(&name, param)?;
-                let dir = SplitDirection::parse(p)
-                    .ok_or_else(|| format!("invalid new_split direction `{p}`"))?;
-                Ok(Self::NewSplit(dir))
-            }
-            "goto_split" => {
-                let p = req(&name, param)?;
-                let focus = SplitFocus::parse(p)
-                    .ok_or_else(|| format!("invalid goto_split target `{p}`"))?;
-                Ok(Self::GotoSplit(focus))
-            }
-            "zoom_split" | "toggle_split_zoom" => only(Self::ZoomSplit, &name, param),
-            "equalize_splits" => only(Self::EqualizeSplits, &name, param),
-            "resize_split" => {
-                let p = req(&name, param)?;
-                let dir = ResizeDir::parse(p)
-                    .ok_or_else(|| format!("invalid resize_split direction `{p}`"))?;
-                Ok(Self::ResizeSplit(dir))
-            }
-            "goto_tab" => {
-                let n = int(&name, param)?;
-                if n == 0 {
-                    return Err("goto_tab requires a non-zero index".to_string());
-                }
-                Ok(Self::GotoTab(n))
-            }
-            "previous_tab" => only(Self::PreviousTab, &name, param),
-            "next_tab" => only(Self::NextTab, &name, param),
-            "tab_switcher" => {
-                let n = match param {
-                    None => 1,
-                    Some(p) => int(&name, Some(p))?,
-                };
-                if n == 0 {
-                    return Err("tab_switcher requires a non-zero step".to_string());
-                }
-                Ok(Self::TabSwitcher(n))
-            }
-            "tab_peek" | "peek_tabs" => only(Self::TabPeek, &name, param),
-            "move_tab" => Ok(Self::MoveTab(int(&name, param)?)),
-            "copy_to_clipboard" | "copy" => only(Self::Copy, &name, param),
-            "copy_command_output" | "copy_last_output" => {
-                only(Self::CopyCommandOutput, &name, param)
-            }
-            "hints" | "open_url_hint" => only(Self::Hints, &name, param),
-            "copy_mode" | "toggle_copy_mode" => only(Self::CopyMode, &name, param),
-            "clipboard_history" | "paste_history" => only(Self::ClipboardHistory, &name, param),
-            "unicode_picker" | "insert_emoji" => only(Self::UnicodePicker, &name, param),
-            "snippets" | "workflows" => only(Self::Snippets, &name, param),
-            "search_all" | "global_search" => only(Self::SearchAll, &name, param),
-            "profiles" | "profile_picker" => only(Self::Profiles, &name, param),
-            "annotate" => only(Self::Annotate, &name, param),
-            "paste_from_clipboard" | "paste" => only(Self::Paste, &name, param),
-            "select_all" => only(Self::SelectAll, &name, param),
-            "adjust_selection" => {
-                let p = req(&name, param)?;
-                let dir = SelectAdjust::parse(p)
-                    .ok_or_else(|| format!("invalid adjust_selection direction `{p}`"))?;
-                Ok(Self::AdjustSelection(dir))
-            }
-            "text" => Ok(Self::SendText(decode_text(req(&name, raw)?)?)),
-            "esc" => {
-                let mut bytes = vec![0x1b];
-                bytes.extend(decode_text(req(&name, raw)?)?);
-                Ok(Self::SendText(bytes))
-            }
-            "increase_font_size" => Ok(Self::IncreaseFontSize(amount(&name, param)?)),
-            "decrease_font_size" => Ok(Self::DecreaseFontSize(amount(&name, param)?)),
-            "reset_font_size" => only(Self::ResetFontSize, &name, param),
-            "scroll_page_up" => only(Self::ScrollPageUp, &name, param),
-            "scroll_page_down" => only(Self::ScrollPageDown, &name, param),
-            "scroll_to_top" => only(Self::ScrollToTop, &name, param),
-            "scroll_to_bottom" => only(Self::ScrollToBottom, &name, param),
-            "jump_to_prompt" => Ok(Self::JumpToPrompt(int(&name, param)?)),
-            "clear_screen" => only(Self::ClearScreen, &name, param),
-            "toggle_search" => only(Self::ToggleSearch, &name, param),
-            "toggle_semantic_search" => only(Self::ToggleSemanticSearch, &name, param),
-            "explain_output" => only(Self::ExplainOutput, &name, param),
-            "compose_command" => only(Self::ComposeCommand, &name, param),
-            "plugin_command" => {
-                let p = req(&name, param)?;
-                if valid_plugin_command(p) {
-                    Ok(Self::PluginCommand(p.to_string()))
-                } else {
-                    Err("plugin_command requires `plugin/command`".to_string())
-                }
-            }
-            "macro_record" => only(Self::MacroRecord, &name, param),
-            "macro" => {
-                let p = req(&name, param)?;
-                if valid_id(p) {
-                    Ok(Self::MacroReplay(p.to_string()))
-                } else {
-                    Err("macro requires a name ([a-z0-9.-])".to_string())
-                }
-            }
-            "command_palette" => only(Self::CommandPalette, &name, param),
-            "notes" => only(Self::Notes, &name, param),
-            "quick_open" => only(Self::QuickOpen, &name, param),
-            "open_settings" | "toggle_settings" => only(Self::ToggleSettings, &name, param),
-            "show_help" | "help" => only(Self::ShowHelp, &name, param),
-            "toggle_fullscreen" => only(Self::ToggleFullscreen, &name, param),
-            "minimize_window" | "minimize" => only(Self::MinimizeWindow, &name, param),
-            "zoom_window" => only(Self::ZoomWindow, &name, param),
-            "hide_all" | "toggle_visibility" => only(Self::HideAll, &name, param),
-            "bring_all_to_front" => only(Self::BringAllToFront, &name, param),
-            "return_to_default_size" | "reset_window_size" => {
-                only(Self::ReturnToDefaultSize, &name, param)
-            }
-            "use_as_default" => only(Self::UseAsDefault, &name, param),
-            "change_tab_title" => only(Self::ChangeTabTitle, &name, param),
-            "change_terminal_title" => only(Self::ChangeTerminalTitle, &name, param),
-            "toggle_read_only" => only(Self::ToggleReadOnly, &name, param),
-            "toggle_broadcast" | "broadcast_input" => only(Self::ToggleBroadcast, &name, param),
-            "toggle_recording" | "record_session" => only(Self::ToggleRecording, &name, param),
-            "export_recording" => Ok(Self::ExportRecording(param.unwrap_or("gif").to_string())),
-            "save_buffer" => only(Self::SaveBuffer, &name, param),
-            "toggle_quick_terminal" | "quick_terminal" => {
-                only(Self::ToggleQuickTerminal, &name, param)
-            }
-            "relay_feed" => only(Self::RelayFeed, &name, param),
-            "relay_launch" => only(Self::RelayLaunch, &name, param),
-            "relay_log" => only(Self::RelayLog, &name, param),
-            "relay_start" => only(Self::RelayStart, &name, param),
-            "relay_stop" => only(Self::RelayStop, &name, param),
-            "relay_restart" => only(Self::RelayRestart, &name, param),
-            "worktree_create" | "worktree_new" => {
-                Ok(Self::WorktreeCreate(req(&name, param)?.to_string()))
-            }
-            "worktree_open" => Ok(Self::WorktreeOpen(req(&name, param)?.to_string())),
-            "worktree_remove" => Ok(Self::WorktreeRemove(req(&name, param)?.to_string())),
-            "tile" => Ok(Self::Tile(req(&name, param)?.to_string())),
-            "save_layout" => only(Self::SaveLayout, &name, param),
-            "sidebar" => Ok(Self::Sidebar(req(&name, param)?.to_string())),
-            "open_team" => Ok(Self::OpenTeam(req(&name, param)?.to_string())),
-            "build_team" => only(Self::BuildTeam, &name, param),
-            "check_updates" => only(Self::CheckUpdates, &name, param),
-            "agent_def" => Ok(Self::AgentDef(req(&name, param)?.to_string())),
-            "launch_agent" => Ok(Self::LaunchAgent(req(&name, param)?.to_string())),
-            // Retired: plugins no longer contribute web views, and Notes is a
-            // built-in surface. Kept as an alias so a binding someone already
-            // wrote (`open_webview:notes`) still opens Notes.
-            "open_webview" if param == Some("notes") => Ok(Self::Notes),
-            "manage_plugins" => only(Self::ManagePlugins, &name, param),
-            "quit" => only(Self::Quit, &name, param),
-            "unbind" => only(Self::Unbound, &name, param),
-            _ => Err(format!("unknown action `{name}`")),
+        if n == 0 {
+          return Err("tab_switcher requires a non-zero step".to_string());
         }
+        Ok(Self::TabSwitcher(n))
+      }
+      "tab_peek" | "peek_tabs" => only(Self::TabPeek, &name, param),
+      "move_tab" => Ok(Self::MoveTab(int(&name, param)?)),
+      "copy_to_clipboard" | "copy" => only(Self::Copy, &name, param),
+      "copy_command_output" | "copy_last_output" => only(Self::CopyCommandOutput, &name, param),
+      "hints" | "open_url_hint" => only(Self::Hints, &name, param),
+      "copy_mode" | "toggle_copy_mode" => only(Self::CopyMode, &name, param),
+      "clipboard_history" | "paste_history" => only(Self::ClipboardHistory, &name, param),
+      "unicode_picker" | "insert_emoji" => only(Self::UnicodePicker, &name, param),
+      "snippets" | "workflows" => only(Self::Snippets, &name, param),
+      "search_all" | "global_search" => only(Self::SearchAll, &name, param),
+      "profiles" | "profile_picker" => only(Self::Profiles, &name, param),
+      "annotate" => only(Self::Annotate, &name, param),
+      "paste_from_clipboard" | "paste" => only(Self::Paste, &name, param),
+      "select_all" => only(Self::SelectAll, &name, param),
+      "adjust_selection" => {
+        let p = req(&name, param)?;
+        let dir = SelectAdjust::parse(p)
+          .ok_or_else(|| format!("invalid adjust_selection direction `{p}`"))?;
+        Ok(Self::AdjustSelection(dir))
+      }
+      "text" => Ok(Self::SendText(decode_text(req(&name, raw)?)?)),
+      "esc" => {
+        let mut bytes = vec![0x1b];
+        bytes.extend(decode_text(req(&name, raw)?)?);
+        Ok(Self::SendText(bytes))
+      }
+      "increase_font_size" => Ok(Self::IncreaseFontSize(amount(&name, param)?)),
+      "decrease_font_size" => Ok(Self::DecreaseFontSize(amount(&name, param)?)),
+      "reset_font_size" => only(Self::ResetFontSize, &name, param),
+      "scroll_page_up" => only(Self::ScrollPageUp, &name, param),
+      "scroll_page_down" => only(Self::ScrollPageDown, &name, param),
+      "scroll_to_top" => only(Self::ScrollToTop, &name, param),
+      "scroll_to_bottom" => only(Self::ScrollToBottom, &name, param),
+      "jump_to_prompt" => Ok(Self::JumpToPrompt(int(&name, param)?)),
+      "clear_screen" => only(Self::ClearScreen, &name, param),
+      "toggle_search" => only(Self::ToggleSearch, &name, param),
+      "toggle_semantic_search" => only(Self::ToggleSemanticSearch, &name, param),
+      "explain_output" => only(Self::ExplainOutput, &name, param),
+      "compose_command" => only(Self::ComposeCommand, &name, param),
+      "plugin_command" => {
+        let p = req(&name, param)?;
+        if valid_plugin_command(p) {
+          Ok(Self::PluginCommand(p.to_string()))
+        } else {
+          Err("plugin_command requires `plugin/command`".to_string())
+        }
+      }
+      "macro_record" => only(Self::MacroRecord, &name, param),
+      "macro" => {
+        let p = req(&name, param)?;
+        if valid_id(p) {
+          Ok(Self::MacroReplay(p.to_string()))
+        } else {
+          Err("macro requires a name ([a-z0-9.-])".to_string())
+        }
+      }
+      "command_palette" => only(Self::CommandPalette, &name, param),
+      "notes" => only(Self::Notes, &name, param),
+      "quick_open" => only(Self::QuickOpen, &name, param),
+      "open_settings" | "toggle_settings" => only(Self::ToggleSettings, &name, param),
+      "show_help" | "help" => only(Self::ShowHelp, &name, param),
+      "toggle_fullscreen" => only(Self::ToggleFullscreen, &name, param),
+      "minimize_window" | "minimize" => only(Self::MinimizeWindow, &name, param),
+      "zoom_window" => only(Self::ZoomWindow, &name, param),
+      "hide_all" | "toggle_visibility" => only(Self::HideAll, &name, param),
+      "bring_all_to_front" => only(Self::BringAllToFront, &name, param),
+      "return_to_default_size" | "reset_window_size" => {
+        only(Self::ReturnToDefaultSize, &name, param)
+      }
+      "use_as_default" => only(Self::UseAsDefault, &name, param),
+      "change_tab_title" => only(Self::ChangeTabTitle, &name, param),
+      "change_terminal_title" => only(Self::ChangeTerminalTitle, &name, param),
+      "toggle_read_only" => only(Self::ToggleReadOnly, &name, param),
+      "toggle_broadcast" | "broadcast_input" => only(Self::ToggleBroadcast, &name, param),
+      "toggle_recording" | "record_session" => only(Self::ToggleRecording, &name, param),
+      "export_recording" => Ok(Self::ExportRecording(param.unwrap_or("gif").to_string())),
+      "save_buffer" => only(Self::SaveBuffer, &name, param),
+      "toggle_quick_terminal" | "quick_terminal" => only(Self::ToggleQuickTerminal, &name, param),
+      "relay_feed" => only(Self::RelayFeed, &name, param),
+      "relay_launch" => only(Self::RelayLaunch, &name, param),
+      "relay_log" => only(Self::RelayLog, &name, param),
+      "relay_start" => only(Self::RelayStart, &name, param),
+      "relay_stop" => only(Self::RelayStop, &name, param),
+      "relay_restart" => only(Self::RelayRestart, &name, param),
+      "worktree_create" | "worktree_new" => {
+        Ok(Self::WorktreeCreate(req(&name, param)?.to_string()))
+      }
+      "worktree_open" => Ok(Self::WorktreeOpen(req(&name, param)?.to_string())),
+      "worktree_remove" => Ok(Self::WorktreeRemove(req(&name, param)?.to_string())),
+      "tile" => Ok(Self::Tile(req(&name, param)?.to_string())),
+      "save_layout" => only(Self::SaveLayout, &name, param),
+      "sidebar" => Ok(Self::Sidebar(req(&name, param)?.to_string())),
+      "open_team" => Ok(Self::OpenTeam(req(&name, param)?.to_string())),
+      "build_team" => only(Self::BuildTeam, &name, param),
+      "check_updates" => only(Self::CheckUpdates, &name, param),
+      "agent_def" => Ok(Self::AgentDef(req(&name, param)?.to_string())),
+      "launch_agent" => Ok(Self::LaunchAgent(req(&name, param)?.to_string())),
+      // Retired: plugins no longer contribute web views, and Notes is a
+      // built-in surface. Kept as an alias so a binding someone already
+      // wrote (`open_webview:notes`) still opens Notes.
+      "open_webview" if param == Some("notes") => Ok(Self::Notes),
+      "manage_plugins" => only(Self::ManagePlugins, &name, param),
+      "quit" => only(Self::Quit, &name, param),
+      "unbind" => only(Self::Unbound, &name, param),
+      _ => Err(format!("unknown action `{name}`")),
     }
+  }
 
-    /// The canonical config string for this action, round-tripping through
-    /// [`Action::parse`]. Used to write keybinds back to the config file.
-    pub fn to_config(&self) -> String {
-        match self {
-            Self::NewWindow => "new_window".into(),
-            Self::NewTab => "new_tab".into(),
-            Self::NewContainerTab => "new_container_tab".into(),
-            Self::AttachContainer => "attach_container".into(),
-            Self::SandboxShell => "sandbox_shell".into(),
-            Self::ToggleSandbox => "toggle_sandbox".into(),
-            Self::SandboxStart => "sandbox_start".into(),
-            Self::SandboxStop => "sandbox_stop".into(),
-            Self::SandboxRebuild => "sandbox_rebuild".into(),
-            Self::SandboxStatus => "sandbox_status".into(),
-            Self::CloseSurface => "close_surface".into(),
-            Self::CloseTab => "close_tab".into(),
-            Self::CloseWindow => "close_window".into(),
-            Self::CloseAllWindows => "close_all_windows".into(),
-            Self::NewSplit(d) => format!("new_split:{}", d.as_str()),
-            Self::GotoSplit(f) => format!("goto_split:{}", f.as_str()),
-            Self::ZoomSplit => "zoom_split".into(),
-            Self::EqualizeSplits => "equalize_splits".into(),
-            Self::ResizeSplit(d) => format!("resize_split:{}", d.as_str()),
-            Self::GotoTab(n) => format!("goto_tab:{n}"),
-            Self::PreviousTab => "previous_tab".into(),
-            Self::NextTab => "next_tab".into(),
-            Self::TabSwitcher(n) => format!("tab_switcher:{n}"),
-            Self::TabPeek => "tab_peek".into(),
-            Self::MoveTab(n) => format!("move_tab:{n}"),
-            Self::Copy => "copy_to_clipboard".into(),
-            Self::CopyCommandOutput => "copy_command_output".into(),
-            Self::Hints => "hints".into(),
-            Self::CopyMode => "copy_mode".into(),
-            Self::ClipboardHistory => "clipboard_history".into(),
-            Self::UnicodePicker => "unicode_picker".into(),
-            Self::Snippets => "snippets".into(),
-            Self::SearchAll => "search_all".into(),
-            Self::Profiles => "profiles".into(),
-            Self::Annotate => "annotate".into(),
-            Self::Paste => "paste_from_clipboard".into(),
-            Self::SelectAll => "select_all".into(),
-            Self::AdjustSelection(d) => format!("adjust_selection:{}", d.as_str()),
-            Self::SendText(bytes) => format!("text:{}", encode_text(bytes)),
-            Self::IncreaseFontSize(a) => font_size_action("increase_font_size", *a),
-            Self::DecreaseFontSize(a) => font_size_action("decrease_font_size", *a),
-            Self::ResetFontSize => "reset_font_size".into(),
-            Self::ScrollPageUp => "scroll_page_up".into(),
-            Self::ScrollPageDown => "scroll_page_down".into(),
-            Self::ScrollToTop => "scroll_to_top".into(),
-            Self::ScrollToBottom => "scroll_to_bottom".into(),
-            Self::JumpToPrompt(n) => format!("jump_to_prompt:{n}"),
-            Self::ClearScreen => "clear_screen".into(),
-            Self::ToggleSearch => "toggle_search".into(),
-            Self::ToggleSemanticSearch => "toggle_semantic_search".into(),
-            Self::ExplainOutput => "explain_output".into(),
-            Self::ComposeCommand => "compose_command".into(),
-            Self::RelayFeed => "relay_feed".into(),
-            Self::RelayLaunch => "relay_launch".into(),
-            Self::RelayLog => "relay_log".into(),
-            Self::RelayStart => "relay_start".into(),
-            Self::RelayStop => "relay_stop".into(),
-            Self::RelayRestart => "relay_restart".into(),
-            Self::WorktreeCreate(s) => format!("worktree_create:{s}"),
-            Self::WorktreeOpen(s) => format!("worktree_open:{s}"),
-            Self::WorktreeRemove(s) => format!("worktree_remove:{s}"),
-            Self::Tile(s) => format!("tile:{s}"),
-            Self::SaveLayout => "save_layout".into(),
-            Self::Sidebar(s) => format!("sidebar:{s}"),
-            Self::OpenTeam(s) => format!("open_team:{s}"),
-            Self::BuildTeam => "build_team".into(),
-            Self::CheckUpdates => "check_updates".into(),
-            Self::AgentDef(s) => format!("agent_def:{s}"),
-            Self::LaunchAgent(s) => format!("launch_agent:{s}"),
-            Self::ManagePlugins => "manage_plugins".into(),
-            Self::PluginCommand(s) => format!("plugin_command:{s}"),
-            Self::MacroRecord => "macro_record".into(),
-            Self::MacroReplay(s) => format!("macro:{s}"),
-            Self::CommandPalette => "command_palette".into(),
-            Self::Notes => "notes".into(),
-            Self::QuickOpen => "quick_open".into(),
-            Self::ToggleSettings => "toggle_settings".into(),
-            Self::ShowHelp => "show_help".into(),
-            Self::ToggleFullscreen => "toggle_fullscreen".into(),
-            Self::MinimizeWindow => "minimize_window".into(),
-            Self::ZoomWindow => "zoom_window".into(),
-            Self::HideAll => "hide_all".into(),
-            Self::BringAllToFront => "bring_all_to_front".into(),
-            Self::ReturnToDefaultSize => "return_to_default_size".into(),
-            Self::UseAsDefault => "use_as_default".into(),
-            Self::ChangeTabTitle => "change_tab_title".into(),
-            Self::ChangeTerminalTitle => "change_terminal_title".into(),
-            Self::ToggleReadOnly => "toggle_read_only".into(),
-            Self::ToggleBroadcast => "toggle_broadcast".into(),
-            Self::ToggleRecording => "toggle_recording".into(),
-            Self::ExportRecording(fmt) => format!("export_recording:{fmt}"),
-            Self::SaveBuffer => "save_buffer".into(),
-            Self::ToggleQuickTerminal => "toggle_quick_terminal".into(),
-            Self::Quit => "quit".into(),
-            Self::Unbound => "unbind".into(),
-        }
+  /// The canonical config string for this action, round-tripping through
+  /// [`Action::parse`]. Used to write keybinds back to the config file.
+  pub fn to_config(&self) -> String {
+    match self {
+      Self::NewWindow => "new_window".into(),
+      Self::NewTab => "new_tab".into(),
+      Self::NewContainerTab => "new_container_tab".into(),
+      Self::AttachContainer => "attach_container".into(),
+      Self::SandboxShell => "sandbox_shell".into(),
+      Self::ToggleSandbox => "toggle_sandbox".into(),
+      Self::SandboxStart => "sandbox_start".into(),
+      Self::SandboxStop => "sandbox_stop".into(),
+      Self::SandboxRebuild => "sandbox_rebuild".into(),
+      Self::SandboxStatus => "sandbox_status".into(),
+      Self::CloseSurface => "close_surface".into(),
+      Self::CloseTab => "close_tab".into(),
+      Self::CloseWindow => "close_window".into(),
+      Self::CloseAllWindows => "close_all_windows".into(),
+      Self::NewSplit(d) => format!("new_split:{}", d.as_str()),
+      Self::GotoSplit(f) => format!("goto_split:{}", f.as_str()),
+      Self::ZoomSplit => "zoom_split".into(),
+      Self::EqualizeSplits => "equalize_splits".into(),
+      Self::ResizeSplit(d) => format!("resize_split:{}", d.as_str()),
+      Self::GotoTab(n) => format!("goto_tab:{n}"),
+      Self::PreviousTab => "previous_tab".into(),
+      Self::NextTab => "next_tab".into(),
+      Self::TabSwitcher(n) => format!("tab_switcher:{n}"),
+      Self::TabPeek => "tab_peek".into(),
+      Self::MoveTab(n) => format!("move_tab:{n}"),
+      Self::Copy => "copy_to_clipboard".into(),
+      Self::CopyCommandOutput => "copy_command_output".into(),
+      Self::Hints => "hints".into(),
+      Self::CopyMode => "copy_mode".into(),
+      Self::ClipboardHistory => "clipboard_history".into(),
+      Self::UnicodePicker => "unicode_picker".into(),
+      Self::Snippets => "snippets".into(),
+      Self::SearchAll => "search_all".into(),
+      Self::Profiles => "profiles".into(),
+      Self::Annotate => "annotate".into(),
+      Self::Paste => "paste_from_clipboard".into(),
+      Self::SelectAll => "select_all".into(),
+      Self::AdjustSelection(d) => format!("adjust_selection:{}", d.as_str()),
+      Self::SendText(bytes) => format!("text:{}", encode_text(bytes)),
+      Self::IncreaseFontSize(a) => font_size_action("increase_font_size", *a),
+      Self::DecreaseFontSize(a) => font_size_action("decrease_font_size", *a),
+      Self::ResetFontSize => "reset_font_size".into(),
+      Self::ScrollPageUp => "scroll_page_up".into(),
+      Self::ScrollPageDown => "scroll_page_down".into(),
+      Self::ScrollToTop => "scroll_to_top".into(),
+      Self::ScrollToBottom => "scroll_to_bottom".into(),
+      Self::JumpToPrompt(n) => format!("jump_to_prompt:{n}"),
+      Self::ClearScreen => "clear_screen".into(),
+      Self::ToggleSearch => "toggle_search".into(),
+      Self::ToggleSemanticSearch => "toggle_semantic_search".into(),
+      Self::ExplainOutput => "explain_output".into(),
+      Self::ComposeCommand => "compose_command".into(),
+      Self::RelayFeed => "relay_feed".into(),
+      Self::RelayLaunch => "relay_launch".into(),
+      Self::RelayLog => "relay_log".into(),
+      Self::RelayStart => "relay_start".into(),
+      Self::RelayStop => "relay_stop".into(),
+      Self::RelayRestart => "relay_restart".into(),
+      Self::WorktreeCreate(s) => format!("worktree_create:{s}"),
+      Self::WorktreeOpen(s) => format!("worktree_open:{s}"),
+      Self::WorktreeRemove(s) => format!("worktree_remove:{s}"),
+      Self::Tile(s) => format!("tile:{s}"),
+      Self::SaveLayout => "save_layout".into(),
+      Self::Sidebar(s) => format!("sidebar:{s}"),
+      Self::OpenTeam(s) => format!("open_team:{s}"),
+      Self::BuildTeam => "build_team".into(),
+      Self::CheckUpdates => "check_updates".into(),
+      Self::AgentDef(s) => format!("agent_def:{s}"),
+      Self::LaunchAgent(s) => format!("launch_agent:{s}"),
+      Self::ManagePlugins => "manage_plugins".into(),
+      Self::PluginCommand(s) => format!("plugin_command:{s}"),
+      Self::MacroRecord => "macro_record".into(),
+      Self::MacroReplay(s) => format!("macro:{s}"),
+      Self::CommandPalette => "command_palette".into(),
+      Self::Notes => "notes".into(),
+      Self::QuickOpen => "quick_open".into(),
+      Self::ToggleSettings => "toggle_settings".into(),
+      Self::ShowHelp => "show_help".into(),
+      Self::ToggleFullscreen => "toggle_fullscreen".into(),
+      Self::MinimizeWindow => "minimize_window".into(),
+      Self::ZoomWindow => "zoom_window".into(),
+      Self::HideAll => "hide_all".into(),
+      Self::BringAllToFront => "bring_all_to_front".into(),
+      Self::ReturnToDefaultSize => "return_to_default_size".into(),
+      Self::UseAsDefault => "use_as_default".into(),
+      Self::ChangeTabTitle => "change_tab_title".into(),
+      Self::ChangeTerminalTitle => "change_terminal_title".into(),
+      Self::ToggleReadOnly => "toggle_read_only".into(),
+      Self::ToggleBroadcast => "toggle_broadcast".into(),
+      Self::ToggleRecording => "toggle_recording".into(),
+      Self::ExportRecording(fmt) => format!("export_recording:{fmt}"),
+      Self::SaveBuffer => "save_buffer".into(),
+      Self::ToggleQuickTerminal => "toggle_quick_terminal".into(),
+      Self::Quit => "quit".into(),
+      Self::Unbound => "unbind".into(),
     }
+  }
 }
 
 /// `increase_font_size`/`decrease_font_size` omit the `:1` default amount.
 fn font_size_action(name: &str, amount: f32) -> String {
-    if amount == 1.0 {
-        name.to_string()
-    } else {
-        format!("{name}:{amount}")
-    }
+  if amount == 1.0 {
+    name.to_string()
+  } else {
+    format!("{name}:{amount}")
+  }
 }
 
 fn valid_plugin_command(s: &str) -> bool {
-    let Some((plugin, command)) = s.split_once('/') else {
-        return false;
-    };
-    valid_id(plugin) && valid_id(command)
+  let Some((plugin, command)) = s.split_once('/') else {
+    return false;
+  };
+  valid_id(plugin) && valid_id(command)
 }
 
 fn valid_id(s: &str) -> bool {
-    !s.is_empty()
-        && s.bytes()
-            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'.' || b == b'-')
+  !s.is_empty()
+    && s
+      .bytes()
+      .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'.' || b == b'-')
 }
 
 /// Decode a `text:`/`esc:` payload into raw bytes, honoring C-style escapes:
 /// `\n \r \t \e \0 \\` and `\xNN` (two hex digits). An unknown escape keeps the
 /// backslash and the following char verbatim. Everything else is UTF-8.
 fn decode_text(s: &str) -> Result<Vec<u8>, String> {
-    let mut out = Vec::with_capacity(s.len());
-    let mut chars = s.chars().peekable();
-    while let Some(c) = chars.next() {
-        if c != '\\' {
-            let mut buf = [0u8; 4];
-            out.extend_from_slice(c.encode_utf8(&mut buf).as_bytes());
-            continue;
-        }
-        match chars.next() {
-            Some('n') => out.push(b'\n'),
-            Some('r') => out.push(b'\r'),
-            Some('t') => out.push(b'\t'),
-            Some('e') => out.push(0x1b),
-            Some('0') => out.push(0x00),
-            Some('\\') => out.push(b'\\'),
-            Some('x') => {
-                let hi = chars.next();
-                let lo = chars.next();
-                match (hi, lo) {
-                    (Some(h), Some(l)) => {
-                        let byte = u8::from_str_radix(&format!("{h}{l}"), 16)
-                            .map_err(|_| format!("invalid \\x escape `\\x{h}{l}`"))?;
-                        out.push(byte);
-                    }
-                    _ => return Err("`\\x` needs two hex digits".to_string()),
-                }
-            }
-            Some(other) => {
-                out.push(b'\\');
-                let mut buf = [0u8; 4];
-                out.extend_from_slice(other.encode_utf8(&mut buf).as_bytes());
-            }
-            None => out.push(b'\\'),
-        }
+  let mut out = Vec::with_capacity(s.len());
+  let mut chars = s.chars().peekable();
+  while let Some(c) = chars.next() {
+    if c != '\\' {
+      let mut buf = [0u8; 4];
+      out.extend_from_slice(c.encode_utf8(&mut buf).as_bytes());
+      continue;
     }
-    Ok(out)
+    match chars.next() {
+      Some('n') => out.push(b'\n'),
+      Some('r') => out.push(b'\r'),
+      Some('t') => out.push(b'\t'),
+      Some('e') => out.push(0x1b),
+      Some('0') => out.push(0x00),
+      Some('\\') => out.push(b'\\'),
+      Some('x') => {
+        let hi = chars.next();
+        let lo = chars.next();
+        match (hi, lo) {
+          (Some(h), Some(l)) => {
+            let byte = u8::from_str_radix(&format!("{h}{l}"), 16)
+              .map_err(|_| format!("invalid \\x escape `\\x{h}{l}`"))?;
+            out.push(byte);
+          }
+          _ => return Err("`\\x` needs two hex digits".to_string()),
+        }
+      }
+      Some(other) => {
+        out.push(b'\\');
+        let mut buf = [0u8; 4];
+        out.extend_from_slice(other.encode_utf8(&mut buf).as_bytes());
+      }
+      None => out.push(b'\\'),
+    }
+  }
+  Ok(out)
 }
 
 /// Re-encode raw bytes into a `text:` payload that [`decode_text`] reads back.
 /// Printable ASCII passes through (backslash doubled); everything else uses
 /// `\xNN`.
 fn encode_text(bytes: &[u8]) -> String {
-    let mut out = String::with_capacity(bytes.len());
-    for &b in bytes {
-        match b {
-            b'\\' => out.push_str("\\\\"),
-            b' ' => out.push_str("\\x20"),
-            0x21..=0x7e => out.push(b as char),
-            _ => out.push_str(&format!("\\x{b:02x}")),
-        }
+  let mut out = String::with_capacity(bytes.len());
+  for &b in bytes {
+    match b {
+      b'\\' => out.push_str("\\\\"),
+      b' ' => out.push_str("\\x20"),
+      0x21..=0x7e => out.push(b as char),
+      _ => out.push_str(&format!("\\x{b:02x}")),
     }
-    out
+  }
+  out
 }
 
 /// The action takes no parameter.
 fn only(action: Action, name: &str, param: Option<&str>) -> Result<Action, String> {
-    match param {
-        None => Ok(action),
-        Some(_) => Err(format!("action `{name}` takes no parameter")),
-    }
+  match param {
+    None => Ok(action),
+    Some(_) => Err(format!("action `{name}` takes no parameter")),
+  }
 }
 
 /// The action requires a non-empty parameter.
 fn req<'a>(name: &str, param: Option<&'a str>) -> Result<&'a str, String> {
-    match param {
-        Some(p) if !p.is_empty() => Ok(p),
-        _ => Err(format!("action `{name}` requires a parameter")),
-    }
+  match param {
+    Some(p) if !p.is_empty() => Ok(p),
+    _ => Err(format!("action `{name}` requires a parameter")),
+  }
 }
 
 /// The action requires an integer parameter.
 fn int(name: &str, param: Option<&str>) -> Result<i32, String> {
-    req(name, param)?
-        .parse()
-        .map_err(|_| format!("action `{name}` requires an integer parameter"))
+  req(name, param)?
+    .parse()
+    .map_err(|_| format!("action `{name}` requires an integer parameter"))
 }
 
 /// Optional positive number parameter, defaulting to 1.
 fn amount(name: &str, param: Option<&str>) -> Result<f32, String> {
-    let Some(p) = param else {
-        return Ok(1.0);
-    };
-    let v: f32 = p
-        .parse()
-        .map_err(|_| format!("action `{name}` requires a number parameter"))?;
-    if v.is_finite() && v > 0.0 {
-        Ok(v)
-    } else {
-        Err(format!("action `{name}` requires a positive number"))
-    }
+  let Some(p) = param else {
+    return Ok(1.0);
+  };
+  let v: f32 = p
+    .parse()
+    .map_err(|_| format!("action `{name}` requires a number parameter"))?;
+  if v.is_finite() && v > 0.0 {
+    Ok(v)
+  } else {
+    Err(format!("action `{name}` requires a positive number"))
+  }
 }
 
 #[cfg(test)]

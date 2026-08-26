@@ -11,252 +11,252 @@ const TITLE_STACK_MAX: usize = 10;
 
 /// Handle a complete CSI sequence. Unknown sequences are ignored.
 pub(crate) fn dispatch(
-    inner: &mut Inner,
-    params: &vte::Params,
-    intermediates: &[u8],
-    action: char,
+  inner: &mut Inner,
+  params: &vte::Params,
+  intermediates: &[u8],
+  action: char,
 ) {
-    let private = intermediates.contains(&b'?');
-    // vte caps a sequence at MAX_PARAMS (32) params, so a stack buffer avoids
-    // heap-allocating on every CSI — the hot SGR path below doesn't even read
-    // it, and cursor/erase ops fire constantly in TUIs.
-    let mut buf = [0u16; 32];
-    let mut n = 0;
-    for s in params.iter() {
-        if n == buf.len() {
-            break;
-        }
-        buf[n] = s.first().copied().unwrap_or(0);
-        n += 1;
+  let private = intermediates.contains(&b'?');
+  // vte caps a sequence at MAX_PARAMS (32) params, so a stack buffer avoids
+  // heap-allocating on every CSI — the hot SGR path below doesn't even read
+  // it, and cursor/erase ops fire constantly in TUIs.
+  let mut buf = [0u16; 32];
+  let mut n = 0;
+  for s in params.iter() {
+    if n == buf.len() {
+      break;
     }
-    let p: &[u16] = &buf[..n];
+    buf[n] = s.first().copied().unwrap_or(0);
+    n += 1;
+  }
+  let p: &[u16] = &buf[..n];
 
-    match (action, intermediates) {
-        ('A', []) => inner.cursor_up(count(p, 0)),
-        ('B', []) | ('e', []) => inner.cursor_down(count(p, 0)),
-        ('C', []) | ('a', []) => inner.cursor_right(count(p, 0)),
-        ('D', []) => inner.cursor_left(count(p, 0)),
-        ('E', []) => {
-            inner.cursor_down(count(p, 0));
-            inner.carriage_return();
-        }
-        ('F', []) => {
-            inner.cursor_up(count(p, 0));
-            inner.carriage_return();
-        }
-        ('G', []) | ('`', []) => inner.set_column(count(p, 0) - 1),
-        ('H', []) | ('f', []) => inner.cursor_to(count(p, 0) - 1, count(p, 1) - 1),
-        ('I', []) => inner.tab_forward(count(p, 0)),
-        ('J', _) => inner.erase_display(arg(p, 0, 0)),
-        ('K', _) => inner.erase_line(arg(p, 0, 0)),
-        ('L', []) => inner.insert_lines(count(p, 0)),
-        ('M', []) => inner.delete_lines(count(p, 0)),
-        ('P', []) => inner.delete_chars(count(p, 0)),
-        ('@', []) => inner.insert_blank(count(p, 0)),
-        ('S', []) => inner.scroll_up_region(count(p, 0)),
-        ('S', [b'?']) => xtsmgraphics(inner, p),
-        ('T', []) => inner.scroll_down_region(count(p, 0)),
-        ('X', []) => inner.erase_chars(count(p, 0)),
-        ('Z', []) => inner.tab_backward(count(p, 0)),
-        ('b', []) => inner.repeat_last(count(p, 0)),
-        ('c', []) if arg(p, 0, 0) == 0 => {
-            // VT220 with sixel graphics (4) and ANSI color (22); clients
-            // probe DA1 for the 4 to decide whether to emit sixel.
-            inner.output.extend_from_slice(b"\x1b[?62;4;22c");
-        }
-        ('c', [b'>']) => {
-            inner.output.extend_from_slice(b"\x1b[>0;276;0c");
-        }
-        ('d', []) => inner.set_row(count(p, 0) - 1),
-        ('g', []) => match arg(p, 0, 0) {
-            0 => {
-                let col = inner.screen().cursor.col;
-                inner.screen_mut().clear_tab(col);
-            }
-            3 => inner.screen_mut().clear_all_tabs(),
-            _ => {}
-        },
-        ('h', _) => set_modes(inner, p, private, true),
-        ('l', _) => set_modes(inner, p, private, false),
-        ('m', []) => {
-            let mut pen = inner.screen().cursor.pen;
-            sgr::apply(&mut pen, params.iter());
-            inner.screen_mut().cursor.pen = pen;
-        }
-        ('n', []) => match arg(p, 0, 0) {
-            5 => inner.output.extend_from_slice(b"\x1b[0n"),
-            6 => inner.report_cursor(),
-            _ => {}
-        },
-        ('q', [b' ']) => {
-            if let Some(style) = CursorStyle::from_decscusr(arg(p, 0, 0)) {
-                inner.cursor_style = style;
-            }
-        }
-        ('r', []) => inner.set_scroll_region(arg(p, 0, 0), arg(p, 1, 0)),
-        ('s', []) => inner.save_cursor(),
-        ('u', []) => inner.restore_cursor(),
-        ('u', [b'?']) => {
-            let flags = inner.screen().kitty.current();
-            inner
-                .output
-                .extend_from_slice(format!("\x1b[?{flags}u").as_bytes());
-        }
-        ('u', [b'>']) => inner.screen_mut().kitty.push(arg(p, 0, 0) as u8),
-        ('u', [b'<']) => inner.screen_mut().kitty.pop(count(p, 0)),
-        ('u', [b'=']) => {
-            let flags = arg(p, 0, 0) as u8;
-            let mode = arg(p, 1, 1) as u8;
-            inner.screen_mut().kitty.set(flags, mode);
-        }
-        ('t', []) => match arg(p, 0, 0) {
-            14 => {
-                let (w, h) = inner.text_area_px();
-                inner
-                    .output
-                    .extend_from_slice(format!("\x1b[4;{h};{w}t").as_bytes());
-            }
-            16 => {
-                let (cw, ch) = inner.cell_px;
-                inner
-                    .output
-                    .extend_from_slice(format!("\x1b[6;{ch};{cw}t").as_bytes());
-            }
-            18 => {
-                let grid = &inner.screen().grid;
-                let (rows, cols) = (grid.rows(), grid.cols());
-                inner
-                    .output
-                    .extend_from_slice(format!("\x1b[8;{rows};{cols}t").as_bytes());
-            }
-            22 if inner.title_stack.len() < TITLE_STACK_MAX => {
-                inner.title_stack.push(inner.title.clone());
-            }
-            23 => {
-                if let Some(title) = inner.title_stack.pop() {
-                    inner.title = title;
-                    inner.title_changed = true;
-                }
-            }
-            _ => {}
-        },
-        _ => {}
+  match (action, intermediates) {
+    ('A', []) => inner.cursor_up(count(p, 0)),
+    ('B', []) | ('e', []) => inner.cursor_down(count(p, 0)),
+    ('C', []) | ('a', []) => inner.cursor_right(count(p, 0)),
+    ('D', []) => inner.cursor_left(count(p, 0)),
+    ('E', []) => {
+      inner.cursor_down(count(p, 0));
+      inner.carriage_return();
     }
+    ('F', []) => {
+      inner.cursor_up(count(p, 0));
+      inner.carriage_return();
+    }
+    ('G', []) | ('`', []) => inner.set_column(count(p, 0) - 1),
+    ('H', []) | ('f', []) => inner.cursor_to(count(p, 0) - 1, count(p, 1) - 1),
+    ('I', []) => inner.tab_forward(count(p, 0)),
+    ('J', _) => inner.erase_display(arg(p, 0, 0)),
+    ('K', _) => inner.erase_line(arg(p, 0, 0)),
+    ('L', []) => inner.insert_lines(count(p, 0)),
+    ('M', []) => inner.delete_lines(count(p, 0)),
+    ('P', []) => inner.delete_chars(count(p, 0)),
+    ('@', []) => inner.insert_blank(count(p, 0)),
+    ('S', []) => inner.scroll_up_region(count(p, 0)),
+    ('S', [b'?']) => xtsmgraphics(inner, p),
+    ('T', []) => inner.scroll_down_region(count(p, 0)),
+    ('X', []) => inner.erase_chars(count(p, 0)),
+    ('Z', []) => inner.tab_backward(count(p, 0)),
+    ('b', []) => inner.repeat_last(count(p, 0)),
+    ('c', []) if arg(p, 0, 0) == 0 => {
+      // VT220 with sixel graphics (4) and ANSI color (22); clients
+      // probe DA1 for the 4 to decide whether to emit sixel.
+      inner.output.extend_from_slice(b"\x1b[?62;4;22c");
+    }
+    ('c', [b'>']) => {
+      inner.output.extend_from_slice(b"\x1b[>0;276;0c");
+    }
+    ('d', []) => inner.set_row(count(p, 0) - 1),
+    ('g', []) => match arg(p, 0, 0) {
+      0 => {
+        let col = inner.screen().cursor.col;
+        inner.screen_mut().clear_tab(col);
+      }
+      3 => inner.screen_mut().clear_all_tabs(),
+      _ => {}
+    },
+    ('h', _) => set_modes(inner, p, private, true),
+    ('l', _) => set_modes(inner, p, private, false),
+    ('m', []) => {
+      let mut pen = inner.screen().cursor.pen;
+      sgr::apply(&mut pen, params.iter());
+      inner.screen_mut().cursor.pen = pen;
+    }
+    ('n', []) => match arg(p, 0, 0) {
+      5 => inner.output.extend_from_slice(b"\x1b[0n"),
+      6 => inner.report_cursor(),
+      _ => {}
+    },
+    ('q', [b' ']) => {
+      if let Some(style) = CursorStyle::from_decscusr(arg(p, 0, 0)) {
+        inner.cursor_style = style;
+      }
+    }
+    ('r', []) => inner.set_scroll_region(arg(p, 0, 0), arg(p, 1, 0)),
+    ('s', []) => inner.save_cursor(),
+    ('u', []) => inner.restore_cursor(),
+    ('u', [b'?']) => {
+      let flags = inner.screen().kitty.current();
+      inner
+        .output
+        .extend_from_slice(format!("\x1b[?{flags}u").as_bytes());
+    }
+    ('u', [b'>']) => inner.screen_mut().kitty.push(arg(p, 0, 0) as u8),
+    ('u', [b'<']) => inner.screen_mut().kitty.pop(count(p, 0)),
+    ('u', [b'=']) => {
+      let flags = arg(p, 0, 0) as u8;
+      let mode = arg(p, 1, 1) as u8;
+      inner.screen_mut().kitty.set(flags, mode);
+    }
+    ('t', []) => match arg(p, 0, 0) {
+      14 => {
+        let (w, h) = inner.text_area_px();
+        inner
+          .output
+          .extend_from_slice(format!("\x1b[4;{h};{w}t").as_bytes());
+      }
+      16 => {
+        let (cw, ch) = inner.cell_px;
+        inner
+          .output
+          .extend_from_slice(format!("\x1b[6;{ch};{cw}t").as_bytes());
+      }
+      18 => {
+        let grid = &inner.screen().grid;
+        let (rows, cols) = (grid.rows(), grid.cols());
+        inner
+          .output
+          .extend_from_slice(format!("\x1b[8;{rows};{cols}t").as_bytes());
+      }
+      22 if inner.title_stack.len() < TITLE_STACK_MAX => {
+        inner.title_stack.push(inner.title.clone());
+      }
+      23 => {
+        if let Some(title) = inner.title_stack.pop() {
+          inner.title = title;
+          inner.title_changed = true;
+        }
+      }
+      _ => {}
+    },
+    _ => {}
+  }
 }
 
 /// XTSMGRAPHICS (`CSI ? Pi ; Pa ; Pv S`): graphics attribute queries, the
 /// channel sixel clients use to learn register count and canvas size.
 /// Response status: 0 = success, 1 = bad item, 2 = bad action, 3 = failure.
 fn xtsmgraphics(inner: &mut Inner, p: &[u16]) {
-    let item = p.first().copied().unwrap_or(0);
-    let action = p.get(1).copied().unwrap_or(0);
-    let reply = match item {
-        // Color registers: the decoder's palette is fixed at 256, so read,
-        // reset, set, and read-max all resolve there.
-        1 => match action {
-            1..=4 => "\x1b[?1;0;256S".to_string(),
-            _ => "\x1b[?1;2S".to_string(),
-        },
-        // Sixel geometry: reads report the text area; not settable.
-        2 => match action {
-            1 | 4 => {
-                let (w, h) = inner.text_area_px();
-                format!("\x1b[?2;0;{w};{h}S")
-            }
-            2 | 3 => "\x1b[?2;3S".to_string(),
-            _ => "\x1b[?2;2S".to_string(),
-        },
-        _ => format!("\x1b[?{item};1S"),
-    };
-    inner.output.extend_from_slice(reply.as_bytes());
+  let item = p.first().copied().unwrap_or(0);
+  let action = p.get(1).copied().unwrap_or(0);
+  let reply = match item {
+    // Color registers: the decoder's palette is fixed at 256, so read,
+    // reset, set, and read-max all resolve there.
+    1 => match action {
+      1..=4 => "\x1b[?1;0;256S".to_string(),
+      _ => "\x1b[?1;2S".to_string(),
+    },
+    // Sixel geometry: reads report the text area; not settable.
+    2 => match action {
+      1 | 4 => {
+        let (w, h) = inner.text_area_px();
+        format!("\x1b[?2;0;{w};{h}S")
+      }
+      2 | 3 => "\x1b[?2;3S".to_string(),
+      _ => "\x1b[?2;2S".to_string(),
+    },
+    _ => format!("\x1b[?{item};1S"),
+  };
+  inner.output.extend_from_slice(reply.as_bytes());
 }
 
 /// Parameter `i` with a default for missing-or-zero.
 fn arg(p: &[u16], i: usize, default: u16) -> u16 {
-    match p.get(i) {
-        Some(&0) | None => default,
-        Some(&v) => v,
-    }
+  match p.get(i) {
+    Some(&0) | None => default,
+    Some(&v) => v,
+  }
 }
 
 /// Count-style parameter: missing or 0 means 1.
 fn count(p: &[u16], i: usize) -> usize {
-    arg(p, i, 1) as usize
+  arg(p, i, 1) as usize
 }
 
 fn set_modes(inner: &mut Inner, p: &[u16], private: bool, enable: bool) {
-    for &param in p {
-        if private {
-            set_private_mode(inner, param, enable);
-        } else {
-            set_ansi_mode(inner, param, enable);
-        }
+  for &param in p {
+    if private {
+      set_private_mode(inner, param, enable);
+    } else {
+      set_ansi_mode(inner, param, enable);
     }
+  }
 }
 
 fn set_ansi_mode(inner: &mut Inner, param: u16, enable: bool) {
-    if param == 4 {
-        inner.modes.set(Modes::INSERT, enable);
-    }
+  if param == 4 {
+    inner.modes.set(Modes::INSERT, enable);
+  }
 }
 
 fn set_private_mode(inner: &mut Inner, param: u16, enable: bool) {
-    match param {
-        1 => inner.modes.set(Modes::APP_CURSOR, enable),
-        6 => {
-            inner.modes.set(Modes::ORIGIN, enable);
-            inner.cursor_to(0, 0);
-        }
-        7 => {
-            inner.modes.set(Modes::AUTOWRAP, enable);
-            if !enable {
-                inner.screen_mut().cursor.pending_wrap = false;
-            }
-        }
-        25 => inner.modes.set(Modes::CURSOR_VISIBLE, enable),
-        47 => {
-            if enable {
-                inner.enter_alt(false);
-            } else {
-                inner.exit_alt();
-            }
-        }
-        1000 => inner.modes.set(Modes::MOUSE_CLICK, enable),
-        1002 => inner.modes.set(Modes::MOUSE_DRAG, enable),
-        1003 => inner.modes.set(Modes::MOUSE_MOTION, enable),
-        1004 => inner.modes.set(Modes::FOCUS_REPORT, enable),
-        1006 => inner.modes.set(Modes::MOUSE_SGR, enable),
-        1007 => inner.modes.set(Modes::ALT_SCROLL, enable),
-        1047 => {
-            if enable {
-                inner.enter_alt(true);
-            } else {
-                if inner.modes.contains(Modes::ALT_SCREEN) {
-                    inner.erase_display(2);
-                }
-                inner.exit_alt();
-            }
-        }
-        1048 => {
-            if enable {
-                inner.save_cursor();
-            } else {
-                inner.restore_cursor();
-            }
-        }
-        1049 => {
-            if enable {
-                inner.save_cursor();
-                inner.enter_alt(true);
-            } else {
-                inner.exit_alt();
-                inner.restore_cursor();
-            }
-        }
-        2004 => inner.modes.set(Modes::BRACKETED_PASTE, enable),
-        2026 => inner.modes.set(Modes::SYNC_OUTPUT, enable),
-        _ => {}
+  match param {
+    1 => inner.modes.set(Modes::APP_CURSOR, enable),
+    6 => {
+      inner.modes.set(Modes::ORIGIN, enable);
+      inner.cursor_to(0, 0);
     }
+    7 => {
+      inner.modes.set(Modes::AUTOWRAP, enable);
+      if !enable {
+        inner.screen_mut().cursor.pending_wrap = false;
+      }
+    }
+    25 => inner.modes.set(Modes::CURSOR_VISIBLE, enable),
+    47 => {
+      if enable {
+        inner.enter_alt(false);
+      } else {
+        inner.exit_alt();
+      }
+    }
+    1000 => inner.modes.set(Modes::MOUSE_CLICK, enable),
+    1002 => inner.modes.set(Modes::MOUSE_DRAG, enable),
+    1003 => inner.modes.set(Modes::MOUSE_MOTION, enable),
+    1004 => inner.modes.set(Modes::FOCUS_REPORT, enable),
+    1006 => inner.modes.set(Modes::MOUSE_SGR, enable),
+    1007 => inner.modes.set(Modes::ALT_SCROLL, enable),
+    1047 => {
+      if enable {
+        inner.enter_alt(true);
+      } else {
+        if inner.modes.contains(Modes::ALT_SCREEN) {
+          inner.erase_display(2);
+        }
+        inner.exit_alt();
+      }
+    }
+    1048 => {
+      if enable {
+        inner.save_cursor();
+      } else {
+        inner.restore_cursor();
+      }
+    }
+    1049 => {
+      if enable {
+        inner.save_cursor();
+        inner.enter_alt(true);
+      } else {
+        inner.exit_alt();
+        inner.restore_cursor();
+      }
+    }
+    2004 => inner.modes.set(Modes::BRACKETED_PASTE, enable),
+    2026 => inner.modes.set(Modes::SYNC_OUTPUT, enable),
+    _ => {}
+  }
 }
 
 #[cfg(test)]

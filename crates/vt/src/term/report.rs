@@ -7,11 +7,11 @@
 /// ignored (the core has no palette of its own).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReportColors {
-    pub foreground: (u8, u8, u8),
-    pub background: (u8, u8, u8),
-    pub cursor: (u8, u8, u8),
-    /// The full 256-entry palette as actually rendered.
-    pub palette: [(u8, u8, u8); 256],
+  pub foreground: (u8, u8, u8),
+  pub background: (u8, u8, u8),
+  pub cursor: (u8, u8, u8),
+  /// The full 256-entry palette as actually rendered.
+  pub palette: [(u8, u8, u8); 256],
 }
 
 /// A clipboard write requested by the program via OSC 52. `kind` is the
@@ -19,8 +19,8 @@ pub struct ReportColors {
 /// `data` is the decoded bytes the host should place on the clipboard.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Clipboard {
-    pub kind: String,
-    pub data: Vec<u8>,
+  pub kind: String,
+  pub data: Vec<u8>,
 }
 
 /// A desktop notification a program requested via OSC 9 / 777 / 99 - used to
@@ -28,79 +28,79 @@ pub struct Clipboard {
 /// up the pane/tab.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Notification {
-    pub title: Option<String>,
-    pub body: String,
+  pub title: Option<String>,
+  pub body: String,
 }
 
 /// Format an 8-bit RGB triple as a color reply body:
 /// `rgb:RRRR/GGGG/BBBB`, where each channel is widened to 16 bits by
 /// replication (0xAB -> 0xABAB), matching standard query answers.
 pub fn format_rgb(rgb: (u8, u8, u8)) -> String {
-    let wide = |c: u8| (c as u16) * 0x101;
-    format!(
-        "rgb:{:04x}/{:04x}/{:04x}",
-        wide(rgb.0),
-        wide(rgb.1),
-        wide(rgb.2)
-    )
+  let wide = |c: u8| (c as u16) * 0x101;
+  format!(
+    "rgb:{:04x}/{:04x}/{:04x}",
+    wide(rgb.0),
+    wide(rgb.1),
+    wide(rgb.2)
+  )
 }
 
 /// Decode standard base64 (RFC 4648, no line breaks). Whitespace is
 /// skipped; `=` padding is honored. Returns `None` on any invalid byte or
 /// a malformed length. Used for OSC 52 clipboard payloads.
 pub fn base64_decode(input: &[u8]) -> Option<Vec<u8>> {
-    let mut bits: u32 = 0;
-    let mut nbits = 0u32;
-    let mut out = Vec::with_capacity(input.len() * 3 / 4);
-    for &b in input {
-        if b == b'=' || b.is_ascii_whitespace() {
-            continue;
-        }
-        let v = base64_value(b)?;
-        bits = (bits << 6) | v as u32;
-        nbits += 6;
-        if nbits >= 8 {
-            nbits -= 8;
-            out.push((bits >> nbits) as u8);
-        }
+  let mut bits: u32 = 0;
+  let mut nbits = 0u32;
+  let mut out = Vec::with_capacity(input.len() * 3 / 4);
+  for &b in input {
+    if b == b'=' || b.is_ascii_whitespace() {
+      continue;
     }
-    Some(out)
+    let v = base64_value(b)?;
+    bits = (bits << 6) | v as u32;
+    nbits += 6;
+    if nbits >= 8 {
+      nbits -= 8;
+      out.push((bits >> nbits) as u8);
+    }
+  }
+  Some(out)
 }
 
 /// Decode a hex string (even length, ASCII hex digits) to bytes. Used for
 /// XTGETTCAP capability names. `None` on bad length or non-hex.
 pub fn hex_decode(input: &[u8]) -> Option<Vec<u8>> {
-    if !input.len().is_multiple_of(2) {
-        return None;
-    }
-    input
-        .chunks(2)
-        .map(|pair| {
-            let hi = (pair[0] as char).to_digit(16)?;
-            let lo = (pair[1] as char).to_digit(16)?;
-            Some((hi * 16 + lo) as u8)
-        })
-        .collect()
+  if !input.len().is_multiple_of(2) {
+    return None;
+  }
+  input
+    .chunks(2)
+    .map(|pair| {
+      let hi = (pair[0] as char).to_digit(16)?;
+      let lo = (pair[1] as char).to_digit(16)?;
+      Some((hi * 16 + lo) as u8)
+    })
+    .collect()
 }
 
 /// Encode bytes as lowercase hex. Used for XTGETTCAP reply values.
 pub fn hex_encode(input: &[u8]) -> String {
-    let mut out = String::with_capacity(input.len() * 2);
-    for &b in input {
-        out.push_str(&format!("{b:02x}"));
-    }
-    out
+  let mut out = String::with_capacity(input.len() * 2);
+  for &b in input {
+    out.push_str(&format!("{b:02x}"));
+  }
+  out
 }
 
 fn base64_value(b: u8) -> Option<u8> {
-    match b {
-        b'A'..=b'Z' => Some(b - b'A'),
-        b'a'..=b'z' => Some(b - b'a' + 26),
-        b'0'..=b'9' => Some(b - b'0' + 52),
-        b'+' => Some(62),
-        b'/' => Some(63),
-        _ => None,
-    }
+  match b {
+    b'A'..=b'Z' => Some(b - b'A'),
+    b'a'..=b'z' => Some(b - b'a' + 26),
+    b'0'..=b'9' => Some(b - b'0' + 52),
+    b'+' => Some(62),
+    b'/' => Some(63),
+    _ => None,
+  }
 }
 
 #[cfg(test)]

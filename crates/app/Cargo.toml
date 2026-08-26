@@ -49,8 +49,8 @@ gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "96285fc1
 # `gpui = "0.2.2"` (crates.io) is redirected to our exact zed rev by the
 # root [patch.crates-io], so the whole tree shares one gpui.
 #
-# The submodule tracks `sinclair-v1.5.0`, a compatibility branch based directly
-# on the v1.5.0 release. It carries the pinned-gpui API shims plus Sinclair's
+# The submodule tracks `sinclair-v1.5.3`, a compatibility branch based directly
+# on the v1.5.3 release. It carries the pinned-gpui API shims plus Sinclair's
 # pane split controls, tear-drop placement, and tab drag/overflow behavior.
 # See docs/guise.md.
 guise-ui = { path = "../../vendor/guise/crates/guise", features = ["webview"] }

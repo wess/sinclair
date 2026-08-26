@@ -41,5 +41,5 @@ gpui = { git = "https://github.com/zed-industries/zed", rev = "96285fc1" }
 
 This redirects guise's crates.io `gpui ^0.2.2` onto our exact rev. `vendor/guise`
 is `exclude`d from our workspace (it is its own). When you bump the zed rev,
-rebuild guise against it on the `sinclair-v1.5.0` compatibility branch and
+rebuild guise against it on the `sinclair-v1.5.3` compatibility branch and
 re-pin the submodule. See `docs/guise.md`.

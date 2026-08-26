@@ -30,17 +30,17 @@ use crate::vault::Vault;
 static WEB: Dir = include_dir!("$CARGO_MANIFEST_DIR/web");
 
 pub struct AppState {
-    vault: Mutex<Vault>,
-    tx: tokio::sync::broadcast::Sender<String>,
-    self_writes: Arc<Mutex<HashMap<String, Instant>>>,
-    last_active: Mutex<Instant>,
-    clients: AtomicUsize,
-    /// Native folder dialogs currently in flight; holds off the idle reaper
-    /// while the user is still browsing for a folder.
-    picks: AtomicUsize,
-    watcher: Mutex<Option<notify::RecommendedWatcher>>,
-    port: u16,
-    token: String,
+  vault: Mutex<Vault>,
+  tx: tokio::sync::broadcast::Sender<String>,
+  self_writes: Arc<Mutex<HashMap<String, Instant>>>,
+  last_active: Mutex<Instant>,
+  clients: AtomicUsize,
+  /// Native folder dialogs currently in flight; holds off the idle reaper
+  /// while the user is still browsing for a folder.
+  picks: AtomicUsize,
+  watcher: Mutex<Option<notify::RecommendedWatcher>>,
+  port: u16,
+  token: String,
 }
 
 /// RAII marker for an in-flight folder dialog. Drop-based so a cancelled
@@ -48,109 +48,110 @@ pub struct AppState {
 struct PickGuard(Arc<AppState>);
 
 impl PickGuard {
-    fn new(s: &Arc<AppState>) -> Self {
-        s.picks.fetch_add(1, Ordering::Relaxed);
-        Self(s.clone())
-    }
+  fn new(s: &Arc<AppState>) -> Self {
+    s.picks.fetch_add(1, Ordering::Relaxed);
+    Self(s.clone())
+  }
 }
 
 impl Drop for PickGuard {
-    fn drop(&mut self) {
-        self.0.picks.fetch_sub(1, Ordering::Relaxed);
-        touch(&self.0);
-    }
+  fn drop(&mut self) {
+    self.0.picks.fetch_sub(1, Ordering::Relaxed);
+    touch(&self.0);
+  }
 }
 
 pub async fn run(port: u16, token: String, hosted: bool) {
-    let (tx, _) = tokio::sync::broadcast::channel(64);
-    let state = Arc::new(AppState {
-        vault: Mutex::new(Vault::new()),
-        tx,
-        self_writes: Arc::new(Mutex::new(HashMap::new())),
-        last_active: Mutex::new(Instant::now()),
-        clients: AtomicUsize::new(0),
-        picks: AtomicUsize::new(0),
-        watcher: Mutex::new(None),
-        port,
-        token,
-    });
-    arm_watch(&state);
+  let (tx, _) = tokio::sync::broadcast::channel(64);
+  let state = Arc::new(AppState {
+    vault: Mutex::new(Vault::new()),
+    tx,
+    self_writes: Arc::new(Mutex::new(HashMap::new())),
+    last_active: Mutex::new(Instant::now()),
+    clients: AtomicUsize::new(0),
+    picks: AtomicUsize::new(0),
+    watcher: Mutex::new(None),
+    port,
+    token,
+  });
+  arm_watch(&state);
 
-    // Everything that touches the vault (all `/api/*` plus the change-push
-    // socket) sits behind the bearer-token gate; only `/health` and the static
-    // web assets are public.
-    let guarded = Router::new()
-        .route("/ws", get(ws_upgrade))
-        .route("/api/vault", get(get_vault))
-        .route("/api/vault/open", post(vault_open))
-        .route("/api/vault/create", post(vault_create))
-        .route("/api/vault/pick", post(vault_pick))
-        .route("/api/vault/forget", post(vault_forget))
-        .route("/api/vaults/recents", get(recents))
-        .route("/api/tree", get(tree))
-        .route(
-            "/api/file",
-            get(file_get)
-                .put(file_put)
-                .post(file_post)
-                .delete(file_delete),
-        )
-        .route("/api/file/rename", post(file_rename))
-        .route("/api/file/move", post(file_move))
-        .route("/api/resolve", get(resolve))
-        .route_layer(middleware::from_fn_with_state(state.clone(), auth));
+  // Everything that touches the vault (all `/api/*` plus the change-push
+  // socket) sits behind the bearer-token gate; only `/health` and the static
+  // web assets are public.
+  let guarded = Router::new()
+    .route("/ws", get(ws_upgrade))
+    .route("/api/vault", get(get_vault))
+    .route("/api/vault/open", post(vault_open))
+    .route("/api/vault/create", post(vault_create))
+    .route("/api/vault/pick", post(vault_pick))
+    .route("/api/vault/forget", post(vault_forget))
+    .route("/api/vaults/recents", get(recents))
+    .route("/api/tree", get(tree))
+    .route(
+      "/api/file",
+      get(file_get)
+        .put(file_put)
+        .post(file_post)
+        .delete(file_delete),
+    )
+    .route("/api/file/rename", post(file_rename))
+    .route("/api/file/move", post(file_move))
+    .route("/api/resolve", get(resolve))
+    .route_layer(middleware::from_fn_with_state(state.clone(), auth));
 
-    let app = Router::new()
-        .route("/health", get(health))
-        .merge(guarded)
-        .fallback(static_asset)
-        .with_state(state.clone());
+  let app = Router::new()
+    .route("/health", get(health))
+    .merge(guarded)
+    .fallback(static_asset)
+    .with_state(state.clone());
 
-    let addr = std::net::SocketAddr::from(([127, 0, 0, 1], port));
-    let listener = match tokio::net::TcpListener::bind(addr).await {
-        Ok(listener) => listener,
-        Err(e) if hosted => {
-            // The host reserved this exact port for us; not getting it is
-            // fatal and must be visible as an exit, not a silent return.
-            eprintln!("notes: bind 127.0.0.1:{port}: {e}");
-            std::process::exit(1);
-        }
-        // Port busy — another server is already up; leave its token file intact.
-        Err(_) => return,
-    };
-    if hosted {
-        // The host owns the address (it passed it to us) and the teardown (it
-        // SIGTERMs us on close/quit): no descriptor files, no idle reaper.
-        spawn_parent_watch();
-    } else {
-        // Port 0 means the OS assigned a free port — publish the actual one.
-        let port = listener.local_addr().map(|a| a.port()).unwrap_or(port);
-        // We own the port: publish the token (0600) so a client can read it.
-        crate::token::write_info(port, &state.token);
-        spawn_reaper(state.clone());
+  let addr = std::net::SocketAddr::from(([127, 0, 0, 1], port));
+  let listener = match tokio::net::TcpListener::bind(addr).await {
+    Ok(listener) => listener,
+    Err(e) if hosted => {
+      // The host reserved this exact port for us; not getting it is
+      // fatal and must be visible as an exit, not a silent return.
+      eprintln!("notes: bind 127.0.0.1:{port}: {e}");
+      std::process::exit(1);
     }
-    let _ = axum::serve(listener, app).await;
+    // Port busy — another server is already up; leave its token file intact.
+    Err(_) => return,
+  };
+  if hosted {
+    // The host owns the address (it passed it to us) and the teardown (it
+    // SIGTERMs us on close/quit): no descriptor files, no idle reaper.
+    spawn_parent_watch();
+  } else {
+    // Port 0 means the OS assigned a free port — publish the actual one.
+    let port = listener.local_addr().map(|a| a.port()).unwrap_or(port);
+    // We own the port: publish the token (0600) so a client can read it.
+    crate::token::write_info(port, &state.token);
+    spawn_reaper(state.clone());
+  }
+  let _ = axum::serve(listener, app).await;
 }
 
 /// Reject any guarded request whose bearer token doesn't match this session's.
 /// Accepts `Authorization: Bearer <t>` (fetch) or `?token=<t>` (WebSocket).
 async fn auth(State(s): State<Arc<AppState>>, req: Request, next: Next) -> Response {
-    let presented: Option<String> = req
-        .headers()
-        .get(header::AUTHORIZATION)
-        .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.strip_prefix("Bearer "))
+  let presented: Option<String> = req
+    .headers()
+    .get(header::AUTHORIZATION)
+    .and_then(|v| v.to_str().ok())
+    .and_then(|v| v.strip_prefix("Bearer "))
+    .map(str::to_string)
+    .or_else(|| {
+      req
+        .uri()
+        .query()
+        .and_then(crate::token::token_from_query)
         .map(str::to_string)
-        .or_else(|| {
-            req.uri()
-                .query()
-                .and_then(crate::token::token_from_query)
-                .map(str::to_string)
-        });
-    match presented {
-        Some(t) if crate::token::constant_time_eq(&t, &s.token) => next.run(req).await,
-        _ => StatusCode::UNAUTHORIZED.into_response(),
-    }
+    });
+  match presented {
+    Some(t) if crate::token::constant_time_eq(&t, &s.token) => next.run(req).await,
+    _ => StatusCode::UNAUTHORIZED.into_response(),
+  }
 }
 
 // --- helpers ---------------------------------------------------------------
@@ -159,169 +160,169 @@ async fn auth(State(s): State<Arc<AppState>>, req: Request, next: Next) -> Respo
 /// clash with our module fn names, so alias it here).
 fn post<H, T, S>(handler: H) -> MethodRouter<S>
 where
-    H: axum::handler::Handler<T, S>,
-    T: 'static,
-    S: Clone + Send + Sync + 'static,
+  H: axum::handler::Handler<T, S>,
+  T: 'static,
+  S: Clone + Send + Sync + 'static,
 {
-    axum::routing::post(handler)
+  axum::routing::post(handler)
 }
 
 fn touch(state: &AppState) {
-    if let Ok(mut t) = state.last_active.lock() {
-        *t = Instant::now();
-    }
+  if let Ok(mut t) = state.last_active.lock() {
+    *t = Instant::now();
+  }
 }
 
 fn ok(v: Value) -> Response {
-    Json(v).into_response()
+  Json(v).into_response()
 }
 
 fn err(e: impl std::fmt::Display) -> Response {
-    (
-        StatusCode::BAD_REQUEST,
-        Json(json!({ "error": e.to_string() })),
-    )
-        .into_response()
+  (
+    StatusCode::BAD_REQUEST,
+    Json(json!({ "error": e.to_string() })),
+  )
+    .into_response()
 }
 
 fn broadcast_changed(state: &AppState, path: &str) {
-    let _ = state
-        .tx
-        .send(json!({ "type": "changed", "path": path }).to_string());
+  let _ = state
+    .tx
+    .send(json!({ "type": "changed", "path": path }).to_string());
 }
 
 fn mark_self(state: &AppState, rel: &str) {
-    if let Ok(mut m) = state.self_writes.lock() {
-        m.insert(rel.to_string(), Instant::now());
-    }
+  if let Ok(mut m) = state.self_writes.lock() {
+    m.insert(rel.to_string(), Instant::now());
+  }
 }
 
 /// (Re)establish the recursive file watcher on the current vault root; its
 /// events become WebSocket `changed` broadcasts (skipping our own writes).
 fn arm_watch(state: &Arc<AppState>) {
-    let root = match state.vault.lock() {
-        Ok(mut v) => v.current().map(|c| c.root),
-        Err(_) => None,
-    };
-    let Some(root) = root else {
-        if let Ok(mut w) = state.watcher.lock() {
-            *w = None;
-        }
-        return;
-    };
-    let root_path = std::path::PathBuf::from(&root);
-    let tx = state.tx.clone();
-    let selfw = state.self_writes.clone();
-    let base = root_path.clone();
-    let handler = move |res: notify::Result<notify::Event>| {
-        let Ok(event) = res else { return };
-        for p in event.paths {
-            let rel = p
-                .strip_prefix(&base)
-                .map(|r| r.to_string_lossy().replace('\\', "/"))
-                .unwrap_or_default();
-            if rel.is_empty() {
-                continue;
-            }
-            if let Ok(mut m) = selfw.lock() {
-                if let Some(t) = m.get(&rel) {
-                    if t.elapsed() < Duration::from_millis(1500) {
-                        continue;
-                    }
-                }
-                m.retain(|_, t| t.elapsed() < Duration::from_secs(5));
-            }
-            let _ = tx.send(json!({ "type": "changed", "path": rel }).to_string());
-        }
-    };
-    if let Ok(mut watcher) = notify::recommended_watcher(handler) {
-        let _ = watcher.watch(&root_path, RecursiveMode::Recursive);
-        if let Ok(mut w) = state.watcher.lock() {
-            *w = Some(watcher);
-        }
+  let root = match state.vault.lock() {
+    Ok(mut v) => v.current().map(|c| c.root),
+    Err(_) => None,
+  };
+  let Some(root) = root else {
+    if let Ok(mut w) = state.watcher.lock() {
+      *w = None;
     }
+    return;
+  };
+  let root_path = std::path::PathBuf::from(&root);
+  let tx = state.tx.clone();
+  let selfw = state.self_writes.clone();
+  let base = root_path.clone();
+  let handler = move |res: notify::Result<notify::Event>| {
+    let Ok(event) = res else { return };
+    for p in event.paths {
+      let rel = p
+        .strip_prefix(&base)
+        .map(|r| r.to_string_lossy().replace('\\', "/"))
+        .unwrap_or_default();
+      if rel.is_empty() {
+        continue;
+      }
+      if let Ok(mut m) = selfw.lock() {
+        if let Some(t) = m.get(&rel) {
+          if t.elapsed() < Duration::from_millis(1500) {
+            continue;
+          }
+        }
+        m.retain(|_, t| t.elapsed() < Duration::from_secs(5));
+      }
+      let _ = tx.send(json!({ "type": "changed", "path": rel }).to_string());
+    }
+  };
+  if let Ok(mut watcher) = notify::recommended_watcher(handler) {
+    let _ = watcher.watch(&root_path, RecursiveMode::Recursive);
+    if let Ok(mut w) = state.watcher.lock() {
+      *w = Some(watcher);
+    }
+  }
 }
 
 /// Host-managed backstop: the host normally SIGTERMs us, but if it dies
 /// without cleanup (crash, SIGKILL) we get reparented — notice that the parent
 /// changed and exit rather than linger as an orphan.
 fn spawn_parent_watch() {
-    #[cfg(unix)]
-    {
-        let parent = std::os::unix::process::parent_id();
-        tokio::spawn(async move {
-            loop {
-                tokio::time::sleep(Duration::from_secs(2)).await;
-                if std::os::unix::process::parent_id() != parent {
-                    std::process::exit(0);
-                }
-            }
-        });
-    }
+  #[cfg(unix)]
+  {
+    let parent = std::os::unix::process::parent_id();
+    tokio::spawn(async move {
+      loop {
+        tokio::time::sleep(Duration::from_secs(2)).await;
+        if std::os::unix::process::parent_id() != parent {
+          std::process::exit(0);
+        }
+      }
+    });
+  }
 }
 
 /// Standalone self-reaping: exit after a minute with no client and no dialog.
 fn spawn_reaper(state: Arc<AppState>) {
-    tokio::spawn(async move {
-        loop {
-            tokio::time::sleep(Duration::from_secs(5)).await;
-            let idle = state
-                .last_active
-                .lock()
-                .map(|t| t.elapsed())
-                .unwrap_or_default();
-            if state.clients.load(Ordering::Relaxed) == 0
-                && state.picks.load(Ordering::Relaxed) == 0
-                && idle > Duration::from_secs(60)
-            {
-                std::process::exit(0);
-            }
-        }
-    });
+  tokio::spawn(async move {
+    loop {
+      tokio::time::sleep(Duration::from_secs(5)).await;
+      let idle = state
+        .last_active
+        .lock()
+        .map(|t| t.elapsed())
+        .unwrap_or_default();
+      if state.clients.load(Ordering::Relaxed) == 0
+        && state.picks.load(Ordering::Relaxed) == 0
+        && idle > Duration::from_secs(60)
+      {
+        std::process::exit(0);
+      }
+    }
+  });
 }
 
 // --- handlers --------------------------------------------------------------
 
 async fn health(
-    State(s): State<Arc<AppState>>,
-    Query(q): Query<HashMap<String, String>>,
+  State(s): State<Arc<AppState>>,
+  Query(q): Query<HashMap<String, String>>,
 ) -> Response {
-    touch(&s);
-    let mut resp = ok(json!({ "server": "sinclair-notes", "port": s.port }));
-    // Sidecar readiness handshake: the host sends a nonce and only this
-    // process knows the session token, so answering hex(sha256(token‖nonce))
-    // proves the listener is the child the host spawned — a port squatter
-    // cannot fake it. Legacy hosts that send no challenge get plain health.
-    if let Some(proof) = q.get("challenge").and_then(|c| ready_proof(&s.token, c)) {
-        if let Ok(value) = proof.parse() {
-            resp.headers_mut().insert("x-sinclair-proof", value);
-        }
+  touch(&s);
+  let mut resp = ok(json!({ "server": "sinclair-notes", "port": s.port }));
+  // Sidecar readiness handshake: the host sends a nonce and only this
+  // process knows the session token, so answering hex(sha256(token‖nonce))
+  // proves the listener is the child the host spawned — a port squatter
+  // cannot fake it. Legacy hosts that send no challenge get plain health.
+  if let Some(proof) = q.get("challenge").and_then(|c| ready_proof(&s.token, c)) {
+    if let Ok(value) = proof.parse() {
+      resp.headers_mut().insert("x-sinclair-proof", value);
     }
-    resp
+  }
+  resp
 }
 
 /// The readiness proof for `challenge`: hex(sha256(token bytes ‖ challenge
 /// bytes)), or `None` for an empty or oversized challenge.
 pub(crate) fn ready_proof(token: &str, challenge: &str) -> Option<String> {
-    use sha2::{Digest, Sha256};
-    if challenge.is_empty() || challenge.len() > 128 {
-        return None;
-    }
-    let mut h = Sha256::new();
-    h.update(token.as_bytes());
-    h.update(challenge.as_bytes());
-    let out = h.finalize();
-    Some(out.iter().fold(String::with_capacity(64), |mut s, b| {
-        use std::fmt::Write;
-        let _ = write!(s, "{b:02x}");
-        s
-    }))
+  use sha2::{Digest, Sha256};
+  if challenge.is_empty() || challenge.len() > 128 {
+    return None;
+  }
+  let mut h = Sha256::new();
+  h.update(token.as_bytes());
+  h.update(challenge.as_bytes());
+  let out = h.finalize();
+  Some(out.iter().fold(String::with_capacity(64), |mut s, b| {
+    use std::fmt::Write;
+    let _ = write!(s, "{b:02x}");
+    s
+  }))
 }
 
 async fn get_vault(State(s): State<Arc<AppState>>) -> Response {
-    touch(&s);
-    let cur = s.vault.lock().ok().and_then(|mut v| v.current());
-    ok(serde_json::to_value(cur).unwrap_or(Value::Null))
+  touch(&s);
+  let cur = s.vault.lock().ok().and_then(|mut v| v.current());
+  ok(serde_json::to_value(cur).unwrap_or(Value::Null))
 }
 
 /// Check that `dir` is a usable folder, off-thread and with a deadline.
@@ -331,37 +332,35 @@ async fn get_vault(State(s): State<Arc<AppState>>) -> Response {
 /// it) from hanging forever, and turns a denial into an actionable message
 /// instead of a bare "not a folder".
 async fn probe_dir(dir: String, create: bool) -> Result<(), String> {
-    let task = tokio::task::spawn_blocking(move || {
-        if create {
-            std::fs::create_dir_all(&dir).map_err(|e| match e.kind() {
-                std::io::ErrorKind::PermissionDenied => deny_msg(),
-                _ => e.to_string(),
-            })?;
-        }
-        match std::fs::read_dir(&dir) {
-            Ok(_) => Ok(()),
-            Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => Err(deny_msg()),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                Err(format!("no such folder: {dir}"))
-            }
-            Err(e) => Err(format!("can't open {dir}: {e}")),
-        }
-    });
-    match tokio::time::timeout(Duration::from_secs(15), task).await {
-        Ok(Ok(res)) => res,
-        Ok(Err(e)) => Err(e.to_string()),
-        Err(_) => Err(
-            "still waiting for folder access — if macOS is showing a permission \
-             dialog, answer it, then try again"
-                .to_string(),
-        ),
+  let task = tokio::task::spawn_blocking(move || {
+    if create {
+      std::fs::create_dir_all(&dir).map_err(|e| match e.kind() {
+        std::io::ErrorKind::PermissionDenied => deny_msg(),
+        _ => e.to_string(),
+      })?;
     }
+    match std::fs::read_dir(&dir) {
+      Ok(_) => Ok(()),
+      Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => Err(deny_msg()),
+      Err(e) if e.kind() == std::io::ErrorKind::NotFound => Err(format!("no such folder: {dir}")),
+      Err(e) => Err(format!("can't open {dir}: {e}")),
+    }
+  });
+  match tokio::time::timeout(Duration::from_secs(15), task).await {
+    Ok(Ok(res)) => res,
+    Ok(Err(e)) => Err(e.to_string()),
+    Err(_) => Err(
+      "still waiting for folder access — if macOS is showing a permission \
+             dialog, answer it, then try again"
+        .to_string(),
+    ),
+  }
 }
 
 fn deny_msg() -> String {
-    "macOS blocked access to that folder. Allow Sinclair under System Settings \
+  "macOS blocked access to that folder. Allow Sinclair under System Settings \
      → Privacy & Security → Files and Folders, then try again."
-        .to_string()
+    .to_string()
 }
 
 /// Run a vault operation on the blocking pool: these do real filesystem work
@@ -369,271 +368,271 @@ fn deny_msg() -> String {
 /// is taken inside the closure, so it is never held across an await.
 async fn with_vault<T, F>(s: &Arc<AppState>, op: F) -> Result<T, String>
 where
-    F: FnOnce(&mut Vault) -> Result<T, String> + Send + 'static,
-    T: Send + 'static,
+  F: FnOnce(&mut Vault) -> Result<T, String> + Send + 'static,
+  T: Send + 'static,
 {
-    let state = s.clone();
-    tokio::task::spawn_blocking(move || {
-        let mut vault = state.vault.lock().map_err(|e| e.to_string())?;
-        op(&mut vault)
-    })
-    .await
-    .map_err(|e| e.to_string())?
+  let state = s.clone();
+  tokio::task::spawn_blocking(move || {
+    let mut vault = state.vault.lock().map_err(|e| e.to_string())?;
+    op(&mut vault)
+  })
+  .await
+  .map_err(|e| e.to_string())?
 }
 
 async fn open_probed(s: &Arc<AppState>, dir: &str, create: bool) -> Response {
-    if let Err(e) = probe_dir(dir.to_string(), create).await {
-        return err(e);
+  if let Err(e) = probe_dir(dir.to_string(), create).await {
+    return err(e);
+  }
+  let res = s.vault.lock().map_err(|e| e.to_string()).and_then(|mut v| {
+    if create {
+      v.create(dir)
+    } else {
+      v.open(dir)
     }
-    let res = s.vault.lock().map_err(|e| e.to_string()).and_then(|mut v| {
-        if create {
-            v.create(dir)
-        } else {
-            v.open(dir)
-        }
-    });
-    match res {
-        Ok(info) => {
-            arm_watch(s);
-            ok(serde_json::to_value(info).unwrap_or(Value::Null))
-        }
-        Err(e) => err(e),
+  });
+  match res {
+    Ok(info) => {
+      arm_watch(s);
+      ok(serde_json::to_value(info).unwrap_or(Value::Null))
     }
+    Err(e) => err(e),
+  }
 }
 
 async fn vault_open(State(s): State<Arc<AppState>>, Json(body): Json<Value>) -> Response {
-    touch(&s);
-    let path = body
-        .get("path")
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_string();
-    open_probed(&s, &path, false).await
+  touch(&s);
+  let path = body
+    .get("path")
+    .and_then(Value::as_str)
+    .unwrap_or_default()
+    .to_string();
+  open_probed(&s, &path, false).await
 }
 
 async fn vault_create(State(s): State<Arc<AppState>>, Json(body): Json<Value>) -> Response {
-    touch(&s);
-    let path = body
-        .get("path")
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_string();
-    open_probed(&s, &path, true).await
+  touch(&s);
+  let path = body
+    .get("path")
+    .and_then(Value::as_str)
+    .unwrap_or_default()
+    .to_string();
+  open_probed(&s, &path, true).await
 }
 
 async fn vault_pick(State(s): State<Arc<AppState>>, Json(body): Json<Value>) -> Response {
-    touch(&s);
-    let mode = body.get("mode").and_then(Value::as_str).unwrap_or("open");
-    let dir = {
-        let _guard = PickGuard::new(&s);
-        pick_folder().await
-    };
-    let Some(dir) = dir else {
-        let cur = s.vault.lock().ok().and_then(|mut v| v.current());
-        return ok(serde_json::to_value(cur).unwrap_or(Value::Null));
-    };
-    open_probed(&s, &dir, mode == "create").await
+  touch(&s);
+  let mode = body.get("mode").and_then(Value::as_str).unwrap_or("open");
+  let dir = {
+    let _guard = PickGuard::new(&s);
+    pick_folder().await
+  };
+  let Some(dir) = dir else {
+    let cur = s.vault.lock().ok().and_then(|mut v| v.current());
+    return ok(serde_json::to_value(cur).unwrap_or(Value::Null));
+  };
+  open_probed(&s, &dir, mode == "create").await
 }
 
 async fn vault_forget(State(s): State<Arc<AppState>>, Json(body): Json<Value>) -> Response {
-    touch(&s);
-    let path = body.get("path").and_then(Value::as_str).unwrap_or_default();
-    if let Ok(v) = s.vault.lock() {
-        v.forget_recent(path);
-        return ok(serde_json::to_value(v.recents()).unwrap_or(Value::Null));
-    }
-    ok(json!([]))
+  touch(&s);
+  let path = body.get("path").and_then(Value::as_str).unwrap_or_default();
+  if let Ok(v) = s.vault.lock() {
+    v.forget_recent(path);
+    return ok(serde_json::to_value(v.recents()).unwrap_or(Value::Null));
+  }
+  ok(json!([]))
 }
 
 async fn recents(State(s): State<Arc<AppState>>) -> Response {
-    touch(&s);
-    let list = s.vault.lock().map(|v| v.recents()).unwrap_or_default();
-    ok(serde_json::to_value(list).unwrap_or(Value::Null))
+  touch(&s);
+  let list = s.vault.lock().map(|v| v.recents()).unwrap_or_default();
+  ok(serde_json::to_value(list).unwrap_or(Value::Null))
 }
 
 async fn tree(State(s): State<Arc<AppState>>) -> Response {
-    touch(&s);
-    match with_vault(&s, |v| v.tree()).await {
-        Ok(nodes) => ok(serde_json::to_value(nodes).unwrap_or(Value::Null)),
-        Err(e) => err(e),
-    }
+  touch(&s);
+  match with_vault(&s, |v| v.tree()).await {
+    Ok(nodes) => ok(serde_json::to_value(nodes).unwrap_or(Value::Null)),
+    Err(e) => err(e),
+  }
 }
 
 async fn file_get(
-    State(s): State<Arc<AppState>>,
-    Query(q): Query<HashMap<String, String>>,
+  State(s): State<Arc<AppState>>,
+  Query(q): Query<HashMap<String, String>>,
 ) -> Response {
-    touch(&s);
-    let path = q.get("path").cloned().unwrap_or_default();
-    match with_vault(&s, move |v| v.read(&path)).await {
-        Ok(content) => ok(json!({ "content": content })),
-        Err(e) => err(e),
-    }
+  touch(&s);
+  let path = q.get("path").cloned().unwrap_or_default();
+  match with_vault(&s, move |v| v.read(&path)).await {
+    Ok(content) => ok(json!({ "content": content })),
+    Err(e) => err(e),
+  }
 }
 
 async fn file_put(State(s): State<Arc<AppState>>, Json(body): Json<Value>) -> Response {
-    touch(&s);
-    let path = body
-        .get("path")
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_string();
-    let content = body
-        .get("content")
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_string();
-    mark_self(&s, &path);
-    match with_vault(&s, move |v| v.write(&path, &content)).await {
-        Ok(()) => ok(json!({ "ok": true })),
-        Err(e) => err(e),
-    }
+  touch(&s);
+  let path = body
+    .get("path")
+    .and_then(Value::as_str)
+    .unwrap_or_default()
+    .to_string();
+  let content = body
+    .get("content")
+    .and_then(Value::as_str)
+    .unwrap_or_default()
+    .to_string();
+  mark_self(&s, &path);
+  match with_vault(&s, move |v| v.write(&path, &content)).await {
+    Ok(()) => ok(json!({ "ok": true })),
+    Err(e) => err(e),
+  }
 }
 
 async fn file_post(State(s): State<Arc<AppState>>, Json(body): Json<Value>) -> Response {
-    touch(&s);
-    let parent = body
-        .get("parent")
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_string();
-    let kind = body.get("kind").and_then(Value::as_str).unwrap_or("file");
-    let kind = if kind == "dir" { "dir" } else { "file" };
-    match with_vault(&s, move |v| v.create_file(&parent, kind)).await {
-        Ok(path) => {
-            broadcast_changed(&s, &path);
-            ok(json!({ "path": path }))
-        }
-        Err(e) => err(e),
+  touch(&s);
+  let parent = body
+    .get("parent")
+    .and_then(Value::as_str)
+    .unwrap_or_default()
+    .to_string();
+  let kind = body.get("kind").and_then(Value::as_str).unwrap_or("file");
+  let kind = if kind == "dir" { "dir" } else { "file" };
+  match with_vault(&s, move |v| v.create_file(&parent, kind)).await {
+    Ok(path) => {
+      broadcast_changed(&s, &path);
+      ok(json!({ "path": path }))
     }
+    Err(e) => err(e),
+  }
 }
 
 async fn file_delete(State(s): State<Arc<AppState>>, Json(body): Json<Value>) -> Response {
-    touch(&s);
-    let path = body
-        .get("path")
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_string();
-    let removed = path.clone();
-    match with_vault(&s, move |v| v.remove(&path)).await {
-        Ok(()) => {
-            broadcast_changed(&s, &removed);
-            ok(json!({ "ok": true }))
-        }
-        Err(e) => err(e),
+  touch(&s);
+  let path = body
+    .get("path")
+    .and_then(Value::as_str)
+    .unwrap_or_default()
+    .to_string();
+  let removed = path.clone();
+  match with_vault(&s, move |v| v.remove(&path)).await {
+    Ok(()) => {
+      broadcast_changed(&s, &removed);
+      ok(json!({ "ok": true }))
     }
+    Err(e) => err(e),
+  }
 }
 
 async fn file_rename(State(s): State<Arc<AppState>>, Json(body): Json<Value>) -> Response {
-    touch(&s);
-    let path = body
-        .get("path")
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_string();
-    let title = body
-        .get("title")
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_string();
-    match with_vault(&s, move |v| v.rename(&path, &title)).await {
-        Ok(dest) => {
-            broadcast_changed(&s, &dest);
-            ok(json!({ "path": dest }))
-        }
-        Err(e) => err(e),
+  touch(&s);
+  let path = body
+    .get("path")
+    .and_then(Value::as_str)
+    .unwrap_or_default()
+    .to_string();
+  let title = body
+    .get("title")
+    .and_then(Value::as_str)
+    .unwrap_or_default()
+    .to_string();
+  match with_vault(&s, move |v| v.rename(&path, &title)).await {
+    Ok(dest) => {
+      broadcast_changed(&s, &dest);
+      ok(json!({ "path": dest }))
     }
+    Err(e) => err(e),
+  }
 }
 
 async fn file_move(State(s): State<Arc<AppState>>, Json(body): Json<Value>) -> Response {
-    touch(&s);
-    let from = body
-        .get("from")
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_string();
-    let to = body
-        .get("to")
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_string();
-    match with_vault(&s, move |v| v.move_to(&from, &to)).await {
-        Ok(dest) => {
-            broadcast_changed(&s, &dest);
-            ok(json!({ "path": dest }))
-        }
-        Err(e) => err(e),
+  touch(&s);
+  let from = body
+    .get("from")
+    .and_then(Value::as_str)
+    .unwrap_or_default()
+    .to_string();
+  let to = body
+    .get("to")
+    .and_then(Value::as_str)
+    .unwrap_or_default()
+    .to_string();
+  match with_vault(&s, move |v| v.move_to(&from, &to)).await {
+    Ok(dest) => {
+      broadcast_changed(&s, &dest);
+      ok(json!({ "path": dest }))
     }
+    Err(e) => err(e),
+  }
 }
 
 async fn resolve(
-    State(s): State<Arc<AppState>>,
-    Query(q): Query<HashMap<String, String>>,
+  State(s): State<Arc<AppState>>,
+  Query(q): Query<HashMap<String, String>>,
 ) -> Response {
-    touch(&s);
-    let title = q.get("title").cloned().unwrap_or_default();
-    match with_vault(&s, move |v| v.resolve(&title)).await {
-        Ok(path) => ok(json!({ "path": path })),
-        Err(e) => err(e),
-    }
+  touch(&s);
+  let title = q.get("title").cloned().unwrap_or_default();
+  match with_vault(&s, move |v| v.resolve(&title)).await {
+    Ok(path) => ok(json!({ "path": path })),
+    Err(e) => err(e),
+  }
 }
 
 // --- websocket -------------------------------------------------------------
 
 async fn ws_upgrade(State(s): State<Arc<AppState>>, upgrade: WebSocketUpgrade) -> Response {
-    upgrade.on_upgrade(move |socket| ws_task(socket, s))
+  upgrade.on_upgrade(move |socket| ws_task(socket, s))
 }
 
 async fn ws_task(mut socket: WebSocket, state: Arc<AppState>) {
-    state.clients.fetch_add(1, Ordering::Relaxed);
-    touch(&state);
-    let mut rx = state.tx.subscribe();
-    loop {
-        tokio::select! {
-            msg = rx.recv() => match msg {
-                Ok(text) => {
-                    if socket.send(Message::Text(text.into())).await.is_err() {
-                        break;
-                    }
+  state.clients.fetch_add(1, Ordering::Relaxed);
+  touch(&state);
+  let mut rx = state.tx.subscribe();
+  loop {
+    tokio::select! {
+        msg = rx.recv() => match msg {
+            Ok(text) => {
+                if socket.send(Message::Text(text.into())).await.is_err() {
+                    break;
                 }
-                Err(_) => continue,
-            },
-            incoming = socket.recv() => match incoming {
-                Some(Ok(_)) => touch(&state),
-                _ => break,
-            },
-        }
+            }
+            Err(_) => continue,
+        },
+        incoming = socket.recv() => match incoming {
+            Some(Ok(_)) => touch(&state),
+            _ => break,
+        },
     }
-    state.clients.fetch_sub(1, Ordering::Relaxed);
-    touch(&state);
+  }
+  state.clients.fetch_sub(1, Ordering::Relaxed);
+  touch(&state);
 }
 
 // --- static assets ---------------------------------------------------------
 
 async fn static_asset(uri: axum::http::Uri) -> Response {
-    let path = uri.path().trim_start_matches('/');
-    let path = if path.is_empty() { "index.html" } else { path };
-    match WEB.get_file(path) {
-        Some(file) => {
-            let mime = content_type(path);
-            ([(header::CONTENT_TYPE, mime)], file.contents()).into_response()
-        }
-        None => (StatusCode::NOT_FOUND, "not found").into_response(),
+  let path = uri.path().trim_start_matches('/');
+  let path = if path.is_empty() { "index.html" } else { path };
+  match WEB.get_file(path) {
+    Some(file) => {
+      let mime = content_type(path);
+      ([(header::CONTENT_TYPE, mime)], file.contents()).into_response()
     }
+    None => (StatusCode::NOT_FOUND, "not found").into_response(),
+  }
 }
 
 fn content_type(path: &str) -> &'static str {
-    match Path::new(path).extension().and_then(|e| e.to_str()) {
-        Some("html") => "text/html; charset=utf-8",
-        Some("js") | Some("mjs") => "text/javascript; charset=utf-8",
-        Some("css") => "text/css; charset=utf-8",
-        Some("json") => "application/json; charset=utf-8",
-        Some("svg") => "image/svg+xml",
-        Some("png") => "image/png",
-        Some("woff2") => "font/woff2",
-        _ => "application/octet-stream",
-    }
+  match Path::new(path).extension().and_then(|e| e.to_str()) {
+    Some("html") => "text/html; charset=utf-8",
+    Some("js") | Some("mjs") => "text/javascript; charset=utf-8",
+    Some("css") => "text/css; charset=utf-8",
+    Some("json") => "application/json; charset=utf-8",
+    Some("svg") => "image/svg+xml",
+    Some("png") => "image/png",
+    Some("woff2") => "font/woff2",
+    _ => "application/octet-stream",
+  }
 }
 
 // --- folder picker ---------------------------------------------------------
@@ -641,98 +640,98 @@ fn content_type(path: &str) -> &'static str {
 /// Native "choose folder" dialog. macOS via `osascript`, Linux via
 /// `zenity`/`kdialog` when present. `None` if cancelled or unavailable.
 async fn pick_folder() -> Option<String> {
-    #[cfg(target_os = "macos")]
-    let cmd = {
-        let mut c = tokio::process::Command::new("osascript");
-        c.args([
-            "-e",
-            "POSIX path of (choose folder with prompt \"Choose a vault folder\")",
-        ]);
-        c
-    };
-    #[cfg(target_os = "linux")]
-    let cmd = {
-        let mut c = tokio::process::Command::new("zenity");
-        c.args([
-            "--file-selection",
-            "--directory",
-            "--title=Choose a vault folder",
-        ]);
-        c
-    };
-    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
-    let cmd: Option<tokio::process::Command> = None::<tokio::process::Command>;
+  #[cfg(target_os = "macos")]
+  let cmd = {
+    let mut c = tokio::process::Command::new("osascript");
+    c.args([
+      "-e",
+      "POSIX path of (choose folder with prompt \"Choose a vault folder\")",
+    ]);
+    c
+  };
+  #[cfg(target_os = "linux")]
+  let cmd = {
+    let mut c = tokio::process::Command::new("zenity");
+    c.args([
+      "--file-selection",
+      "--directory",
+      "--title=Choose a vault folder",
+    ]);
+    c
+  };
+  #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+  let cmd: Option<tokio::process::Command> = None::<tokio::process::Command>;
 
-    #[cfg(any(target_os = "macos", target_os = "linux"))]
-    {
-        let mut cmd = cmd;
-        let out = cmd.output().await.ok()?;
-        let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
-        let s = s.trim_end_matches('/').to_string();
-        (!s.is_empty()).then_some(s)
-    }
-    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
-    {
-        let _ = cmd;
-        None
-    }
+  #[cfg(any(target_os = "macos", target_os = "linux"))]
+  {
+    let mut cmd = cmd;
+    let out = cmd.output().await.ok()?;
+    let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    let s = s.trim_end_matches('/').to_string();
+    (!s.is_empty()).then_some(s)
+  }
+  #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+  {
+    let _ = cmd;
+    None
+  }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{probe_dir, ready_proof};
+  use super::{probe_dir, ready_proof};
 
-    #[test]
-    fn ready_proof_is_deterministic_and_bounded() {
-        let a = ready_proof("tok", "nonce").unwrap();
-        assert_eq!(a, ready_proof("tok", "nonce").unwrap());
-        assert_eq!(a.len(), 64);
-        assert_ne!(a, ready_proof("other", "nonce").unwrap());
-        assert_ne!(a, ready_proof("tok", "other").unwrap());
-        assert_eq!(ready_proof("tok", ""), None);
-        assert_eq!(ready_proof("tok", &"x".repeat(129)), None);
-    }
+  #[test]
+  fn ready_proof_is_deterministic_and_bounded() {
+    let a = ready_proof("tok", "nonce").unwrap();
+    assert_eq!(a, ready_proof("tok", "nonce").unwrap());
+    assert_eq!(a.len(), 64);
+    assert_ne!(a, ready_proof("other", "nonce").unwrap());
+    assert_ne!(a, ready_proof("tok", "other").unwrap());
+    assert_eq!(ready_proof("tok", ""), None);
+    assert_eq!(ready_proof("tok", &"x".repeat(129)), None);
+  }
 
-    #[tokio::test]
-    async fn probe_accepts_a_real_folder() {
-        let dir = std::env::temp_dir().join("sinclairnotesprobeok");
-        std::fs::create_dir_all(&dir).unwrap();
-        assert_eq!(
-            probe_dir(dir.to_string_lossy().into_owned(), false).await,
-            Ok(())
-        );
-    }
+  #[tokio::test]
+  async fn probe_accepts_a_real_folder() {
+    let dir = std::env::temp_dir().join("sinclairnotesprobeok");
+    std::fs::create_dir_all(&dir).unwrap();
+    assert_eq!(
+      probe_dir(dir.to_string_lossy().into_owned(), false).await,
+      Ok(())
+    );
+  }
 
-    #[tokio::test]
-    async fn probe_reports_missing_folder() {
-        let e = probe_dir("/definitely/not/here".into(), false)
-            .await
-            .unwrap_err();
-        assert!(e.contains("no such folder"), "{e}");
-    }
+  #[tokio::test]
+  async fn probe_reports_missing_folder() {
+    let e = probe_dir("/definitely/not/here".into(), false)
+      .await
+      .unwrap_err();
+    assert!(e.contains("no such folder"), "{e}");
+  }
 
-    #[cfg(unix)]
-    #[tokio::test]
-    async fn probe_maps_permission_denied_to_privacy_hint() {
-        use std::os::unix::fs::PermissionsExt;
-        let dir = std::env::temp_dir().join("sinclairnotesprobedeny");
-        std::fs::create_dir_all(&dir).unwrap();
-        std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o000)).unwrap();
-        let e = probe_dir(dir.to_string_lossy().into_owned(), false)
-            .await
-            .unwrap_err();
-        std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o755)).unwrap();
-        assert!(e.contains("Privacy & Security"), "{e}");
-    }
+  #[cfg(unix)]
+  #[tokio::test]
+  async fn probe_maps_permission_denied_to_privacy_hint() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = std::env::temp_dir().join("sinclairnotesprobedeny");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o000)).unwrap();
+    let e = probe_dir(dir.to_string_lossy().into_owned(), false)
+      .await
+      .unwrap_err();
+    std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o755)).unwrap();
+    assert!(e.contains("Privacy & Security"), "{e}");
+  }
 
-    #[tokio::test]
-    async fn probe_create_makes_the_folder() {
-        let dir = std::env::temp_dir().join("sinclairnotesprobecreate/nested");
-        let _ = std::fs::remove_dir_all(std::env::temp_dir().join("sinclairnotesprobecreate"));
-        assert_eq!(
-            probe_dir(dir.to_string_lossy().into_owned(), true).await,
-            Ok(())
-        );
-        assert!(dir.is_dir());
-    }
+  #[tokio::test]
+  async fn probe_create_makes_the_folder() {
+    let dir = std::env::temp_dir().join("sinclairnotesprobecreate/nested");
+    let _ = std::fs::remove_dir_all(std::env::temp_dir().join("sinclairnotesprobecreate"));
+    assert_eq!(
+      probe_dir(dir.to_string_lossy().into_owned(), true).await,
+      Ok(())
+    );
+    assert!(dir.is_dir());
+  }
 }

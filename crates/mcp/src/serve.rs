@@ -15,130 +15,130 @@ pub type Handler<'a> = dyn Fn(&str, &Value) -> Result<Value, String> + 'a;
 /// Serve MCP over stdin/stdout until stdin closes. Blocks the calling thread;
 /// intended to be the whole body of a `sinclair mcp` subcommand.
 pub fn serve(tools: Vec<Tool>, handler: &Handler<'_>) {
-    let stdin = std::io::stdin();
-    let mut stdout = std::io::stdout();
-    let server_info = json!({ "name": "sinclair", "version": env!("CARGO_PKG_VERSION") });
+  let stdin = std::io::stdin();
+  let mut stdout = std::io::stdout();
+  let server_info = json!({ "name": "sinclair", "version": env!("CARGO_PKG_VERSION") });
 
-    for line in stdin.lock().lines() {
-        let Ok(line) = line else { break };
-        if let Some(reply) = reply_for(&line, &tools, &server_info, handler) {
-            if writeln!(stdout, "{reply}")
-                .and_then(|()| stdout.flush())
-                .is_err()
-            {
-                break;
-            }
-        }
+  for line in stdin.lock().lines() {
+    let Ok(line) = line else { break };
+    if let Some(reply) = reply_for(&line, &tools, &server_info, handler) {
+      if writeln!(stdout, "{reply}")
+        .and_then(|()| stdout.flush())
+        .is_err()
+      {
+        break;
+      }
     }
+  }
 }
 
 /// The reply owed for one input line, or `None` when it warrants none (blank
 /// lines and notifications). Every other line gets an answer — a client that
 /// sent a broken request is waiting on one.
 fn reply_for(
-    line: &str,
-    tools: &[Tool],
-    server_info: &Value,
-    handler: &Handler<'_>,
+  line: &str,
+  tools: &[Tool],
+  server_info: &Value,
+  handler: &Handler<'_>,
 ) -> Option<String> {
-    let trimmed = line.trim();
-    if trimmed.is_empty() {
-        return None;
-    }
-    let Ok(msg) = serde_json::from_str::<Value>(trimmed) else {
-        return Some(err(&Value::Null, -32700, "parse error"));
-    };
-    dispatch(&msg, tools, server_info, handler)
+  let trimmed = line.trim();
+  if trimmed.is_empty() {
+    return None;
+  }
+  let Ok(msg) = serde_json::from_str::<Value>(trimmed) else {
+    return Some(err(&Value::Null, -32700, "parse error"));
+  };
+  dispatch(&msg, tools, server_info, handler)
 }
 
 /// Produce the reply for one message, or `None` for notifications.
 fn dispatch(
-    msg: &Value,
-    tools: &[Tool],
-    server_info: &Value,
-    handler: &Handler<'_>,
+  msg: &Value,
+  tools: &[Tool],
+  server_info: &Value,
+  handler: &Handler<'_>,
 ) -> Option<String> {
-    let method = msg
-        .get("method")
-        .and_then(Value::as_str)
-        .unwrap_or_default();
-    let Some(id) = msg.get("id").cloned() else {
-        // Only a genuine notification gets silence; any other id-less message
-        // is an invalid request.
-        if method.starts_with("notifications/") {
-            return None;
-        }
-        return Some(err(&Value::Null, -32600, "request has no id"));
-    };
+  let method = msg
+    .get("method")
+    .and_then(Value::as_str)
+    .unwrap_or_default();
+  let Some(id) = msg.get("id").cloned() else {
+    // Only a genuine notification gets silence; any other id-less message
+    // is an invalid request.
+    if method.starts_with("notifications/") {
+      return None;
+    }
+    return Some(err(&Value::Null, -32600, "request has no id"));
+  };
 
-    let outcome = match method {
-        "initialize" => Ok(json!({
-            "protocolVersion": PROTOCOL_VERSION,
-            "capabilities": { "tools": {} },
-            "serverInfo": server_info,
-        })),
-        "ping" => Ok(json!({})),
-        "tools/list" => Ok(json!({ "tools": tool_list(tools) })),
-        "tools/call" => return Some(call(&id, msg, handler)),
-        other => Err((-32601, format!("method not found: {other}"))),
-    };
+  let outcome = match method {
+    "initialize" => Ok(json!({
+        "protocolVersion": PROTOCOL_VERSION,
+        "capabilities": { "tools": {} },
+        "serverInfo": server_info,
+    })),
+    "ping" => Ok(json!({})),
+    "tools/list" => Ok(json!({ "tools": tool_list(tools) })),
+    "tools/call" => return Some(call(&id, msg, handler)),
+    other => Err((-32601, format!("method not found: {other}"))),
+  };
 
-    Some(match outcome {
-        Ok(result) => ok(&id, result),
-        Err((code, message)) => err(&id, code, &message),
-    })
+  Some(match outcome {
+    Ok(result) => ok(&id, result),
+    Err((code, message)) => err(&id, code, &message),
+  })
 }
 
 /// Handle `tools/call`: invoke the handler and wrap the result as MCP content.
 fn call(id: &Value, msg: &Value, handler: &Handler<'_>) -> String {
-    let params = msg.get("params").cloned().unwrap_or_else(|| json!({}));
-    let name = params
-        .get("name")
-        .and_then(Value::as_str)
-        .unwrap_or_default();
-    if name.is_empty() {
-        return err(id, -32602, "tools/call requires a tool name");
-    }
-    let empty = json!({});
-    let args = params.get("arguments").unwrap_or(&empty);
+  let params = msg.get("params").cloned().unwrap_or_else(|| json!({}));
+  let name = params
+    .get("name")
+    .and_then(Value::as_str)
+    .unwrap_or_default();
+  if name.is_empty() {
+    return err(id, -32602, "tools/call requires a tool name");
+  }
+  let empty = json!({});
+  let args = params.get("arguments").unwrap_or(&empty);
 
-    match handler(name, args) {
-        Ok(value) => ok(id, content(value, false)),
-        Err(message) => ok(id, content(Value::String(message), true)),
-    }
+  match handler(name, args) {
+    Ok(value) => ok(id, content(value, false)),
+    Err(message) => ok(id, content(Value::String(message), true)),
+  }
 }
 
 /// Wrap a value as a single text-content tool result.
 fn content(value: Value, is_error: bool) -> Value {
-    let text = match value {
-        Value::String(s) => s,
-        other => serde_json::to_string_pretty(&other).unwrap_or_else(|_| other.to_string()),
-    };
-    json!({
-        "content": [{ "type": "text", "text": text }],
-        "isError": is_error,
-    })
+  let text = match value {
+    Value::String(s) => s,
+    other => serde_json::to_string_pretty(&other).unwrap_or_else(|_| other.to_string()),
+  };
+  json!({
+      "content": [{ "type": "text", "text": text }],
+      "isError": is_error,
+  })
 }
 
 fn tool_list(tools: &[Tool]) -> Vec<Value> {
-    tools
-        .iter()
-        .map(|t| {
-            json!({
-                "name": t.name,
-                "description": t.description,
-                "inputSchema": t.input_schema,
-            })
-        })
-        .collect()
+  tools
+    .iter()
+    .map(|t| {
+      json!({
+          "name": t.name,
+          "description": t.description,
+          "inputSchema": t.input_schema,
+      })
+    })
+    .collect()
 }
 
 fn ok(id: &Value, result: Value) -> String {
-    json!({ "jsonrpc": "2.0", "id": id, "result": result }).to_string()
+  json!({ "jsonrpc": "2.0", "id": id, "result": result }).to_string()
 }
 
 fn err(id: &Value, code: i64, message: &str) -> String {
-    json!({ "jsonrpc": "2.0", "id": id, "error": { "code": code, "message": message } }).to_string()
+  json!({ "jsonrpc": "2.0", "id": id, "error": { "code": code, "message": message } }).to_string()
 }
 
 #[cfg(test)]

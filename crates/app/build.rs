@@ -13,31 +13,31 @@
 use std::process::Command;
 
 fn git(args: &[&str]) -> Option<String> {
-    let out = Command::new("git").args(args).output().ok()?;
-    if !out.status.success() {
-        return None;
-    }
-    let text = String::from_utf8(out.stdout).ok()?.trim().to_string();
-    (!text.is_empty()).then_some(text)
+  let out = Command::new("git").args(args).output().ok()?;
+  if !out.status.success() {
+    return None;
+  }
+  let text = String::from_utf8(out.stdout).ok()?.trim().to_string();
+  (!text.is_empty()).then_some(text)
 }
 
 fn main() {
-    // Re-run when the checked-out commit or the tags move, since both decide
-    // what this prints.
-    println!("cargo:rerun-if-changed=../../.git/HEAD");
-    println!("cargo:rerun-if-changed=../../.git/packed-refs");
-    println!("cargo:rerun-if-changed=../../.git/refs/tags");
+  // Re-run when the checked-out commit or the tags move, since both decide
+  // what this prints.
+  println!("cargo:rerun-if-changed=../../.git/HEAD");
+  println!("cargo:rerun-if-changed=../../.git/packed-refs");
+  println!("cargo:rerun-if-changed=../../.git/refs/tags");
 
-    let date = git(&["log", "-1", "--format=%cs"]).unwrap_or_else(|| "unknown".to_string());
+  let date = git(&["log", "-1", "--format=%cs"]).unwrap_or_else(|| "unknown".to_string());
 
-    // `--exact-match` fails unless HEAD is itself tagged, so this cannot be
-    // fooled by a later commit that merely descends from the release. A missing
-    // tag (a shallow clone, tags never fetched) reads as "not a release", which
-    // is the safe way to be wrong: it understates rather than inventing a date.
-    let version = std::env::var("CARGO_PKG_VERSION").unwrap_or_default();
-    let released = git(&["describe", "--exact-match", "--tags", "HEAD"])
-        .is_some_and(|tag| tag == format!("v{version}"));
+  // `--exact-match` fails unless HEAD is itself tagged, so this cannot be
+  // fooled by a later commit that merely descends from the release. A missing
+  // tag (a shallow clone, tags never fetched) reads as "not a release", which
+  // is the safe way to be wrong: it understates rather than inventing a date.
+  let version = std::env::var("CARGO_PKG_VERSION").unwrap_or_default();
+  let released = git(&["describe", "--exact-match", "--tags", "HEAD"])
+    .is_some_and(|tag| tag == format!("v{version}"));
 
-    println!("cargo:rustc-env=SINCLAIR_BUILD_DATE={date}");
-    println!("cargo:rustc-env=SINCLAIR_RELEASED={}", u8::from(released));
+  println!("cargo:rustc-env=SINCLAIR_BUILD_DATE={date}");
+  println!("cargo:rustc-env=SINCLAIR_RELEASED={}", u8::from(released));
 }

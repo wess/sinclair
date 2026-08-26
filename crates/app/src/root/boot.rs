@@ -4,151 +4,151 @@ use super::*;
 /// needed. Shared with the settings panel's writer (see `crate::confwrite`
 /// for the read-check + atomic-replace rules).
 pub(crate) fn write_config(key: &str, value: &str) {
-    crate::confwrite::upsert(key, value);
+  crate::confwrite::upsert(key, value);
 }
 
 pub(crate) fn loadplugins(opts: &config::Options) -> Vec<plugin::Plugin> {
-    let (plugins, diags) = plugin::load(&opts.plugin);
-    for d in &diags {
-        if d.line == 0 {
-            eprintln!("sinclair: plugin {}: {}", d.path.display(), d.message);
-        } else {
-            eprintln!(
-                "sinclair: plugin {} line {}: {}",
-                d.path.display(),
-                d.line,
-                d.message
-            );
-        }
+  let (plugins, diags) = plugin::load(&opts.plugin);
+  for d in &diags {
+    if d.line == 0 {
+      eprintln!("sinclair: plugin {}: {}", d.path.display(), d.message);
+    } else {
+      eprintln!(
+        "sinclair: plugin {} line {}: {}",
+        d.path.display(),
+        d.line,
+        d.message
+      );
     }
-    plugins
+  }
+  plugins
 }
 
 /// The curated set of actions the command palette offers, with display
 /// labels. Ordered roughly by how often they're reached.
 pub(crate) fn palette_catalog() -> Vec<(&'static str, Action)> {
-    vec![
-        ("New Window", Action::NewWindow),
-        ("New Tab", Action::NewTab),
-        ("OS Tabs", Action::NewContainerTab),
-        ("Attach to Container", Action::AttachContainer),
-        ("Sandbox: Open Shell", Action::SandboxShell),
-        ("Sandbox: Use for This Project", Action::ToggleSandbox),
-        ("Sandbox: Start", Action::SandboxStart),
-        ("Sandbox: Stop", Action::SandboxStop),
-        ("Sandbox: Rebuild", Action::SandboxRebuild),
-        ("Sandbox: Show Status", Action::SandboxStatus),
-        ("Close Pane", Action::CloseSurface),
-        ("Close Tab", Action::CloseTab),
-        ("Close Window", Action::CloseWindow),
-        ("Split Right", Action::NewSplit(SplitDirection::Right)),
-        ("Split Left", Action::NewSplit(SplitDirection::Left)),
-        ("Split Down", Action::NewSplit(SplitDirection::Down)),
-        ("Zoom Split", Action::ZoomSplit),
-        ("Equalize Splits", Action::EqualizeSplits),
-        ("Select Split Up", Action::GotoSplit(SplitFocus::Up)),
-        ("Select Split Down", Action::GotoSplit(SplitFocus::Down)),
-        ("Select Split Left", Action::GotoSplit(SplitFocus::Left)),
-        ("Select Split Right", Action::GotoSplit(SplitFocus::Right)),
-        ("Broadcast Input", Action::ToggleBroadcast),
-        ("Save Current Layout", Action::SaveLayout),
-        ("Previous Tab", Action::PreviousTab),
-        ("Next Tab", Action::NextTab),
-        ("Peek at Tabs", Action::TabPeek),
-        ("Copy", Action::Copy),
-        ("Paste", Action::Paste),
-        ("Select All", Action::SelectAll),
-        ("Find", Action::ToggleSearch),
-        ("Semantic Find", Action::ToggleSemanticSearch),
-        ("Search All Tabs", Action::SearchAll),
-        ("Explain Output", Action::ExplainOutput),
-        ("Compose Command", Action::ComposeCommand),
-        ("Notes", Action::Notes),
-        ("Copy Last Command Output", Action::CopyCommandOutput),
-        ("Hint Mode: Open a Link", Action::Hints),
-        ("Copy Mode (keyboard selection)", Action::CopyMode),
-        ("Clipboard History", Action::ClipboardHistory),
-        ("Insert Emoji or Symbol", Action::UnicodePicker),
-        ("Snippets", Action::Snippets),
-        ("Profiles", Action::Profiles),
-        ("Annotate Line", Action::Annotate),
-        ("Toggle Left Sidebar", Action::Sidebar("left".into())),
-        ("Toggle Right Sidebar", Action::Sidebar("right".into())),
-        ("Clear Screen", Action::ClearScreen),
-        ("Jump to Previous Prompt", Action::JumpToPrompt(-1)),
-        ("Jump to Next Prompt", Action::JumpToPrompt(1)),
-        ("Increase Font Size", Action::IncreaseFontSize(1.0)),
-        ("Decrease Font Size", Action::DecreaseFontSize(1.0)),
-        ("Reset Font Size", Action::ResetFontSize),
-        ("Change Tab Title", Action::ChangeTabTitle),
-        ("Change Terminal Title", Action::ChangeTerminalTitle),
-        ("Terminal Read-only", Action::ToggleReadOnly),
-        ("Toggle Full Screen", Action::ToggleFullscreen),
-        ("Quick Terminal", Action::ToggleQuickTerminal),
-        ("Record Macro", Action::MacroRecord),
-        ("Record Session (cast)", Action::ToggleRecording),
-        (
-            "Export Recording (GIF)",
-            Action::ExportRecording("gif".into()),
-        ),
-        (
-            "Export Recording (MP4)",
-            Action::ExportRecording("mp4".into()),
-        ),
-        ("Save Buffer", Action::SaveBuffer),
-        ("Settings", Action::ToggleSettings),
-        ("Documentation", Action::ShowHelp),
-        ("Relay: Define Agent", Action::RelayLaunch),
-        ("Relay: Open Feed", Action::RelayFeed),
-        ("Relay: View Logs", Action::RelayLog),
-        ("Relay: Start Server", Action::RelayStart),
-        ("Relay: Stop Server", Action::RelayStop),
-        ("Relay: Restart Server", Action::RelayRestart),
-        ("Quit", Action::Quit),
-    ]
+  vec![
+    ("New Window", Action::NewWindow),
+    ("New Tab", Action::NewTab),
+    ("OS Tabs", Action::NewContainerTab),
+    ("Attach to Container", Action::AttachContainer),
+    ("Sandbox: Open Shell", Action::SandboxShell),
+    ("Sandbox: Use for This Project", Action::ToggleSandbox),
+    ("Sandbox: Start", Action::SandboxStart),
+    ("Sandbox: Stop", Action::SandboxStop),
+    ("Sandbox: Rebuild", Action::SandboxRebuild),
+    ("Sandbox: Show Status", Action::SandboxStatus),
+    ("Close Pane", Action::CloseSurface),
+    ("Close Tab", Action::CloseTab),
+    ("Close Window", Action::CloseWindow),
+    ("Split Right", Action::NewSplit(SplitDirection::Right)),
+    ("Split Left", Action::NewSplit(SplitDirection::Left)),
+    ("Split Down", Action::NewSplit(SplitDirection::Down)),
+    ("Zoom Split", Action::ZoomSplit),
+    ("Equalize Splits", Action::EqualizeSplits),
+    ("Select Split Up", Action::GotoSplit(SplitFocus::Up)),
+    ("Select Split Down", Action::GotoSplit(SplitFocus::Down)),
+    ("Select Split Left", Action::GotoSplit(SplitFocus::Left)),
+    ("Select Split Right", Action::GotoSplit(SplitFocus::Right)),
+    ("Broadcast Input", Action::ToggleBroadcast),
+    ("Save Current Layout", Action::SaveLayout),
+    ("Previous Tab", Action::PreviousTab),
+    ("Next Tab", Action::NextTab),
+    ("Peek at Tabs", Action::TabPeek),
+    ("Copy", Action::Copy),
+    ("Paste", Action::Paste),
+    ("Select All", Action::SelectAll),
+    ("Find", Action::ToggleSearch),
+    ("Semantic Find", Action::ToggleSemanticSearch),
+    ("Search All Tabs", Action::SearchAll),
+    ("Explain Output", Action::ExplainOutput),
+    ("Compose Command", Action::ComposeCommand),
+    ("Notes", Action::Notes),
+    ("Copy Last Command Output", Action::CopyCommandOutput),
+    ("Hint Mode: Open a Link", Action::Hints),
+    ("Copy Mode (keyboard selection)", Action::CopyMode),
+    ("Clipboard History", Action::ClipboardHistory),
+    ("Insert Emoji or Symbol", Action::UnicodePicker),
+    ("Snippets", Action::Snippets),
+    ("Profiles", Action::Profiles),
+    ("Annotate Line", Action::Annotate),
+    ("Toggle Left Sidebar", Action::Sidebar("left".into())),
+    ("Toggle Right Sidebar", Action::Sidebar("right".into())),
+    ("Clear Screen", Action::ClearScreen),
+    ("Jump to Previous Prompt", Action::JumpToPrompt(-1)),
+    ("Jump to Next Prompt", Action::JumpToPrompt(1)),
+    ("Increase Font Size", Action::IncreaseFontSize(1.0)),
+    ("Decrease Font Size", Action::DecreaseFontSize(1.0)),
+    ("Reset Font Size", Action::ResetFontSize),
+    ("Change Tab Title", Action::ChangeTabTitle),
+    ("Change Terminal Title", Action::ChangeTerminalTitle),
+    ("Terminal Read-only", Action::ToggleReadOnly),
+    ("Toggle Full Screen", Action::ToggleFullscreen),
+    ("Quick Terminal", Action::ToggleQuickTerminal),
+    ("Record Macro", Action::MacroRecord),
+    ("Record Session (cast)", Action::ToggleRecording),
+    (
+      "Export Recording (GIF)",
+      Action::ExportRecording("gif".into()),
+    ),
+    (
+      "Export Recording (MP4)",
+      Action::ExportRecording("mp4".into()),
+    ),
+    ("Save Buffer", Action::SaveBuffer),
+    ("Settings", Action::ToggleSettings),
+    ("Documentation", Action::ShowHelp),
+    ("Relay: Define Agent", Action::RelayLaunch),
+    ("Relay: Open Feed", Action::RelayFeed),
+    ("Relay: View Logs", Action::RelayLog),
+    ("Relay: Start Server", Action::RelayStart),
+    ("Relay: Stop Server", Action::RelayStop),
+    ("Relay: Restart Server", Action::RelayRestart),
+    ("Quit", Action::Quit),
+  ]
 }
 
 /// Load saved macros from the default macro directory (empty if unconfigured
 /// or absent).
 pub(crate) fn loadmacros() -> Vec<macros::Macro> {
-    macros::defaultdir()
-        .map(|dir| macros::load(&dir))
-        .unwrap_or_default()
+  macros::defaultdir()
+    .map(|dir| macros::load(&dir))
+    .unwrap_or_default()
 }
 
 pub(crate) fn resolvekeys(
-    opts: &config::Options,
-    plugins: &[plugin::Plugin],
+  opts: &config::Options,
+  plugins: &[plugin::Plugin],
 ) -> (Vec<Keybind>, Vec<config::Diagnostic>) {
-    let mut raw = plugin::keybinds(plugins);
-    raw.extend(opts.keybind.iter().cloned());
-    let (mut binds, diags) = config::resolve(&raw);
-    for action in [Action::NewSplit(SplitDirection::Left)] {
-        if !binds.iter().any(|b| b.action == action) {
-            binds.push(Keybind {
-                mods: config::Mods::default(),
-                key: String::new(),
-                tail: Vec::new(),
-                action,
-            });
-        }
+  let mut raw = plugin::keybinds(plugins);
+  raw.extend(opts.keybind.iter().cloned());
+  let (mut binds, diags) = config::resolve(&raw);
+  for action in [Action::NewSplit(SplitDirection::Left)] {
+    if !binds.iter().any(|b| b.action == action) {
+      binds.push(Keybind {
+        mods: config::Mods::default(),
+        key: String::new(),
+        tail: Vec::new(),
+        action,
+      });
     }
-    (binds, diags)
+  }
+  (binds, diags)
 }
 
 pub(crate) fn commandspawn(opts: &config::Options, command: &str) -> pty::SpawnOptions {
-    let shell = opts
-        .shell
-        .as_ref()
-        .and_then(|shell| shell.split_whitespace().next())
-        .filter(|shell| !shell.is_empty())
-        .map(str::to_string)
-        .unwrap_or_else(pty::default_shell);
-    pty::SpawnOptions::command(vec![
-        shell,
-        "-i".to_string(),
-        "-l".to_string(),
-        "-c".to_string(),
-        command.to_string(),
-    ])
+  let shell = opts
+    .shell
+    .as_ref()
+    .and_then(|shell| shell.split_whitespace().next())
+    .filter(|shell| !shell.is_empty())
+    .map(str::to_string)
+    .unwrap_or_else(pty::default_shell);
+  pty::SpawnOptions::command(vec![
+    shell,
+    "-i".to_string(),
+    "-l".to_string(),
+    "-c".to_string(),
+    command.to_string(),
+  ])
 }

@@ -30,17 +30,17 @@ const MAX_GFX_PENDING: usize = 128 * 1024 * 1024;
 /// bare trailing ESC can straddle pty reads.
 #[derive(Debug, Default)]
 pub(crate) struct Apc {
-    state: State,
-    buf: Vec<u8>,
+  state: State,
+  buf: Vec<u8>,
 }
 
 #[derive(Debug, Default, PartialEq, Eq)]
 enum State {
-    #[default]
-    Ground,
-    Esc,
-    Body,
-    BodyEsc,
+  #[default]
+  Ground,
+  Esc,
+  Body,
+  BodyEsc,
 }
 
 /// Drive `bytes` through the scanner: forward non-APC runs to `parser`, capture
@@ -49,107 +49,107 @@ enum State {
 /// the next `ESC` in one SIMD pass, so a graphics-free stream costs a scan and
 /// a single `advance`.
 pub(crate) fn advance(parser: &mut vte::Parser, inner: &mut Inner, bytes: &[u8]) {
-    // Start of the pending run of plain bytes bound for vte; forwarded whole.
-    let mut run_start = 0;
-    let mut i = 0;
+  // Start of the pending run of plain bytes bound for vte; forwarded whole.
+  let mut run_start = 0;
+  let mut i = 0;
 
-    // An ESC held from the end of the previous feed is not part of `bytes`, so
-    // resolve it against the first byte before the main scan.
-    if inner.apc.state == State::Esc {
-        match bytes.first() {
-            None => return, // nothing new yet; keep holding the ESC
-            Some(&b'_') => {
-                // `ESC _` straddling the feed boundary: the APC begins here.
-                inner.apc.buf.clear();
-                inner.apc.state = State::Body;
-                i = 1;
-                run_start = 1;
-            }
-            Some(&ESC) => {
-                // A second ESC supersedes the held one — vte discards a restarted
-                // escape too — and this one may itself introduce an APC. Handing
-                // the held ESC to vte here would leave it mid-escape with the APC
-                // body withheld, so it would eat the byte after the block (see
-                // `trim_dangling_esc`). Drop it and rescan from Ground.
-                inner.apc.state = State::Ground;
-            }
-            Some(_) => {
-                // The held ESC introduced something else; forward it on its own,
-                // then scan `bytes` from Ground (the byte is re-read below).
-                parser.advance(inner, &[ESC]);
-                inner.apc.state = State::Ground;
-            }
+  // An ESC held from the end of the previous feed is not part of `bytes`, so
+  // resolve it against the first byte before the main scan.
+  if inner.apc.state == State::Esc {
+    match bytes.first() {
+      None => return, // nothing new yet; keep holding the ESC
+      Some(&b'_') => {
+        // `ESC _` straddling the feed boundary: the APC begins here.
+        inner.apc.buf.clear();
+        inner.apc.state = State::Body;
+        i = 1;
+        run_start = 1;
+      }
+      Some(&ESC) => {
+        // A second ESC supersedes the held one — vte discards a restarted
+        // escape too — and this one may itself introduce an APC. Handing
+        // the held ESC to vte here would leave it mid-escape with the APC
+        // body withheld, so it would eat the byte after the block (see
+        // `trim_dangling_esc`). Drop it and rescan from Ground.
+        inner.apc.state = State::Ground;
+      }
+      Some(_) => {
+        // The held ESC introduced something else; forward it on its own,
+        // then scan `bytes` from Ground (the byte is re-read below).
+        parser.advance(inner, &[ESC]);
+        inner.apc.state = State::Ground;
+      }
+    }
+  }
+
+  while i < bytes.len() {
+    match inner.apc.state {
+      State::Ground => match memchr::memchr(ESC, &bytes[i..]) {
+        // Everything up to and including the ESC stays in the pending
+        // run; only the ESC's role (APC start or not) is still unknown.
+        Some(off) => {
+          i += off + 1; // past the ESC
+          inner.apc.state = State::Esc;
         }
-    }
-
-    while i < bytes.len() {
-        match inner.apc.state {
-            State::Ground => match memchr::memchr(ESC, &bytes[i..]) {
-                // Everything up to and including the ESC stays in the pending
-                // run; only the ESC's role (APC start or not) is still unknown.
-                Some(off) => {
-                    i += off + 1; // past the ESC
-                    inner.apc.state = State::Esc;
-                }
-                None => i = bytes.len(), // rest of the buffer is plain
-            },
-            State::Esc => {
-                // The ESC sits at `i - 1`, still inside the pending run.
-                if bytes[i] == b'_' {
-                    // APC begins. Forward the run up to (not including) the ESC
-                    // first, so the image anchors after any preceding text.
-                    let esc = i - 1;
-                    let end = trim_dangling_esc(bytes, run_start, esc);
-                    if run_start < end {
-                        parser.advance(inner, &bytes[run_start..end]);
-                    }
-                    inner.apc.buf.clear();
-                    inner.apc.state = State::Body;
-                    i += 1;
-                    run_start = i;
-                } else {
-                    // A real ESC for some other sequence: it stays in the run
-                    // and we re-read this byte in Ground.
-                    inner.apc.state = State::Ground;
-                }
-            }
-            State::Body => {
-                match bytes[i] {
-                    ESC => inner.apc.state = State::BodyEsc,
-                    BEL => {
-                        finish(inner); // BEL terminates the APC
-                        run_start = i + 1;
-                    }
-                    b => push_body(inner, b),
-                }
-                i += 1;
-            }
-            State::BodyEsc => {
-                if bytes[i] == b'\\' {
-                    finish(inner); // ST terminates the APC
-                    run_start = i + 1;
-                    i += 1;
-                } else {
-                    // An ESC in the body that isn't ST: keep it as data and
-                    // re-read this byte in the body state.
-                    push_body(inner, ESC);
-                    inner.apc.state = State::Body;
-                }
-            }
+        None => i = bytes.len(), // rest of the buffer is plain
+      },
+      State::Esc => {
+        // The ESC sits at `i - 1`, still inside the pending run.
+        if bytes[i] == b'_' {
+          // APC begins. Forward the run up to (not including) the ESC
+          // first, so the image anchors after any preceding text.
+          let esc = i - 1;
+          let end = trim_dangling_esc(bytes, run_start, esc);
+          if run_start < end {
+            parser.advance(inner, &bytes[run_start..end]);
+          }
+          inner.apc.buf.clear();
+          inner.apc.state = State::Body;
+          i += 1;
+          run_start = i;
+        } else {
+          // A real ESC for some other sequence: it stays in the run
+          // and we re-read this byte in Ground.
+          inner.apc.state = State::Ground;
         }
+      }
+      State::Body => {
+        match bytes[i] {
+          ESC => inner.apc.state = State::BodyEsc,
+          BEL => {
+            finish(inner); // BEL terminates the APC
+            run_start = i + 1;
+          }
+          b => push_body(inner, b),
+        }
+        i += 1;
+      }
+      State::BodyEsc => {
+        if bytes[i] == b'\\' {
+          finish(inner); // ST terminates the APC
+          run_start = i + 1;
+          i += 1;
+        } else {
+          // An ESC in the body that isn't ST: keep it as data and
+          // re-read this byte in the body state.
+          push_body(inner, ESC);
+          inner.apc.state = State::Body;
+        }
+      }
     }
+  }
 
-    // Forward the trailing plain run. A still-held ESC is the last byte and must
-    // wait for the next feed, so it is excluded; inside an APC body nothing is
-    // pending (those bytes were captured, not forwarded).
-    let end = match inner.apc.state {
-        State::Ground => bytes.len(),
-        State::Esc => bytes.len() - 1,
-        State::Body | State::BodyEsc => run_start,
-    };
-    if run_start < end {
-        parser.advance(inner, &bytes[run_start..end]);
-    }
+  // Forward the trailing plain run. A still-held ESC is the last byte and must
+  // wait for the next feed, so it is excluded; inside an APC body nothing is
+  // pending (those bytes were captured, not forwarded).
+  let end = match inner.apc.state {
+    State::Ground => bytes.len(),
+    State::Esc => bytes.len() - 1,
+    State::Body | State::BodyEsc => run_start,
+  };
+  if run_start < end {
+    parser.advance(inner, &bytes[run_start..end]);
+  }
 }
 
 /// End of the run to forward before an APC that starts at `esc`, with any
@@ -163,163 +163,165 @@ pub(crate) fn advance(parser: &mut vte::Parser, inner: &mut Inner, bytes: &[u8])
 /// own ESC, which vte discards anyway, so dropping them matches what vte would
 /// have done had it seen the whole stream.
 fn trim_dangling_esc(bytes: &[u8], run_start: usize, esc: usize) -> usize {
-    let mut end = esc;
-    while end > run_start && bytes[end - 1] == ESC {
-        end -= 1;
-    }
-    end
+  let mut end = esc;
+  while end > run_start && bytes[end - 1] == ESC {
+    end -= 1;
+  }
+  end
 }
 
 fn push_body(inner: &mut Inner, b: u8) {
-    if inner.apc.buf.len() < MAX_APC {
-        inner.apc.buf.push(b);
-    }
+  if inner.apc.buf.len() < MAX_APC {
+    inner.apc.buf.push(b);
+  }
 }
 
 /// Terminate the current APC block and dispatch it. Graphics commands start
 /// with `G`; any other APC is discarded (as vte would).
 fn finish(inner: &mut Inner) {
-    inner.apc.state = State::Ground;
-    let buf = std::mem::take(&mut inner.apc.buf);
-    if buf.first() == Some(&b'G') {
-        inner.kitty_graphics(&buf[1..]);
-    }
+  inner.apc.state = State::Ground;
+  let buf = std::mem::take(&mut inner.apc.buf);
+  if buf.first() == Some(&b'G') {
+    inner.kitty_graphics(&buf[1..]);
+  }
 }
 
 impl Inner {
-    /// Handle one graphics command body — `<control> ; <base64 payload>`, the
-    /// part after `_G`. Reassembles chunked transfers (`m=1`) before decoding.
-    fn kitty_graphics(&mut self, data: &[u8]) {
-        let mut parts = data.splitn(2, |&b| b == b';');
-        let control = graphics::parse_control(parts.next().unwrap_or(&[]));
-        let raw = super::report::base64_decode(parts.next().unwrap_or(&[])).unwrap_or_default();
+  /// Handle one graphics command body — `<control> ; <base64 payload>`, the
+  /// part after `_G`. Reassembles chunked transfers (`m=1`) before decoding.
+  fn kitty_graphics(&mut self, data: &[u8]) {
+    let mut parts = data.splitn(2, |&b| b == b';');
+    let control = graphics::parse_control(parts.next().unwrap_or(&[]));
+    let raw = super::report::base64_decode(parts.next().unwrap_or(&[])).unwrap_or_default();
 
-        // Chunked: the first chunk carries the full control, the rest only
-        // `m=` (+ payload). Accumulate the base64-decoded bytes until `m=0`,
-        // abandoning any transfer that runs past the pending-size cap.
-        if control.more {
-            match &mut self.gfx_pending {
-                Some((_, buf)) => {
-                    if buf.len().saturating_add(raw.len()) > MAX_GFX_PENDING {
-                        self.gfx_pending = None; // oversized transfer: drop it
-                    } else {
-                        buf.extend_from_slice(&raw);
-                    }
-                }
-                None if raw.len() <= MAX_GFX_PENDING => self.gfx_pending = Some((control, raw)),
-                None => {} // first chunk already over budget: ignore
-            }
-            return;
+    // Chunked: the first chunk carries the full control, the rest only
+    // `m=` (+ payload). Accumulate the base64-decoded bytes until `m=0`,
+    // abandoning any transfer that runs past the pending-size cap.
+    if control.more {
+      match &mut self.gfx_pending {
+        Some((_, buf)) => {
+          if buf.len().saturating_add(raw.len()) > MAX_GFX_PENDING {
+            self.gfx_pending = None; // oversized transfer: drop it
+          } else {
+            buf.extend_from_slice(&raw);
+          }
         }
-        let (control, raw) = match self.gfx_pending.take() {
-            Some((first, mut buf)) => {
-                buf.extend_from_slice(&raw);
-                (first, buf)
-            }
-            None => (control, raw),
-        };
-        self.apply_graphics(control, raw);
+        None if raw.len() <= MAX_GFX_PENDING => self.gfx_pending = Some((control, raw)),
+        None => {} // first chunk already over budget: ignore
+      }
+      return;
     }
+    let (control, raw) = match self.gfx_pending.take() {
+      Some((first, mut buf)) => {
+        buf.extend_from_slice(&raw);
+        (first, buf)
+      }
+      None => (control, raw),
+    };
+    self.apply_graphics(control, raw);
+  }
 
-    /// Act on a fully-assembled graphics command.
-    fn apply_graphics(&mut self, control: Control, raw: Vec<u8>) {
-        match control.action {
-            Action::Delete => {
-                self.delete_graphics(&control);
-                self.gfx_respond(&control, Ok(()));
-            }
-            Action::Query => {
-                let result = graphics::decode(&control, &raw).map(|_| ());
-                self.gfx_respond(&control, result);
-            }
-            Action::Transmit => match graphics::decode(&control, &raw) {
-                Ok(img) => {
-                    if control.image_id != 0 {
-                        self.store_image(control.image_id, img);
-                    }
-                    self.gfx_respond(&control, Ok(()));
-                }
-                Err(e) => self.gfx_respond(&control, Err(e)),
-            },
-            Action::TransmitAndDisplay => match graphics::decode(&control, &raw) {
-                Ok(img) => {
-                    if control.image_id != 0 {
-                        self.store_image(control.image_id, img.clone());
-                    }
-                    self.place_image(img, control.image_id, control.move_cursor);
-                    self.gfx_respond(&control, Ok(()));
-                }
-                Err(e) => self.gfx_respond(&control, Err(e)),
-            },
-            Action::Display => match self.gfx_store.get(&control.image_id).cloned() {
-                Some(img) => {
-                    self.place_image(img, control.image_id, control.move_cursor);
-                    self.gfx_respond(&control, Ok(()));
-                }
-                None => self.gfx_respond(&control, Err(graphics::GfxError("ENOENT"))),
-            },
+  /// Act on a fully-assembled graphics command.
+  fn apply_graphics(&mut self, control: Control, raw: Vec<u8>) {
+    match control.action {
+      Action::Delete => {
+        self.delete_graphics(&control);
+        self.gfx_respond(&control, Ok(()));
+      }
+      Action::Query => {
+        let result = graphics::decode(&control, &raw).map(|_| ());
+        self.gfx_respond(&control, result);
+      }
+      Action::Transmit => match graphics::decode(&control, &raw) {
+        Ok(img) => {
+          if control.image_id != 0 {
+            self.store_image(control.image_id, img);
+          }
+          self.gfx_respond(&control, Ok(()));
         }
+        Err(e) => self.gfx_respond(&control, Err(e)),
+      },
+      Action::TransmitAndDisplay => match graphics::decode(&control, &raw) {
+        Ok(img) => {
+          if control.image_id != 0 {
+            self.store_image(control.image_id, img.clone());
+          }
+          self.place_image(img, control.image_id, control.move_cursor);
+          self.gfx_respond(&control, Ok(()));
+        }
+        Err(e) => self.gfx_respond(&control, Err(e)),
+      },
+      Action::Display => match self.gfx_store.get(&control.image_id).cloned() {
+        Some(img) => {
+          self.place_image(img, control.image_id, control.move_cursor);
+          self.gfx_respond(&control, Ok(()));
+        }
+        None => self.gfx_respond(&control, Err(graphics::GfxError("ENOENT"))),
+      },
     }
+  }
 
-    /// Retain a transmitted image under `id`, sharing the pane-wide graphics
-    /// budget with visible placements on both screens.
-    fn store_image(&mut self, id: u32, img: crate::sixel::Image) {
-        self.gfx_store.insert(id, img);
-        self.enforce_graphics_budget();
-    }
+  /// Retain a transmitted image under `id`, sharing the pane-wide graphics
+  /// budget with visible placements on both screens.
+  fn store_image(&mut self, id: u32, img: crate::sixel::Image) {
+    self.gfx_store.insert(id, img);
+    self.enforce_graphics_budget();
+  }
 
-    /// Remove placements per an `a=d` command. Uppercase specifiers also free
-    /// the stored image data; lowercase keep it for later re-display.
-    fn delete_graphics(&mut self, control: &Control) {
-        let free = control.delete.is_ascii_uppercase();
-        match control.delete.to_ascii_lowercase() {
-            b'i' => {
-                let id = control.image_id;
-                self.screen_mut().images.retain(|p| p.kitty_id != Some(id));
-                if free {
-                    self.gfx_store.remove(&id);
-                }
-            }
-            // `a` (all) or any unrecognized specifier: clear every placement.
-            _ => {
-                self.screen_mut().images.clear();
-                if free {
-                    self.gfx_store.clear();
-                }
-            }
+  /// Remove placements per an `a=d` command. Uppercase specifiers also free
+  /// the stored image data; lowercase keep it for later re-display.
+  fn delete_graphics(&mut self, control: &Control) {
+    let free = control.delete.is_ascii_uppercase();
+    match control.delete.to_ascii_lowercase() {
+      b'i' => {
+        let id = control.image_id;
+        self.screen_mut().images.retain(|p| p.kitty_id != Some(id));
+        if free {
+          self.gfx_store.remove(&id);
         }
-        self.full_damage = true;
+      }
+      // `a` (all) or any unrecognized specifier: clear every placement.
+      _ => {
+        self.screen_mut().images.clear();
+        if free {
+          self.gfx_store.clear();
+        }
+      }
     }
+    self.full_damage = true;
+  }
 
-    /// Emit the kitty response for a command, honoring the quiet level. Nothing
-    /// is sent when the request carried no image id (there is nothing to name).
-    fn gfx_respond(&mut self, control: &Control, result: Result<(), graphics::GfxError>) {
-        if control.image_id == 0 {
-            return;
-        }
-        let suppress = match (&result, control.quiet) {
-            (_, q) if q >= 2 => true,      // suppress all
-            (Ok(()), q) if q >= 1 => true, // suppress success
-            _ => false,
-        };
-        if suppress {
-            return;
-        }
-        let status = match result {
-            Ok(()) => "OK",
-            Err(graphics::GfxError(code)) => code,
-        };
-        self.output.extend_from_slice(b"\x1b_G");
-        self.output
-            .extend_from_slice(format!("i={}", control.image_id).as_bytes());
-        if control.placement_id != 0 {
-            self.output
-                .extend_from_slice(format!(",p={}", control.placement_id).as_bytes());
-        }
-        self.output.push(b';');
-        self.output.extend_from_slice(status.as_bytes());
-        self.output.extend_from_slice(b"\x1b\\");
+  /// Emit the kitty response for a command, honoring the quiet level. Nothing
+  /// is sent when the request carried no image id (there is nothing to name).
+  fn gfx_respond(&mut self, control: &Control, result: Result<(), graphics::GfxError>) {
+    if control.image_id == 0 {
+      return;
     }
+    let suppress = match (&result, control.quiet) {
+      (_, q) if q >= 2 => true,      // suppress all
+      (Ok(()), q) if q >= 1 => true, // suppress success
+      _ => false,
+    };
+    if suppress {
+      return;
+    }
+    let status = match result {
+      Ok(()) => "OK",
+      Err(graphics::GfxError(code)) => code,
+    };
+    self.output.extend_from_slice(b"\x1b_G");
+    self
+      .output
+      .extend_from_slice(format!("i={}", control.image_id).as_bytes());
+    if control.placement_id != 0 {
+      self
+        .output
+        .extend_from_slice(format!(",p={}", control.placement_id).as_bytes());
+    }
+    self.output.push(b';');
+    self.output.extend_from_slice(status.as_bytes());
+    self.output.extend_from_slice(b"\x1b\\");
+  }
 }
 
 #[cfg(test)]

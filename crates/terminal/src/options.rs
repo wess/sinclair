@@ -7,36 +7,36 @@
 /// start out the same size.
 #[derive(Debug, Clone)]
 pub struct SessionOptions {
-    /// Grid width in cells.
-    pub cols: usize,
-    /// Grid height in cells.
-    pub rows: usize,
-    /// Maximum primary-screen history rows kept for scrollback.
-    pub scrollback_limit: usize,
-    /// What to run on the pty slave: argv, login flag, env, cwd.
-    pub spawn: pty::SpawnOptions,
+  /// Grid width in cells.
+  pub cols: usize,
+  /// Grid height in cells.
+  pub rows: usize,
+  /// Maximum primary-screen history rows kept for scrollback.
+  pub scrollback_limit: usize,
+  /// What to run on the pty slave: argv, login flag, env, cwd.
+  pub spawn: pty::SpawnOptions,
 }
 
 impl Default for SessionOptions {
-    /// An 80x24 login shell with the default scrollback limit.
-    fn default() -> Self {
-        Self {
-            cols: 80,
-            rows: 24,
-            scrollback_limit: vt::DEFAULT_SCROLLBACK,
-            spawn: pty::SpawnOptions::default(),
-        }
+  /// An 80x24 login shell with the default scrollback limit.
+  fn default() -> Self {
+    Self {
+      cols: 80,
+      rows: 24,
+      scrollback_limit: vt::DEFAULT_SCROLLBACK,
+      spawn: pty::SpawnOptions::default(),
     }
+  }
 }
 
 impl SessionOptions {
-    /// Session running an explicit argv directly (not a login shell).
-    pub fn command(argv: Vec<String>) -> Self {
-        Self {
-            spawn: pty::SpawnOptions::command(argv),
-            ..Self::default()
-        }
+  /// Session running an explicit argv directly (not a login shell).
+  pub fn command(argv: Vec<String>) -> Self {
+    Self {
+      spawn: pty::SpawnOptions::command(argv),
+      ..Self::default()
     }
+  }
 }
 
 #[cfg(test)]

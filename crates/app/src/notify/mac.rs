@@ -19,8 +19,8 @@ use objc2::rc::Retained;
 use objc2::runtime::Bool;
 use objc2_foundation::{NSBundle, NSError, NSString};
 use objc2_user_notifications::{
-    UNAuthorizationOptions, UNMutableNotificationContent, UNNotificationRequest,
-    UNUserNotificationCenter,
+  UNAuthorizationOptions, UNMutableNotificationContent, UNNotificationRequest,
+  UNUserNotificationCenter,
 };
 
 /// How long to wait for the authorization answer before posting anyway. On the
@@ -49,40 +49,40 @@ static SEQ: AtomicU64 = AtomicU64::new(0);
 /// Post through UserNotifications. `false` means this build can't use the
 /// framework and the caller should fall back.
 pub(crate) fn send(title: &str, body: &str) -> bool {
-    let Some(center) = center() else {
-        return false;
-    };
-    authorize(&center);
-    // AssertUnwindSafe: the closure only makes Objective-C calls, and a throw
-    // leaves nothing half-written on the Rust side for us to observe after.
-    objc2::exception::catch(AssertUnwindSafe(|| {
-        let content = UNMutableNotificationContent::new();
-        content.setTitle(&NSString::from_str(title));
-        content.setBody(&NSString::from_str(body));
-        let id = format!("io.wess.sinclair.{}", SEQ.fetch_add(1, Ordering::Relaxed));
-        let request = UNNotificationRequest::requestWithIdentifier_content_trigger(
-            &NSString::from_str(&id),
-            &content,
-            None,
-        );
-        let (tx, rx) = mpsc::channel();
-        let done = RcBlock::new(move |_err: *mut NSError| {
-            let _ = tx.send(());
-        });
-        center.addNotificationRequest_withCompletionHandler(&request, Some(&done));
-        let _ = rx.recv_timeout(POST_WAIT);
-    }))
-    .is_ok()
+  let Some(center) = center() else {
+    return false;
+  };
+  authorize(&center);
+  // AssertUnwindSafe: the closure only makes Objective-C calls, and a throw
+  // leaves nothing half-written on the Rust side for us to observe after.
+  objc2::exception::catch(AssertUnwindSafe(|| {
+    let content = UNMutableNotificationContent::new();
+    content.setTitle(&NSString::from_str(title));
+    content.setBody(&NSString::from_str(body));
+    let id = format!("io.wess.sinclair.{}", SEQ.fetch_add(1, Ordering::Relaxed));
+    let request = UNNotificationRequest::requestWithIdentifier_content_trigger(
+      &NSString::from_str(&id),
+      &content,
+      None,
+    );
+    let (tx, rx) = mpsc::channel();
+    let done = RcBlock::new(move |_err: *mut NSError| {
+      let _ = tx.send(());
+    });
+    center.addNotificationRequest_withCompletionHandler(&request, Some(&done));
+    let _ = rx.recv_timeout(POST_WAIT);
+  }))
+  .is_ok()
 }
 
 /// The notification center, or `None` when this process has no bundle identity
 /// for the framework to attribute alerts to.
 fn center() -> Option<Retained<UNUserNotificationCenter>> {
-    let id = NSBundle::mainBundle().bundleIdentifier()?;
-    if id.to_string().is_empty() {
-        return None;
-    }
-    objc2::exception::catch(UNUserNotificationCenter::currentNotificationCenter).ok()
+  let id = NSBundle::mainBundle().bundleIdentifier()?;
+  if id.to_string().is_empty() {
+    return None;
+  }
+  objc2::exception::catch(UNUserNotificationCenter::currentNotificationCenter).ok()
 }
 
 /// Request alert authorization once per process, waiting for the answer so the
@@ -90,19 +90,19 @@ fn center() -> Option<Retained<UNUserNotificationCenter>> {
 /// or a timeout is not an error — we post regardless and let the system decide,
 /// exactly as it would for any other app the user has muted.
 fn authorize(center: &UNUserNotificationCenter) {
-    ASKED.call_once(|| {
-        let (tx, rx) = mpsc::channel();
-        let handler = RcBlock::new(move |_granted: Bool, _err: *mut NSError| {
-            let _ = tx.send(());
-        });
-        let requested = objc2::exception::catch(AssertUnwindSafe(|| {
-            center.requestAuthorizationWithOptions_completionHandler(
-                UNAuthorizationOptions::Alert | UNAuthorizationOptions::Sound,
-                &handler,
-            );
-        }));
-        if requested.is_ok() {
-            let _ = rx.recv_timeout(AUTH_WAIT);
-        }
+  ASKED.call_once(|| {
+    let (tx, rx) = mpsc::channel();
+    let handler = RcBlock::new(move |_granted: Bool, _err: *mut NSError| {
+      let _ = tx.send(());
     });
+    let requested = objc2::exception::catch(AssertUnwindSafe(|| {
+      center.requestAuthorizationWithOptions_completionHandler(
+        UNAuthorizationOptions::Alert | UNAuthorizationOptions::Sound,
+        &handler,
+      );
+    }));
+    if requested.is_ok() {
+      let _ = rx.recv_timeout(AUTH_WAIT);
+    }
+  });
 }

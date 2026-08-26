@@ -8,797 +8,796 @@ use crate::value;
 /// parse, not one per line). Returns an error message for unknown keys or
 /// unparseable values.
 pub fn apply(opts: &mut Options, d: &Options, key: &str, val: &str) -> Result<(), String> {
-    let empty = val.is_empty();
-    match key {
-        "font-family" => {
-            if empty {
-                opts.font_family = d.font_family.clone();
-            } else {
-                opts.font_family.push(val.to_string());
-            }
-        }
-        "font-size" => {
-            opts.font_size = if empty {
-                d.font_size
-            } else {
-                value::parse_f32(val).ok_or_else(|| bad("number", val))?
-            };
-        }
-        "font-style" => {
-            opts.font_style = if empty {
-                d.font_style
-            } else {
-                FontStyle::parse(val).ok_or_else(|| bad("normal|bold|italic|bold-italic", val))?
-            };
-        }
-        "font-feature" => {
-            if empty {
-                opts.font_feature = d.font_feature.clone();
-            } else {
-                let feature = value::parse_fontfeature(val)
-                    .ok_or_else(|| bad("feature tag like `-liga` or `+ss01`", val))?;
-                opts.font_feature.push(feature);
-            }
-        }
-        "adjust-cell-width" => {
-            opts.adjust_cell_width = if empty {
-                d.adjust_cell_width
-            } else {
-                value::parse_adjust(val).ok_or_else(|| bad("integer pixels", val))?
-            };
-        }
-        "adjust-cell-height" => {
-            opts.adjust_cell_height = if empty {
-                d.adjust_cell_height
-            } else {
-                value::parse_adjust(val).ok_or_else(|| bad("integer pixels", val))?
-            };
-        }
-        "theme" => {
-            opts.theme = if empty {
-                d.theme.clone()
-            } else {
-                val.to_string()
-            };
-        }
-        "theme-light" => {
-            opts.theme_light = if empty {
-                d.theme_light.clone()
-            } else {
-                val.to_string()
-            };
-        }
-        "theme-dark" => {
-            opts.theme_dark = if empty {
-                d.theme_dark.clone()
-            } else {
-                val.to_string()
-            };
-        }
-        "timestamps" => {
-            opts.timestamps = if empty {
-                d.timestamps
-            } else {
-                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-            };
-        }
-        "visual-bell" => {
-            opts.visual_bell = if empty {
-                d.visual_bell
-            } else {
-                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-            };
-        }
-        "word-chars" => {
-            if empty {
-                opts.word_chars = d.word_chars.clone();
-            } else if val.chars().any(char::is_whitespace) {
-                return Err(bad("word characters (no whitespace)", val));
-            } else {
-                opts.word_chars = val.to_string();
-            }
-        }
-        "smart-select" => {
-            opts.smart_select = if empty {
-                d.smart_select
-            } else {
-                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-            };
-        }
-        "redact" => {
-            if empty {
-                opts.redact = d.redact.clone();
-            } else {
-                opts.redact.push(val.to_string());
-            }
-        }
-        "background-opacity" => {
-            opts.background_opacity = if empty {
-                d.background_opacity
-            } else {
-                value::parse_f32_range(val, 0.2, 1.0).ok_or_else(|| bad("number in 0.2..1", val))?
-            };
-        }
-        "focus-follows-mouse" => {
-            opts.focus_follows_mouse = if empty {
-                d.focus_follows_mouse
-            } else {
-                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-            };
-        }
-        "middle-click-paste" => {
-            opts.middle_click_paste = if empty {
-                d.middle_click_paste
-            } else {
-                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-            };
-        }
-        "trigger" => {
-            if empty {
-                opts.trigger = d.trigger.clone();
-            } else {
-                opts.trigger.push(val.to_string());
-            }
-        }
-        "snippet" => {
-            if empty {
-                opts.snippet = d.snippet.clone();
-            } else {
-                opts.snippet.push(val.to_string());
-            }
-        }
-        "background-image" => {
-            opts.background_image = if empty {
-                d.background_image.clone()
-            } else {
-                Some(val.to_string())
-            };
-        }
-        "badge" => {
-            opts.badge = if empty {
-                d.badge.clone()
-            } else {
-                Some(val.to_string())
-            };
-        }
-        "profile" => {
-            if empty {
-                opts.profile = d.profile.clone();
-            } else {
-                opts.profile.push(val.to_string());
-            }
-        }
-        "background" => {
-            opts.background = if empty {
-                d.background.clone()
-            } else {
-                Some(val.to_string())
-            };
-        }
-        "foreground" => {
-            opts.foreground = if empty {
-                d.foreground.clone()
-            } else {
-                Some(val.to_string())
-            };
-        }
-        "cursor-style" => {
-            opts.cursor_style = if empty {
-                d.cursor_style
-            } else {
-                CursorStyle::parse(val).ok_or_else(|| bad("block|bar|underline", val))?
-            };
-        }
-        "cursor-style-blink" => {
-            opts.cursor_style_blink = if empty {
-                d.cursor_style_blink
-            } else {
-                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-            };
-        }
-        "cursor-color" => {
-            opts.cursor_color = if empty {
-                d.cursor_color.clone()
-            } else {
-                Some(color(val)?)
-            };
-        }
-        "cursor-text" => {
-            opts.cursor_text = if empty {
-                d.cursor_text.clone()
-            } else {
-                Some(color(val)?)
-            };
-        }
-        "selection-foreground" => {
-            opts.selection_foreground = if empty {
-                d.selection_foreground.clone()
-            } else {
-                Some(color(val)?)
-            };
-        }
-        "selection-background" => {
-            opts.selection_background = if empty {
-                d.selection_background.clone()
-            } else {
-                Some(color(val)?)
-            };
-        }
-        "bold-is-bright" => {
-            opts.bold_is_bright = if empty {
-                d.bold_is_bright
-            } else {
-                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-            };
-        }
-        "minimum-contrast" => {
-            opts.minimum_contrast = if empty {
-                d.minimum_contrast
-            } else {
-                value::parse_f32_range(val, 1.0, 21.0).ok_or_else(|| bad("number in 1..21", val))?
-            };
-        }
-        "unfocused-split-opacity" => {
-            opts.unfocused_split_opacity = if empty {
-                d.unfocused_split_opacity
-            } else {
-                value::parse_f32_range(val, 0.15, 1.0)
-                    .ok_or_else(|| bad("number in 0.15..1", val))?
-            };
-        }
-        "split-divider-color" => {
-            opts.split_divider_color = if empty {
-                d.split_divider_color.clone()
-            } else {
-                Some(color(val)?)
-            };
-        }
-        "mouse-scroll-multiplier" => {
-            opts.mouse_scroll_multiplier = if empty {
-                d.mouse_scroll_multiplier
-            } else {
-                value::parse_f32_range(val, 0.01, 10_000.0)
-                    .ok_or_else(|| bad("number in 0.01..10000", val))?
-            };
-        }
-        "macos-option-as-alt" => {
-            opts.macos_option_as_alt = if empty {
-                d.macos_option_as_alt
-            } else {
-                OptionAsAlt::parse(val).ok_or_else(|| bad("auto|false|true|left|right", val))?
-            };
-        }
-        "window-inherit-working-directory" => {
-            opts.window_inherit_working_directory = if empty {
-                d.window_inherit_working_directory
-            } else {
-                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-            };
-        }
-        "quit-after-last-window-closed" => {
-            opts.quit_after_last_window_closed = if empty {
-                d.quit_after_last_window_closed
-            } else {
-                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-            };
-        }
-        "title" => {
-            opts.title = if empty {
-                d.title.clone()
-            } else {
-                Some(val.to_string())
-            };
-        }
-        "clipboard-read" => {
-            opts.clipboard_read = if empty {
-                d.clipboard_read
-            } else {
-                ClipboardAccess::parse(val).ok_or_else(|| bad("allow|ask|deny", val))?
-            };
-        }
-        "clipboard-write" => {
-            opts.clipboard_write = if empty {
-                d.clipboard_write
-            } else {
-                ClipboardAccess::parse(val).ok_or_else(|| bad("allow|ask|deny", val))?
-            };
-        }
-        "scrollback-limit" => {
-            opts.scrollback_limit = if empty {
-                d.scrollback_limit
-            } else {
-                value::parse_usize(val).ok_or_else(|| bad("non-negative integer", val))?
-            };
-        }
-        "window-padding-x" => {
-            opts.window_padding_x = if empty {
-                d.window_padding_x
-            } else {
-                value::parse_u32(val).ok_or_else(|| bad("non-negative integer", val))?
-            };
-        }
-        "window-padding-y" => {
-            opts.window_padding_y = if empty {
-                d.window_padding_y
-            } else {
-                value::parse_u32(val).ok_or_else(|| bad("non-negative integer", val))?
-            };
-        }
-        "window-width" => {
-            opts.window_width = if empty {
-                d.window_width
-            } else {
-                value::parse_u32(val).ok_or_else(|| bad("non-negative integer", val))?
-            };
-        }
-        "window-height" => {
-            opts.window_height = if empty {
-                d.window_height
-            } else {
-                value::parse_u32(val).ok_or_else(|| bad("non-negative integer", val))?
-            };
-        }
-        "command" => {
-            opts.shell = if empty {
-                d.shell.clone()
-            } else {
-                Some(val.to_string())
-            };
-        }
-        "working-directory" => {
-            opts.working_directory = if empty {
-                d.working_directory.clone()
-            } else {
-                Some(val.to_string())
-            };
-        }
-        "copy-on-select" => {
-            opts.copy_on_select = if empty {
-                d.copy_on_select
-            } else {
-                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-            };
-        }
-        "confirm-close-surface" => {
-            opts.confirm_close_surface = if empty {
-                d.confirm_close_surface
-            } else {
-                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-            };
-        }
-        "confirm-quit" => {
-            opts.confirm_quit = if empty {
-                d.confirm_quit
-            } else {
-                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-            };
-        }
-        "clipboard-paste-protection" => {
-            opts.clipboard_paste_protection = if empty {
-                d.clipboard_paste_protection
-            } else {
-                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-            };
-        }
-        "session-restore" => {
-            opts.session_restore = if empty {
-                d.session_restore
-            } else {
-                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-            };
-        }
-        "shell-integration" => {
-            opts.shell_integration = if empty {
-                d.shell_integration
-            } else {
-                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-            };
-        }
-        "auto-update" => {
-            opts.auto_update = if empty {
-                d.auto_update
-            } else {
-                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-            };
-        }
-        "autosuggest-ghost" => {
-            opts.autosuggest_ghost = if empty {
-                d.autosuggest_ghost
-            } else {
-                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-            };
-        }
-        "autosuggest-popup" => {
-            opts.autosuggest_popup = if empty {
-                d.autosuggest_popup
-            } else {
-                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-            };
-        }
-        "autosuggest-tab" => {
-            opts.autosuggest_tab = if empty {
-                d.autosuggest_tab
-            } else {
-                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-            };
-        }
-        "autosuggest-ai" => {
-            opts.autosuggest_ai = if empty {
-                d.autosuggest_ai
-            } else {
-                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-            };
-        }
-        "autosuggest-history" => {
-            opts.autosuggest_history = if empty {
-                d.autosuggest_history
-            } else {
-                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-            };
-        }
-        "autosuggest-commands" => {
-            opts.autosuggest_commands = if empty {
-                d.autosuggest_commands
-            } else {
-                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-            };
-        }
-        "autosuggest-paths" => {
-            opts.autosuggest_paths = if empty {
-                d.autosuggest_paths
-            } else {
-                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-            };
-        }
-        "autosuggest-assist" => {
-            opts.autosuggest_assist = if empty {
-                d.autosuggest_assist
-            } else {
-                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-            };
-        }
-        "tab-title-show-host" => {
-            opts.tab_title_show_host = if empty {
-                d.tab_title_show_host
-            } else {
-                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-            };
-        }
-        "tab-peek" => {
-            opts.tab_peek = if empty {
-                d.tab_peek
-            } else {
-                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-            };
-        }
-        "tab-peek-hover" => {
-            opts.tab_peek_hover = if empty {
-                d.tab_peek_hover
-            } else {
-                value::parse_u32(val).ok_or_else(|| bad("non-negative integer", val))?
-            };
-        }
-        "tab-peek-height" => {
-            opts.tab_peek_height = if empty {
-                d.tab_peek_height
-            } else {
-                value::parse_u32(val)
-                    .ok_or_else(|| bad("non-negative integer", val))?
-                    .clamp(60, 400)
-            };
-        }
-        "mouse-hide-while-typing" => {
-            opts.mouse_hide_while_typing = if empty {
-                d.mouse_hide_while_typing
-            } else {
-                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-            };
-        }
-        "palette" => {
-            if empty {
-                opts.palette = d.palette.clone();
-            } else {
-                let entry = value::parse_palette(val).ok_or_else(|| bad("N=#rrggbb", val))?;
-                opts.palette.push(entry);
-            }
-        }
-        "plugin" => {
-            if empty {
-                opts.plugin = d.plugin.clone();
-            } else {
-                opts.plugin.push(val.to_string());
-            }
-        }
-        "container" => {
-            if empty {
-                opts.container = d.container.clone();
-            } else {
-                opts.container.push(val.to_string());
-            }
-        }
-        "container-engine" => {
-            opts.container_engine = if empty {
-                d.container_engine.clone()
-            } else {
-                Some(val.to_string())
-            };
-        }
-        "container-persist" => {
-            opts.container_persist = if empty {
-                d.container_persist
-            } else {
-                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-            };
-        }
-        "sandbox-enabled" => {
-            opts.sandbox_enabled = if empty {
-                d.sandbox_enabled
-            } else {
-                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-            };
-        }
-        "sandbox-persist" => {
-            opts.sandbox_persist = if empty {
-                d.sandbox_persist
-            } else {
-                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-            };
-        }
-        "sandbox-devcontainer" => {
-            opts.sandbox_devcontainer = if empty {
-                d.sandbox_devcontainer
-            } else {
-                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-            };
-        }
-        "sandbox-image" => {
-            opts.sandbox_image = if empty {
-                d.sandbox_image.clone()
-            } else {
-                Some(val.to_string())
-            };
-        }
-        "sandbox-base" => {
-            opts.sandbox_base = if empty {
-                d.sandbox_base.clone()
-            } else {
-                Some(val.to_string())
-            };
-        }
-        "sandbox-user" => {
-            opts.sandbox_user = if empty {
-                d.sandbox_user.clone()
-            } else {
-                Some(val.to_string())
-            };
-        }
-        "sandbox-network" => {
-            opts.sandbox_network = if empty {
-                d.sandbox_network.clone()
-            } else {
-                Some(val.to_string())
-            };
-        }
-        "sandbox-memory" => {
-            opts.sandbox_memory = if empty {
-                d.sandbox_memory.clone()
-            } else {
-                Some(val.to_string())
-            };
-        }
-        "sandbox-cpus" => {
-            opts.sandbox_cpus = if empty {
-                d.sandbox_cpus.clone()
-            } else {
-                Some(val.to_string())
-            };
-        }
-        "sandbox-packages" => {
-            if empty {
-                opts.sandbox_packages = d.sandbox_packages.clone();
-            } else {
-                opts.sandbox_packages.push(val.to_string());
-            }
-        }
-        "sandbox-setup" => {
-            if empty {
-                opts.sandbox_setup = d.sandbox_setup.clone();
-            } else {
-                opts.sandbox_setup.push(val.to_string());
-            }
-        }
-        "sandbox-mount" => {
-            if empty {
-                opts.sandbox_mount = d.sandbox_mount.clone();
-            } else {
-                opts.sandbox_mount.push(val.to_string());
-            }
-        }
-        "sandbox-env" => {
-            if empty {
-                opts.sandbox_env = d.sandbox_env.clone();
-            } else {
-                opts.sandbox_env.push(val.to_string());
-            }
-        }
-        "sandbox-agents" => {
-            if empty {
-                opts.sandbox_agents = d.sandbox_agents.clone();
-            } else {
-                opts.sandbox_agents.push(val.to_string());
-            }
-        }
-        "keybind" => {
-            if empty {
-                opts.keybind = d.keybind.clone();
-            } else {
-                opts.keybind.push(val.to_string());
-            }
-        }
-        // The two dock compositions accumulate one section token per entry, in
-        // file order — that order *is* the top-to-bottom order in the dock.
-        "sidebar-left" => {
-            if empty {
-                opts.sidebar_left = d.sidebar_left.clone();
-            } else {
-                opts.sidebar_left.push(val.to_string());
-            }
-        }
-        "sidebar-right" => {
-            if empty {
-                opts.sidebar_right = d.sidebar_right.clone();
-            } else {
-                opts.sidebar_right.push(val.to_string());
-            }
-        }
-        "sidebar-collapsed" => {
-            if empty {
-                opts.sidebar_collapsed = d.sidebar_collapsed.clone();
-            } else {
-                opts.sidebar_collapsed.push(val.to_string());
-            }
-        }
-        "sidebar-left-width" => {
-            opts.sidebar_left_width = if empty {
-                d.sidebar_left_width
-            } else {
-                value::parse_u32(val).ok_or_else(|| bad("non-negative integer", val))?
-            };
-        }
-        "sidebar-right-width" => {
-            opts.sidebar_right_width = if empty {
-                d.sidebar_right_width
-            } else {
-                value::parse_u32(val).ok_or_else(|| bad("non-negative integer", val))?
-            };
-        }
-        "ai-enabled" => {
-            opts.ai_enabled = if empty {
-                d.ai_enabled
-            } else {
-                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-            };
-        }
-        "ai-optimize-tokens" => {
-            opts.ai_optimize_tokens = if empty {
-                d.ai_optimize_tokens
-            } else {
-                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-            };
-        }
-        "mcp-server-enabled" => {
-            opts.mcp_server_enabled = if empty {
-                d.mcp_server_enabled
-            } else {
-                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-            };
-        }
-        "relay-enabled" => {
-            opts.relay_enabled = if empty {
-                d.relay_enabled
-            } else {
-                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-            };
-        }
-        "relay-start-on-launch" => {
-            opts.relay_start_on_launch = if empty {
-                d.relay_start_on_launch
-            } else {
-                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-            };
-        }
-        "relay-address" => {
-            opts.relay_address = if empty {
-                d.relay_address.clone()
-            } else {
-                val.to_string()
-            };
-        }
-        "relay-default-agent" => {
-            opts.relay_default_agent = if empty {
-                d.relay_default_agent.clone()
-            } else {
-                val.to_string()
-            };
-        }
-        "relay-team-autonomy" => {
-            opts.relay_team_autonomy = if empty {
-                d.relay_team_autonomy
-            } else {
-                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-            };
-        }
-        "relay-team-window" => {
-            opts.relay_team_window = if empty {
-                d.relay_team_window
-            } else {
-                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-            };
-        }
-        "agent-claude" => {
-            opts.agent_claude = if empty {
-                d.agent_claude
-            } else {
-                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-            };
-        }
-        "agent-codex" => {
-            opts.agent_codex = if empty {
-                d.agent_codex
-            } else {
-                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-            };
-        }
-        "agent-ollama" => {
-            opts.agent_ollama = if empty {
-                d.agent_ollama
-            } else {
-                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-            };
-        }
-        "agent-gemini" => {
-            opts.agent_gemini = if empty {
-                d.agent_gemini
-            } else {
-                value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-            };
-        }
-        "agent-claude-path" => {
-            opts.agent_claude_path = if empty { None } else { Some(val.to_string()) };
-        }
-        "agent-codex-path" => {
-            opts.agent_codex_path = if empty { None } else { Some(val.to_string()) };
-        }
-        "agent-gemini-path" => {
-            opts.agent_gemini_path = if empty { None } else { Some(val.to_string()) };
-        }
-        "agent-claude-args" => {
-            opts.agent_claude_args = if empty { None } else { Some(val.to_string()) };
-        }
-        "agent-codex-args" => {
-            opts.agent_codex_args = if empty { None } else { Some(val.to_string()) };
-        }
-        "agent-gemini-args" => {
-            opts.agent_gemini_args = if empty { None } else { Some(val.to_string()) };
-        }
-        "agent-custom" => {
-            if empty {
-                opts.agent_custom = d.agent_custom.clone();
-            } else {
-                opts.agent_custom.push(val.to_string());
-            }
-        }
-        _ => return Err(format!("unknown key `{key}`")),
+  let empty = val.is_empty();
+  match key {
+    "font-family" => {
+      if empty {
+        opts.font_family = d.font_family.clone();
+      } else {
+        opts.font_family.push(val.to_string());
+      }
     }
-    Ok(())
+    "font-size" => {
+      opts.font_size = if empty {
+        d.font_size
+      } else {
+        value::parse_f32(val).ok_or_else(|| bad("number", val))?
+      };
+    }
+    "font-style" => {
+      opts.font_style = if empty {
+        d.font_style
+      } else {
+        FontStyle::parse(val).ok_or_else(|| bad("normal|bold|italic|bold-italic", val))?
+      };
+    }
+    "font-feature" => {
+      if empty {
+        opts.font_feature = d.font_feature.clone();
+      } else {
+        let feature = value::parse_fontfeature(val)
+          .ok_or_else(|| bad("feature tag like `-liga` or `+ss01`", val))?;
+        opts.font_feature.push(feature);
+      }
+    }
+    "adjust-cell-width" => {
+      opts.adjust_cell_width = if empty {
+        d.adjust_cell_width
+      } else {
+        value::parse_adjust(val).ok_or_else(|| bad("integer pixels", val))?
+      };
+    }
+    "adjust-cell-height" => {
+      opts.adjust_cell_height = if empty {
+        d.adjust_cell_height
+      } else {
+        value::parse_adjust(val).ok_or_else(|| bad("integer pixels", val))?
+      };
+    }
+    "theme" => {
+      opts.theme = if empty {
+        d.theme.clone()
+      } else {
+        val.to_string()
+      };
+    }
+    "theme-light" => {
+      opts.theme_light = if empty {
+        d.theme_light.clone()
+      } else {
+        val.to_string()
+      };
+    }
+    "theme-dark" => {
+      opts.theme_dark = if empty {
+        d.theme_dark.clone()
+      } else {
+        val.to_string()
+      };
+    }
+    "timestamps" => {
+      opts.timestamps = if empty {
+        d.timestamps
+      } else {
+        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+      };
+    }
+    "visual-bell" => {
+      opts.visual_bell = if empty {
+        d.visual_bell
+      } else {
+        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+      };
+    }
+    "word-chars" => {
+      if empty {
+        opts.word_chars = d.word_chars.clone();
+      } else if val.chars().any(char::is_whitespace) {
+        return Err(bad("word characters (no whitespace)", val));
+      } else {
+        opts.word_chars = val.to_string();
+      }
+    }
+    "smart-select" => {
+      opts.smart_select = if empty {
+        d.smart_select
+      } else {
+        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+      };
+    }
+    "redact" => {
+      if empty {
+        opts.redact = d.redact.clone();
+      } else {
+        opts.redact.push(val.to_string());
+      }
+    }
+    "background-opacity" => {
+      opts.background_opacity = if empty {
+        d.background_opacity
+      } else {
+        value::parse_f32_range(val, 0.2, 1.0).ok_or_else(|| bad("number in 0.2..1", val))?
+      };
+    }
+    "focus-follows-mouse" => {
+      opts.focus_follows_mouse = if empty {
+        d.focus_follows_mouse
+      } else {
+        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+      };
+    }
+    "middle-click-paste" => {
+      opts.middle_click_paste = if empty {
+        d.middle_click_paste
+      } else {
+        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+      };
+    }
+    "trigger" => {
+      if empty {
+        opts.trigger = d.trigger.clone();
+      } else {
+        opts.trigger.push(val.to_string());
+      }
+    }
+    "snippet" => {
+      if empty {
+        opts.snippet = d.snippet.clone();
+      } else {
+        opts.snippet.push(val.to_string());
+      }
+    }
+    "background-image" => {
+      opts.background_image = if empty {
+        d.background_image.clone()
+      } else {
+        Some(val.to_string())
+      };
+    }
+    "badge" => {
+      opts.badge = if empty {
+        d.badge.clone()
+      } else {
+        Some(val.to_string())
+      };
+    }
+    "profile" => {
+      if empty {
+        opts.profile = d.profile.clone();
+      } else {
+        opts.profile.push(val.to_string());
+      }
+    }
+    "background" => {
+      opts.background = if empty {
+        d.background.clone()
+      } else {
+        Some(val.to_string())
+      };
+    }
+    "foreground" => {
+      opts.foreground = if empty {
+        d.foreground.clone()
+      } else {
+        Some(val.to_string())
+      };
+    }
+    "cursor-style" => {
+      opts.cursor_style = if empty {
+        d.cursor_style
+      } else {
+        CursorStyle::parse(val).ok_or_else(|| bad("block|bar|underline", val))?
+      };
+    }
+    "cursor-style-blink" => {
+      opts.cursor_style_blink = if empty {
+        d.cursor_style_blink
+      } else {
+        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+      };
+    }
+    "cursor-color" => {
+      opts.cursor_color = if empty {
+        d.cursor_color.clone()
+      } else {
+        Some(color(val)?)
+      };
+    }
+    "cursor-text" => {
+      opts.cursor_text = if empty {
+        d.cursor_text.clone()
+      } else {
+        Some(color(val)?)
+      };
+    }
+    "selection-foreground" => {
+      opts.selection_foreground = if empty {
+        d.selection_foreground.clone()
+      } else {
+        Some(color(val)?)
+      };
+    }
+    "selection-background" => {
+      opts.selection_background = if empty {
+        d.selection_background.clone()
+      } else {
+        Some(color(val)?)
+      };
+    }
+    "bold-is-bright" => {
+      opts.bold_is_bright = if empty {
+        d.bold_is_bright
+      } else {
+        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+      };
+    }
+    "minimum-contrast" => {
+      opts.minimum_contrast = if empty {
+        d.minimum_contrast
+      } else {
+        value::parse_f32_range(val, 1.0, 21.0).ok_or_else(|| bad("number in 1..21", val))?
+      };
+    }
+    "unfocused-split-opacity" => {
+      opts.unfocused_split_opacity = if empty {
+        d.unfocused_split_opacity
+      } else {
+        value::parse_f32_range(val, 0.15, 1.0).ok_or_else(|| bad("number in 0.15..1", val))?
+      };
+    }
+    "split-divider-color" => {
+      opts.split_divider_color = if empty {
+        d.split_divider_color.clone()
+      } else {
+        Some(color(val)?)
+      };
+    }
+    "mouse-scroll-multiplier" => {
+      opts.mouse_scroll_multiplier = if empty {
+        d.mouse_scroll_multiplier
+      } else {
+        value::parse_f32_range(val, 0.01, 10_000.0)
+          .ok_or_else(|| bad("number in 0.01..10000", val))?
+      };
+    }
+    "macos-option-as-alt" => {
+      opts.macos_option_as_alt = if empty {
+        d.macos_option_as_alt
+      } else {
+        OptionAsAlt::parse(val).ok_or_else(|| bad("auto|false|true|left|right", val))?
+      };
+    }
+    "window-inherit-working-directory" => {
+      opts.window_inherit_working_directory = if empty {
+        d.window_inherit_working_directory
+      } else {
+        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+      };
+    }
+    "quit-after-last-window-closed" => {
+      opts.quit_after_last_window_closed = if empty {
+        d.quit_after_last_window_closed
+      } else {
+        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+      };
+    }
+    "title" => {
+      opts.title = if empty {
+        d.title.clone()
+      } else {
+        Some(val.to_string())
+      };
+    }
+    "clipboard-read" => {
+      opts.clipboard_read = if empty {
+        d.clipboard_read
+      } else {
+        ClipboardAccess::parse(val).ok_or_else(|| bad("allow|ask|deny", val))?
+      };
+    }
+    "clipboard-write" => {
+      opts.clipboard_write = if empty {
+        d.clipboard_write
+      } else {
+        ClipboardAccess::parse(val).ok_or_else(|| bad("allow|ask|deny", val))?
+      };
+    }
+    "scrollback-limit" => {
+      opts.scrollback_limit = if empty {
+        d.scrollback_limit
+      } else {
+        value::parse_usize(val).ok_or_else(|| bad("non-negative integer", val))?
+      };
+    }
+    "window-padding-x" => {
+      opts.window_padding_x = if empty {
+        d.window_padding_x
+      } else {
+        value::parse_u32(val).ok_or_else(|| bad("non-negative integer", val))?
+      };
+    }
+    "window-padding-y" => {
+      opts.window_padding_y = if empty {
+        d.window_padding_y
+      } else {
+        value::parse_u32(val).ok_or_else(|| bad("non-negative integer", val))?
+      };
+    }
+    "window-width" => {
+      opts.window_width = if empty {
+        d.window_width
+      } else {
+        value::parse_u32(val).ok_or_else(|| bad("non-negative integer", val))?
+      };
+    }
+    "window-height" => {
+      opts.window_height = if empty {
+        d.window_height
+      } else {
+        value::parse_u32(val).ok_or_else(|| bad("non-negative integer", val))?
+      };
+    }
+    "command" => {
+      opts.shell = if empty {
+        d.shell.clone()
+      } else {
+        Some(val.to_string())
+      };
+    }
+    "working-directory" => {
+      opts.working_directory = if empty {
+        d.working_directory.clone()
+      } else {
+        Some(val.to_string())
+      };
+    }
+    "copy-on-select" => {
+      opts.copy_on_select = if empty {
+        d.copy_on_select
+      } else {
+        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+      };
+    }
+    "confirm-close-surface" => {
+      opts.confirm_close_surface = if empty {
+        d.confirm_close_surface
+      } else {
+        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+      };
+    }
+    "confirm-quit" => {
+      opts.confirm_quit = if empty {
+        d.confirm_quit
+      } else {
+        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+      };
+    }
+    "clipboard-paste-protection" => {
+      opts.clipboard_paste_protection = if empty {
+        d.clipboard_paste_protection
+      } else {
+        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+      };
+    }
+    "session-restore" => {
+      opts.session_restore = if empty {
+        d.session_restore
+      } else {
+        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+      };
+    }
+    "shell-integration" => {
+      opts.shell_integration = if empty {
+        d.shell_integration
+      } else {
+        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+      };
+    }
+    "auto-update" => {
+      opts.auto_update = if empty {
+        d.auto_update
+      } else {
+        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+      };
+    }
+    "autosuggest-ghost" => {
+      opts.autosuggest_ghost = if empty {
+        d.autosuggest_ghost
+      } else {
+        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+      };
+    }
+    "autosuggest-popup" => {
+      opts.autosuggest_popup = if empty {
+        d.autosuggest_popup
+      } else {
+        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+      };
+    }
+    "autosuggest-tab" => {
+      opts.autosuggest_tab = if empty {
+        d.autosuggest_tab
+      } else {
+        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+      };
+    }
+    "autosuggest-ai" => {
+      opts.autosuggest_ai = if empty {
+        d.autosuggest_ai
+      } else {
+        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+      };
+    }
+    "autosuggest-history" => {
+      opts.autosuggest_history = if empty {
+        d.autosuggest_history
+      } else {
+        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+      };
+    }
+    "autosuggest-commands" => {
+      opts.autosuggest_commands = if empty {
+        d.autosuggest_commands
+      } else {
+        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+      };
+    }
+    "autosuggest-paths" => {
+      opts.autosuggest_paths = if empty {
+        d.autosuggest_paths
+      } else {
+        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+      };
+    }
+    "autosuggest-assist" => {
+      opts.autosuggest_assist = if empty {
+        d.autosuggest_assist
+      } else {
+        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+      };
+    }
+    "tab-title-show-host" => {
+      opts.tab_title_show_host = if empty {
+        d.tab_title_show_host
+      } else {
+        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+      };
+    }
+    "tab-peek" => {
+      opts.tab_peek = if empty {
+        d.tab_peek
+      } else {
+        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+      };
+    }
+    "tab-peek-hover" => {
+      opts.tab_peek_hover = if empty {
+        d.tab_peek_hover
+      } else {
+        value::parse_u32(val).ok_or_else(|| bad("non-negative integer", val))?
+      };
+    }
+    "tab-peek-height" => {
+      opts.tab_peek_height = if empty {
+        d.tab_peek_height
+      } else {
+        value::parse_u32(val)
+          .ok_or_else(|| bad("non-negative integer", val))?
+          .clamp(60, 400)
+      };
+    }
+    "mouse-hide-while-typing" => {
+      opts.mouse_hide_while_typing = if empty {
+        d.mouse_hide_while_typing
+      } else {
+        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+      };
+    }
+    "palette" => {
+      if empty {
+        opts.palette = d.palette.clone();
+      } else {
+        let entry = value::parse_palette(val).ok_or_else(|| bad("N=#rrggbb", val))?;
+        opts.palette.push(entry);
+      }
+    }
+    "plugin" => {
+      if empty {
+        opts.plugin = d.plugin.clone();
+      } else {
+        opts.plugin.push(val.to_string());
+      }
+    }
+    "container" => {
+      if empty {
+        opts.container = d.container.clone();
+      } else {
+        opts.container.push(val.to_string());
+      }
+    }
+    "container-engine" => {
+      opts.container_engine = if empty {
+        d.container_engine.clone()
+      } else {
+        Some(val.to_string())
+      };
+    }
+    "container-persist" => {
+      opts.container_persist = if empty {
+        d.container_persist
+      } else {
+        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+      };
+    }
+    "sandbox-enabled" => {
+      opts.sandbox_enabled = if empty {
+        d.sandbox_enabled
+      } else {
+        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+      };
+    }
+    "sandbox-persist" => {
+      opts.sandbox_persist = if empty {
+        d.sandbox_persist
+      } else {
+        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+      };
+    }
+    "sandbox-devcontainer" => {
+      opts.sandbox_devcontainer = if empty {
+        d.sandbox_devcontainer
+      } else {
+        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+      };
+    }
+    "sandbox-image" => {
+      opts.sandbox_image = if empty {
+        d.sandbox_image.clone()
+      } else {
+        Some(val.to_string())
+      };
+    }
+    "sandbox-base" => {
+      opts.sandbox_base = if empty {
+        d.sandbox_base.clone()
+      } else {
+        Some(val.to_string())
+      };
+    }
+    "sandbox-user" => {
+      opts.sandbox_user = if empty {
+        d.sandbox_user.clone()
+      } else {
+        Some(val.to_string())
+      };
+    }
+    "sandbox-network" => {
+      opts.sandbox_network = if empty {
+        d.sandbox_network.clone()
+      } else {
+        Some(val.to_string())
+      };
+    }
+    "sandbox-memory" => {
+      opts.sandbox_memory = if empty {
+        d.sandbox_memory.clone()
+      } else {
+        Some(val.to_string())
+      };
+    }
+    "sandbox-cpus" => {
+      opts.sandbox_cpus = if empty {
+        d.sandbox_cpus.clone()
+      } else {
+        Some(val.to_string())
+      };
+    }
+    "sandbox-packages" => {
+      if empty {
+        opts.sandbox_packages = d.sandbox_packages.clone();
+      } else {
+        opts.sandbox_packages.push(val.to_string());
+      }
+    }
+    "sandbox-setup" => {
+      if empty {
+        opts.sandbox_setup = d.sandbox_setup.clone();
+      } else {
+        opts.sandbox_setup.push(val.to_string());
+      }
+    }
+    "sandbox-mount" => {
+      if empty {
+        opts.sandbox_mount = d.sandbox_mount.clone();
+      } else {
+        opts.sandbox_mount.push(val.to_string());
+      }
+    }
+    "sandbox-env" => {
+      if empty {
+        opts.sandbox_env = d.sandbox_env.clone();
+      } else {
+        opts.sandbox_env.push(val.to_string());
+      }
+    }
+    "sandbox-agents" => {
+      if empty {
+        opts.sandbox_agents = d.sandbox_agents.clone();
+      } else {
+        opts.sandbox_agents.push(val.to_string());
+      }
+    }
+    "keybind" => {
+      if empty {
+        opts.keybind = d.keybind.clone();
+      } else {
+        opts.keybind.push(val.to_string());
+      }
+    }
+    // The two dock compositions accumulate one section token per entry, in
+    // file order — that order *is* the top-to-bottom order in the dock.
+    "sidebar-left" => {
+      if empty {
+        opts.sidebar_left = d.sidebar_left.clone();
+      } else {
+        opts.sidebar_left.push(val.to_string());
+      }
+    }
+    "sidebar-right" => {
+      if empty {
+        opts.sidebar_right = d.sidebar_right.clone();
+      } else {
+        opts.sidebar_right.push(val.to_string());
+      }
+    }
+    "sidebar-collapsed" => {
+      if empty {
+        opts.sidebar_collapsed = d.sidebar_collapsed.clone();
+      } else {
+        opts.sidebar_collapsed.push(val.to_string());
+      }
+    }
+    "sidebar-left-width" => {
+      opts.sidebar_left_width = if empty {
+        d.sidebar_left_width
+      } else {
+        value::parse_u32(val).ok_or_else(|| bad("non-negative integer", val))?
+      };
+    }
+    "sidebar-right-width" => {
+      opts.sidebar_right_width = if empty {
+        d.sidebar_right_width
+      } else {
+        value::parse_u32(val).ok_or_else(|| bad("non-negative integer", val))?
+      };
+    }
+    "ai-enabled" => {
+      opts.ai_enabled = if empty {
+        d.ai_enabled
+      } else {
+        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+      };
+    }
+    "ai-optimize-tokens" => {
+      opts.ai_optimize_tokens = if empty {
+        d.ai_optimize_tokens
+      } else {
+        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+      };
+    }
+    "mcp-server-enabled" => {
+      opts.mcp_server_enabled = if empty {
+        d.mcp_server_enabled
+      } else {
+        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+      };
+    }
+    "relay-enabled" => {
+      opts.relay_enabled = if empty {
+        d.relay_enabled
+      } else {
+        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+      };
+    }
+    "relay-start-on-launch" => {
+      opts.relay_start_on_launch = if empty {
+        d.relay_start_on_launch
+      } else {
+        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+      };
+    }
+    "relay-address" => {
+      opts.relay_address = if empty {
+        d.relay_address.clone()
+      } else {
+        val.to_string()
+      };
+    }
+    "relay-default-agent" => {
+      opts.relay_default_agent = if empty {
+        d.relay_default_agent.clone()
+      } else {
+        val.to_string()
+      };
+    }
+    "relay-team-autonomy" => {
+      opts.relay_team_autonomy = if empty {
+        d.relay_team_autonomy
+      } else {
+        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+      };
+    }
+    "relay-team-window" => {
+      opts.relay_team_window = if empty {
+        d.relay_team_window
+      } else {
+        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+      };
+    }
+    "agent-claude" => {
+      opts.agent_claude = if empty {
+        d.agent_claude
+      } else {
+        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+      };
+    }
+    "agent-codex" => {
+      opts.agent_codex = if empty {
+        d.agent_codex
+      } else {
+        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+      };
+    }
+    "agent-ollama" => {
+      opts.agent_ollama = if empty {
+        d.agent_ollama
+      } else {
+        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+      };
+    }
+    "agent-gemini" => {
+      opts.agent_gemini = if empty {
+        d.agent_gemini
+      } else {
+        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+      };
+    }
+    "agent-claude-path" => {
+      opts.agent_claude_path = if empty { None } else { Some(val.to_string()) };
+    }
+    "agent-codex-path" => {
+      opts.agent_codex_path = if empty { None } else { Some(val.to_string()) };
+    }
+    "agent-gemini-path" => {
+      opts.agent_gemini_path = if empty { None } else { Some(val.to_string()) };
+    }
+    "agent-claude-args" => {
+      opts.agent_claude_args = if empty { None } else { Some(val.to_string()) };
+    }
+    "agent-codex-args" => {
+      opts.agent_codex_args = if empty { None } else { Some(val.to_string()) };
+    }
+    "agent-gemini-args" => {
+      opts.agent_gemini_args = if empty { None } else { Some(val.to_string()) };
+    }
+    "agent-custom" => {
+      if empty {
+        opts.agent_custom = d.agent_custom.clone();
+      } else {
+        opts.agent_custom.push(val.to_string());
+      }
+    }
+    _ => return Err(format!("unknown key `{key}`")),
+  }
+  Ok(())
 }
 
 fn color(val: &str) -> Result<String, String> {
-    value::parse_color(val).ok_or_else(|| bad("hex color `#rrggbb`", val))
+  value::parse_color(val).ok_or_else(|| bad("hex color `#rrggbb`", val))
 }
 
 fn bad(expected: &str, got: &str) -> String {
-    format!("invalid value `{got}`, expected {expected}")
+  format!("invalid value `{got}`, expected {expected}")
 }
 
 #[cfg(test)]

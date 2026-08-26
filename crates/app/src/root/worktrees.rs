@@ -10,198 +10,200 @@ use super::*;
 use crate::view::TriggerEvent;
 
 impl WorkspaceView {
-    /// The repository directory to run worktree commands in: the focused pane's
-    /// working directory.
-    fn repo_dir(&self, cx: &App) -> Result<PathBuf, String> {
-        self.focused_cwd_path(cx)
-            .ok_or_else(|| "no working directory for the focused pane".to_string())
-    }
+  /// The repository directory to run worktree commands in: the focused pane's
+  /// working directory.
+  fn repo_dir(&self, cx: &App) -> Result<PathBuf, String> {
+    self
+      .focused_cwd_path(cx)
+      .ok_or_else(|| "no working directory for the focused pane".to_string())
+  }
 
-    /// Create a worktree from a `path[@branch]` spec on the background executor
-    /// (a `worktree add` materializes a full checkout), opening the tab in the
-    /// completion callback. The keybind-action path; the MCP verb stays the
-    /// synchronous [`Self::worktree_create`] so it can answer its caller.
-    pub(crate) fn worktree_create_bg(
-        &mut self,
-        spec: &str,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let repo = match self.repo_dir(cx) {
-            Ok(repo) => repo,
-            Err(e) => {
-                eprintln!("sinclair: worktree create failed: {e}");
-                return;
-            }
-        };
-        let Some(handle) = window.window_handle().downcast::<Self>() else {
-            return;
-        };
-        let spec = spec.to_string();
-        let executor = cx.background_executor().clone();
-        cx.spawn(async move |_this, cx| {
-            let dir = repo.clone();
-            let result = executor
-                .spawn(async move {
-                    let (path, branch) = split_spec(&spec);
-                    crate::worktree::create(&dir, path, branch)
-                })
-                .await;
-            let _ = handle.update(cx, |view, window, cx| match result {
-                Ok(abs) => {
-                    view.open_worktree_tab(&abs, window, cx);
-                    let ev = TriggerEvent::WorktreeCreated(abs.to_string_lossy().into_owned());
-                    view.fire_workspace_trigger(&ev, Some(&abs), window, cx);
-                }
-                Err(e) => eprintln!("sinclair: worktree create failed: {e}"),
-            });
+  /// Create a worktree from a `path[@branch]` spec on the background executor
+  /// (a `worktree add` materializes a full checkout), opening the tab in the
+  /// completion callback. The keybind-action path; the MCP verb stays the
+  /// synchronous [`Self::worktree_create`] so it can answer its caller.
+  pub(crate) fn worktree_create_bg(
+    &mut self,
+    spec: &str,
+    window: &mut Window,
+    cx: &mut Context<Self>,
+  ) {
+    let repo = match self.repo_dir(cx) {
+      Ok(repo) => repo,
+      Err(e) => {
+        eprintln!("sinclair: worktree create failed: {e}");
+        return;
+      }
+    };
+    let Some(handle) = window.window_handle().downcast::<Self>() else {
+      return;
+    };
+    let spec = spec.to_string();
+    let executor = cx.background_executor().clone();
+    cx.spawn(async move |_this, cx| {
+      let dir = repo.clone();
+      let result = executor
+        .spawn(async move {
+          let (path, branch) = split_spec(&spec);
+          crate::worktree::create(&dir, path, branch)
         })
-        .detach();
-    }
+        .await;
+      let _ = handle.update(cx, |view, window, cx| match result {
+        Ok(abs) => {
+          view.open_worktree_tab(&abs, window, cx);
+          let ev = TriggerEvent::WorktreeCreated(abs.to_string_lossy().into_owned());
+          view.fire_workspace_trigger(&ev, Some(&abs), window, cx);
+        }
+        Err(e) => eprintln!("sinclair: worktree create failed: {e}"),
+      });
+    })
+    .detach();
+  }
 
-    /// Remove a worktree on the background executor; fires `worktree_removed`
-    /// on completion. The keybind-action counterpart of [`Self::worktree_remove`].
-    pub(crate) fn worktree_remove_bg(
-        &mut self,
-        path: &str,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        let repo = match self.repo_dir(cx) {
-            Ok(repo) => repo,
-            Err(e) => {
-                eprintln!("sinclair: worktree remove failed: {e}");
-                return;
-            }
-        };
-        let Some(handle) = window.window_handle().downcast::<Self>() else {
-            return;
-        };
-        let path = path.to_string();
-        let executor = cx.background_executor().clone();
-        cx.spawn(async move |_this, cx| {
-            let dir = repo.clone();
-            let result = executor
-                .spawn(async move { crate::worktree::remove(&dir, &path) })
-                .await;
-            let _ = handle.update(cx, |view, window, cx| match result {
-                Ok(abs) => {
-                    let ev = TriggerEvent::WorktreeRemoved(abs.to_string_lossy().into_owned());
-                    view.fire_workspace_trigger(&ev, Some(&repo), window, cx);
-                }
-                Err(e) => eprintln!("sinclair: worktree remove failed: {e}"),
-            });
+  /// Remove a worktree on the background executor; fires `worktree_removed`
+  /// on completion. The keybind-action counterpart of [`Self::worktree_remove`].
+  pub(crate) fn worktree_remove_bg(
+    &mut self,
+    path: &str,
+    window: &mut Window,
+    cx: &mut Context<Self>,
+  ) {
+    let repo = match self.repo_dir(cx) {
+      Ok(repo) => repo,
+      Err(e) => {
+        eprintln!("sinclair: worktree remove failed: {e}");
+        return;
+      }
+    };
+    let Some(handle) = window.window_handle().downcast::<Self>() else {
+      return;
+    };
+    let path = path.to_string();
+    let executor = cx.background_executor().clone();
+    cx.spawn(async move |_this, cx| {
+      let dir = repo.clone();
+      let result = executor
+        .spawn(async move { crate::worktree::remove(&dir, &path) })
+        .await;
+      let _ = handle.update(cx, |view, window, cx| match result {
+        Ok(abs) => {
+          let ev = TriggerEvent::WorktreeRemoved(abs.to_string_lossy().into_owned());
+          view.fire_workspace_trigger(&ev, Some(&repo), window, cx);
+        }
+        Err(e) => eprintln!("sinclair: worktree remove failed: {e}"),
+      });
+    })
+    .detach();
+  }
+
+  /// Create a worktree from a `path[@branch]` spec and open it in a new tab.
+  pub(crate) fn worktree_create(
+    &mut self,
+    spec: &str,
+    window: &mut Window,
+    cx: &mut Context<Self>,
+  ) -> Result<PathBuf, String> {
+    let repo = self.repo_dir(cx)?;
+    let (path, branch) = split_spec(spec);
+    let abs = crate::worktree::create(&repo, path, branch)?;
+    self.open_worktree_tab(&abs, window, cx);
+    let ev = TriggerEvent::WorktreeCreated(abs.to_string_lossy().into_owned());
+    self.fire_workspace_trigger(&ev, Some(&abs), window, cx);
+    Ok(abs)
+  }
+
+  /// Open an existing worktree `path` in a new tab.
+  pub(crate) fn worktree_open(
+    &mut self,
+    path: &str,
+    window: &mut Window,
+    cx: &mut Context<Self>,
+  ) -> Result<PathBuf, String> {
+    let repo = self.repo_dir(cx)?;
+    let abs = if Path::new(path).is_absolute() {
+      PathBuf::from(path)
+    } else {
+      repo.join(path)
+    };
+    if !abs.is_dir() {
+      return Err(format!("worktree path does not exist: {}", abs.display()));
+    }
+    self.open_worktree_tab(&abs, window, cx);
+    Ok(abs)
+  }
+
+  /// Remove the worktree at `path`; fires `worktree_removed`.
+  pub(crate) fn worktree_remove(
+    &mut self,
+    path: &str,
+    window: &mut Window,
+    cx: &mut Context<Self>,
+  ) -> Result<PathBuf, String> {
+    let repo = self.repo_dir(cx)?;
+    let abs = crate::worktree::remove(&repo, path)?;
+    let ev = TriggerEvent::WorktreeRemoved(abs.to_string_lossy().into_owned());
+    self.fire_workspace_trigger(&ev, Some(&repo), window, cx);
+    Ok(abs)
+  }
+
+  /// Re-list the repository's worktrees into the cache the Worktrees section
+  /// renders from. `git worktree list` is a subprocess, so this runs when the
+  /// section is revealed (and on its Refresh row) rather than during render.
+  ///
+  /// The error is kept rather than discarded: "this isn't a git repository"
+  /// is the single most common state for that section, and showing it beats
+  /// an empty list that looks like a repo with no worktrees.
+  pub(crate) fn refresh_worktrees(&mut self, cx: &mut Context<Self>) {
+    self.worktrees = Some(
+      self
+        .repo_dir(cx)
+        .and_then(|repo| crate::worktree::list(&repo)),
+    );
+  }
+
+  /// Prompt for a `path[@branch]` spec and create that worktree.
+  pub(crate) fn open_new_worktree(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    self.open_rename(crate::rename::Target::Worktree, String::new(), window, cx);
+  }
+
+  /// The repository's worktrees, as JSON for the `worktree_list` verb.
+  pub(crate) fn worktree_list(&self, cx: &App) -> Result<Value, String> {
+    let repo = self.repo_dir(cx)?;
+    let list = crate::worktree::list(&repo)?;
+    let items: Vec<Value> = list
+      .into_iter()
+      .map(|w| {
+        json!({
+            "path": w.path.to_string_lossy(),
+            "branch": w.branch,
         })
-        .detach();
-    }
+      })
+      .collect();
+    Ok(json!({ "worktrees": items }))
+  }
 
-    /// Create a worktree from a `path[@branch]` spec and open it in a new tab.
-    pub(crate) fn worktree_create(
-        &mut self,
-        spec: &str,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> Result<PathBuf, String> {
-        let repo = self.repo_dir(cx)?;
-        let (path, branch) = split_spec(spec);
-        let abs = crate::worktree::create(&repo, path, branch)?;
-        self.open_worktree_tab(&abs, window, cx);
-        let ev = TriggerEvent::WorktreeCreated(abs.to_string_lossy().into_owned());
-        self.fire_workspace_trigger(&ev, Some(&abs), window, cx);
-        Ok(abs)
+  /// Spawn a new tab rooted at `path`, labeled with its final component.
+  fn open_worktree_tab(&mut self, path: &Path, window: &mut Window, cx: &mut Context<Self>) {
+    let Some(id) = self.spawn_cwd(Some(path.to_path_buf()), window, cx) else {
+      return;
+    };
+    self.group.update(cx, |g, cx| g.add_to_focused(id, cx));
+    if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+      self.rename_item(id, name, cx);
     }
-
-    /// Open an existing worktree `path` in a new tab.
-    pub(crate) fn worktree_open(
-        &mut self,
-        path: &str,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> Result<PathBuf, String> {
-        let repo = self.repo_dir(cx)?;
-        let abs = if Path::new(path).is_absolute() {
-            PathBuf::from(path)
-        } else {
-            repo.join(path)
-        };
-        if !abs.is_dir() {
-            return Err(format!("worktree path does not exist: {}", abs.display()));
-        }
-        self.open_worktree_tab(&abs, window, cx);
-        Ok(abs)
-    }
-
-    /// Remove the worktree at `path`; fires `worktree_removed`.
-    pub(crate) fn worktree_remove(
-        &mut self,
-        path: &str,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> Result<PathBuf, String> {
-        let repo = self.repo_dir(cx)?;
-        let abs = crate::worktree::remove(&repo, path)?;
-        let ev = TriggerEvent::WorktreeRemoved(abs.to_string_lossy().into_owned());
-        self.fire_workspace_trigger(&ev, Some(&repo), window, cx);
-        Ok(abs)
-    }
-
-    /// Re-list the repository's worktrees into the cache the Worktrees section
-    /// renders from. `git worktree list` is a subprocess, so this runs when the
-    /// section is revealed (and on its Refresh row) rather than during render.
-    ///
-    /// The error is kept rather than discarded: "this isn't a git repository"
-    /// is the single most common state for that section, and showing it beats
-    /// an empty list that looks like a repo with no worktrees.
-    pub(crate) fn refresh_worktrees(&mut self, cx: &mut Context<Self>) {
-        self.worktrees = Some(
-            self.repo_dir(cx)
-                .and_then(|repo| crate::worktree::list(&repo)),
-        );
-    }
-
-    /// Prompt for a `path[@branch]` spec and create that worktree.
-    pub(crate) fn open_new_worktree(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.open_rename(crate::rename::Target::Worktree, String::new(), window, cx);
-    }
-
-    /// The repository's worktrees, as JSON for the `worktree_list` verb.
-    pub(crate) fn worktree_list(&self, cx: &App) -> Result<Value, String> {
-        let repo = self.repo_dir(cx)?;
-        let list = crate::worktree::list(&repo)?;
-        let items: Vec<Value> = list
-            .into_iter()
-            .map(|w| {
-                json!({
-                    "path": w.path.to_string_lossy(),
-                    "branch": w.branch,
-                })
-            })
-            .collect();
-        Ok(json!({ "worktrees": items }))
-    }
-
-    /// Spawn a new tab rooted at `path`, labeled with its final component.
-    fn open_worktree_tab(&mut self, path: &Path, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(id) = self.spawn_cwd(Some(path.to_path_buf()), window, cx) else {
-            return;
-        };
-        self.group.update(cx, |g, cx| g.add_to_focused(id, cx));
-        if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-            self.rename_item(id, name, cx);
-        }
-        self.focusactive(window, cx);
-        cx.notify();
-    }
+    self.focusactive(window, cx);
+    cx.notify();
+  }
 }
 
 /// Split a `path[@branch]` spec into its path and optional branch name. The
 /// branch is everything after the last `@` (so paths containing `@` still work
 /// when the branch is omitted and there is no trailing `@`).
 fn split_spec(spec: &str) -> (&str, Option<&str>) {
-    match spec.rsplit_once('@') {
-        Some((path, branch)) if !branch.is_empty() && !path.is_empty() => (path, Some(branch)),
-        _ => (spec, None),
-    }
+  match spec.rsplit_once('@') {
+    Some((path, branch)) if !branch.is_empty() && !path.is_empty() => (path, Some(branch)),
+    _ => (spec, None),
+  }
 }
 
 #[cfg(test)]

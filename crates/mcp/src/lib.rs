@@ -22,24 +22,20 @@ pub const PROTOCOL_VERSION: &str = "2024-11-05";
 /// One callable tool exposed to clients.
 #[derive(Debug, Clone)]
 pub struct Tool {
-    /// Stable tool id used in `tools/call`.
-    pub name: String,
-    /// Human-facing description shown by the client.
-    pub description: String,
-    /// JSON Schema for the tool's arguments (the `inputSchema` field).
-    pub input_schema: Value,
+  /// Stable tool id used in `tools/call`.
+  pub name: String,
+  /// Human-facing description shown by the client.
+  pub description: String,
+  /// JSON Schema for the tool's arguments (the `inputSchema` field).
+  pub input_schema: Value,
 }
 
 impl Tool {
-    pub fn new(
-        name: impl Into<String>,
-        description: impl Into<String>,
-        input_schema: Value,
-    ) -> Self {
-        Self {
-            name: name.into(),
-            description: description.into(),
-            input_schema,
-        }
+  pub fn new(name: impl Into<String>, description: impl Into<String>, input_schema: Value) -> Self {
+    Self {
+      name: name.into(),
+      description: description.into(),
+      input_schema,
     }
+  }
 }

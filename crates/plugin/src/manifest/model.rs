@@ -6,47 +6,47 @@ use std::path::PathBuf;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Diagnostic {
-    pub path: PathBuf,
-    pub line: usize,
-    pub message: String,
+  pub path: PathBuf,
+  pub line: usize,
+  pub message: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Plugin {
-    pub id: String,
-    pub name: String,
-    pub version: String,
-    pub description: Option<String>,
-    pub path: PathBuf,
-    pub commands: Vec<Command>,
-    /// `[runtime]`: an executable the app invokes (over JSON on stdin/stdout)
-    /// to render panels and handle actions. Present makes this an IPC plugin.
-    pub runtime: Option<Runtime>,
-    /// `[panel]`: a side-drawer panel this plugin contributes.
-    pub panel: Option<Panel>,
-    /// `[[trigger]]`: event hooks that run an action when something happens.
-    pub triggers: Vec<Trigger>,
-    /// `[[tool]]`: tools this plugin exposes to MCP clients (AI agents). Each is
-    /// handled by the `[runtime]` via a `tool` request. This is what makes a
-    /// plugin agent-callable: the tools appear in `sinclair mcp`'s tool list.
-    pub tools: Vec<Tool>,
-    /// `capability = "…"`: what the plugin declares it accesses (from
-    /// [`CAPABILITIES`]). Advisory today — surfaced at install so users see a
-    /// plugin's reach — and the vocabulary the sandboxed runtime will enforce.
-    pub capabilities: Vec<String>,
+  pub id: String,
+  pub name: String,
+  pub version: String,
+  pub description: Option<String>,
+  pub path: PathBuf,
+  pub commands: Vec<Command>,
+  /// `[runtime]`: an executable the app invokes (over JSON on stdin/stdout)
+  /// to render panels and handle actions. Present makes this an IPC plugin.
+  pub runtime: Option<Runtime>,
+  /// `[panel]`: a side-drawer panel this plugin contributes.
+  pub panel: Option<Panel>,
+  /// `[[trigger]]`: event hooks that run an action when something happens.
+  pub triggers: Vec<Trigger>,
+  /// `[[tool]]`: tools this plugin exposes to MCP clients (AI agents). Each is
+  /// handled by the `[runtime]` via a `tool` request. This is what makes a
+  /// plugin agent-callable: the tools appear in `sinclair mcp`'s tool list.
+  pub tools: Vec<Tool>,
+  /// `capability = "…"`: what the plugin declares it accesses (from
+  /// [`CAPABILITIES`]). Advisory today — surfaced at install so users see a
+  /// plugin's reach — and the vocabulary the sandboxed runtime will enforce.
+  pub capabilities: Vec<String>,
 }
 
 /// The capabilities a plugin may declare (`capability = "…"`). A process
 /// `[runtime]` runs with full user privileges regardless; these describe intent
 /// for the user and are the gate list the WASM runtime enforces.
 pub const CAPABILITIES: &[&str] = &[
-    "commands",   // run shell commands / terminal directives
-    "screen",     // read terminal output (read_screen)
-    "network",    // make network requests
-    "filesystem", // read or write files
-    "clipboard",  // read or write the clipboard
-    "notify",     // post desktop notifications
-    "process",    // run a program and read its output (exec)
+  "commands",   // run shell commands / terminal directives
+  "screen",     // read terminal output (read_screen)
+  "network",    // make network requests
+  "filesystem", // read or write files
+  "clipboard",  // read or write the clipboard
+  "notify",     // post desktop notifications
+  "process",    // run a program and read its output (exec)
 ];
 
 /// `[[tool]]` — a tool a plugin exposes to AI agents over MCP. When an agent
@@ -54,12 +54,12 @@ pub const CAPABILITIES: &[&str] = &[
 /// (`method` = the tool id, `params` = the arguments) and returns its `result`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Tool {
-    /// Stable id; the MCP tool name is `<plugin-id>_<id>`.
-    pub id: String,
-    /// Description shown to the agent (the MCP `description`).
-    pub description: String,
-    /// Declared parameters, assembled into the MCP `inputSchema` by the host.
-    pub params: Vec<ToolParam>,
+  /// Stable id; the MCP tool name is `<plugin-id>_<id>`.
+  pub id: String,
+  /// Description shown to the agent (the MCP `description`).
+  pub description: String,
+  /// Declared parameters, assembled into the MCP `inputSchema` by the host.
+  pub params: Vec<ToolParam>,
 }
 
 /// One argument of a `[[tool]]`, declared as
@@ -67,11 +67,11 @@ pub struct Tool {
 /// optional; type defaults to `string`).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ToolParam {
-    pub name: String,
-    /// JSON Schema type: `string` | `number` | `integer` | `boolean`.
-    pub kind: String,
-    pub description: String,
-    pub required: bool,
+  pub name: String,
+  /// JSON Schema type: `string` | `number` | `integer` | `boolean`.
+  pub kind: String,
+  pub description: String,
+  pub required: bool,
 }
 
 /// `[runtime]` — the plugin's WASM component. Every plugin runs on the one
@@ -79,118 +79,118 @@ pub struct ToolParam {
 /// contributing executable behaviour at all (a plugin may be commands-only).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Runtime {
-    /// The `.wasm` module path, relative to the plugin directory.
-    pub wasm: String,
+  /// The `.wasm` module path, relative to the plugin directory.
+  pub wasm: String,
 }
 
 /// `[panel]` — a contributed side-drawer panel rendered from the plugin's
 /// block-tree responses.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Panel {
-    /// Stable id used in render/action requests and the activity-bar payload.
-    pub id: String,
-    /// Header/title shown for the panel.
-    pub title: String,
-    /// Single-glyph activity-bar icon.
-    pub icon: String,
+  /// Stable id used in render/action requests and the activity-bar payload.
+  pub id: String,
+  /// Header/title shown for the panel.
+  pub title: String,
+  /// Single-glyph activity-bar icon.
+  pub icon: String,
 }
 
 /// The event names a `[[trigger]]` may hook. Kept in one place so the manifest
 /// parser and the host agree.
 pub const TRIGGER_EVENTS: &[&str] = &[
-    "bell",
-    "title_changed",
-    "notify",
-    "exit",
-    "command_finished",
-    "dir_changed",
-    "worktree_created",
-    "worktree_removed",
+  "bell",
+  "title_changed",
+  "notify",
+  "exit",
+  "command_finished",
+  "dir_changed",
+  "worktree_created",
+  "worktree_removed",
 ];
 
 /// `[[trigger]]` — run an action when a terminal event fires. The plugin
 /// reacts to things happening rather than being opened.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Trigger {
-    /// The event to hook; one of [`TRIGGER_EVENTS`].
-    pub on: String,
-    /// Optional event-specific filter (e.g. `nonzero` for exits, or a substring
-    /// for title/notify). Interpreted by the host.
-    pub when: Option<String>,
-    /// What to do when the trigger fires.
-    pub action: TriggerAction,
+  /// The event to hook; one of [`TRIGGER_EVENTS`].
+  pub on: String,
+  /// Optional event-specific filter (e.g. `nonzero` for exits, or a substring
+  /// for title/notify). Interpreted by the host.
+  pub when: Option<String>,
+  /// What to do when the trigger fires.
+  pub action: TriggerAction,
 }
 
 /// What a [`Trigger`] does when it fires.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TriggerAction {
-    /// Run a shell command at `target`.
-    Run { text: String, target: TriggerTarget },
-    /// Post a desktop notification with this body.
-    Notify { text: String },
-    /// Call the plugin's `[runtime]` with the event payload (method name).
-    Invoke { method: String },
+  /// Run a shell command at `target`.
+  Run { text: String, target: TriggerTarget },
+  /// Post a desktop notification with this body.
+  Notify { text: String },
+  /// Call the plugin's `[runtime]` with the event payload (method name).
+  Invoke { method: String },
 }
 
 /// Where a trigger's `run` command executes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum TriggerTarget {
-    /// A detached background process (default) — no terminal UI.
-    #[default]
-    Background,
-    /// Typed into the focused pane.
-    Pane,
-    /// A new tab.
-    Tab,
-    /// A right split.
-    SplitRight,
-    /// A down split.
-    SplitDown,
+  /// A detached background process (default) — no terminal UI.
+  #[default]
+  Background,
+  /// Typed into the focused pane.
+  Pane,
+  /// A new tab.
+  Tab,
+  /// A right split.
+  SplitRight,
+  /// A down split.
+  SplitDown,
 }
 
 impl TriggerTarget {
-    pub(crate) fn parse(value: &str) -> Option<Self> {
-        match value {
-            "background" | "bg" => Some(Self::Background),
-            "pane" => Some(Self::Pane),
-            "tab" => Some(Self::Tab),
-            "splitright" | "split-right" | "split_right" => Some(Self::SplitRight),
-            "splitdown" | "split-down" | "split_down" => Some(Self::SplitDown),
-            _ => None,
-        }
+  pub(crate) fn parse(value: &str) -> Option<Self> {
+    match value {
+      "background" | "bg" => Some(Self::Background),
+      "pane" => Some(Self::Pane),
+      "tab" => Some(Self::Tab),
+      "splitright" | "split-right" | "split_right" => Some(Self::SplitRight),
+      "splitdown" | "split-down" | "split_down" => Some(Self::SplitDown),
+      _ => None,
     }
+  }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Command {
-    pub id: String,
-    pub title: String,
-    pub run: String,
-    pub mode: CommandMode,
-    pub keybind: Option<String>,
+  pub id: String,
+  pub title: String,
+  pub run: String,
+  pub mode: CommandMode,
+  pub keybind: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum CommandMode {
-    /// Write the command into the focused shell and press enter.
-    #[default]
-    Pane,
-    /// Run the command in a new tab.
-    Tab,
-    /// Run the command in a right split.
-    SplitRight,
-    /// Run the command in a down split.
-    SplitDown,
+  /// Write the command into the focused shell and press enter.
+  #[default]
+  Pane,
+  /// Run the command in a new tab.
+  Tab,
+  /// Run the command in a right split.
+  SplitRight,
+  /// Run the command in a down split.
+  SplitDown,
 }
 
 impl CommandMode {
-    pub(crate) fn parse(value: &str) -> Option<Self> {
-        match value {
-            "pane" => Some(Self::Pane),
-            "tab" => Some(Self::Tab),
-            "splitright" | "split-right" => Some(Self::SplitRight),
-            "splitdown" | "split-down" => Some(Self::SplitDown),
-            _ => None,
-        }
+  pub(crate) fn parse(value: &str) -> Option<Self> {
+    match value {
+      "pane" => Some(Self::Pane),
+      "tab" => Some(Self::Tab),
+      "splitright" | "split-right" => Some(Self::SplitRight),
+      "splitdown" | "split-down" => Some(Self::SplitDown),
+      _ => None,
     }
+  }
 }

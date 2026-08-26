@@ -50,57 +50,58 @@ use crate::scheme::Scheme;
 
 /// Every builtin scheme.
 pub static ALL: &[&Scheme] = &[
-    &DARK,
-    &LIGHT,
-    &AYU_DARK,
-    &CATPPUCCIN_LATTE,
-    &CATPPUCCIN_MOCHA,
-    &DRACULA,
-    &EVERFOREST,
-    &GITHUB_DARK,
-    &GITHUB_LIGHT,
-    &GRUVBOX_DARK,
-    &GRUVBOX_LIGHT,
-    &KANAGAWA,
-    &MATERIAL_DARK,
-    &MONOKAI,
-    &NORD,
-    &ONE_DARK,
-    &PALENIGHT,
-    &ROSE_PINE,
-    &SOLARIZED_DARK,
-    &SOLARIZED_LIGHT,
-    &TOKYO_NIGHT,
-    &ZENBURN,
+  &DARK,
+  &LIGHT,
+  &AYU_DARK,
+  &CATPPUCCIN_LATTE,
+  &CATPPUCCIN_MOCHA,
+  &DRACULA,
+  &EVERFOREST,
+  &GITHUB_DARK,
+  &GITHUB_LIGHT,
+  &GRUVBOX_DARK,
+  &GRUVBOX_LIGHT,
+  &KANAGAWA,
+  &MATERIAL_DARK,
+  &MONOKAI,
+  &NORD,
+  &ONE_DARK,
+  &PALENIGHT,
+  &ROSE_PINE,
+  &SOLARIZED_DARK,
+  &SOLARIZED_LIGHT,
+  &TOKYO_NIGHT,
+  &ZENBURN,
 ];
 
 /// Lowercase a name and drop spaces, dashes, and underscores so
 /// "Catppuccin Mocha", "catppuccin-mocha", and "catppuccin_mocha"
 /// all normalize identically.
 fn normalize(name: &str) -> String {
-    name.chars()
-        .filter(|ch| !matches!(ch, ' ' | '-' | '_'))
-        .map(|ch| ch.to_ascii_lowercase())
-        .collect()
+  name
+    .chars()
+    .filter(|ch| !matches!(ch, ' ' | '-' | '_'))
+    .map(|ch| ch.to_ascii_lowercase())
+    .collect()
 }
 
 /// Look up a builtin scheme by name, case-insensitively and ignoring
 /// spaces, dashes, and underscores.
 pub fn builtin(name: &str) -> Option<&'static Scheme> {
-    let want = normalize(name);
-    ALL.iter().copied().find(|s| normalize(s.name) == want)
+  let want = normalize(name);
+  ALL.iter().copied().find(|s| normalize(s.name) == want)
 }
 
 /// Sorted display names of every builtin scheme, for diagnostics.
 pub fn names() -> Vec<&'static str> {
-    let mut out: Vec<&'static str> = ALL.iter().map(|s| s.name).collect();
-    out.sort_unstable();
-    out
+  let mut out: Vec<&'static str> = ALL.iter().map(|s| s.name).collect();
+  out.sort_unstable();
+  out
 }
 
 /// The scheme used when nothing is configured.
 pub fn default_scheme() -> &'static Scheme {
-    &DARK
+  &DARK
 }
 
 #[cfg(test)]

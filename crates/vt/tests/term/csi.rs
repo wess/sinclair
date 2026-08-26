@@ -3,159 +3,159 @@ use crate::term::Terminal;
 
 #[test]
 fn cup_moves_cursor() {
-    let mut t = Terminal::new(10, 5, 0);
-    t.feed(b"\x1b[3;4H");
-    assert_eq!(t.cursor_pos(), (2, 3));
-    t.feed(b"\x1b[H");
-    assert_eq!(t.cursor_pos(), (0, 0));
+  let mut t = Terminal::new(10, 5, 0);
+  t.feed(b"\x1b[3;4H");
+  assert_eq!(t.cursor_pos(), (2, 3));
+  t.feed(b"\x1b[H");
+  assert_eq!(t.cursor_pos(), (0, 0));
 }
 
 #[test]
 fn private_modes_toggle() {
-    let mut t = Terminal::new(10, 5, 0);
-    t.feed(b"\x1b[?25l");
-    assert!(!t.cursor_visible());
-    t.feed(b"\x1b[?25h");
-    assert!(t.cursor_visible());
-    t.feed(b"\x1b[?2004h");
-    assert!(t.modes().contains(Modes::BRACKETED_PASTE));
-    t.feed(b"\x1b[?1000h\x1b[?1006h");
-    assert!(t.modes().contains(Modes::MOUSE_CLICK));
-    assert!(t.modes().contains(Modes::MOUSE_SGR));
-    t.feed(b"\x1b[?1000l");
-    assert!(!t.modes().contains(Modes::MOUSE_CLICK));
+  let mut t = Terminal::new(10, 5, 0);
+  t.feed(b"\x1b[?25l");
+  assert!(!t.cursor_visible());
+  t.feed(b"\x1b[?25h");
+  assert!(t.cursor_visible());
+  t.feed(b"\x1b[?2004h");
+  assert!(t.modes().contains(Modes::BRACKETED_PASTE));
+  t.feed(b"\x1b[?1000h\x1b[?1006h");
+  assert!(t.modes().contains(Modes::MOUSE_CLICK));
+  assert!(t.modes().contains(Modes::MOUSE_SGR));
+  t.feed(b"\x1b[?1000l");
+  assert!(!t.modes().contains(Modes::MOUSE_CLICK));
 }
 
 #[test]
 fn insert_mode_shifts_on_print() {
-    let mut t = Terminal::new(10, 3, 0);
-    t.feed(b"abc\x1b[1G\x1b[4hX");
-    assert_eq!(t.row_text(0), "Xabc");
-    t.feed(b"\x1b[4l");
-    assert!(!t.modes().contains(Modes::INSERT));
+  let mut t = Terminal::new(10, 3, 0);
+  t.feed(b"abc\x1b[1G\x1b[4hX");
+  assert_eq!(t.row_text(0), "Xabc");
+  t.feed(b"\x1b[4l");
+  assert!(!t.modes().contains(Modes::INSERT));
 }
 
 #[test]
 fn dsr_five_reports_ok() {
-    let mut t = Terminal::new(10, 3, 0);
-    t.feed(b"\x1b[5n");
-    assert_eq!(t.take_output(), b"\x1b[0n");
+  let mut t = Terminal::new(10, 3, 0);
+  t.feed(b"\x1b[5n");
+  assert_eq!(t.take_output(), b"\x1b[0n");
 }
 
 #[test]
 fn da1_reports_vt220_with_sixel() {
-    let mut t = Terminal::new(10, 3, 0);
-    t.feed(b"\x1b[c");
-    assert_eq!(t.take_output(), b"\x1b[?62;4;22c");
+  let mut t = Terminal::new(10, 3, 0);
+  t.feed(b"\x1b[c");
+  assert_eq!(t.take_output(), b"\x1b[?62;4;22c");
 }
 
 #[test]
 fn xtsmgraphics_reports_color_registers() {
-    let mut t = Terminal::new(10, 3, 0);
-    t.feed(b"\x1b[?1;1S");
-    assert_eq!(t.take_output(), b"\x1b[?1;0;256S");
-    t.feed(b"\x1b[?1;4S");
-    assert_eq!(t.take_output(), b"\x1b[?1;0;256S");
-    // Action out of range: status 2.
-    t.feed(b"\x1b[?1;5S");
-    assert_eq!(t.take_output(), b"\x1b[?1;2S");
+  let mut t = Terminal::new(10, 3, 0);
+  t.feed(b"\x1b[?1;1S");
+  assert_eq!(t.take_output(), b"\x1b[?1;0;256S");
+  t.feed(b"\x1b[?1;4S");
+  assert_eq!(t.take_output(), b"\x1b[?1;0;256S");
+  // Action out of range: status 2.
+  t.feed(b"\x1b[?1;5S");
+  assert_eq!(t.take_output(), b"\x1b[?1;2S");
 }
 
 #[test]
 fn xtsmgraphics_reports_sixel_geometry() {
-    let mut t = Terminal::new(10, 3, 0);
-    t.set_cell_pixels(8, 16);
-    t.feed(b"\x1b[?2;1S");
-    assert_eq!(t.take_output(), b"\x1b[?2;0;80;48S");
-    t.feed(b"\x1b[?2;4S");
-    assert_eq!(t.take_output(), b"\x1b[?2;0;80;48S");
-    // Geometry is not settable: status 3.
-    t.feed(b"\x1b[?2;3;100;100S");
-    assert_eq!(t.take_output(), b"\x1b[?2;3S");
-    // ReGIS (or anything else) is not an item we know: status 1.
-    t.feed(b"\x1b[?3;1S");
-    assert_eq!(t.take_output(), b"\x1b[?3;1S");
+  let mut t = Terminal::new(10, 3, 0);
+  t.set_cell_pixels(8, 16);
+  t.feed(b"\x1b[?2;1S");
+  assert_eq!(t.take_output(), b"\x1b[?2;0;80;48S");
+  t.feed(b"\x1b[?2;4S");
+  assert_eq!(t.take_output(), b"\x1b[?2;0;80;48S");
+  // Geometry is not settable: status 3.
+  t.feed(b"\x1b[?2;3;100;100S");
+  assert_eq!(t.take_output(), b"\x1b[?2;3S");
+  // ReGIS (or anything else) is not an item we know: status 1.
+  t.feed(b"\x1b[?3;1S");
+  assert_eq!(t.take_output(), b"\x1b[?3;1S");
 }
 
 #[test]
 fn xtwinops_reports_sizes() {
-    let mut t = Terminal::new(10, 3, 0);
-    t.set_cell_pixels(8, 16);
-    t.feed(b"\x1b[14t");
-    assert_eq!(t.take_output(), b"\x1b[4;48;80t");
-    t.feed(b"\x1b[16t");
-    assert_eq!(t.take_output(), b"\x1b[6;16;8t");
-    t.feed(b"\x1b[18t");
-    assert_eq!(t.take_output(), b"\x1b[8;3;10t");
+  let mut t = Terminal::new(10, 3, 0);
+  t.set_cell_pixels(8, 16);
+  t.feed(b"\x1b[14t");
+  assert_eq!(t.take_output(), b"\x1b[4;48;80t");
+  t.feed(b"\x1b[16t");
+  assert_eq!(t.take_output(), b"\x1b[6;16;8t");
+  t.feed(b"\x1b[18t");
+  assert_eq!(t.take_output(), b"\x1b[8;3;10t");
 }
 
 #[test]
 fn decscusr_stores_style() {
-    use crate::cursor::CursorStyle;
-    let mut t = Terminal::new(10, 3, 0);
-    t.feed(b"\x1b[4 q");
-    assert_eq!(t.cursor_style(), CursorStyle::SteadyUnderline);
-    t.feed(b"\x1b[0 q");
-    assert_eq!(t.cursor_style(), CursorStyle::BlinkingBlock);
+  use crate::cursor::CursorStyle;
+  let mut t = Terminal::new(10, 3, 0);
+  t.feed(b"\x1b[4 q");
+  assert_eq!(t.cursor_style(), CursorStyle::SteadyUnderline);
+  t.feed(b"\x1b[0 q");
+  assert_eq!(t.cursor_style(), CursorStyle::BlinkingBlock);
 }
 
 #[test]
 fn title_stack_push_pop() {
-    let mut t = Terminal::new(10, 3, 0);
-    t.feed(b"\x1b]2;first\x07\x1b[22;0t\x1b]2;second\x07");
-    assert_eq!(t.title(), "second");
-    t.feed(b"\x1b[23;0t");
-    assert_eq!(t.title(), "first");
+  let mut t = Terminal::new(10, 3, 0);
+  t.feed(b"\x1b]2;first\x07\x1b[22;0t\x1b]2;second\x07");
+  assert_eq!(t.title(), "second");
+  t.feed(b"\x1b[23;0t");
+  assert_eq!(t.title(), "first");
 }
 
 #[test]
 fn rep_repeats_last_char() {
-    let mut t = Terminal::new(10, 3, 0);
-    t.feed(b"x\x1b[3b");
-    assert_eq!(t.row_text(0), "xxxx");
+  let mut t = Terminal::new(10, 3, 0);
+  t.feed(b"x\x1b[3b");
+  assert_eq!(t.row_text(0), "xxxx");
 }
 
 #[test]
 fn kitty_keyboard_push_pop_set_query() {
-    let mut t = Terminal::new(10, 3, 0);
-    assert_eq!(t.kitty_keyboard_flags(), 0);
-    // Query in legacy mode.
-    t.feed(b"\x1b[?u");
-    assert_eq!(t.take_output(), b"\x1b[?0u");
-    // Push disambiguate.
-    t.feed(b"\x1b[>1u");
-    assert_eq!(t.kitty_keyboard_flags(), 1);
-    t.feed(b"\x1b[?u");
-    assert_eq!(t.take_output(), b"\x1b[?1u");
-    // Add a bit via set mode 2.
-    t.feed(b"\x1b[=2;2u");
-    assert_eq!(t.kitty_keyboard_flags(), 3);
-    // Pop back to legacy.
-    t.feed(b"\x1b[<1u");
-    assert_eq!(t.kitty_keyboard_flags(), 0);
+  let mut t = Terminal::new(10, 3, 0);
+  assert_eq!(t.kitty_keyboard_flags(), 0);
+  // Query in legacy mode.
+  t.feed(b"\x1b[?u");
+  assert_eq!(t.take_output(), b"\x1b[?0u");
+  // Push disambiguate.
+  t.feed(b"\x1b[>1u");
+  assert_eq!(t.kitty_keyboard_flags(), 1);
+  t.feed(b"\x1b[?u");
+  assert_eq!(t.take_output(), b"\x1b[?1u");
+  // Add a bit via set mode 2.
+  t.feed(b"\x1b[=2;2u");
+  assert_eq!(t.kitty_keyboard_flags(), 3);
+  // Pop back to legacy.
+  t.feed(b"\x1b[<1u");
+  assert_eq!(t.kitty_keyboard_flags(), 0);
 }
 
 #[test]
 fn kitty_keyboard_is_per_screen() {
-    let mut t = Terminal::new(10, 3, 0);
-    t.feed(b"\x1b[>5u"); // main screen
-    assert_eq!(t.kitty_keyboard_flags(), 5);
-    t.feed(b"\x1b[?1049h"); // enter alt: its own (empty) stack
-    assert_eq!(t.kitty_keyboard_flags(), 0);
-    t.feed(b"\x1b[?1049l"); // back to main
-    assert_eq!(t.kitty_keyboard_flags(), 5);
+  let mut t = Terminal::new(10, 3, 0);
+  t.feed(b"\x1b[>5u"); // main screen
+  assert_eq!(t.kitty_keyboard_flags(), 5);
+  t.feed(b"\x1b[?1049h"); // enter alt: its own (empty) stack
+  assert_eq!(t.kitty_keyboard_flags(), 0);
+  t.feed(b"\x1b[?1049l"); // back to main
+  assert_eq!(t.kitty_keyboard_flags(), 5);
 }
 
 #[test]
 fn kitty_keyboard_reset_by_ris() {
-    let mut t = Terminal::new(10, 3, 0);
-    t.feed(b"\x1b[>9u\x1bc");
-    assert_eq!(t.kitty_keyboard_flags(), 0);
+  let mut t = Terminal::new(10, 3, 0);
+  t.feed(b"\x1b[>9u\x1bc");
+  assert_eq!(t.kitty_keyboard_flags(), 0);
 }
 
 #[test]
 fn unknown_csi_is_ignored() {
-    let mut t = Terminal::new(10, 3, 0);
-    t.feed(b"\x1b[999z\x1b[?9999hok");
-    assert_eq!(t.row_text(0), "ok");
+  let mut t = Terminal::new(10, 3, 0);
+  t.feed(b"\x1b[999z\x1b[?9999hok");
+  assert_eq!(t.row_text(0), "ok");
 }

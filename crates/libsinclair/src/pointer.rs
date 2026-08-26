@@ -7,8 +7,8 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use gpui::{
-    px, App, Bounds, ClipboardItem, Modifiers, MouseDownEvent, MouseMoveEvent, MouseUpEvent,
-    Pixels, ScrollDelta, ScrollWheelEvent, TouchPhase, Window,
+  px, App, Bounds, ClipboardItem, Modifiers, MouseDownEvent, MouseMoveEvent, MouseUpEvent, Pixels,
+  ScrollDelta, ScrollWheelEvent, TouchPhase, Window,
 };
 use input::{MouseAction, MouseButton};
 use terminal::Session;
@@ -25,24 +25,24 @@ const OPENABLE_SCHEMES: &[&str] = &["http", "https", "ftp", "ftps", "file", "mai
 /// The held modifier that turns a left click or hover into a link action:
 /// Cmd on macOS, Ctrl elsewhere.
 fn open_mod(m: &input::Mods) -> bool {
-    if cfg!(target_os = "macos") {
-        m.cmd
-    } else {
-        m.ctrl
-    }
+  if cfg!(target_os = "macos") {
+    m.cmd
+  } else {
+    m.ctrl
+  }
 }
 
 /// Whether `url` carries a scheme we are willing to open. A real scheme is
 /// non-empty, holds no path separator (otherwise the `:` was inside a path),
 /// and appears in [`OPENABLE_SCHEMES`].
 pub fn openable(url: &str) -> bool {
-    let Some((scheme, _)) = url.split_once(':') else {
-        return false;
-    };
-    if scheme.is_empty() || scheme.contains('/') {
-        return false;
-    }
-    OPENABLE_SCHEMES.contains(&scheme.to_ascii_lowercase().as_str())
+  let Some((scheme, _)) = url.split_once(':') else {
+    return false;
+  };
+  if scheme.is_empty() || scheme.contains('/') {
+    return false;
+  }
+  OPENABLE_SCHEMES.contains(&scheme.to_ascii_lowercase().as_str())
 }
 
 /// What copy-on-select does with the captured text. The default,
@@ -58,330 +58,330 @@ pub type PathHook = dyn Fn(vt::PathHit, &mut App);
 
 /// The default [`CopyHook`]: a plain system-clipboard write.
 pub fn clipboard_copy(text: String, cx: &mut App) {
-    cx.write_to_clipboard(ClipboardItem::new_string(text));
+  cx.write_to_clipboard(ClipboardItem::new_string(text));
 }
 
 /// Everything a pointer event needs, captured at paint time.
 #[derive(Clone)]
 pub struct Pointer {
-    pub session: Arc<Session>,
-    pub state: Rc<RefCell<MouseState>>,
-    pub bounds: Bounds<Pixels>,
-    pub pad: Padding,
-    pub cell: CellSize,
-    pub cols: usize,
-    pub rows: usize,
-    pub copy_on_select: bool,
-    pub copy: Rc<CopyHook>,
-    /// What an open-modifier click on a path does. `None` (the default) leaves
-    /// paths inert, exactly as before there was a scanner for them.
-    pub path: Option<Rc<PathHook>>,
-    pub smart_select: bool,
-    pub middle_click_paste: bool,
+  pub session: Arc<Session>,
+  pub state: Rc<RefCell<MouseState>>,
+  pub bounds: Bounds<Pixels>,
+  pub pad: Padding,
+  pub cell: CellSize,
+  pub cols: usize,
+  pub rows: usize,
+  pub copy_on_select: bool,
+  pub copy: Rc<CopyHook>,
+  /// What an open-modifier click on a path does. `None` (the default) leaves
+  /// paths inert, exactly as before there was a scanner for them.
+  pub path: Option<Rc<PathHook>>,
+  pub smart_select: bool,
+  pub middle_click_paste: bool,
 }
 
 fn mods(m: &Modifiers) -> input::Mods {
-    input::Mods {
-        shift: m.shift,
-        alt: m.alt,
-        ctrl: m.control,
-        cmd: m.platform,
-    }
+  input::Mods {
+    shift: m.shift,
+    alt: m.alt,
+    ctrl: m.control,
+    cmd: m.platform,
+  }
 }
 
 fn button(b: gpui::MouseButton) -> Option<MouseButton> {
-    match b {
-        gpui::MouseButton::Left => Some(MouseButton::Left),
-        gpui::MouseButton::Middle => Some(MouseButton::Middle),
-        gpui::MouseButton::Right => Some(MouseButton::Right),
-        gpui::MouseButton::Navigate(_) => None,
-    }
+  match b {
+    gpui::MouseButton::Left => Some(MouseButton::Left),
+    gpui::MouseButton::Middle => Some(MouseButton::Middle),
+    gpui::MouseButton::Right => Some(MouseButton::Right),
+    gpui::MouseButton::Navigate(_) => None,
+  }
 }
 
 fn cell_at(p: &Pointer, pos: gpui::Point<Pixels>) -> (usize, usize) {
-    metrics::cell_at(
-        (f32::from(pos.x), f32::from(pos.y)),
-        (f32::from(p.bounds.origin.x), f32::from(p.bounds.origin.y)),
-        p.pad,
-        p.cell,
-        p.cols,
-        p.rows,
-    )
+  metrics::cell_at(
+    (f32::from(pos.x), f32::from(pos.y)),
+    (f32::from(p.bounds.origin.x), f32::from(p.bounds.origin.y)),
+    p.pad,
+    p.cell,
+    p.cols,
+    p.rows,
+  )
 }
 
 /// Send one encoded mouse report, 1-based coordinates.
 fn report(
-    p: &Pointer,
-    action: MouseAction,
-    btn: MouseButton,
-    cell: (usize, usize),
-    m: input::Mods,
-    sgr: bool,
+  p: &Pointer,
+  action: MouseAction,
+  btn: MouseButton,
+  cell: (usize, usize),
+  m: input::Mods,
+  sgr: bool,
 ) {
-    let (row, col) = cell;
-    if let Some(bytes) = input::encode_mouse(action, btn, col as u32 + 1, row as u32 + 1, m, sgr) {
-        let _ = p.session.write(&bytes);
-    }
+  let (row, col) = cell;
+  if let Some(bytes) = input::encode_mouse(action, btn, col as u32 + 1, row as u32 + 1, m, sgr) {
+    let _ = p.session.write(&bytes);
+  }
 }
 
 pub fn down(p: &Pointer, e: &MouseDownEvent, window: &mut Window, _cx: &mut App) {
-    if !p.bounds.contains(&e.position) {
-        return;
-    }
-    let m = mods(&e.modifiers);
-    let (mode, sgr, offset) = p
-        .session
-        .with_term(|t| (t.mouse_mode(), t.mouse_sgr(), t.display_offset()));
-    let cell = cell_at(p, e.position);
+  if !p.bounds.contains(&e.position) {
+    return;
+  }
+  let m = mods(&e.modifiers);
+  let (mode, sgr, offset) = p
+    .session
+    .with_term(|t| (t.mouse_mode(), t.mouse_sgr(), t.display_offset()));
+  let cell = cell_at(p, e.position);
 
-    if mouse::reports(mode, m.shift) {
-        let Some(btn) = button(e.button) else { return };
-        report(p, MouseAction::Press, btn, cell, m, sgr);
-        let mut s = p.state.borrow_mut();
-        s.report_button = Some(btn);
-        s.last_motion = Some(cell);
-        return;
-    }
-
-    // Middle-click paste (X-style): send the current selection to the pty.
-    if e.button == gpui::MouseButton::Middle && p.middle_click_paste {
-        let (text, bracketed) = p
-            .session
-            .with_term(|t| (t.selection_text(), t.bracketed_paste()));
-        if let Some(text) = text.filter(|t| !t.is_empty()) {
-            let _ = p.session.write(&input::encode_paste(&text, bracketed));
-            window.refresh();
-        }
-        return;
-    }
-
-    if e.button != gpui::MouseButton::Left {
-        return;
-    }
-    let select_mode = mouse::click_mode(e.click_count, p.smart_select);
-    let point = metrics::selection_point(cell.0, cell.1, offset);
-    p.session
-        .with_term(|t| t.start_selection(select_mode, point));
+  if mouse::reports(mode, m.shift) {
+    let Some(btn) = button(e.button) else { return };
+    report(p, MouseAction::Press, btn, cell, m, sgr);
     let mut s = p.state.borrow_mut();
-    s.selecting = true;
-    s.dragged = e.click_count > 1;
-    s.pressed = Some(cell);
-    drop(s);
-    window.refresh();
+    s.report_button = Some(btn);
+    s.last_motion = Some(cell);
+    return;
+  }
+
+  // Middle-click paste (X-style): send the current selection to the pty.
+  if e.button == gpui::MouseButton::Middle && p.middle_click_paste {
+    let (text, bracketed) = p
+      .session
+      .with_term(|t| (t.selection_text(), t.bracketed_paste()));
+    if let Some(text) = text.filter(|t| !t.is_empty()) {
+      let _ = p.session.write(&input::encode_paste(&text, bracketed));
+      window.refresh();
+    }
+    return;
+  }
+
+  if e.button != gpui::MouseButton::Left {
+    return;
+  }
+  let select_mode = mouse::click_mode(e.click_count, p.smart_select);
+  let point = metrics::selection_point(cell.0, cell.1, offset);
+  p.session
+    .with_term(|t| t.start_selection(select_mode, point));
+  let mut s = p.state.borrow_mut();
+  s.selecting = true;
+  s.dragged = e.click_count > 1;
+  s.pressed = Some(cell);
+  drop(s);
+  window.refresh();
 }
 
 pub fn moved(p: &Pointer, e: &MouseMoveEvent, window: &mut Window, _cx: &mut App) {
-    let m = mods(&e.modifiers);
+  let m = mods(&e.modifiers);
 
-    // Link hover: while the open-modifier is held, find the link under the
-    // pointer so the view can underline it and show the pointing-hand cursor.
-    let hover = if open_mod(&m) && !p.state.borrow().selecting && p.bounds.contains(&e.position) {
-        let (row, col) = cell_at(p, e.position);
-        p.session
-            .with_term(|t| t.link_at(row, col))
-            .map(|l| (row, l.start_col, l.end_col))
+  // Link hover: while the open-modifier is held, find the link under the
+  // pointer so the view can underline it and show the pointing-hand cursor.
+  let hover = if open_mod(&m) && !p.state.borrow().selecting && p.bounds.contains(&e.position) {
+    let (row, col) = cell_at(p, e.position);
+    p.session
+      .with_term(|t| t.link_at(row, col))
+      .map(|l| (row, l.start_col, l.end_col))
+  } else {
+    None
+  };
+  if p.state.borrow().hover_link != hover {
+    p.state.borrow_mut().hover_link = hover;
+    window.refresh();
+  }
+
+  if p.state.borrow().selecting && e.pressed_button == Some(gpui::MouseButton::Left) {
+    let top = p.bounds.origin.y + px(p.pad.y);
+    let bottom = p.bounds.origin.y + p.bounds.size.height - px(p.pad.y);
+    let scroll: isize = if e.position.y < top {
+      1
+    } else if e.position.y > bottom {
+      -1
     } else {
-        None
+      0
     };
-    if p.state.borrow().hover_link != hover {
-        p.state.borrow_mut().hover_link = hover;
-        window.refresh();
-    }
-
-    if p.state.borrow().selecting && e.pressed_button == Some(gpui::MouseButton::Left) {
-        let top = p.bounds.origin.y + px(p.pad.y);
-        let bottom = p.bounds.origin.y + p.bounds.size.height - px(p.pad.y);
-        let scroll: isize = if e.position.y < top {
-            1
-        } else if e.position.y > bottom {
-            -1
-        } else {
-            0
-        };
-        let cell = cell_at(p, e.position);
-        p.session.with_term(|t| {
-            if scroll != 0 {
-                t.scroll_display(scroll);
-            }
-            let point = metrics::selection_point(cell.0, cell.1, t.display_offset());
-            t.update_selection(point);
-        });
-        let mut s = p.state.borrow_mut();
-        if s.pressed != Some(cell) || scroll != 0 {
-            s.dragged = true;
-        }
-        drop(s);
-        window.refresh();
-        return;
-    }
-
-    let (mode, sgr) = p.session.with_term(|t| (t.mouse_mode(), t.mouse_sgr()));
-    if !mouse::reports(mode, m.shift) {
-        return;
-    }
-    let held = p.state.borrow().report_button;
-    if !mouse::reports_motion(mode, held) || !p.bounds.contains(&e.position) {
-        return;
-    }
     let cell = cell_at(p, e.position);
-    if p.state.borrow().last_motion == Some(cell) {
-        return;
+    p.session.with_term(|t| {
+      if scroll != 0 {
+        t.scroll_display(scroll);
+      }
+      let point = metrics::selection_point(cell.0, cell.1, t.display_offset());
+      t.update_selection(point);
+    });
+    let mut s = p.state.borrow_mut();
+    if s.pressed != Some(cell) || scroll != 0 {
+      s.dragged = true;
     }
-    report(
-        p,
-        MouseAction::Motion,
-        held.unwrap_or(MouseButton::None),
-        cell,
-        m,
-        sgr,
-    );
-    p.state.borrow_mut().last_motion = Some(cell);
+    drop(s);
+    window.refresh();
+    return;
+  }
+
+  let (mode, sgr) = p.session.with_term(|t| (t.mouse_mode(), t.mouse_sgr()));
+  if !mouse::reports(mode, m.shift) {
+    return;
+  }
+  let held = p.state.borrow().report_button;
+  if !mouse::reports_motion(mode, held) || !p.bounds.contains(&e.position) {
+    return;
+  }
+  let cell = cell_at(p, e.position);
+  if p.state.borrow().last_motion == Some(cell) {
+    return;
+  }
+  report(
+    p,
+    MouseAction::Motion,
+    held.unwrap_or(MouseButton::None),
+    cell,
+    m,
+    sgr,
+  );
+  p.state.borrow_mut().last_motion = Some(cell);
 }
 
 /// Whether releasing with the open-modifier held should open the link under
 /// the pointer: only inside this pane's bounds, only when the press began in
 /// this pane, and never at the end of a drag (which is a selection gesture).
 pub(crate) fn opens_link(contains: bool, pressed_here: bool, dragged: bool) -> bool {
-    contains && pressed_here && !dragged
+  contains && pressed_here && !dragged
 }
 
 pub fn up(p: &Pointer, e: &MouseUpEvent, window: &mut Window, cx: &mut App) {
-    let m = mods(&e.modifiers);
+  let m = mods(&e.modifiers);
 
-    let held = p.state.borrow().report_button;
-    if let Some(btn) = held {
-        if button(e.button) == Some(btn) {
-            let sgr = p.session.with_term(|t| t.mouse_sgr());
-            report(p, MouseAction::Release, btn, cell_at(p, e.position), m, sgr);
-            let mut s = p.state.borrow_mut();
-            s.report_button = None;
-            s.last_motion = None;
-        }
-        return;
+  let held = p.state.borrow().report_button;
+  if let Some(btn) = held {
+    if button(e.button) == Some(btn) {
+      let sgr = p.session.with_term(|t| t.mouse_sgr());
+      report(p, MouseAction::Release, btn, cell_at(p, e.position), m, sgr);
+      let mut s = p.state.borrow_mut();
+      s.report_button = None;
+      s.last_motion = None;
     }
+    return;
+  }
 
-    if e.button != gpui::MouseButton::Left {
-        return;
-    }
+  if e.button != gpui::MouseButton::Left {
+    return;
+  }
 
-    let (selecting, pressed_here, dragged) = {
-        let s = p.state.borrow();
-        (s.selecting, s.pressed.is_some(), s.dragged)
+  let (selecting, pressed_here, dragged) = {
+    let s = p.state.borrow();
+    (s.selecting, s.pressed.is_some(), s.dragged)
+  };
+
+  if open_mod(&m) && opens_link(p.bounds.contains(&e.position), pressed_here, dragged) {
+    let (row, col) = cell_at(p, e.position);
+    let url = p.session.with_term(|t| t.link_at(row, col).map(|l| l.url));
+    // A path is only looked for where there is no link: `path_at` already
+    // declines a cell a URL covers, and asking twice would scan the row for
+    // nothing on every click that lands on one.
+    let path = match (&url, &p.path) {
+      (None, Some(_)) => p.session.with_term(|t| t.path_at(row, col)),
+      _ => None,
     };
-
-    if open_mod(&m) && opens_link(p.bounds.contains(&e.position), pressed_here, dragged) {
-        let (row, col) = cell_at(p, e.position);
-        let url = p.session.with_term(|t| t.link_at(row, col).map(|l| l.url));
-        // A path is only looked for where there is no link: `path_at` already
-        // declines a cell a URL covers, and asking twice would scan the row for
-        // nothing on every click that lands on one.
-        let path = match (&url, &p.path) {
-            (None, Some(_)) => p.session.with_term(|t| t.path_at(row, col)),
-            _ => None,
-        };
-        let acted = match (url, path) {
-            (Some(url), _) => {
-                if openable(&url) {
-                    cx.open_url(&url);
-                } else {
-                    eprintln!("sinclair: refused to open link with disallowed scheme: {url}");
-                }
-                true
-            }
-            (None, Some(hit)) => {
-                // The hook resolves and checks the candidate, so a click on
-                // text that merely looked like a path does nothing — including
-                // not clearing the selection under it.
-                if let Some(hook) = p.path.clone() {
-                    hook(hit, cx);
-                }
-                true
-            }
-            (None, None) => false,
-        };
-        if acted {
-            p.session.with_term(|t| t.clear_selection());
-            let mut s = p.state.borrow_mut();
-            s.selecting = false;
-            s.pressed = None;
-            s.dragged = false;
-            drop(s);
-            window.refresh();
-            return;
+    let acted = match (url, path) {
+      (Some(url), _) => {
+        if openable(&url) {
+          cx.open_url(&url);
+        } else {
+          eprintln!("sinclair: refused to open link with disallowed scheme: {url}");
         }
-    }
-
-    if !selecting {
-        return;
-    }
-    let dragged = {
-        let mut s = p.state.borrow_mut();
-        s.selecting = false;
-        s.pressed = None;
-        s.dragged
+        true
+      }
+      (None, Some(hit)) => {
+        // The hook resolves and checks the candidate, so a click on
+        // text that merely looked like a path does nothing — including
+        // not clearing the selection under it.
+        if let Some(hook) = p.path.clone() {
+          hook(hit, cx);
+        }
+        true
+      }
+      (None, None) => false,
     };
-    if !dragged {
-        p.session.with_term(|t| t.clear_selection());
-        window.refresh();
-        return;
+    if acted {
+      p.session.with_term(|t| t.clear_selection());
+      let mut s = p.state.borrow_mut();
+      s.selecting = false;
+      s.pressed = None;
+      s.dragged = false;
+      drop(s);
+      window.refresh();
+      return;
     }
-    if p.copy_on_select {
-        if let Some(text) = p.session.with_term(|t| t.selection_text()) {
-            if !text.is_empty() {
-                (p.copy)(text, cx);
-            }
-        }
-    }
+  }
+
+  if !selecting {
+    return;
+  }
+  let dragged = {
+    let mut s = p.state.borrow_mut();
+    s.selecting = false;
+    s.pressed = None;
+    s.dragged
+  };
+  if !dragged {
+    p.session.with_term(|t| t.clear_selection());
     window.refresh();
+    return;
+  }
+  if p.copy_on_select {
+    if let Some(text) = p.session.with_term(|t| t.selection_text()) {
+      if !text.is_empty() {
+        (p.copy)(text, cx);
+      }
+    }
+  }
+  window.refresh();
 }
 
 pub fn wheel(p: &Pointer, e: &ScrollWheelEvent, window: &mut Window, _cx: &mut App) {
-    if !p.bounds.contains(&e.position) {
-        return;
-    }
-    let m = mods(&e.modifiers);
-    if matches!(e.touch_phase, TouchPhase::Started) {
-        p.state.borrow_mut().wheel = 0.0;
-    }
-    let delta = match e.delta {
-        ScrollDelta::Lines(l) => l.y,
-        ScrollDelta::Pixels(d) => f32::from(d.y) / p.cell.height,
-    };
-    let lines = mouse::wheel_lines(&mut p.state.borrow_mut().wheel, delta);
-    if lines == 0 {
-        return;
-    }
+  if !p.bounds.contains(&e.position) {
+    return;
+  }
+  let m = mods(&e.modifiers);
+  if matches!(e.touch_phase, TouchPhase::Started) {
+    p.state.borrow_mut().wheel = 0.0;
+  }
+  let delta = match e.delta {
+    ScrollDelta::Lines(l) => l.y,
+    ScrollDelta::Pixels(d) => f32::from(d.y) / p.cell.height,
+  };
+  let lines = mouse::wheel_lines(&mut p.state.borrow_mut().wheel, delta);
+  if lines == 0 {
+    return;
+  }
 
-    let (mode, sgr, alt, alt_scroll, app_cursor) = p.session.with_term(|t| {
-        (
-            t.mouse_mode(),
-            t.mouse_sgr(),
-            t.is_alt_screen(),
-            t.alternate_scroll(),
-            t.cursor_keys_app(),
-        )
-    });
-    match mouse::route_wheel(mode, m.shift, alt, alt_scroll) {
-        WheelRoute::Report => {
-            let cell = cell_at(p, e.position);
-            let btn = if lines > 0 {
-                MouseButton::WheelUp
-            } else {
-                MouseButton::WheelDown
-            };
-            for _ in 0..lines.unsigned_abs() {
-                report(p, MouseAction::Press, btn, cell, m, sgr);
-            }
-        }
-        WheelRoute::Arrows => {
-            let bytes = input::encode_scroll_arrows(lines > 0, lines.unsigned_abs(), app_cursor);
-            let _ = p.session.write(&bytes);
-        }
-        WheelRoute::Display => {
-            p.session.with_term(|t| t.scroll_display(lines as isize));
-            window.refresh();
-        }
+  let (mode, sgr, alt, alt_scroll, app_cursor) = p.session.with_term(|t| {
+    (
+      t.mouse_mode(),
+      t.mouse_sgr(),
+      t.is_alt_screen(),
+      t.alternate_scroll(),
+      t.cursor_keys_app(),
+    )
+  });
+  match mouse::route_wheel(mode, m.shift, alt, alt_scroll) {
+    WheelRoute::Report => {
+      let cell = cell_at(p, e.position);
+      let btn = if lines > 0 {
+        MouseButton::WheelUp
+      } else {
+        MouseButton::WheelDown
+      };
+      for _ in 0..lines.unsigned_abs() {
+        report(p, MouseAction::Press, btn, cell, m, sgr);
+      }
     }
+    WheelRoute::Arrows => {
+      let bytes = input::encode_scroll_arrows(lines > 0, lines.unsigned_abs(), app_cursor);
+      let _ = p.session.write(&bytes);
+    }
+    WheelRoute::Display => {
+      p.session.with_term(|t| t.scroll_display(lines as isize));
+      window.refresh();
+    }
+  }
 }
 
 #[cfg(test)]

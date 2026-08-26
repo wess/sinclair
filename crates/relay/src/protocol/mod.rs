@@ -4,36 +4,36 @@ use serde_json::Value;
 /// A single mesh message as stored and delivered.
 #[derive(Debug, Clone, Serialize, sqlx::FromRow)]
 pub struct Message {
-    pub id: i64,
-    pub sender: String,
-    /// "direct" | "channel" | "broadcast"
-    pub kind: String,
-    /// agent name (direct) or channel name (channel); null for broadcast.
-    pub target: Option<String>,
-    pub body: String,
-    pub created: i64,
+  pub id: i64,
+  pub sender: String,
+  /// "direct" | "channel" | "broadcast"
+  pub kind: String,
+  /// agent name (direct) or channel name (channel); null for broadcast.
+  pub target: Option<String>,
+  pub body: String,
+  pub created: i64,
 }
 
 /// Incoming JSON-RPC request (or notification when `id` is absent).
 #[derive(Debug, Deserialize)]
 pub struct RpcRequest {
-    pub jsonrpc: Option<String>,
-    pub id: Option<Value>,
-    pub method: String,
-    #[serde(default)]
-    pub params: Value,
+  pub jsonrpc: Option<String>,
+  pub id: Option<Value>,
+  pub method: String,
+  #[serde(default)]
+  pub params: Value,
 }
 
 pub fn ok(id: Value, result: Value) -> Value {
-    serde_json::json!({ "jsonrpc": "2.0", "id": id, "result": result })
+  serde_json::json!({ "jsonrpc": "2.0", "id": id, "result": result })
 }
 
 pub fn err(id: Value, code: i64, message: &str) -> Value {
-    serde_json::json!({
-        "jsonrpc": "2.0",
-        "id": id,
-        "error": { "code": code, "message": message }
-    })
+  serde_json::json!({
+      "jsonrpc": "2.0",
+      "id": id,
+      "error": { "code": code, "message": message }
+  })
 }
 
 /// An MCP `notifications/progress` frame for `token`, emitted periodically while
@@ -46,21 +46,21 @@ pub fn err(id: Value, code: i64, message: &str) -> Value {
 /// server's own deadline — the agent then sees a tool error and, having no
 /// retry instruction, stops looping.
 pub fn progress(token: &Value, n: u64, message: &str) -> Value {
-    serde_json::json!({
-        "jsonrpc": "2.0",
-        "method": "notifications/progress",
-        "params": {
-            "progressToken": token,
-            "progress": n,
-            "message": message
-        }
-    })
+  serde_json::json!({
+      "jsonrpc": "2.0",
+      "method": "notifications/progress",
+      "params": {
+          "progressToken": token,
+          "progress": n,
+          "message": message
+      }
+  })
 }
 
 pub fn now() -> i64 {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_secs() as i64)
-        .unwrap_or(0)
+  use std::time::{SystemTime, UNIX_EPOCH};
+  SystemTime::now()
+    .duration_since(UNIX_EPOCH)
+    .map(|d| d.as_secs() as i64)
+    .unwrap_or(0)
 }

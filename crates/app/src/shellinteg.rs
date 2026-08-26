@@ -91,95 +91,95 @@ printf '\\e]7;file://%s%s\\e\\\\' \"${HOSTNAME}\" \"${PWD}\"
 /// Shells we know how to wire up.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Shell {
-    Zsh,
-    Bash,
-    Fish,
+  Zsh,
+  Bash,
+  Fish,
 }
 
 /// Classify a shell program path by basename, tolerating a login `-` prefix.
 fn detect(program: &str) -> Option<Shell> {
-    let base = Path::new(program).file_name()?.to_str()?;
-    let base = base.strip_prefix('-').unwrap_or(base);
-    match base {
-        "zsh" => Some(Shell::Zsh),
-        "bash" => Some(Shell::Bash),
-        "fish" => Some(Shell::Fish),
-        _ => None,
-    }
+  let base = Path::new(program).file_name()?.to_str()?;
+  let base = base.strip_prefix('-').unwrap_or(base);
+  match base {
+    "zsh" => Some(Shell::Zsh),
+    "bash" => Some(Shell::Bash),
+    "fish" => Some(Shell::Fish),
+    _ => None,
+  }
 }
 
 /// Directory holding the generated scripts, beside the config file.
 fn dir() -> Option<PathBuf> {
-    config::default_path().and_then(|p| p.parent().map(|d| d.join("shell-integration")))
+  config::default_path().and_then(|p| p.parent().map(|d| d.join("shell-integration")))
 }
 
 /// Write the script set to disk (idempotent). Returns the dir on success.
 pub fn install() -> Option<PathBuf> {
-    let dir = dir()?;
-    let fishconf = dir.join("fish-data/fish/vendor_conf.d");
-    std::fs::create_dir_all(&fishconf).ok()?;
-    write(&dir.join(".zshenv"), ZSHENV);
-    write(&dir.join(".zprofile"), ZPROFILE);
-    write(&dir.join(".zshrc"), ZSHRC);
-    write(&dir.join(".zlogin"), ZLOGIN);
-    write(&fishconf.join("sinclair.fish"), FISH);
-    write(&dir.join("integration.bash"), BASH);
-    Some(dir)
+  let dir = dir()?;
+  let fishconf = dir.join("fish-data/fish/vendor_conf.d");
+  std::fs::create_dir_all(&fishconf).ok()?;
+  write(&dir.join(".zshenv"), ZSHENV);
+  write(&dir.join(".zprofile"), ZPROFILE);
+  write(&dir.join(".zshrc"), ZSHRC);
+  write(&dir.join(".zlogin"), ZLOGIN);
+  write(&fishconf.join("sinclair.fish"), FISH);
+  write(&dir.join("integration.bash"), BASH);
+  Some(dir)
 }
 
 /// Write `contents` unless the file already holds exactly that (the scripts
 /// are static per build; skipping the rewrite keeps pane spawns off the disk).
 fn write(path: &Path, contents: &str) {
-    if std::fs::read_to_string(path).is_ok_and(|cur| cur == contents) {
-        return;
-    }
-    let _ = std::fs::write(path, contents);
+  if std::fs::read_to_string(path).is_ok_and(|cur| cur == contents) {
+    return;
+  }
+  let _ = std::fs::write(path, contents);
 }
 
 /// Environment overrides that wire integration into `program`, given the
 /// script `dir` and a lookup into the current environment. Empty for shells we
 /// don't recognize, so the spawn is untouched.
 fn env_overrides(
-    program: &str,
-    dir: &Path,
-    env: impl Fn(&str) -> Option<String>,
+  program: &str,
+  dir: &Path,
+  env: impl Fn(&str) -> Option<String>,
 ) -> Vec<(String, String)> {
-    let Some(shell) = detect(program) else {
-        return Vec::new();
-    };
-    let d = dir.to_string_lossy().into_owned();
-    match shell {
-        Shell::Zsh => {
-            let mut v = vec![("ZDOTDIR".to_string(), d)];
-            if let Some(orig) = env("ZDOTDIR").filter(|s| !s.is_empty()) {
-                v.push(("SINCLAIR_ZDOTDIR".to_string(), orig));
-            }
-            v
-        }
-        Shell::Fish => {
-            let mut val = dir.join("fish-data").to_string_lossy().into_owned();
-            if let Some(existing) = env("XDG_DATA_DIRS").filter(|s| !s.is_empty()) {
-                val.push(':');
-                val.push_str(&existing);
-            }
-            vec![("XDG_DATA_DIRS".to_string(), val)]
-        }
-        Shell::Bash => vec![(
-            "PROMPT_COMMAND".to_string(),
-            format!("source '{d}/integration.bash'"),
-        )],
+  let Some(shell) = detect(program) else {
+    return Vec::new();
+  };
+  let d = dir.to_string_lossy().into_owned();
+  match shell {
+    Shell::Zsh => {
+      let mut v = vec![("ZDOTDIR".to_string(), d)];
+      if let Some(orig) = env("ZDOTDIR").filter(|s| !s.is_empty()) {
+        v.push(("SINCLAIR_ZDOTDIR".to_string(), orig));
+      }
+      v
     }
+    Shell::Fish => {
+      let mut val = dir.join("fish-data").to_string_lossy().into_owned();
+      if let Some(existing) = env("XDG_DATA_DIRS").filter(|s| !s.is_empty()) {
+        val.push(':');
+        val.push_str(&existing);
+      }
+      vec![("XDG_DATA_DIRS".to_string(), val)]
+    }
+    Shell::Bash => vec![(
+      "PROMPT_COMMAND".to_string(),
+      format!("source '{d}/integration.bash'"),
+    )],
+  }
 }
 
 /// Ensure scripts exist and return the env overrides for `program`. A no-op
 /// (empty) when the shell is unsupported or the dir can't be created. The
 /// scripts are installed once per process (they're static), not per pane spawn.
 pub fn overrides_for(program: &str) -> Vec<(String, String)> {
-    static DIR: std::sync::OnceLock<Option<PathBuf>> = std::sync::OnceLock::new();
-    let Some(dir) = DIR.get_or_init(install) else {
-        return Vec::new();
-    };
-    env_overrides(program, dir, |k| std::env::var(k).ok())
+  static DIR: std::sync::OnceLock<Option<PathBuf>> = std::sync::OnceLock::new();
+  let Some(dir) = DIR.get_or_init(install) else {
+    return Vec::new();
+  };
+  env_overrides(program, dir, |k| std::env::var(k).ok())
 }
 
 #[cfg(test)]

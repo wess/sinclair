@@ -10,133 +10,134 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 
 fn yes() -> bool {
-    true
+  true
 }
 
 /// One installed plugin's record.
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Debug)]
 pub struct Entry {
-    /// The version recorded at install (for pinning / update detection).
-    #[serde(default)]
-    pub version: String,
-    /// Where it came from: `builtin`, `catalog:<name>`, `local:<path>`, …
-    #[serde(default)]
-    pub source: String,
-    /// Enabled plugins load; a disabled one stays installed but inert.
-    #[serde(default = "yes")]
-    pub enabled: bool,
-    /// The capabilities the user consented to at install. A plugin may only reach
-    /// the intersection of what it declares and what was granted.
-    #[serde(default)]
-    pub granted: Vec<String>,
+  /// The version recorded at install (for pinning / update detection).
+  #[serde(default)]
+  pub version: String,
+  /// Where it came from: `builtin`, `catalog:<name>`, `local:<path>`, …
+  #[serde(default)]
+  pub source: String,
+  /// Enabled plugins load; a disabled one stays installed but inert.
+  #[serde(default = "yes")]
+  pub enabled: bool,
+  /// The capabilities the user consented to at install. A plugin may only reach
+  /// the intersection of what it declares and what was granted.
+  #[serde(default)]
+  pub granted: Vec<String>,
 }
 
 /// The `installed.toml` state, keyed by plugin id.
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct Installed {
-    #[serde(default)]
-    pub plugins: BTreeMap<String, Entry>,
+  #[serde(default)]
+  pub plugins: BTreeMap<String, Entry>,
 }
 
 impl Installed {
-    /// `$XDG_CONFIG_HOME/sinclair/installed.toml` (beside the plugins dir).
-    pub fn path() -> Option<PathBuf> {
-        Some(crate::defaultdir()?.parent()?.join("installed.toml"))
-    }
+  /// `$XDG_CONFIG_HOME/sinclair/installed.toml` (beside the plugins dir).
+  pub fn path() -> Option<PathBuf> {
+    Some(crate::defaultdir()?.parent()?.join("installed.toml"))
+  }
 
-    /// Load the record, or an empty one if absent/unparsable (never fails).
-    pub fn load() -> Self {
-        Self::path()
-            .map(|p| Self::load_from(&p))
-            .unwrap_or_default()
-    }
+  /// Load the record, or an empty one if absent/unparsable (never fails).
+  pub fn load() -> Self {
+    Self::path()
+      .map(|p| Self::load_from(&p))
+      .unwrap_or_default()
+  }
 
-    /// Load the record at `path`; absent/unparsable yields an empty one.
-    pub fn load_from(path: &std::path::Path) -> Self {
-        std::fs::read_to_string(path)
-            .ok()
-            .and_then(|text| toml::from_str(&text).ok())
-            .unwrap_or_default()
-    }
+  /// Load the record at `path`; absent/unparsable yields an empty one.
+  pub fn load_from(path: &std::path::Path) -> Self {
+    std::fs::read_to_string(path)
+      .ok()
+      .and_then(|text| toml::from_str(&text).ok())
+      .unwrap_or_default()
+  }
 
-    /// Persist the record.
-    pub fn save(&self) -> std::io::Result<()> {
-        let Some(path) = Self::path() else {
-            return Ok(());
-        };
-        self.save_to(&path)
-    }
+  /// Persist the record.
+  pub fn save(&self) -> std::io::Result<()> {
+    let Some(path) = Self::path() else {
+      return Ok(());
+    };
+    self.save_to(&path)
+  }
 
-    /// Persist the record at `path`, creating parent directories as needed.
-    pub fn save_to(&self, path: &std::path::Path) -> std::io::Result<()> {
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-        let text = toml::to_string_pretty(self).map_err(std::io::Error::other)?;
-        std::fs::write(path, text)
+  /// Persist the record at `path`, creating parent directories as needed.
+  pub fn save_to(&self, path: &std::path::Path) -> std::io::Result<()> {
+    if let Some(parent) = path.parent() {
+      std::fs::create_dir_all(parent)?;
     }
+    let text = toml::to_string_pretty(self).map_err(std::io::Error::other)?;
+    std::fs::write(path, text)
+  }
 
-    /// Whether `id` should load. Untracked plugins (built-ins, freshly dropped-in
-    /// dirs) default to enabled, so the record is opt-in.
-    pub fn is_enabled(&self, id: &str) -> bool {
-        self.plugins.get(id).map(|e| e.enabled).unwrap_or(true)
-    }
+  /// Whether `id` should load. Untracked plugins (built-ins, freshly dropped-in
+  /// dirs) default to enabled, so the record is opt-in.
+  pub fn is_enabled(&self, id: &str) -> bool {
+    self.plugins.get(id).map(|e| e.enabled).unwrap_or(true)
+  }
 
-    /// Enable or disable `id`, creating a record if needed.
-    pub fn set_enabled(&mut self, id: &str, enabled: bool) {
-        self.plugins.entry(id.to_string()).or_default().enabled = enabled;
-    }
+  /// Enable or disable `id`, creating a record if needed.
+  pub fn set_enabled(&mut self, id: &str, enabled: bool) {
+    self.plugins.entry(id.to_string()).or_default().enabled = enabled;
+  }
 
-    /// The capabilities granted to `id` (empty if untracked).
-    pub fn granted(&self, id: &str) -> &[String] {
-        self.plugins
-            .get(id)
-            .map(|e| e.granted.as_slice())
-            .unwrap_or(&[])
-    }
+  /// The capabilities granted to `id` (empty if untracked).
+  pub fn granted(&self, id: &str) -> &[String] {
+    self
+      .plugins
+      .get(id)
+      .map(|e| e.granted.as_slice())
+      .unwrap_or(&[])
+  }
 
-    /// The capabilities a plugin may actually reach: what it *declares*, narrowed
-    /// to what the user *granted*. An untracked plugin (a built-in or a
-    /// dropped-in local dir) gets its declared set — implicit consent for local
-    /// trust. A registry-installed plugin is limited to `granted ∩ declared`, so
-    /// a plugin can't widen its reach past what the user consented to at install.
-    pub fn effective_capabilities(&self, id: &str, declared: &[String]) -> Vec<String> {
-        match self.plugins.get(id) {
-            None => declared.to_vec(),
-            Some(entry) => declared
-                .iter()
-                .filter(|cap| entry.granted.iter().any(|g| g == *cap))
-                .cloned()
-                .collect(),
-        }
+  /// The capabilities a plugin may actually reach: what it *declares*, narrowed
+  /// to what the user *granted*. An untracked plugin (a built-in or a
+  /// dropped-in local dir) gets its declared set — implicit consent for local
+  /// trust. A registry-installed plugin is limited to `granted ∩ declared`, so
+  /// a plugin can't widen its reach past what the user consented to at install.
+  pub fn effective_capabilities(&self, id: &str, declared: &[String]) -> Vec<String> {
+    match self.plugins.get(id) {
+      None => declared.to_vec(),
+      Some(entry) => declared
+        .iter()
+        .filter(|cap| entry.granted.iter().any(|g| g == *cap))
+        .cloned()
+        .collect(),
     }
+  }
 
-    /// Record an install (or update): version, source, and the granted caps the
-    /// user consented to. An update keeps the plugin's enabled/disabled state —
-    /// re-enabling is its own explicit act ([`set_enabled`](Self::set_enabled)).
-    pub fn record(&mut self, id: &str, version: &str, source: &str, granted: Vec<String>) {
-        let enabled = self.is_enabled(id);
-        self.plugins.insert(
-            id.to_string(),
-            Entry {
-                version: version.to_string(),
-                source: source.to_string(),
-                enabled,
-                granted,
-            },
-        );
-    }
+  /// Record an install (or update): version, source, and the granted caps the
+  /// user consented to. An update keeps the plugin's enabled/disabled state —
+  /// re-enabling is its own explicit act ([`set_enabled`](Self::set_enabled)).
+  pub fn record(&mut self, id: &str, version: &str, source: &str, granted: Vec<String>) {
+    let enabled = self.is_enabled(id);
+    self.plugins.insert(
+      id.to_string(),
+      Entry {
+        version: version.to_string(),
+        source: source.to_string(),
+        enabled,
+        granted,
+      },
+    );
+  }
 }
 
 impl Default for Entry {
-    fn default() -> Self {
-        Entry {
-            version: String::new(),
-            source: String::new(),
-            enabled: true,
-            granted: Vec::new(),
-        }
+  fn default() -> Self {
+    Entry {
+      version: String::new(),
+      source: String::new(),
+      enabled: true,
+      granted: Vec::new(),
     }
+  }
 }
 
 #[cfg(test)]

@@ -1,11 +1,6 @@
-<!-- Keep in sync with AGENTS.md. Same content; this file is the Claude Code
-     copy, AGENTS.md is the tool-neutral one. Edit both when either changes. -->
+# Sinclair
 
-# CLAUDE.md
-
-This file provides guidance to Claude Code (claude.ai/code) when working with
-code in this repository. Other AI agents read `AGENTS.md`, which carries the
-same guidance.
+Repository guidance for agent sessions.
 
 ## What this is
 
@@ -135,7 +130,7 @@ The workspace is layered bottom-up; each crate depends only on those below it.
   Installs report `Stage`s as they run so `updateui` can show real progress.
 - **`relay`** — the agent mesh, shipped as a standalone sidecar binary
   (`relay`), **not** part of the terminal. Lets independent coding-agent
-  sessions (Claude Code, Codex, …) coordinate over a shared SQLite bus: agents
+  sessions coordinate over a shared SQLite bus: agents
   `register`, message each other / channels, and `wait` (a single blocking SSE
   call) to park for free between tasks. Built on tokio + axum + sqlx; MCP
   transport is Streamable HTTP so many sessions share one server. Submodules:
@@ -194,12 +189,12 @@ boundary is the bridge.
 
 ## Working in this repo
 
-- In this project Claude has full authority to run git and everything else —
+- In this project the agent has full authority to run git and everything else —
   branching, committing, pushing, tagging, cutting releases, and any other
   operation needed to move the work forward. The owner's usual "I handle git"
   rule does not apply here; act directly.
-- Commit messages, PRs, and release notes must never mention Claude, Claude
-  Code, or Anthropic, and carry no AI/co-author trailer.
+- Commit messages, PRs, and release notes carry no assistant attribution or
+  co-author trailer.
 - Releases ship straight from `main`: a workspace version bump committed and
   pushed to `main` is the release (see the version convention below). Run the
   full gate first — `cargo test`, `cargo clippy --all-targets`, and a release

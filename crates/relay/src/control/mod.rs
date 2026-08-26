@@ -15,93 +15,92 @@ use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 pub fn routes() -> Router<App> {
-    Router::new()
-        .route("/control/state", get(state))
-        .route("/control/events", get(events))
-        .route("/control/feed", get(feed))
-        .route("/control/feed/live", get(feed_live))
-        .route("/control/spawn", post(spawn_worker))
-        .route("/control/stop", post(stop_worker))
-        .route("/control/register", post(register))
-        .route("/control/wait", post(wait))
-        .route("/control/send", post(send))
+  Router::new()
+    .route("/control/state", get(state))
+    .route("/control/events", get(events))
+    .route("/control/feed", get(feed))
+    .route("/control/feed/live", get(feed_live))
+    .route("/control/spawn", post(spawn_worker))
+    .route("/control/stop", post(stop_worker))
+    .route("/control/register", post(register))
+    .route("/control/wait", post(wait))
+    .route("/control/send", post(send))
 }
 
 #[derive(Deserialize)]
 struct RegisterReq {
-    name: String,
-    #[serde(default)]
-    role: String,
-    #[serde(default)]
-    channels: Vec<String>,
+  name: String,
+  #[serde(default)]
+  role: String,
+  #[serde(default)]
+  channels: Vec<String>,
 }
 
 async fn register(State(app): State<App>, Json(r): Json<RegisterReq>) -> Json<Value> {
-    let ok = db::upsert_agent(&app.db, &r.name, &r.role, "")
-        .await
-        .is_ok();
-    for ch in &r.channels {
-        let _ = db::subscribe(&app.db, &r.name, ch).await;
-    }
-    app.bump();
-    Json(json!({ "ok": ok }))
+  let ok = db::upsert_agent(&app.db, &r.name, &r.role, "")
+    .await
+    .is_ok();
+  for ch in &r.channels {
+    let _ = db::subscribe(&app.db, &r.name, ch).await;
+  }
+  app.bump();
+  Json(json!({ "ok": ok }))
 }
 
 #[derive(Deserialize)]
 struct WaitReq {
-    name: String,
-    #[serde(default)]
-    block: bool,
-    /// Highest message id the client finished processing from its previous
-    /// batch. The read cursor only advances on this handshake, so a batch whose
-    /// response was lost in flight is redelivered — at-least-once, see the
-    /// delivery contract in [`crate::bus`].
-    #[serde(default)]
-    ack: i64,
+  name: String,
+  #[serde(default)]
+  block: bool,
+  /// Highest message id the client finished processing from its previous
+  /// batch. The read cursor only advances on this handshake, so a batch whose
+  /// response was lost in flight is redelivered — at-least-once, see the
+  /// delivery contract in [`crate::bus`].
+  #[serde(default)]
+  ack: i64,
 }
 
 async fn wait(State(app): State<App>, Json(r): Json<WaitReq>) -> Json<Value> {
-    if r.ack > 0 {
-        if let Err(e) = crate::bus::ack(&app, &r.name, r.ack).await {
-            return Json(json!({ "ok": false, "error": e.to_string(), "messages": [] }));
-        }
+  if r.ack > 0 {
+    if let Err(e) = crate::bus::ack(&app, &r.name, r.ack).await {
+      return Json(json!({ "ok": false, "error": e.to_string(), "messages": [] }));
     }
-    match crate::bus::await_messages(&app, &r.name, r.block, std::time::Duration::from_secs(25))
-        .await
-    {
-        Ok(msgs) => {
-            let last = msgs.last().map(|m| m.id).unwrap_or(0);
-            Json(json!({ "ok": true, "messages": msgs, "last": last }))
-        }
-        Err(e) => Json(json!({ "ok": false, "error": e.to_string(), "messages": [] })),
+  }
+  match crate::bus::await_messages(&app, &r.name, r.block, std::time::Duration::from_secs(25)).await
+  {
+    Ok(msgs) => {
+      let last = msgs.last().map(|m| m.id).unwrap_or(0);
+      Json(json!({ "ok": true, "messages": msgs, "last": last }))
     }
+    Err(e) => Json(json!({ "ok": false, "error": e.to_string(), "messages": [] })),
+  }
 }
 
 #[derive(Deserialize)]
 struct SendReq {
-    from: String,
-    #[serde(default)]
-    kind: String,
-    target: Option<String>,
-    body: String,
+  from: String,
+  #[serde(default)]
+  kind: String,
+  target: Option<String>,
+  body: String,
 }
 
 async fn send(State(app): State<App>, Json(r): Json<SendReq>) -> Json<Value> {
-    let kind = if r.kind.is_empty() { "direct" } else { &r.kind };
-    let ok = crate::bus::deliver(&app, &r.from, kind, r.target.as_deref(), &r.body)
-        .await
-        .is_ok();
-    Json(json!({ "ok": ok }))
+  let kind = if r.kind.is_empty() { "direct" } else { &r.kind };
+  let ok = crate::bus::deliver(&app, &r.from, kind, r.target.as_deref(), &r.body)
+    .await
+    .is_ok();
+  Json(json!({ "ok": ok }))
 }
 
 async fn state(State(app): State<App>) -> Json<Value> {
-    Json(snapshot(&app).await)
+  Json(snapshot(&app).await)
 }
 
 /// The `{agents, workers}` roster, shared by `/control/state` (one-shot) and
 /// `/control/events` (streamed).
 async fn snapshot(app: &App) -> Value {
-    let agents = db::list_agents(&app.db)
+  let agents = db::list_agents(&app.db)
         .await
         .unwrap_or_default()
         .into_iter()
@@ -111,138 +110,138 @@ async fn snapshot(app: &App) -> Value {
         })
         .collect::<Vec<_>>();
 
-    let mut workers = Vec::new();
-    for w in app.workers.lock().await.values() {
-        workers.push(json!({
-            "name": w.name,
-            "role": w.role,
-            "status": w.status.lock().await.clone(),
-            "pid": w.pid.load(Ordering::SeqCst),
-            "restarts": w.restarts.load(Ordering::SeqCst),
-            "log": w.log,
-        }));
-    }
+  let mut workers = Vec::new();
+  for w in app.workers.lock().await.values() {
+    workers.push(json!({
+        "name": w.name,
+        "role": w.role,
+        "status": w.status.lock().await.clone(),
+        "pid": w.pid.load(Ordering::SeqCst),
+        "restarts": w.restarts.load(Ordering::SeqCst),
+        "log": w.log,
+    }));
+  }
 
-    json!({ "agents": agents, "workers": workers })
+  json!({ "agents": agents, "workers": workers })
 }
 
 /// Live status stream: emits the current snapshot immediately, then a fresh one
 /// every time the roster or a worker changes (see `App::bump`). Keepalive pings
 /// hold the connection open through quiet periods.
 async fn events(State(app): State<App>) -> Response {
-    let mut rx = app.events.subscribe();
-    let stream = async_stream::stream! {
-        let data = serde_json::to_string(&snapshot(&app).await).unwrap_or_default();
-        yield Ok::<Event, Infallible>(Event::default().event("state").data(data));
-        while rx.changed().await.is_ok() {
-            let data = serde_json::to_string(&snapshot(&app).await).unwrap_or_default();
-            yield Ok::<Event, Infallible>(Event::default().event("state").data(data));
-        }
-    };
-    Sse::new(stream)
-        .keep_alive(
-            KeepAlive::new()
-                .interval(Duration::from_secs(15))
-                .text("keepalive"),
-        )
-        .into_response()
+  let mut rx = app.events.subscribe();
+  let stream = async_stream::stream! {
+      let data = serde_json::to_string(&snapshot(&app).await).unwrap_or_default();
+      yield Ok::<Event, Infallible>(Event::default().event("state").data(data));
+      while rx.changed().await.is_ok() {
+          let data = serde_json::to_string(&snapshot(&app).await).unwrap_or_default();
+          yield Ok::<Event, Infallible>(Event::default().event("state").data(data));
+      }
+  };
+  Sse::new(stream)
+    .keep_alive(
+      KeepAlive::new()
+        .interval(Duration::from_secs(15))
+        .text("keepalive"),
+    )
+    .into_response()
 }
 
 #[derive(Deserialize)]
 struct Since {
-    #[serde(default)]
-    since: i64,
+  #[serde(default)]
+  since: i64,
 }
 
 async fn feed(State(app): State<App>, Query(q): Query<Since>) -> Json<Value> {
-    let msgs = db::since(&app.db, q.since, 50).await.unwrap_or_default();
-    let last = msgs.last().map(|m| m.id).unwrap_or(q.since);
-    Json(json!({ "messages": msgs, "last": last }))
+  let msgs = db::since(&app.db, q.since, 50).await.unwrap_or_default();
+  let last = msgs.last().map(|m| m.id).unwrap_or(q.since);
+  Json(json!({ "messages": msgs, "last": last }))
 }
 
 /// SSE tail of the message bus: one `feed` event with the backlog after
 /// `since`, then a fresh batch each time `deliver` bumps the feed tip. This is
 /// what `relay feed --follow` consumes — pushed, not polled.
 async fn feed_live(State(app): State<App>, Query(q): Query<Since>) -> Response {
-    let mut rx = app.feed_tip.subscribe();
-    let stream = async_stream::stream! {
-        let mut since = q.since;
-        loop {
-            match db::since(&app.db, since, 200).await {
-                Ok(msgs) if !msgs.is_empty() => {
-                    since = msgs.last().map(|m| m.id).unwrap_or(since);
-                    let data = serde_json::to_string(&json!({ "messages": msgs, "last": since }))
-                        .unwrap_or_default();
-                    yield Ok::<Event, Infallible>(Event::default().event("feed").data(data));
-                }
-                Ok(_) => {}
-                Err(_) => break,
-            }
-            if rx.changed().await.is_err() {
-                break;
-            }
-        }
-    };
-    Sse::new(stream)
-        .keep_alive(
-            KeepAlive::new()
-                .interval(Duration::from_secs(15))
-                .text("keepalive"),
-        )
-        .into_response()
+  let mut rx = app.feed_tip.subscribe();
+  let stream = async_stream::stream! {
+      let mut since = q.since;
+      loop {
+          match db::since(&app.db, since, 200).await {
+              Ok(msgs) if !msgs.is_empty() => {
+                  since = msgs.last().map(|m| m.id).unwrap_or(since);
+                  let data = serde_json::to_string(&json!({ "messages": msgs, "last": since }))
+                      .unwrap_or_default();
+                  yield Ok::<Event, Infallible>(Event::default().event("feed").data(data));
+              }
+              Ok(_) => {}
+              Err(_) => break,
+          }
+          if rx.changed().await.is_err() {
+              break;
+          }
+      }
+  };
+  Sse::new(stream)
+    .keep_alive(
+      KeepAlive::new()
+        .interval(Duration::from_secs(15))
+        .text("keepalive"),
+    )
+    .into_response()
 }
 
 #[derive(Deserialize)]
 struct SpawnReq {
-    name: String,
-    #[serde(default = "worker_role")]
-    role: String,
-    program: String,
-    #[serde(default)]
-    args: Vec<String>,
-    cwd: String,
-    #[serde(default = "yes")]
-    keep_alive: bool,
-    /// Fixed claude session id for a resumable worker (issue #4); `None` = not
-    /// resumable.
-    #[serde(default)]
-    session_id: Option<String>,
+  name: String,
+  #[serde(default = "worker_role")]
+  role: String,
+  program: String,
+  #[serde(default)]
+  args: Vec<String>,
+  cwd: String,
+  #[serde(default = "yes")]
+  keep_alive: bool,
+  /// Fixed claude session id for a resumable worker (issue #4); `None` = not
+  /// resumable.
+  #[serde(default)]
+  session_id: Option<String>,
 }
 
 fn worker_role() -> String {
-    "worker".into()
+  "worker".into()
 }
 fn yes() -> bool {
-    true
+  true
 }
 
 async fn spawn_worker(State(app): State<App>, Json(req): Json<SpawnReq>) -> Json<Value> {
-    let env = crate::cli::agent::env_for(&req.program, &app.token);
-    let spec = spawn::Spec {
-        name: req.name,
-        role: req.role,
-        program: req.program,
-        args: req.args,
-        env,
-        cwd: req.cwd,
-        keep_alive: req.keep_alive,
-        session_id: req.session_id,
-        resume: false,
-    };
-    match spawn::launch(&app, spec).await {
-        Ok(log) => Json(json!({ "ok": true, "log": log })),
-        Err(e) => Json(json!({ "ok": false, "error": e.to_string() })),
-    }
+  let env = crate::cli::agent::env_for(&req.program, &app.token);
+  let spec = spawn::Spec {
+    name: req.name,
+    role: req.role,
+    program: req.program,
+    args: req.args,
+    env,
+    cwd: req.cwd,
+    keep_alive: req.keep_alive,
+    session_id: req.session_id,
+    resume: false,
+  };
+  match spawn::launch(&app, spec).await {
+    Ok(log) => Json(json!({ "ok": true, "log": log })),
+    Err(e) => Json(json!({ "ok": false, "error": e.to_string() })),
+  }
 }
 
 #[derive(Deserialize)]
 struct StopReq {
-    name: String,
+  name: String,
 }
 
 async fn stop_worker(State(app): State<App>, Json(req): Json<StopReq>) -> Json<Value> {
-    // Explicit stop (relay kill): the shared helper forgets the persisted row
-    // exactly when the MCP `stop_worker` tool would.
-    let ok = spawn::stop_and_forget(&app, &req.name).await;
-    Json(json!({ "ok": ok }))
+  // Explicit stop (relay kill): the shared helper forgets the persisted row
+  // exactly when the MCP `stop_worker` tool would.
+  let ok = spawn::stop_and_forget(&app, &req.name).await;
+  Json(json!({ "ok": ok }))
 }

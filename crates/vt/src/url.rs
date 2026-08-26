@@ -6,68 +6,68 @@ const SCHEMES: &[&str] = &["https://", "http://", "ftp://", "file://", "mailto:"
 
 /// Find URLs in `chars` as char-index ranges `[start, end)`.
 pub fn find(chars: &[char]) -> Vec<(usize, usize)> {
-    let mut spans = Vec::new();
-    let mut i = 0;
-    while i < chars.len() {
-        if let Some(len) = match_at(&chars[i..]) {
-            spans.push((i, i + len));
-            i += len;
-        } else {
-            i += 1;
-        }
+  let mut spans = Vec::new();
+  let mut i = 0;
+  while i < chars.len() {
+    if let Some(len) = match_at(&chars[i..]) {
+      spans.push((i, i + len));
+      i += len;
+    } else {
+      i += 1;
     }
-    spans
+  }
+  spans
 }
 
 /// If a URL starts at the front of `s`, return its length in chars.
 fn match_at(s: &[char]) -> Option<usize> {
-    // Schemes are static ASCII, so bytes and chars line up one-to-one.
-    let scheme_len = SCHEMES.iter().find_map(|scheme| {
-        (s.len() > scheme.len()
-            && scheme
-                .bytes()
-                .zip(s)
-                .all(|(b, c)| c.to_ascii_lowercase() == b as char))
-        .then_some(scheme.len())
-    })?;
+  // Schemes are static ASCII, so bytes and chars line up one-to-one.
+  let scheme_len = SCHEMES.iter().find_map(|scheme| {
+    (s.len() > scheme.len()
+      && scheme
+        .bytes()
+        .zip(s)
+        .all(|(b, c)| c.to_ascii_lowercase() == b as char))
+    .then_some(scheme.len())
+  })?;
 
-    let mut len = scheme_len;
-    while len < s.len() && is_url_char(s[len]) {
-        len += 1;
+  let mut len = scheme_len;
+  while len < s.len() && is_url_char(s[len]) {
+    len += 1;
+  }
+  if len == scheme_len {
+    return None;
+  }
+  while len > scheme_len && is_trailing(s[len - 1]) {
+    if s[len - 1] == ')' && balanced_paren(&s[scheme_len..len]) {
+      break;
     }
-    if len == scheme_len {
-        return None;
-    }
-    while len > scheme_len && is_trailing(s[len - 1]) {
-        if s[len - 1] == ')' && balanced_paren(&s[scheme_len..len]) {
-            break;
-        }
-        len -= 1;
-    }
-    (len > scheme_len).then_some(len)
+    len -= 1;
+  }
+  (len > scheme_len).then_some(len)
 }
 
 /// Characters allowed inside a URL body (RFC 3986-ish, minus delimiters
 /// that commonly bound URLs in prose).
 fn is_url_char(c: char) -> bool {
-    !c.is_whitespace()
-        && !c.is_control()
-        && !matches!(c, '"' | '<' | '>' | '`' | '{' | '}' | '|' | '\\' | '^')
+  !c.is_whitespace()
+    && !c.is_control()
+    && !matches!(c, '"' | '<' | '>' | '`' | '{' | '}' | '|' | '\\' | '^')
 }
 
 /// Punctuation often trailing a URL in prose, trimmed from the match.
 fn is_trailing(c: char) -> bool {
-    matches!(
-        c,
-        '.' | ',' | ';' | ':' | '!' | '?' | ')' | ']' | '\'' | '"'
-    )
+  matches!(
+    c,
+    '.' | ',' | ';' | ':' | '!' | '?' | ')' | ']' | '\'' | '"'
+  )
 }
 
 /// Whether parentheses in `s` are balanced (so a trailing `)` belongs).
 fn balanced_paren(s: &[char]) -> bool {
-    let opens = s.iter().filter(|&&c| c == '(').count();
-    let closes = s.iter().filter(|&&c| c == ')').count();
-    opens >= closes
+  let opens = s.iter().filter(|&&c| c == '(').count();
+  let closes = s.iter().filter(|&&c| c == ')').count();
+  opens >= closes
 }
 
 #[cfg(test)]

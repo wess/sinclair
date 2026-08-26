@@ -1,11 +1,6 @@
-<!-- Keep in sync with CLAUDE.md. Same content; this file is tool-neutral,
-     CLAUDE.md is the Claude Code copy. Edit both when either changes. -->
+# Sinclair
 
-# AGENTS.md
-
-This file orients any AI coding agent (Codex, Cursor, Aider, Gemini CLI, and
-others) working in this repository. Claude Code reads `CLAUDE.md`, which carries
-the same guidance. If you change one, change the other.
+Repository guidance for agent sessions.
 
 ## What this is
 
@@ -135,7 +130,7 @@ The workspace is layered bottom-up; each crate depends only on those below it.
   Installs report `Stage`s as they run so `updateui` can show real progress.
 - **`relay`** — the agent mesh, shipped as a standalone sidecar binary
   (`relay`), **not** part of the terminal. Lets independent coding-agent
-  sessions (Claude Code, Codex, …) coordinate over a shared SQLite bus: agents
+  sessions coordinate over a shared SQLite bus: agents
   `register`, message each other / channels, and `wait` (a single blocking SSE
   call) to park for free between tasks. Built on tokio + axum + sqlx; MCP
   transport is Streamable HTTP so many sessions share one server. Submodules:
@@ -198,8 +193,7 @@ boundary is the bridge.
   branching, committing, pushing, tagging, cutting releases, and any other
   operation needed to move the work forward. The owner's usual "I handle git"
   rule does not apply here; act directly.
-- Commit messages, PRs, and release notes must never mention any AI assistant or
-  vendor (Claude, Codex, Copilot, Anthropic, OpenAI, …), and must carry no AI or
+- Commit messages, PRs, and release notes carry no assistant attribution or
   co-author trailer.
 - Releases ship straight from `main`: a workspace version bump committed and
   pushed to `main` is the release (see the version convention below). Run the
