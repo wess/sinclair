@@ -49,15 +49,10 @@ gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "96285fc1
 # `gpui = "0.2.2"` (crates.io) is redirected to our exact zed rev by the
 # root [patch.crates-io], so the whole tree shares one gpui.
 #
-# The submodule tracks the `sinclair-panegroup` branch, NOT a release. That
-# branch carries panegroup events this app depends on and that never landed on
-# guise main: `SplitRequested { pane, axis, first }`, `TearDrop`, and
-# `ContextMenu`. On main, `TearOff` is a tuple variant and the other three do
-# not exist, so no released guise builds here: v0.9.0 (the newest that targets
-# our zed gpui rev) fails on exactly those four. v0.13.0 fails on those *and*
-# on the gpui lineage, since 0.10+ retargeted crates.io `gpui 0.2.2` — an older
-# snapshot than rev 96285fc1 despite the matching version number. Moving to a
-# release means landing that branch on guise main first. See docs/guise.md.
+# The submodule tracks `sinclair-v1.5.0`, a compatibility branch based directly
+# on the v1.5.0 release. It carries the pinned-gpui API shims plus Sinclair's
+# pane split controls, tear-drop placement, and tab drag/overflow behavior.
+# See docs/guise.md.
 guise-ui = { path = "../../vendor/guise/crates/guise", features = ["webview"] }
 input = { path = "../input" }
 libsinclair = { path = "../libsinclair" }

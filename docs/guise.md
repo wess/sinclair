@@ -4,40 +4,38 @@ Sinclair's chrome (everything that isn't the terminal grid) is migrating onto
 [guise](https://github.com/wess/guise), our gpui component library, vendored as
 a submodule at `vendor/guise` so we can co-evolve it.
 
-## Why the submodule is not on a release
+## Why the submodule tracks a compatibility branch
 
-The submodule tracks the **`sinclair-panegroup` branch**, which is not an
-ancestor of guise `main`. It carries three panegroup events this app calls and
-that never landed upstream — `SplitRequested { pane, axis, first }`,
-`TearDrop`, and `ContextMenu` — while on `main` `TearOff` is a tuple variant
-and the other three do not exist.
+The submodule tracks **`sinclair-v1.5.0`**, based directly on guise v1.5.0.
+That release targets crates.io `gpui 0.2.2`, while Sinclair still needs zed rev
+`96285fc1` because `gpui_platform` is not published separately. The versions
+match, but the APIs do not: focus, scrolling, text painting, async updates, and
+style refinement differ between those snapshots.
 
-So "bump guise" is not available as a version bump. Checked against the
-current releases (2026-08-18):
+The branch keeps the 1.5.0 component surface and carries only what Sinclair
+needs on top:
 
-- **v0.9.0** — newest guise still built against our pinned zed gpui rev
-  (`96285fc1`). Fails with exactly the four panegroup errors above.
-- **v0.13.0** — fails on those *and* on gpui: 0.10 retargeted plain crates.io
-  `gpui 0.2.2`, which despite the identical version number is an **older**
-  snapshot than rev `96285fc1` (`Window::focus` differs in arity; `window.rs`
-  differs by ~1100 lines). Building it under our `[patch]` produces 35 errors.
+- compatibility shims for the pinned gpui API, including runnable guise tests
+  and examples against that same revision;
+- `SplitRequested { pane, axis, first }` and structured
+  `TearOff { item, drop: Option<TearDrop> }` events;
+- Sinclair's tab sizing, overflow, reorder motion, drop affordances, tear-off
+  preview, per-pane split controls, and context-menu behavior.
 
-Getting onto a release therefore means landing `sinclair-panegroup` on guise
-`main` first, and getting onto a *current* release additionally means moving
-off the zed gpui rev — which `gpui_platform` (not published to crates.io)
-currently prevents.
+It also preserves the v1.5.0 layout snapshot/restore API and devtools probe.
+This is a released Guise baseline with a pinned-gpui compatibility commit, not
+the old divergent `sinclair-panegroup` line.
 
 ## How it's wired
 
 - `vendor/guise` is a git submodule (its own cargo workspace, `exclude`d from
   ours). `crates/app` depends on `guise-ui` by path with `features =
   ["webview"]`, so the `wry` backend is built in.
-- guise tracks crates.io `gpui 0.2.2`; Sinclair builds gpui from a pinned zed git
-  rev. The root `[patch.crates-io] gpui = { git = …, rev = … }` redirects
-  guise's gpui onto our exact rev, so the whole tree shares **one** gpui
-  (verify with `cargo tree -d`). When the zed rev is bumped, guise is rebuilt
-  against it on the `sinclair-panegroup` branch — the one the submodule
-  actually tracks — and re-pinned.
+- guise declares `gpui 0.2.2`; Sinclair's root `[patch.crates-io]` redirects it
+  to the pinned zed rev, so the whole tree shares **one** gpui (verify with
+  `cargo tree -d`). The compatibility branch mirrors that patch so its own
+  tests and examples exercise the same API. When the zed rev moves, update
+  `sinclair-v1.5.0`, run the guise gate, push it, and re-pin this submodule.
 - `crates/app/src/guisetheme.rs` derives a `guise::Theme` from the active
   terminal palette (body/text/surface/border/dimmed/primary) and installs it as
   the gpui global at boot and on every live config reload, so guise components
