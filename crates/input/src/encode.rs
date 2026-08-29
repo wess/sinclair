@@ -20,7 +20,7 @@ pub fn encode_key(
   // chords, and a program that enabled the protocol asked for the
   // disambiguated forms. Only chords no app keybinding claimed get here.
   if state.kitty_flags != 0 {
-    if let Some(bytes) = kitty::encode(key, mods, state.kitty_flags, event) {
+    if let Some(bytes) = kitty::encode(key, text, mods, state.kitty_flags, event) {
       return Some(bytes);
     }
   }

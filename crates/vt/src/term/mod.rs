@@ -2,6 +2,7 @@
 
 mod apc;
 mod csi;
+mod gfx;
 mod dcs;
 mod ops;
 mod osc;
@@ -119,8 +120,13 @@ pub(crate) struct Inner {
   /// In-progress chunked graphics transfer (`m=1`): the first chunk's control
   /// plus the base64-decoded bytes accumulated so far.
   pub(crate) gfx_pending: Option<(crate::graphics::Control, Vec<u8>)>,
-  /// Transmitted-but-not-yet-displayed kitty images, keyed by `i=` image id.
-  pub(crate) gfx_store: std::collections::HashMap<u32, crate::sixel::Image>,
+  /// Every transmitted kitty image, by id and image number, with whatever
+  /// animation frames each has accumulated.
+  pub(crate) gfx_store: crate::graphics::Store,
+  /// Kitty *virtual* placements (`U=1`). They have no grid anchor of their
+  /// own — placeholder cells name them — so they live apart from the
+  /// per-screen lists and outlive any scroll.
+  pub(crate) virt: Vec<crate::image::Placement>,
 }
 
 impl Inner {
@@ -188,7 +194,8 @@ impl Terminal {
         cell_px: (8, 16),
         apc: apc::Apc::default(),
         gfx_pending: None,
-        gfx_store: std::collections::HashMap::new(),
+        gfx_store: crate::graphics::Store::default(),
+        virt: Vec::new(),
       },
     }
   }
@@ -257,11 +264,73 @@ impl Terminal {
     self.inner.graphics_memory()
   }
 
-  /// Sixel images anchored to the active screen's buffer, oldest first.
-  /// Lines follow the [`crate::selection`] scheme: 0 is the top live row,
-  /// negative scrollback.
-  pub fn images(&self) -> &[crate::sixel::Placement] {
+  /// Images anchored to the active screen's buffer, oldest first. Lines
+  /// follow the [`crate::selection`] scheme: 0 is the top live row, negative
+  /// scrollback.
+  pub fn images(&self) -> &[crate::image::Placement] {
     &self.inner.screen().images
+  }
+
+  /// Kitty virtual placements (`U=1`), which the unicode placeholder
+  /// character positions rather than the grid. Look one up by the image id a
+  /// placeholder cell carries, and by its placement id when the cell names
+  /// one through its underline color.
+  pub fn virtual_placements(&self) -> &[crate::image::Placement] {
+    &self.inner.virt
+  }
+
+  /// The animation frames a transmitted image has, if it has any beyond the
+  /// still root frame. Looked up live so a frame that arrives after the
+  /// placement still plays.
+  pub fn graphics_frames(&self, image_id: u32) -> Option<&[crate::graphics::Frame]> {
+    let image = self.inner.gfx_store.get(image_id)?;
+    image.animated().then_some(image.frames.as_slice())
+  }
+
+  /// An image's playback state: which frame it is parked on, whether it is
+  /// running, and a serial that changes whenever its pixels do.
+  pub fn graphics_playback(&self, image_id: u32) -> Option<crate::graphics::Playback> {
+    let image = self.inner.gfx_store.get(image_id)?;
+    Some(crate::graphics::Playback {
+      current: image.current,
+      running: image.state != crate::graphics::AnimState::Stopped,
+      looping: image.state == crate::graphics::AnimState::RunLoop,
+      loops: image.loops,
+      serial: image.serial,
+    })
+  }
+
+  /// Placeholder-driven draws for the visible viewport, in row order.
+  ///
+  /// Empty — without touching a cell — whenever no virtual placement exists,
+  /// which is every session that is not showing an image this way.
+  pub fn placeholder_draws(&mut self) -> Vec<crate::placeholder::Draw> {
+    let mut out = Vec::new();
+    if self.inner.virt.is_empty() {
+      return out;
+    }
+    let rows = self.rows();
+    for row in 0..rows {
+      let cells = &self.visible_row(row).cells;
+      crate::placeholder::scan_row(cells, row, &mut out);
+    }
+    out
+  }
+
+  /// The virtual placement a placeholder cell names: the image, and the
+  /// placement id when the cell spelled one. A cell that names no placement
+  /// takes the image's only virtual placement.
+  pub fn virtual_placement(&self, image_id: u32, placement_id: u32) -> Option<&crate::image::Placement> {
+    self.inner.virt.iter().find(|p| {
+      p.kitty.as_ref().is_some_and(|k| {
+        k.image_id == image_id && (placement_id == 0 || k.placement_id == placement_id)
+      })
+    })
+  }
+
+  /// The still image behind an id, for resolving a unicode placeholder cell.
+  pub fn graphics_image(&self, image_id: u32) -> Option<&crate::image::Image> {
+    self.inner.gfx_store.get(image_id).map(|i| i.root())
   }
 
   /// Tell the emulator the cell size in pixels so sixel can reserve rows.

@@ -26,7 +26,7 @@ documented limits), **✗** not yet.
 | Legacy key encoding | ✓ | modifiers, cursor/tilde/function keys, app cursor/keypad |
 | Mouse reporting | ✓ | X10/normal/button/any + SGR (1000/1002/1003/1006), alt-scroll |
 | Bracketed paste | ✓ | |
-| Kitty keyboard protocol | ◑ | negotiation + disambiguation encoding, super (cmd) reported on the CSI-u path (modified Enter/Tab/Backspace included, so shift+enter / cmd+enter are distinguishable); **press/repeat/release** event types encoded when `report_event_types` is set (gpui delivers key-up + `is_held`). Alternate-key and associated-text flags are still tracked but not encoded |
+| Kitty keyboard protocol | ✓ | all five enhancement flags encoded, over the full functional-key table: negotiation (`CSI ? / > / < / = u`, 16-deep per-screen stack), disambiguation, press/repeat/release event types, alternate (shifted) keys, associated text, and all-keys-as-escape-codes — including the bare modifier keys, synthesised from gpui's modifier-state changes. Modifier parameter carries super, hyper, meta and the locks; keys with no legacy spelling (F13–F35, keypad, media, lock and menu keys) use their `57344+` codes. Reported modifiers are the ones the window layer delivers — gpui exposes shift/alt/ctrl/super and caps lock, not hyper, meta, or num lock; keypad keys arrive under their plain names on macOS, so they encode as those |
 
 ## OSC / clipboard / links
 
@@ -38,8 +38,9 @@ documented limits), **✗** not yet.
 | OSC 7 cwd reporting | ✓ | inherited by new splits, tabs, and windows; defaults to `$HOME` when unknown |
 | OSC 52 clipboard | ✓ | base64 decode → system clipboard |
 | Desktop notifications (OSC 9 / 777 / 99) | ✓ | native banner + per-tab attention indicator; cleared on focus |
-| OSC 8 hyperlinks | ✓ | interned per-cell, underlined, cmd-click opens |
-| URL detection (no OSC 8) | ✓ | cmd-click opens detected URLs |
+| OSC 8 hyperlinks | ✓ | interned per-cell, underlined, open-modifier click opens |
+| URL detection (no OSC 8) | ✓ | open-modifier click opens detected URLs |
+| Path detection | ✓ | an open-modifier click opens a filesystem path with the desktop's default handler, and hovering underlines it — but only once the candidate resolves against the pane's cwd, so text that merely looks like a path stays inert. Right-click still reveals it in the file manager. The modifier is cmd on macOS, ctrl elsewhere |
 | Focus reporting (?1004) | ✓ | |
 | Synchronized output (?2026) | ✓ | frame-gated with a 150 ms stuck-sync timeout |
 | XTGETTCAP, DA1/DA2, DSR | ✓ | DA1 advertises sixel (`?62;4;22c`) |
@@ -66,7 +67,7 @@ documented limits), **✗** not yet.
 | Box-drawing / blocks | ◑ | light lines/junctions, blocks, shades, eighths drawn custom; heavy/double/dashed/rounded fall back to font |
 | Cursor styles (DECSCUSR) | ✓ | block/bar/underline, config default |
 | Images (sixel) | ✓ | sixel decoded (RGB/HLS palette, RLE, raster attrs) and GPU-composited, anchored to the grid so it scrolls with text; advertised via DA1 attribute 4 and XTSMGRAPHICS so clients auto-detect it |
-| Images (kitty graphics) | ◑ | common-case: a byte-level APC pre-parser (`term/apc.rs`) captures `ESC _G … ST` — which vte still discards — and decodes direct base64 payloads in RGB/RGBA (`f=24`/`32`) and PNG (`f=100`), zlib-compressed (`o=z`) and chunked (`m=1`), then transmit/display/delete/query with OK/error responses honoring the quiet level. Reuses the sixel placement + compositor. Deferred: file/shared-memory transmission, animation, unicode placeholders, z-index/cropping |
+| Images (kitty graphics) | ✓ | a byte-level APC pre-parser (`term/apc.rs`) captures `ESC _G … ST` — which vte still discards — and `term/gfx.rs` dispatches all eight actions: transmit, transmit-and-display, display, delete, query, frame, animate, compose. Every medium (`t=d/f/t/s`, with `O=`/`S=` windows), every format (RGB/RGBA/PNG, zlib, chunked), image ids *and* image numbers, the full delete-specifier table, source cropping, cell-box scaling, cell offsets, z-index (including below the cell background), placement ids, virtual placements with unicode placeholders, and animation — frames, gaps, composition modes, loops, playback state. Responses honour the quiet level and name the image the way the request did |
 
 ## UI / workspace
 
@@ -103,9 +104,6 @@ documented limits), **✗** not yet.
 - **Persistent, detachable sessions** — a live
   mux server you detach/reattach; a multi-week subsystem. Session *restore* on
   quit exists (agent panes resume their native sessions); a live server does not.
-- **Kitty graphics protocol (advanced)** — the common-case works (see the
-  images row); still deferred are file / temp-file / shared-memory transmission,
-  animation frames, unicode placeholders, and z-index/cropping/compositing.
 - **SSH multiplexing domains, multiple cursors, serial** — out of current scope.
   Launch profiles cover opening an `ssh`/REPL/env tab; true remote multiplexing,
   the kitty multiple-cursor protocol, and serial connections do not exist yet.
@@ -129,8 +127,8 @@ documented limits), **✗** not yet.
 ## Prioritized remaining gaps
 
 1. **Stacked combining marks** — only the first combining mark per cell is kept;
-   full grapheme clusters / ZWJ emoji need spillover storage.
-2. **Kitty graphics (advanced)** — file/shared-memory transmission, animation,
-   unicode placeholders, z-index/cropping (the common-case works).
-3. **Heavy/double/dashed/rounded box-drawing** — extend `boxdraw` geometry.
-4. **macOS status-bar (tray) item** — needs native NSStatusBar code.
+   full grapheme clusters / ZWJ emoji need spillover storage. (Kitty
+   placeholder cells are unaffected: their marks are decoded to coordinates on
+   write and packed into the same slot.)
+2. **Heavy/double/dashed/rounded box-drawing** — extend `boxdraw` geometry.
+3. **macOS status-bar (tray) item** — needs native NSStatusBar code.

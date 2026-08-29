@@ -5,10 +5,12 @@
 mod csi;
 mod encode;
 mod kitty;
+mod modifiers;
 mod mouse;
 mod paste;
 
 pub use encode::encode_key;
+pub use modifiers::modifier_events;
 pub use mouse::{encode_mouse, encode_scroll_arrows, MouseAction, MouseButton};
 pub use paste::encode_paste;
 
@@ -16,6 +18,7 @@ pub use paste::encode_paste;
 /// here so this crate stays dependency-free. The host reads the active
 /// flags from the terminal and passes them in [`TermState::kitty_flags`].
 pub mod kitty_flags {
+  #![allow(dead_code)]
   pub const DISAMBIGUATE: u8 = 0b0_0001;
   pub const REPORT_EVENT_TYPES: u8 = 0b0_0010;
   pub const REPORT_ALTERNATE_KEYS: u8 = 0b0_0100;
@@ -35,12 +38,22 @@ pub enum KeyEvent {
 }
 
 /// Modifier keys held during a keystroke.
+///
+/// The first four are what any terminal needs. The rest exist only inside the
+/// kitty keyboard protocol, which has bits for them: a host that can report
+/// them sets them, and one that cannot leaves them false rather than
+/// pretending. Legacy encoding ignores every field past `ctrl`.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct Mods {
   pub shift: bool,
   pub alt: bool,
   pub ctrl: bool,
+  /// Command on macOS, Super elsewhere. Only the kitty protocol can spell it.
   pub cmd: bool,
+  pub hyper: bool,
+  pub meta: bool,
+  pub caps_lock: bool,
+  pub num_lock: bool,
 }
 
 /// Terminal modes that affect key/paste encoding.

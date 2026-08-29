@@ -5,39 +5,7 @@
 //! run-length repeats (`!`), carriage return (`$`), and band newline (`-`).
 //! Each data byte `?`..=`~` paints six vertical pixels in the current color.
 
-use std::sync::Arc;
-
-/// A decoded image: tightly-packed RGBA8, `width * height * 4` bytes.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Image {
-  pub width: usize,
-  pub height: usize,
-  /// Shared because kitty's transmit-and-display path keeps the same decoded
-  /// image in both its id store and a screen placement.
-  pub rgba: Arc<[u8]>,
-}
-
-impl Image {
-  /// How many text rows the image spans for cells `cell_h` pixels tall.
-  pub fn image_rows(&self, cell_h: usize) -> usize {
-    self.height.div_ceil(cell_h.max(1))
-  }
-}
-
-/// A decoded image anchored to the grid. `line` is an absolute content line
-/// (0 = top of the live grid, negative = scrollback) that shifts as the buffer
-/// scrolls, so the image rides along with the text beneath it. `id` is unique
-/// per placement so the renderer can cache the GPU texture.
-#[derive(Debug, Clone)]
-pub struct Placement {
-  pub id: u64,
-  pub line: isize,
-  pub col: usize,
-  pub image: Image,
-  /// The kitty graphics image id (`i=`) this placement came from, so an
-  /// `a=d,d=i` delete can target it. `None` for sixel placements.
-  pub kitty_id: Option<u32>,
-}
+use crate::image::Image;
 
 #[derive(Clone, Copy)]
 struct Rgb(u8, u8, u8);

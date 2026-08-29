@@ -9037,6 +9037,7 @@ dependencies = [
  "lz4_flex",
  "memchr",
  "png 0.17.16",
+ "rustix 0.38.44",
  "unicode-width",
  "vte",
 ]

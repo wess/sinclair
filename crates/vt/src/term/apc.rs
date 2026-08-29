@@ -4,14 +4,14 @@
 //! state — it never surfaces them to `Perform` — so [`Terminal::feed`] runs this
 //! scanner first: normal byte runs are forwarded to vte unchanged, while an
 //! `ESC _ … ST/BEL` block is captured and, when it is a graphics command
-//! (`_G…`), handled here. Because `0x1b` (ESC) is always an escape introducer
+//! (`_G…`), handed to `term::graphics`. Because `0x1b` (ESC) is always an
+//! escape introducer
 //! and never a payload byte in a well-formed stream, `ESC _` is an unambiguous
 //! APC start, so the scanner needs no knowledge of vte's own state.
 //!
 //! [`Terminal::feed`]: super::Terminal::feed
 
 use super::Inner;
-use crate::graphics::{self, Action, Control};
 
 const ESC: u8 = 0x1b;
 const BEL: u8 = 0x07;
@@ -19,12 +19,6 @@ const BEL: u8 = 0x07;
 /// Largest APC body buffered; a graphics control block plus one base64 chunk is
 /// far smaller. An unterminated APC is dropped past this cap.
 const MAX_APC: usize = 4 * 1024 * 1024;
-
-/// Ceiling on the bytes a chunked (`m=1`) transfer may accumulate before it is
-/// abandoned. Without it a hostile stream can send `m=1` chunks forever and
-/// grow `gfx_pending` without bound. Sized to admit the largest valid raw
-/// transfer (`MAX_PIXELS` * 4 channels).
-const MAX_GFX_PENDING: usize = 128 * 1024 * 1024;
 
 /// Scanner state, carried on [`Inner`] across `feed` calls — an APC block or a
 /// bare trailing ESC can straddle pty reads.
@@ -183,144 +177,6 @@ fn finish(inner: &mut Inner) {
   let buf = std::mem::take(&mut inner.apc.buf);
   if buf.first() == Some(&b'G') {
     inner.kitty_graphics(&buf[1..]);
-  }
-}
-
-impl Inner {
-  /// Handle one graphics command body — `<control> ; <base64 payload>`, the
-  /// part after `_G`. Reassembles chunked transfers (`m=1`) before decoding.
-  fn kitty_graphics(&mut self, data: &[u8]) {
-    let mut parts = data.splitn(2, |&b| b == b';');
-    let control = graphics::parse_control(parts.next().unwrap_or(&[]));
-    let raw = super::report::base64_decode(parts.next().unwrap_or(&[])).unwrap_or_default();
-
-    // Chunked: the first chunk carries the full control, the rest only
-    // `m=` (+ payload). Accumulate the base64-decoded bytes until `m=0`,
-    // abandoning any transfer that runs past the pending-size cap.
-    if control.more {
-      match &mut self.gfx_pending {
-        Some((_, buf)) => {
-          if buf.len().saturating_add(raw.len()) > MAX_GFX_PENDING {
-            self.gfx_pending = None; // oversized transfer: drop it
-          } else {
-            buf.extend_from_slice(&raw);
-          }
-        }
-        None if raw.len() <= MAX_GFX_PENDING => self.gfx_pending = Some((control, raw)),
-        None => {} // first chunk already over budget: ignore
-      }
-      return;
-    }
-    let (control, raw) = match self.gfx_pending.take() {
-      Some((first, mut buf)) => {
-        buf.extend_from_slice(&raw);
-        (first, buf)
-      }
-      None => (control, raw),
-    };
-    self.apply_graphics(control, raw);
-  }
-
-  /// Act on a fully-assembled graphics command.
-  fn apply_graphics(&mut self, control: Control, raw: Vec<u8>) {
-    match control.action {
-      Action::Delete => {
-        self.delete_graphics(&control);
-        self.gfx_respond(&control, Ok(()));
-      }
-      Action::Query => {
-        let result = graphics::decode(&control, &raw).map(|_| ());
-        self.gfx_respond(&control, result);
-      }
-      Action::Transmit => match graphics::decode(&control, &raw) {
-        Ok(img) => {
-          if control.image_id != 0 {
-            self.store_image(control.image_id, img);
-          }
-          self.gfx_respond(&control, Ok(()));
-        }
-        Err(e) => self.gfx_respond(&control, Err(e)),
-      },
-      Action::TransmitAndDisplay => match graphics::decode(&control, &raw) {
-        Ok(img) => {
-          if control.image_id != 0 {
-            self.store_image(control.image_id, img.clone());
-          }
-          self.place_image(img, control.image_id, control.move_cursor);
-          self.gfx_respond(&control, Ok(()));
-        }
-        Err(e) => self.gfx_respond(&control, Err(e)),
-      },
-      Action::Display => match self.gfx_store.get(&control.image_id).cloned() {
-        Some(img) => {
-          self.place_image(img, control.image_id, control.move_cursor);
-          self.gfx_respond(&control, Ok(()));
-        }
-        None => self.gfx_respond(&control, Err(graphics::GfxError("ENOENT"))),
-      },
-    }
-  }
-
-  /// Retain a transmitted image under `id`, sharing the pane-wide graphics
-  /// budget with visible placements on both screens.
-  fn store_image(&mut self, id: u32, img: crate::sixel::Image) {
-    self.gfx_store.insert(id, img);
-    self.enforce_graphics_budget();
-  }
-
-  /// Remove placements per an `a=d` command. Uppercase specifiers also free
-  /// the stored image data; lowercase keep it for later re-display.
-  fn delete_graphics(&mut self, control: &Control) {
-    let free = control.delete.is_ascii_uppercase();
-    match control.delete.to_ascii_lowercase() {
-      b'i' => {
-        let id = control.image_id;
-        self.screen_mut().images.retain(|p| p.kitty_id != Some(id));
-        if free {
-          self.gfx_store.remove(&id);
-        }
-      }
-      // `a` (all) or any unrecognized specifier: clear every placement.
-      _ => {
-        self.screen_mut().images.clear();
-        if free {
-          self.gfx_store.clear();
-        }
-      }
-    }
-    self.full_damage = true;
-  }
-
-  /// Emit the kitty response for a command, honoring the quiet level. Nothing
-  /// is sent when the request carried no image id (there is nothing to name).
-  fn gfx_respond(&mut self, control: &Control, result: Result<(), graphics::GfxError>) {
-    if control.image_id == 0 {
-      return;
-    }
-    let suppress = match (&result, control.quiet) {
-      (_, q) if q >= 2 => true,      // suppress all
-      (Ok(()), q) if q >= 1 => true, // suppress success
-      _ => false,
-    };
-    if suppress {
-      return;
-    }
-    let status = match result {
-      Ok(()) => "OK",
-      Err(graphics::GfxError(code)) => code,
-    };
-    self.output.extend_from_slice(b"\x1b_G");
-    self
-      .output
-      .extend_from_slice(format!("i={}", control.image_id).as_bytes());
-    if control.placement_id != 0 {
-      self
-        .output
-        .extend_from_slice(format!(",p={}", control.placement_id).as_bytes());
-    }
-    self.output.push(b';');
-    self.output.extend_from_slice(status.as_bytes());
-    self.output.extend_from_slice(b"\x1b\\");
   }
 }
 

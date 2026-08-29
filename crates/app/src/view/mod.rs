@@ -9,7 +9,8 @@ use config::{Action, SplitDirection};
 use gpui::prelude::*;
 use gpui::{
   anchored, deferred, div, px, AnyElement, App, ClipboardItem, Context, EventEmitter, FocusHandle,
-  Focusable, KeyDownEvent, KeyUpEvent, MouseButton, MouseDownEvent, Pixels, Point, SharedString,
+  Focusable, KeyDownEvent, KeyUpEvent, ModifiersChangedEvent, MouseButton, MouseDownEvent, Pixels,
+  Point, SharedString,
   Subscription, Window,
 };
 use terminal::{Event, Session};
@@ -394,6 +395,10 @@ pub struct TerminalView {
   fallback: String,
   /// When set, keystrokes and pastes are not forwarded to the pty.
   read_only: bool,
+  /// The modifier state at the last report, so a change can be turned back
+  /// into the key presses and releases the kitty protocol's all-keys mode
+  /// asks for. Platforms report the state, not the keystroke.
+  last_mods: input::Mods,
   /// Set while the visual bell flashes (BEL arrived with `visual-bell` on);
   /// a short timer clears it.
   pub bell: bool,
@@ -508,6 +513,7 @@ impl TerminalView {
       override_title: None,
       fallback,
       read_only: false,
+      last_mods: input::Mods::default(),
       bell: false,
       attention: false,
       focused: false,
@@ -838,13 +844,19 @@ impl TerminalView {
   /// manager. Built per frame, capturing the cwd as it stands — the pane may
   /// have `cd`-ed since the last one, and a path is relative to where it was
   /// printed.
-  fn path_hook(&self) -> Rc<libsinclair::pointer::PathHook> {
+  /// How this pane resolves a clicked path candidate: against its own working
+  /// directory, then against the filesystem. Text that merely looked like a
+  /// path resolves to nothing, so it is neither underlined nor clickable.
+  fn path_resolve(&self) -> Rc<libsinclair::pointer::PathResolve> {
     let cwd = self.cwd_path();
-    Rc::new(move |hit: vt::PathHit, _cx: &mut gpui::App| {
-      if let Some(path) = crate::reveal::resolve(&hit.path, cwd.as_deref()) {
-        crate::reveal::reveal(&path);
-      }
-    })
+    Rc::new(move |hit: &vt::PathHit| crate::reveal::resolve(&hit.path, cwd.as_deref()))
+  }
+
+  /// What an open-modifier click on a path does: hand it to the desktop, the
+  /// same as a click on a URL. Revealing it in the file manager is the
+  /// right-click menu's job.
+  fn path_open(&self) -> Rc<libsinclair::pointer::PathOpen> {
+    Rc::new(|path: &std::path::Path, _cx: &mut gpui::App| crate::reveal::open(path))
   }
 
   /// Clear the attention indicator (the user is now looking at this pane).
@@ -952,6 +964,7 @@ impl Render for TerminalView {
       .capture_key_down(cx.listener(Self::capture_key))
       .on_key_down(cx.listener(Self::key_down))
       .on_key_up(cx.listener(Self::key_up))
+      .on_modifiers_changed(cx.listener(Self::modifiers_changed))
       .on_mouse_down(MouseButton::Right, cx.listener(Self::right_down))
       .child({
         // Record the grid's bounds each frame for the context menu's
@@ -986,7 +999,7 @@ impl Render for TerminalView {
           self.image_cache.clone(),
           self.snap_cache.clone(),
         )
-        .on_path(self.path_hook()),
+        .on_path(self.path_resolve(), self.path_open()),
       )
       .children(self.bell_overlay())
       .children(self.badge_overlay(cx))

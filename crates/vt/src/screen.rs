@@ -20,7 +20,7 @@ pub struct Screen {
   /// Kitty keyboard enhancement stack (per-screen, per the protocol).
   pub kitty: KittyKeyboard,
   /// Decoded sixel images anchored to this screen's grid, oldest first.
-  pub images: Vec<crate::sixel::Placement>,
+  pub images: Vec<crate::image::Placement>,
 }
 
 impl Screen {

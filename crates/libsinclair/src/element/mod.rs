@@ -20,7 +20,7 @@ use terminal::Session;
 use crate::colors::{self, Colors};
 use crate::metrics::{self, CellSize, Padding};
 use crate::mouse::MouseState;
-use crate::pointer::{CopyHook, PathHook};
+use crate::pointer::{CopyHook, PathOpen, PathResolve};
 
 #[cfg(test)]
 use theme::Rgb;
@@ -125,7 +125,7 @@ pub struct TerminalElement {
   copy: Rc<CopyHook>,
   /// What an open-modifier click on a filesystem path does. Opt-in via
   /// [`TerminalElement::on_path`]; unset, paths are inert.
-  path: Option<Rc<PathHook>>,
+  path: Option<(Rc<PathResolve>, Rc<PathOpen>)>,
   smart_select: bool,
   middle_click_paste: bool,
   /// Whether this pane holds keyboard focus; an unfocused pane paints a
@@ -185,12 +185,15 @@ impl TerminalElement {
     }
   }
 
-  /// Make open-modifier clicks on filesystem paths do something. The hook
-  /// receives a *candidate* — see [`crate::pointer::PathHook`]. A builder
-  /// rather than another constructor argument: this one is opt-in, and the
-  /// constructor is long enough already.
-  pub fn on_path(mut self, hook: Rc<PathHook>) -> Self {
-    self.path = Some(hook);
+  /// Make open-modifier clicks on filesystem paths do something.
+  ///
+  /// `resolve` turns a *candidate* into a real path — see
+  /// [`crate::pointer::PathResolve`] — and is asked on hover too, so a path
+  /// is only underlined when clicking it would act. `open` does the acting.
+  /// A builder rather than more constructor arguments: this is opt-in, and
+  /// the constructor is long enough already.
+  pub fn on_path(mut self, resolve: Rc<PathResolve>, open: Rc<PathOpen>) -> Self {
+    self.path = Some((resolve, open));
     self
   }
 
@@ -247,10 +250,65 @@ pub struct Frame {
   /// Dimmed autosuggestion ghost text at the cursor.
   ghost: Option<(Point<Pixels>, ShapedLine)>,
   indicator: Option<Bounds<Pixels>>,
-  /// Sixel images, as positioned pixel bounds plus their texture.
-  images: Vec<(Bounds<Pixels>, Arc<RenderImage>)>,
+  /// Images to draw, in stacking order.
+  images: Vec<ImagePaint>,
   /// Grid size at prepaint, for pointer hit testing.
   grid: (usize, usize),
+}
+
+/// One image ready to paint: the whole texture goes into `full`, clipped to
+/// `clip`. That pair is how a source crop, a cell offset, a scrolled-off top,
+/// and a unicode placeholder's single-cell slice all become the same
+/// operation.
+pub(crate) struct ImagePaint {
+  clip: Bounds<Pixels>,
+  full: Bounds<Pixels>,
+  image: Arc<RenderImage>,
+  frame: usize,
+  z: i32,
+  animating: bool,
+}
+
+/// Position every image draw for this frame, dropping the ones the viewport
+/// cannot show. An image anchored above the viewport still paints the part
+/// that reaches into it.
+fn image_paints(
+  snap: &Snapshot,
+  origin: Point<Pixels>,
+  cell: CellSize,
+  rows: usize,
+) -> Vec<ImagePaint> {
+  let (cell_w, cell_h) = (px(cell.width), px(cell.height));
+  snap
+    .images
+    .iter()
+    .filter_map(|img| {
+      let row = img.line + snap.offset as isize;
+      let top = origin.y + cell_h * row as f32 + px(img.offset_y);
+      let left = origin.x + cell_w * img.col as f32 + px(img.offset_x);
+      let clip = Bounds::new(point(left, top), size(px(img.width), px(img.height)));
+      // Cheap reject: entirely above or below the visible rows.
+      let bottom_row = row + (img.height / cell.height.max(1.0)).ceil() as isize;
+      if bottom_row <= 0 || row >= rows as isize {
+        return None;
+      }
+      let full = Bounds::new(
+        point(left + px(img.full_dx), top + px(img.full_dy)),
+        size(px(img.full_width), px(img.full_height)),
+      );
+      // The frame is resolved here, not in the snapshot: a running animation
+      // advances between repaints that reuse the same snapshot.
+      let (frame, animating) = img.anim.as_ref().map_or((0, false), Anim::resolve);
+      Some(ImagePaint {
+        clip,
+        full,
+        image: img.image.clone(),
+        frame,
+        z: img.z,
+        animating,
+      })
+    })
+    .collect()
 }
 
 pub(crate) struct CursorFrame {
@@ -342,22 +400,7 @@ impl Element for TerminalElement {
     let cell_w = px(self.cell.width);
     let cell_h = px(self.cell.height);
 
-    let images = snap
-      .images
-      .iter()
-      .filter_map(|img| {
-        let row = img.line + snap.offset as isize;
-        if row < 0 || row as usize >= rows {
-          return None;
-        }
-        let pos = point(
-          origin.x + cell_w * img.col as f32,
-          origin.y + cell_h * row as f32,
-        );
-        let bounds = Bounds::new(pos, size(px(img.width), px(img.height)));
-        Some((bounds, img.image.clone()))
-      })
-      .collect();
+    let images = image_paints(&snap, origin, self.cell, rows);
     let bg_quads = bg_quads(&snap.rows, origin, self.cell);
 
     let (box_w, box_h) = (self.cell.width, self.cell.height);
@@ -501,22 +544,24 @@ impl Element for TerminalElement {
     let line_height = px(self.cell.height);
     window.with_content_mask(Some(ContentMask { bounds }), |window| {
       window.paint_quad(fill(bounds, colors::hsla(self.colors.bg)));
+      // The protocol's three layers: an image can sit under the cell
+      // backgrounds, between them and the text, or over everything.
+      paint_images(&frame.images, window, |z| z <= vt::graphics::Z_BELOW_BG);
       for (quad, color) in &frame.bg_quads {
         window.paint_quad(fill(*quad, *color));
       }
       for (quad, color) in &frame.box_quads {
         window.paint_quad(fill(*quad, *color));
       }
-      for (bounds, image) in &frame.images {
-        window
-          .paint_image(*bounds, Corners::default(), image.clone(), 0, false)
-          .ok();
-      }
+      paint_images(&frame.images, window, |z| {
+        z > vt::graphics::Z_BELOW_BG && z < 0
+      });
       for (pos, line) in &frame.lines {
         line
           .paint(*pos, line_height, TextAlign::Left, None, window, cx)
           .ok();
       }
+      paint_images(&frame.images, window, |z| z >= 0);
       if let Some((pos, line)) = &frame.ghost {
         line
           .paint(*pos, line_height, TextAlign::Left, None, window, cx)
@@ -595,3 +640,24 @@ impl IntoElement for TerminalElement {
 #[cfg(test)]
 #[path = "../../tests/element.rs"]
 mod tests;
+
+/// Paint the images in one stacking layer. Each is drawn whole into its
+/// `full` box under a mask of the slice actually on screen, which is what
+/// crops it — gpui can scale a texture into a rectangle but cannot sample a
+/// sub-rectangle of one, and this gets the same result with one texture.
+fn paint_images(images: &[ImagePaint], window: &mut Window, layer: impl Fn(i32) -> bool) {
+  let mut animating = false;
+  for img in images.iter().filter(|i| layer(i.z)) {
+    animating |= img.animating;
+    window.with_content_mask(Some(ContentMask { bounds: img.clip }), |window| {
+      window
+        .paint_image(img.full, Corners::default(), img.image.clone(), img.frame, false)
+        .ok();
+    });
+  }
+  if animating {
+    // A running animation is the only thing here that changes without new
+    // pty bytes, so it has to ask for the next frame itself.
+    window.request_animation_frame();
+  }
+}

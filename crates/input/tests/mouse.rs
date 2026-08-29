@@ -7,6 +7,10 @@ const NONE: Mods = Mods {
   alt: false,
   ctrl: false,
   cmd: false,
+  hyper: false,
+  meta: false,
+  caps_lock: false,
+  num_lock: false,
 };
 const SHIFT: Mods = Mods {
   shift: true,
@@ -18,7 +22,7 @@ const ALL: Mods = Mods {
   shift: true,
   alt: true,
   ctrl: true,
-  cmd: false,
+  ..NONE
 };
 
 #[test]

@@ -5,7 +5,7 @@ fn mods(shift: bool, alt: bool, ctrl: bool) -> Mods {
     shift,
     alt,
     ctrl,
-    cmd: false,
+    ..Default::default()
   }
 }
 

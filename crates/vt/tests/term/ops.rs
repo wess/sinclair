@@ -315,7 +315,7 @@ fn image_budget_evicts_oldest_placements() {
   let mut t = term();
   // Five ~30 MiB images exceed the pane-wide 128 MiB budget: the oldest goes.
   for _ in 0..5 {
-    t.inner.place_sixel(crate::sixel::Image {
+    t.inner.place_sixel(crate::image::Image {
       width: 4,
       height: 4,
       rgba: vec![0; 30 << 20].into(),
@@ -328,16 +328,18 @@ fn image_budget_evicts_oldest_placements() {
 
 #[test]
 fn stored_and_placed_copies_share_one_pixel_buffer() {
+  // A placement points at the store's pixels rather than copying them, so a
+  // 30 MiB image displayed twice still costs 30 MiB.
   let mut t = term();
-  let image = crate::sixel::Image {
-    width: 4,
-    height: 4,
-    rgba: vec![0; 30 << 20].into(),
-  };
-  t.inner.gfx_store.insert(7, image.clone());
-  t.inner.place_image(image, 7, false);
+  let payload = vec![0u8; 30 << 20];
+  let control = crate::graphics::parse_control(b"a=t,f=32,s=1024,v=7680,i=7");
+  let image = crate::graphics::decode(&control, &payload).unwrap();
+  t.inner.gfx_store.insert(&control, image);
+  t.feed(b"\x1b_Ga=p,i=7,C=1\x1b\\");
+  t.feed(b"\x1b_Ga=p,i=7,p=2,C=1\x1b\\");
+  assert_eq!(t.images().len(), 2);
   assert!(std::sync::Arc::ptr_eq(
-    &t.inner.gfx_store[&7].rgba,
+    &t.inner.gfx_store.get(7).unwrap().root().rgba,
     &t.images()[0].image.rgba
   ));
   assert_eq!(t.graphics_memory(), 30 << 20);
@@ -347,16 +349,16 @@ fn stored_and_placed_copies_share_one_pixel_buffer() {
 fn tiny_images_cannot_grow_placement_metadata_without_bound() {
   let mut t = term();
   for id in 0..=MAX_GRAPHICS_ITEMS as u64 {
-    t.inner.primary.images.push(crate::sixel::Placement {
+    t.inner.primary.images.push(crate::image::Placement {
       id,
       line: 0,
       col: 0,
-      image: crate::sixel::Image {
+      image: crate::image::Image {
         width: 1,
         height: 1,
         rgba: vec![0; 4].into(),
       },
-      kitty_id: None,
+      kitty: None,
     });
   }
   t.inner.enforce_graphics_budget();

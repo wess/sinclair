@@ -47,10 +47,10 @@ Conventions (non-negotiable):
   clipboard, OSC 4/10/11/12 color queries, focus reporting ?1004,
   synchronized output ?2026 (with a 150ms stuck-sync safety timeout in the
   app), DA2, OSC 8 hyperlinks (vt model + cmd-click-to-open + underline),
-  kitty keyboard protocol (vt negotiation + input disambiguation encoder),
-  XTGETTCAP. Kitty encodes press/repeat/release event types when a client
-  sets `report_event_types`; alternate-key and associated-text flags are
-  tracked but not encoded.
+  the kitty keyboard protocol, XTGETTCAP. All five kitty enhancement flags
+  are encoded — disambiguation, event types, alternate keys, associated text,
+  and all-keys-as-escape-codes including the bare modifier keys — over the
+  full functional-key table.
 - [x] **8. Fonts** — font fallback chain (`font-family` repeats), emoji
   (via the fallback chain + system fallback), ligatures (contiguous-run
   shaping + `calt`), font-feature config (`+liga`/`-calt`/`ss01`/`cv01=2`
@@ -67,11 +67,11 @@ Conventions (non-negotiable):
 - [x] **10. Images & extras** — URL detection (`vt::url`, cmd-click opens a
   detected URL when there is no OSC 8 link), search in scrollback
   (`vt::search` engine + an in-app overlay: cmd+f, live highlight, n/N
-  navigation, jump-to-match). Image protocols: sixel (DCS) and the common
-  case of kitty graphics (APC) are decoded and GPU-composited into the grid,
-  anchored to the text they arrived with. Deferred for kitty: file /
-  shared-memory transmission, animation, unicode placeholders, and
-  z-index/cropping.
+  navigation, jump-to-match). Image protocols: sixel (DCS) and the whole kitty
+  graphics protocol (APC) are decoded and GPU-composited into the grid,
+  anchored to the text they arrived with — every transmission medium, image
+  numbers, the full delete table, cropping, cell-box scaling, z-index,
+  unicode placeholders, and animation.
 - [x] **11. Performance & polish** — parser throughput benchmark
   (`vt/tests/throughput.rs`, including settled resize and scrollback-footprint
   scenarios), row-level snapshot/text-shaping reuse, 60 Hz output coalescing,

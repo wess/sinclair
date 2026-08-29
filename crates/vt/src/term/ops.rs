@@ -107,17 +107,17 @@ impl Inner {
 
   /// Anchor a decoded sixel image at the cursor and reserve enough rows
   /// below it (by line-feeding) that following output doesn't overwrite it.
-  pub(crate) fn place_sixel(&mut self, image: crate::sixel::Image) {
+  pub(crate) fn place_sixel(&mut self, image: crate::image::Image) {
     let cell_h = self.cell_px.1.max(1) as usize;
     let rows = image.image_rows(cell_h);
     let id = self.image_seq;
     self.image_seq += 1;
-    let placement = crate::sixel::Placement {
+    let placement = crate::image::Placement {
       id,
       line: self.screen().cursor.row as isize,
       col: self.screen().cursor.col,
       image,
-      kitty_id: None,
+      kitty: None,
     };
     {
       let scr = self.screen_mut();
@@ -135,55 +135,16 @@ impl Inner {
     }
   }
 
-  /// Anchor a decoded kitty-graphics image at the cursor. Mirrors
-  /// [`Self::place_sixel`] but tags the placement with its kitty image id (for
-  /// `a=d,d=i` deletes) and only advances the cursor below the image when the
-  /// command allows it (`C=1` suppresses the move).
-  pub(crate) fn place_image(
-    &mut self,
-    image: crate::sixel::Image,
-    kitty_id: u32,
-    move_cursor: bool,
-  ) {
-    let cell_h = self.cell_px.1.max(1) as usize;
-    let rows = image.image_rows(cell_h);
-    let id = self.image_seq;
-    self.image_seq += 1;
-    let placement = crate::sixel::Placement {
-      id,
-      line: self.screen().cursor.row as isize,
-      col: self.screen().cursor.col,
-      image,
-      kitty_id: (kitty_id != 0).then_some(kitty_id),
-    };
-    {
-      let scr = self.screen_mut();
-      let start = scr.cursor.row;
-      let end = (start + rows).min(scr.grid.rows());
-      for r in start..end {
-        scr.grid.damage_row(r);
-      }
-      scr.images.push(placement);
-    }
-    self.enforce_graphics_budget();
-    if move_cursor {
-      self.carriage_return();
-      for _ in 0..rows {
-        self.linefeed();
-      }
-    }
-  }
-
   /// Slide image anchors up by `pushed` rows as the buffer scrolls, dropping
   /// any whose bottom has fallen off the end of scrollback.
   fn shift_images_up(&mut self, pushed: usize, scrollback_len: usize) {
-    let cell_h = self.cell_px.1.max(1) as usize;
+    let (cw, ch) = (self.cell_px.0.max(1) as usize, self.cell_px.1.max(1) as usize);
     let oldest = -(scrollback_len as isize);
     let images = &mut self.screen_mut().images;
     for img in images.iter_mut() {
       img.line -= pushed as isize;
     }
-    images.retain(|img| img.line + img.image.image_rows(cell_h) as isize > oldest);
+    images.retain(|img| img.line + img.cell_rows(cw, ch) as isize > oldest);
   }
 
   /// Decoded graphics bytes retained by kitty storage and placements across
@@ -191,17 +152,19 @@ impl Inner {
   pub(crate) fn graphics_memory(&self) -> usize {
     let mut seen = HashSet::new();
     let mut bytes = 0usize;
-    let mut count = |image: &crate::sixel::Image| {
-      let ptr = image.rgba.as_ptr();
-      if seen.insert(ptr) {
-        bytes = bytes.saturating_add(image.rgba.len());
-      }
-    };
     for image in self.gfx_store.values() {
-      count(image);
+      bytes = bytes.saturating_add(image.bytes(&mut seen));
     }
-    for placement in self.primary.images.iter().chain(&self.alt.images) {
-      count(&placement.image);
+    for placement in self
+      .primary
+      .images
+      .iter()
+      .chain(&self.alt.images)
+      .chain(&self.virt)
+    {
+      if seen.insert(placement.image.rgba.as_ptr()) {
+        bytes = bytes.saturating_add(placement.image.rgba.len());
+      }
     }
     bytes
   }
@@ -210,11 +173,13 @@ impl Inner {
   /// kitty storage goes first, then the oldest placement across both screens.
   pub(crate) fn enforce_graphics_budget(&mut self) {
     while self.graphics_memory() > MAX_GRAPHICS_BYTES
-      || self.gfx_store.len() + self.primary.images.len() + self.alt.images.len()
+      || self.gfx_store.len() + self.primary.images.len() + self.alt.images.len() + self.virt.len()
         > MAX_GRAPHICS_ITEMS
     {
-      if let Some(id) = self.gfx_store.keys().next().copied() {
-        self.gfx_store.remove(&id);
+      // Stored-but-unplaced images go first: nothing on screen is drawing
+      // them, so evicting one costs the user nothing visible.
+      if let Some(id) = self.unplaced_image() {
+        self.gfx_store.remove(id);
         continue;
       }
 
@@ -233,10 +198,28 @@ impl Inner {
         (None, Some(_)) => {
           self.alt.images.remove(0);
         }
-        (None, None) => break,
+        (None, None) => match self.virt.is_empty() {
+          false => {
+            self.virt.remove(0);
+          }
+          true => break,
+        },
       }
       self.full_damage = true;
     }
+  }
+
+  /// A stored image no placement draws, if there is one.
+  fn unplaced_image(&self) -> Option<u32> {
+    self.gfx_store.ids().find(|&id| {
+      !self
+        .primary
+        .images
+        .iter()
+        .chain(&self.alt.images)
+        .chain(&self.virt)
+        .any(|p| p.kitty.as_ref().is_some_and(|k| k.image_id == id))
+    })
   }
 
   /// REP: repeat the last printed character.

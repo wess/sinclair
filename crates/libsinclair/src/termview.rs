@@ -18,7 +18,8 @@ use futures::StreamExt;
 use gpui::prelude::*;
 use gpui::{
   div, px, App, ClipboardItem, Context, EventEmitter, FocusHandle, Focusable, Font, FontFeatures,
-  FontStyle, FontWeight, KeyDownEvent, KeyUpEvent, Pixels, Subscription, Window,
+  FontStyle, FontWeight, KeyDownEvent, KeyUpEvent, ModifiersChangedEvent, Pixels, Subscription,
+  Window,
 };
 use terminal::{Event, Session, SessionOptions};
 
@@ -193,6 +194,10 @@ pub struct TermView {
   /// Last vt title (OSC 0/2); `None` until the child sets one.
   title: Option<String>,
   exited: bool,
+  /// The modifier state at the last report, so a change can be turned back
+  /// into the key presses and releases the kitty protocol's all-keys mode
+  /// asks for. Platforms report the state, not the keystroke.
+  last_mods: input::Mods,
   /// Focus in/out listeners plus the window-activation resync; together they
   /// drive focus reporting (?1004) and the focused/unfocused cursor.
   _focus_subs: [Subscription; 3],
@@ -249,6 +254,7 @@ impl TermView {
       smart_select: opts.smart_select,
       middle_click_paste: opts.middle_click_paste,
       option_as_alt: opts.option_as_alt,
+      last_mods: input::Mods::default(),
       clipboard_write: opts.clipboard_write,
       copy: opts.copy,
       mouse: Rc::new(RefCell::new(MouseState::default())),
@@ -436,13 +442,15 @@ impl TermView {
     }
   }
 
-  fn key_down(&mut self, event: &KeyDownEvent, _window: &mut Window, cx: &mut Context<Self>) {
+  fn key_down(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
     let keystroke = &event.keystroke;
     let mut mods = input::Mods {
       shift: keystroke.modifiers.shift,
       alt: keystroke.modifiers.alt,
       ctrl: keystroke.modifiers.control,
       cmd: keystroke.modifiers.platform,
+      caps_lock: window.capslock().on,
+      ..Default::default()
     };
     if self.clipboard_key(&keystroke.key, mods, cx) {
       cx.stop_propagation();
@@ -478,16 +486,55 @@ impl TermView {
     }
   }
 
+  /// Modifier keys pressed or released on their own.
+  ///
+  /// A platform reports that the modifier *state* changed, never that a key
+  /// was struck, so the difference from the last report is turned back into
+  /// presses and releases. Only the kitty protocol's all-keys mode asks for
+  /// them.
+  fn modifiers_changed(
+    &mut self,
+    event: &ModifiersChangedEvent,
+    _window: &mut Window,
+    _cx: &mut Context<Self>,
+  ) {
+    let now = input::Mods {
+      shift: event.modifiers.shift,
+      alt: event.modifiers.alt,
+      ctrl: event.modifiers.control,
+      cmd: event.modifiers.platform,
+      caps_lock: event.capslock.on,
+      ..Default::default()
+    };
+    let before = std::mem::replace(&mut self.last_mods, now);
+    let state = self.session.with_term(|term| input::TermState {
+      cursor_keys_app: term.cursor_keys_app(),
+      keypad_app: term.keypad_app(),
+      bracketed_paste: term.bracketed_paste(),
+      kitty_flags: term.kitty_keyboard_flags(),
+    });
+    if state.kitty_flags & input::kitty_flags::REPORT_ALL_KEYS_AS_ESCAPE_CODES == 0 {
+      return;
+    }
+    for (key, phase) in input::modifier_events(before, now) {
+      if let Some(bytes) = input::encode_key(key, None, now, state, phase) {
+        let _ = self.session.write(&bytes);
+      }
+    }
+  }
+
   /// Key-release. Only the kitty keyboard protocol with event reporting turns
   /// a key-up into bytes (`encode_key` returns `None` otherwise), so this is a
   /// no-op in normal use.
-  fn key_up(&mut self, event: &KeyUpEvent, _window: &mut Window, cx: &mut Context<Self>) {
+  fn key_up(&mut self, event: &KeyUpEvent, window: &mut Window, cx: &mut Context<Self>) {
     let keystroke = &event.keystroke;
     let mut mods = input::Mods {
       shift: keystroke.modifiers.shift,
       alt: keystroke.modifiers.alt,
       ctrl: keystroke.modifiers.control,
       cmd: keystroke.modifiers.platform,
+      caps_lock: window.capslock().on,
+      ..Default::default()
     };
     let mut text = keystroke.key_char.as_deref();
     if cfg!(target_os = "macos") && keystroke.modifiers.alt && !keystroke.modifiers.platform {
@@ -554,6 +601,7 @@ impl Render for TermView {
       .capture_key_down(cx.listener(Self::capture_key))
       .on_key_down(cx.listener(Self::key_down))
       .on_key_up(cx.listener(Self::key_up))
+      .on_modifiers_changed(cx.listener(Self::modifiers_changed))
       .child(TerminalElement::new(
         self.session.clone(),
         self.colors.clone(),

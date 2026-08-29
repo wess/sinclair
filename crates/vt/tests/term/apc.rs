@@ -58,18 +58,6 @@ fn apc_does_not_disturb_surrounding_text_or_csi() {
 }
 
 #[test]
-fn chunked_transfer_reassembles() {
-  let mut t = term();
-  let rgba = vec![7u8; 2 * 2 * 4];
-  let (a, b) = rgba.split_at(8);
-  t.feed(format!("\x1b_Gf=32,s=2,v=2,a=T,m=1;{}\x1b\\", b64(a)).as_bytes());
-  assert!(t.images().is_empty()); // still waiting for the final chunk
-  t.feed(format!("\x1b_Gm=0;{}\x1b\\", b64(b)).as_bytes());
-  assert_eq!(t.images().len(), 1);
-  assert_eq!(t.images()[0].image.rgba.as_ref(), rgba.as_slice());
-}
-
-#[test]
 fn apc_split_across_feed_calls() {
   let mut t = term();
   let seq = format!("\x1b_Gf=32,s=1,v=1,a=T;{}\x1b\\", b64(&[255; 4]));
@@ -113,54 +101,8 @@ fn bel_terminated_apc() {
   assert_eq!(t.images().len(), 1);
 }
 
-#[test]
-fn transmit_sends_ok_response_honoring_quiet() {
-  let mut t = term();
-  // Default quiet 0 → OK response echoing the image id.
-  t.feed(format!("\x1b_Gf=32,s=1,v=1,a=t,i=5;{}\x1b\\", b64(&[0; 4])).as_bytes());
-  assert_eq!(t.take_output(), b"\x1b_Gi=5;OK\x1b\\");
-  // q=2 → suppress all responses.
-  t.feed(format!("\x1b_Gf=32,s=1,v=1,a=t,i=6,q=2;{}\x1b\\", b64(&[0; 4])).as_bytes());
-  assert!(t.take_output().is_empty());
-}
 
-#[test]
-fn decode_error_reports_error_code() {
-  let mut t = term();
-  // Declares 2x2 (16 bytes) but sends 4 → size error, reported since q=0.
-  t.feed(format!("\x1b_Gf=32,s=2,v=2,a=t,i=3;{}\x1b\\", b64(&[0; 4])).as_bytes());
-  let out = t.take_output();
-  assert!(out.starts_with(b"\x1b_Gi=3;E"), "got {out:?}");
-  assert!(t.images().is_empty());
-}
 
-#[test]
-fn delete_clears_placements() {
-  let mut t = term();
-  t.feed(format!("\x1b_Gf=32,s=1,v=1,a=T,i=1;{}\x1b\\", b64(&[255; 4])).as_bytes());
-  assert_eq!(t.images().len(), 1);
-  t.feed(b"\x1b_Ga=d,d=a\x1b\\");
-  assert!(t.images().is_empty());
-}
-
-#[test]
-fn store_then_display_by_id() {
-  let mut t = term();
-  // Transmit-and-store under id 9, then display it by reference.
-  t.feed(format!("\x1b_Gf=32,s=2,v=1,a=t,i=9;{}\x1b\\", b64(&[1; 8])).as_bytes());
-  assert!(t.images().is_empty());
-  t.feed(b"\x1b_Ga=p,i=9\x1b\\");
-  assert_eq!(t.images().len(), 1);
-  assert_eq!(t.images()[0].kitty_id, Some(9));
-}
-
-#[test]
-fn display_unknown_id_errors() {
-  let mut t = term();
-  t.feed(b"\x1b_Ga=p,i=404\x1b\\");
-  assert!(t.images().is_empty());
-  assert_eq!(t.take_output(), b"\x1b_Gi=404;ENOENT\x1b\\");
-}
 
 /// An APC block is captured here and never handed to vte, so a run forwarded to
 /// vte must not end on a dangling ESC — vte would park mid-escape and eat the

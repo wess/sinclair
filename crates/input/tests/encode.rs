@@ -5,6 +5,10 @@ const NONE: Mods = Mods {
   alt: false,
   ctrl: false,
   cmd: false,
+  hyper: false,
+  meta: false,
+  caps_lock: false,
+  num_lock: false,
 };
 const SHIFT: Mods = Mods {
   shift: true,
@@ -32,7 +36,7 @@ const ALL: Mods = Mods {
   shift: true,
   alt: true,
   ctrl: true,
-  cmd: false,
+  ..NONE
 };
 
 const NORMAL: TermState = TermState {
@@ -72,9 +76,12 @@ fn cmd_chords_reach_the_pty_only_via_kitty() {
   assert_eq!(enc("enter", None, CMD, kitty).unwrap(), b"\x1b[13;9u");
   // Unclaimed cmd+letter chords ride the same path.
   assert_eq!(enc("a", Some("a"), CMD, kitty).unwrap(), b"\x1b[97;9u");
-  // Keys with no CSI-u spelling still vanish rather than degrading to
-  // their unmodified bytes.
-  assert_eq!(enc("up", None, CMD, kitty), None);
+  // Navigation keys keep their legacy shape but gain the super bit, which
+  // the legacy parameter has no room for — so they report rather than
+  // degrading to their unmodified bytes or vanishing.
+  assert_eq!(enc("up", None, CMD, kitty).unwrap(), b"\x1b[1;9A");
+  // Outside the protocol they still vanish: there is no way to spell them.
+  assert_eq!(enc("up", None, CMD, NORMAL), None);
 }
 
 #[test]

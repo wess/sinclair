@@ -5,7 +5,7 @@
 //! that alone removes most of a typical shell line - and the concatenated
 //! rows are lz4-compressed as one block.
 
-use crate::cell::{Cell, CellFlags};
+use crate::cell::{Cell, CellFlags, ZeroWidth};
 use crate::color::Color;
 use crate::grid::row::Row;
 use crate::hyperlink::HyperlinkId;
@@ -89,7 +89,7 @@ fn encode_cell(cell: &Cell, out: &mut Vec<u8>) {
   encode_color(cell.underline_color, out);
   out.extend_from_slice(&cell.flags.bits().to_le_bytes());
   out.extend_from_slice(&cell.hyperlink.map_or(0, HyperlinkId::as_u16).to_le_bytes());
-  out.extend_from_slice(&(cell.zw as u32).to_le_bytes());
+  out.extend_from_slice(&cell.zw.bits().to_le_bytes());
 }
 
 fn decode_cell(raw: &[u8], pos: &mut usize) -> Cell {
@@ -100,7 +100,7 @@ fn decode_cell(raw: &[u8], pos: &mut usize) -> Cell {
     underline_color: decode_color(raw, pos),
     flags: CellFlags::from_bits_truncate(read_u16(raw, pos)),
     hyperlink: HyperlinkId::from_u16(read_u16(raw, pos)),
-    zw: char::from_u32(read_u32(raw, pos)).unwrap_or('\0'),
+    zw: ZeroWidth::from_bits(read_u32(raw, pos)),
   }
 }
 

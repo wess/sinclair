@@ -62,3 +62,29 @@ fn climbs_out_of_the_cwd() {
   std::fs::create_dir_all(&below).unwrap();
   assert_eq!(resolve("../hit.txt", Some(&below)).as_ref(), Some(&file));
 }
+
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[test]
+fn opening_passes_the_path_as_an_argument_not_a_url() {
+  // A `file://` URL would have to percent-encode spaces and would be at the
+  // mercy of the platform's URL parser; an argv entry cannot be mangled.
+  let (_, file) = fixture();
+  let spaced = file.parent().unwrap().join("a file with spaces.txt");
+  std::fs::write(&spaced, b"x").unwrap();
+  let cmd = open_command(&spaced).expect("a launcher on this platform");
+  let args: Vec<_> = cmd.get_args().collect();
+  assert_eq!(args, vec![spaced.as_os_str()]);
+  assert!(!format!("{cmd:?}").contains("file://"));
+  std::fs::remove_file(&spaced).unwrap();
+}
+
+#[cfg(target_os = "macos")]
+#[test]
+fn revealing_and_opening_are_different_gestures() {
+  // Reveal selects the file in Finder; open hands it to its default app.
+  let (_, file) = fixture();
+  let reveal: Vec<_> = command(&file).unwrap().get_args().map(|a| a.to_owned()).collect();
+  let open: Vec<_> = open_command(&file).unwrap().get_args().map(|a| a.to_owned()).collect();
+  assert_eq!(reveal.first().map(|a| a.to_str().unwrap()), Some("-R"));
+  assert_ne!(reveal, open);
+}

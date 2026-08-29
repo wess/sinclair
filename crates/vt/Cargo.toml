@@ -16,6 +16,12 @@ png = "0.17"
 unicode-width = "0.2"
 vte = "0.15"
 
+# The kitty graphics protocol's `t=s` medium names a POSIX shared-memory
+# object, which has to be mapped rather than read on macOS. Nothing else in
+# the crate touches the OS.
+[target.'cfg(unix)'.dependencies]
+rustix = { version = "0.38", features = ["shm", "mm", "fs", "param"] }
+
 # Integration tests (the moved unit tests are compiled in-crate via #[path],
 # so auto-discovery is off; declare the real integration tests explicitly).
 [[test]]

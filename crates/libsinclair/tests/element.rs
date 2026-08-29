@@ -61,9 +61,9 @@ fn shared_image_cache_enforces_a_global_lru_budget() {
     height: 4,
     rgba: vec![0; 64].into(),
   };
-  let _first_frame = first.texture(1, &image);
+  let _first_frame = first.texture(1, 0, &[&image]);
   assert_eq!(pool.borrow().stats().bytes, 64);
-  let _second_frame = second.texture(1, &image);
+  let _second_frame = second.texture(1, 0, &[&image]);
   assert_eq!(
     pool.borrow().stats(),
     ImageCacheStats {
@@ -71,6 +71,82 @@ fn shared_image_cache_enforces_a_global_lru_budget() {
       entries: 1,
       evictions: 1,
     }
+  );
+}
+
+#[test]
+fn a_texture_is_rebuilt_when_its_image_is_edited() {
+  // An animation frame or a frame composition bumps the serial; serving the
+  // cached texture then would leave the old pixels on screen forever.
+  let pool = Rc::new(RefCell::new(ImageCachePool::new(1 << 20)));
+  let mut cache = ImageCache::new(pool.clone());
+  let image = vt::Image {
+    width: 4,
+    height: 4,
+    rgba: vec![0; 64].into(),
+  };
+  let first = cache.texture(1, 0, &[&image]);
+  let same = cache.texture(1, 0, &[&image]);
+  assert!(Arc::ptr_eq(&first.image, &same.image), "same serial reuses");
+
+  let edited = cache.texture(1, 1, &[&image]);
+  assert!(!Arc::ptr_eq(&first.image, &edited.image), "new serial rebuilds");
+  assert_eq!(pool.borrow().stats().bytes, 64, "the old texture was freed");
+}
+
+#[test]
+fn an_animation_advances_by_elapsed_time_and_stops_when_asked() {
+  use std::time::Duration;
+  use vt::graphics::Playback;
+
+  let frames = vec![100u32, 100, 100];
+  let running = Playback {
+    current: 0,
+    running: true,
+    looping: true,
+    loops: None,
+    serial: 0,
+  };
+
+  assert_eq!(animation_frame(&frames, &running, Duration::from_millis(0)).0, 0);
+  assert_eq!(animation_frame(&frames, &running, Duration::from_millis(150)).0, 1);
+  assert_eq!(animation_frame(&frames, &running, Duration::from_millis(250)).0, 2);
+  // Looping wraps around rather than parking.
+  assert_eq!(animation_frame(&frames, &running, Duration::from_millis(350)).0, 0);
+  assert!(animation_frame(&frames, &running, Duration::from_millis(350)).1);
+
+  // A stopped image sits on whichever frame the client selected.
+  let stopped = Playback {
+    running: false,
+    current: 2,
+    ..running
+  };
+  assert_eq!(
+    animation_frame(&frames, &stopped, Duration::from_millis(999)),
+    (2, false)
+  );
+
+  // Run-and-wait stops at the end of one pass instead of looping.
+  let once = Playback {
+    looping: false,
+    ..running
+  };
+  assert_eq!(
+    animation_frame(&frames, &once, Duration::from_millis(400)),
+    (2, false)
+  );
+
+  // A zero gap means the frame is skipped entirely.
+  let skipping = vec![0u32, 100];
+  assert_eq!(
+    animation_frame(&skipping, &running, Duration::from_millis(10)).0,
+    1
+  );
+
+  // A still image never animates, whatever the clock says.
+  assert_eq!(
+    animation_frame(&frames[..1], &running, Duration::from_millis(999)),
+    (0, false)
   );
 }
 
@@ -946,4 +1022,195 @@ fn realign_handles_a_row_object_appearing_in_two_slots() {
   assert_eq!(todo, vec![1]);
   assert!(cache[0].is_some());
   assert!(cache[1].is_none());
+}
+
+// ── kitty graphics geometry ───────────────────────────────────────────────
+
+/// Standard base64, for building graphics payloads inline.
+fn b64(data: &[u8]) -> String {
+  const A: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  let mut out = String::new();
+  for chunk in data.chunks(3) {
+    let n = (chunk[0] as u32) << 16
+      | (*chunk.get(1).unwrap_or(&0) as u32) << 8
+      | *chunk.get(2).unwrap_or(&0) as u32;
+    out.push(A[(n >> 18 & 63) as usize] as char);
+    out.push(A[(n >> 12 & 63) as usize] as char);
+    out.push(if chunk.len() > 1 {
+      A[(n >> 6 & 63) as usize] as char
+    } else {
+      '='
+    });
+    out.push(if chunk.len() > 2 {
+      A[(n & 63) as usize] as char
+    } else {
+      '='
+    });
+  }
+  out
+}
+
+/// A terminal with 8x16 cells showing one kitty image, described by `control`.
+fn with_image(control: &str, w: usize, h: usize) -> vt::Terminal {
+  let mut term = vt::Terminal::new(40, 10, 100);
+  term.set_cell_pixels(8, 16);
+  let rgba = [9u8, 8, 7, 255].repeat(w * h);
+  term.feed(format!("\x1b_G{control};{}\x1b\\", b64(&rgba)).as_bytes());
+  let _ = term.take_output();
+  term
+}
+
+/// The image draws a snapshot resolves for `term`.
+fn draws(term: &mut vt::Terminal) -> Vec<ImageDraw> {
+  let cell = test_cell();
+  let mut cache = ImageCache::default();
+  image_draws(term, cell, &mut cache)
+}
+
+#[test]
+fn an_unadorned_image_draws_at_its_natural_size() {
+  let mut term = with_image("a=T,f=32,s=32,v=48,i=1,C=1", 32, 48);
+  let d = draws(&mut term);
+  assert_eq!(d.len(), 1);
+  assert_eq!((d[0].width, d[0].height), (32.0, 48.0));
+  // Nothing is cropped, so the whole image lands exactly on the slice.
+  assert_eq!((d[0].full_dx, d[0].full_dy), (0.0, 0.0));
+  assert_eq!((d[0].full_width, d[0].full_height), (32.0, 48.0));
+  assert_eq!(d[0].z, 0);
+}
+
+#[test]
+fn a_cell_box_scales_the_image_to_it() {
+  // c=4,r=2 at 8x16 cells is a 32x32 box; the 16x16 source stretches into it.
+  let mut term = with_image("a=T,f=32,s=16,v=16,i=1,c=4,r=2,C=1", 16, 16);
+  let d = draws(&mut term);
+  assert_eq!((d[0].width, d[0].height), (32.0, 32.0));
+  assert_eq!((d[0].full_width, d[0].full_height), (32.0, 32.0));
+}
+
+#[test]
+fn a_source_crop_shifts_and_magnifies_the_whole_image_behind_the_slice() {
+  // Show the bottom-right 8x8 of a 16x16 image. The slice is 8x8, and the
+  // whole image sits behind it offset by exactly the cropped-away part —
+  // masking the slice is then the same thing as cropping the source.
+  let mut term = with_image("a=T,f=32,s=16,v=16,i=1,x=8,y=8,w=8,h=8,C=1", 16, 16);
+  let d = draws(&mut term);
+  assert_eq!((d[0].width, d[0].height), (8.0, 8.0));
+  assert_eq!((d[0].full_dx, d[0].full_dy), (-8.0, -8.0));
+  assert_eq!((d[0].full_width, d[0].full_height), (16.0, 16.0));
+}
+
+#[test]
+fn a_crop_and_a_cell_box_compose() {
+  // Half the image (8x16 of a 16x16) scaled into a 2x2 cell box (16x32):
+  // the source doubles horizontally and doubles vertically.
+  let mut term = with_image("a=T,f=32,s=16,v=16,i=1,w=8,c=2,r=2,C=1", 16, 16);
+  let d = draws(&mut term);
+  assert_eq!((d[0].width, d[0].height), (16.0, 32.0));
+  assert_eq!((d[0].full_width, d[0].full_height), (32.0, 32.0));
+}
+
+#[test]
+fn the_cell_offset_moves_the_image_inside_its_anchor_cell() {
+  let mut term = with_image("a=T,f=32,s=16,v=16,i=1,X=3,Y=5,C=1", 16, 16);
+  let d = draws(&mut term);
+  assert_eq!((d[0].offset_x, d[0].offset_y), (3.0, 5.0));
+}
+
+#[test]
+fn draws_come_out_in_stacking_order() {
+  let mut term = vt::Terminal::new(40, 10, 100);
+  term.set_cell_pixels(8, 16);
+  let rgba = [1u8, 2, 3, 255].repeat(64);
+  for (id, z) in [(1, 5), (2, -2_000_000_000), (3, -1), (4, 0)] {
+    term.feed(
+      format!(
+        "\x1b_Ga=T,f=32,s=8,v=8,i={id},z={z},C=1;{}\x1b\\",
+        b64(&rgba)
+      )
+      .as_bytes(),
+    );
+  }
+  let _ = term.take_output();
+  let z: Vec<i32> = draws(&mut term).iter().map(|d| d.z).collect();
+  assert_eq!(z, vec![-2_000_000_000, -1, 0, 5]);
+  // The lowest sits under the cell background, not merely under the text.
+  assert!(z[0] <= vt::graphics::Z_BELOW_BG);
+  assert!(z[1] > vt::graphics::Z_BELOW_BG && z[1] < 0);
+}
+
+#[test]
+fn a_virtual_placement_draws_only_where_placeholders_call_for_it() {
+  // U=1 means the image has no anchor: with no placeholder cells written,
+  // nothing is drawn at all.
+  let mut term = with_image("a=T,f=32,s=16,v=16,i=1,U=1,c=2,r=1", 16, 16);
+  assert!(draws(&mut term).is_empty());
+
+  // Two placeholder cells naming image 1, columns 0 and 1 of its cell grid.
+  let d = |v: u16| vt::placeholder::diacritic(v).unwrap();
+  term.feed(
+    format!(
+      "\x1b[38;2;0;0;1m\u{10EEEE}{}{}\u{10EEEE}{}{}",
+      d(0),
+      d(0),
+      d(0),
+      d(1)
+    )
+    .as_bytes(),
+  );
+  let drawn = draws(&mut term);
+  assert_eq!(drawn.len(), 1, "the run collapses into one draw");
+  // Two cells wide, one tall, with the whole image behind it at the box size.
+  assert_eq!((drawn[0].width, drawn[0].height), (16.0, 16.0));
+  assert_eq!((drawn[0].full_width, drawn[0].full_height), (16.0, 16.0));
+  assert_eq!((drawn[0].full_dx, drawn[0].full_dy), (0.0, 0.0));
+}
+
+#[test]
+fn a_placeholder_slice_offsets_the_image_behind_it() {
+  // Only the second column of a 2x1 image: the image is pushed one cell left
+  // so its second cell lands on the slice.
+  let mut term = with_image("a=T,f=32,s=16,v=16,i=1,U=1,c=2,r=1", 16, 16);
+  let d = |v: u16| vt::placeholder::diacritic(v).unwrap();
+  term.feed(format!("\x1b[38;2;0;0;1m\u{10EEEE}{}{}", d(0), d(1)).as_bytes());
+  let drawn = draws(&mut term);
+  assert_eq!(drawn.len(), 1);
+  assert_eq!(drawn[0].width, 8.0, "one cell wide");
+  assert_eq!(drawn[0].full_dx, -8.0, "shifted left by the column it skips");
+}
+
+#[test]
+fn an_animated_image_carries_its_gaps_to_the_painter() {
+  let mut term = with_image("a=t,f=32,s=8,v=8,i=1", 8, 8);
+  let rgba = [4u8, 4, 4, 255].repeat(64);
+  term.feed(format!("\x1b_Ga=f,f=32,s=8,v=8,i=1,c=1,z=70;{}\x1b\\", b64(&rgba)).as_bytes());
+  term.feed(b"\x1b_Ga=p,i=1,C=1\x1b\\");
+  term.feed(b"\x1b_Ga=a,i=1,s=3\x1b\\");
+  let _ = term.take_output();
+
+  let drawn = draws(&mut term);
+  let anim = drawn[0].anim.as_ref().expect("an animation");
+  assert_eq!(anim.gaps, vec![40, 70], "the root frame takes the default gap");
+  assert!(anim.play.running && anim.play.looping);
+  assert_eq!(anim.resolve().0, 0, "it starts on the first frame");
+}
+
+#[test]
+fn a_still_image_asks_for_no_animation_ticks() {
+  let mut term = with_image("a=T,f=32,s=8,v=8,i=1,C=1", 8, 8);
+  let drawn = draws(&mut term);
+  assert!(drawn[0].anim.is_none());
+}
+
+#[test]
+fn a_sixel_placement_still_draws_untouched() {
+  // Sixel has no kitty state at all; it must survive the shared path.
+  let mut term = vt::Terminal::new(40, 10, 100);
+  term.set_cell_pixels(8, 16);
+  term.feed(b"\x1bPq#0;2;100;0;0#0~~~~\x1b\\");
+  let drawn = draws(&mut term);
+  assert_eq!(drawn.len(), 1);
+  assert_eq!(drawn[0].z, 0);
+  assert_eq!((drawn[0].full_dx, drawn[0].full_dy), (0.0, 0.0));
+  assert!(drawn[0].anim.is_none());
 }

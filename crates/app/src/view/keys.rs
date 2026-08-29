@@ -10,6 +10,22 @@ fn single_char(key: &str) -> Option<&str> {
   }
 }
 
+/// The modifiers a keystroke was made with, including the lock state the
+/// kitty keyboard protocol reports but ordinary encoding ignores. Caps lock
+/// is window state rather than part of the keystroke, so it is read here.
+pub(crate) fn mods_of(keystroke: &gpui::Keystroke, window: &Window) -> input::Mods {
+  input::Mods {
+    shift: keystroke.modifiers.shift,
+    alt: keystroke.modifiers.alt,
+    ctrl: keystroke.modifiers.control,
+    cmd: keystroke.modifiers.platform,
+    caps_lock: window.capslock().on,
+    // gpui reports no hyper, meta, or num lock; leaving them false is honest
+    // where inventing them would not be.
+    ..Default::default()
+  }
+}
+
 /// The `macos-option-as-alt` decision for one keystroke: the effective
 /// modifiers and the text `encode_key` should use. Pure so it can be tested
 /// off the macOS event path. On non-macOS, or when Option isn't held, the
@@ -92,16 +108,11 @@ impl TerminalView {
   pub(crate) fn key_down(
     &mut self,
     event: &KeyDownEvent,
-    _window: &mut Window,
+    window: &mut Window,
     cx: &mut Context<Self>,
   ) {
     let keystroke = &event.keystroke;
-    let mods = input::Mods {
-      shift: keystroke.modifiers.shift,
-      alt: keystroke.modifiers.alt,
-      ctrl: keystroke.modifiers.control,
-      cmd: keystroke.modifiers.platform,
-    };
+    let mods = mods_of(keystroke, window);
     if self.context_menu.is_some() {
       if keystroke.key == "escape" {
         self.context_menu = None;
@@ -172,7 +183,7 @@ impl TerminalView {
   pub(crate) fn key_up(
     &mut self,
     event: &KeyUpEvent,
-    _window: &mut Window,
+    window: &mut Window,
     cx: &mut Context<Self>,
   ) {
     if self.context_menu.is_some()
@@ -185,12 +196,7 @@ impl TerminalView {
       return;
     }
     let keystroke = &event.keystroke;
-    let mods = input::Mods {
-      shift: keystroke.modifiers.shift,
-      alt: keystroke.modifiers.alt,
-      ctrl: keystroke.modifiers.control,
-      cmd: keystroke.modifiers.platform,
-    };
+    let mods = mods_of(keystroke, window);
     let state = self.term_state();
     let (mods, text) = self.resolve_option(keystroke, mods);
     if let Some(bytes) =
@@ -204,6 +210,47 @@ impl TerminalView {
         cx.emit(ViewEvent::Input(bytes));
       }
       cx.stop_propagation();
+    }
+  }
+
+  /// Modifier keys pressed or released on their own.
+  ///
+  /// A platform reports that the modifier *state* changed, never that a key
+  /// was struck, so the difference from the last report is turned back into
+  /// presses and releases. Only the kitty protocol's all-keys mode wants
+  /// them; every other session ignores this entirely.
+  pub(crate) fn modifiers_changed(
+    &mut self,
+    event: &ModifiersChangedEvent,
+    _window: &mut Window,
+    cx: &mut Context<Self>,
+  ) {
+    let now = input::Mods {
+      shift: event.modifiers.shift,
+      alt: event.modifiers.alt,
+      ctrl: event.modifiers.control,
+      cmd: event.modifiers.platform,
+      caps_lock: event.capslock.on,
+      ..Default::default()
+    };
+    let before = std::mem::replace(&mut self.last_mods, now);
+    if self.read_only {
+      return;
+    }
+    let state = self.term_state();
+    if state.kitty_flags & input::kitty_flags::REPORT_ALL_KEYS_AS_ESCAPE_CODES == 0 {
+      return;
+    }
+    for (key, phase) in input::modifier_events(before, now) {
+      if let Some(bytes) = input::encode_key(key, None, now, state, phase) {
+        let _ = self.session.write(&bytes);
+        if cx
+          .try_global::<crate::root::Broadcast>()
+          .is_some_and(|b| b.0)
+        {
+          cx.emit(ViewEvent::Input(bytes));
+        }
+      }
     }
   }
 

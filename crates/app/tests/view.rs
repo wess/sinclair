@@ -26,6 +26,10 @@ const OPT: input::Mods = input::Mods {
   alt: true,
   ctrl: false,
   cmd: false,
+  hyper: false,
+  meta: false,
+  caps_lock: false,
+  num_lock: false,
 };
 
 fn policy(

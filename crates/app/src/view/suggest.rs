@@ -316,6 +316,7 @@ impl TerminalView {
       alt: false,
       ctrl: false,
       cmd: false,
+      ..Default::default()
     };
     self.handle_suggestion_key(&ks, mods, cx)
   }

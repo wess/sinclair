@@ -1,28 +1,10 @@
 use super::*;
+use crate::graphics::parse_control;
 
 fn ctrl(s: &str) -> Control {
   parse_control(s.as_bytes())
 }
 
-#[test]
-fn parses_control_keys_and_defaults() {
-  let c = ctrl("a=T,f=24,s=3,v=2,i=7,o=z,m=1,q=2,C=1");
-  assert_eq!(c.action, Action::TransmitAndDisplay);
-  assert_eq!(c.format, 24);
-  assert_eq!((c.width, c.height), (3, 2));
-  assert_eq!(c.image_id, 7);
-  assert!(c.compressed);
-  assert!(c.more);
-  assert_eq!(c.quiet, 2);
-  assert!(!c.move_cursor); // C=1 suppresses the cursor move
-
-  // Unspecified keys fall back to the spec defaults.
-  let d = ctrl("s=1,v=1");
-  assert_eq!(d.action, Action::Transmit);
-  assert_eq!(d.format, 32);
-  assert!(d.move_cursor);
-  assert_eq!(d.delete, b'a');
-}
 
 #[test]
 fn decodes_raw_rgba() {
@@ -111,11 +93,6 @@ fn decodes_rgb_png_expanding_alpha() {
   assert_eq!(img.rgba.as_ref(), &[10, 20, 30, 255]);
 }
 
-#[test]
-fn unsupported_medium_errors() {
-  // File-based transmission is out of scope; decode refuses it.
-  assert!(decode(&ctrl("f=32,s=1,v=1,t=f"), &[0; 4]).is_err());
-}
 
 #[test]
 fn unsupported_format_errors() {

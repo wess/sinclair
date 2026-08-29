@@ -3,6 +3,7 @@
 //! [`crate::mouse`]; this file only touches the session and the window.
 
 use std::cell::RefCell;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -50,11 +51,42 @@ pub fn openable(url: &str) -> bool {
 /// their own policy (redaction, clipboard history) on top.
 pub type CopyHook = dyn Fn(String, &mut App);
 
-/// What an open-modifier click on a filesystem path does. The scanner behind
-/// [`vt::Terminal::path_at`] only reports *candidates* — resolving one against
-/// a working directory and deciding whether it exists is the host's job, so a
-/// host that sets no hook simply has no path clicks.
-pub type PathHook = dyn Fn(vt::PathHit, &mut App);
+/// Turns a path *candidate* into something real, or `None` when the text only
+/// looked like a path.
+///
+/// The scanner behind [`vt::Terminal::path_at`] matches anything path-shaped,
+/// so resolving one against a working directory and checking the filesystem is
+/// the host's job. This is asked on hover as well as on the click, which is
+/// what lets a path be underlined only when clicking it would do something.
+pub type PathResolve = dyn Fn(&vt::PathHit) -> Option<PathBuf>;
+
+/// Acts on a path an open-modifier click landed on, after [`PathResolve`]
+/// confirmed it. A host that sets no hooks simply has no path clicks.
+pub type PathOpen = dyn Fn(&Path, &mut App);
+
+/// The span an open-modifier click at `(row, col)` would act on: a link, or a
+/// path candidate that resolved. `None` when the click would do nothing, which
+/// is what keeps the underline honest.
+fn openable_at(p: &Pointer, row: usize, col: usize) -> Option<(usize, usize, usize)> {
+  if let Some(link) = p.session.with_term(|t| t.link_at(row, col)) {
+    return Some((row, link.start_col, link.end_col));
+  }
+  let (_, hit) = path_hit(p, row, col)?;
+  Some((row, hit.start_col, hit.end_col))
+}
+
+/// The resolved path under a cell, if the host resolves paths and this one is
+/// real.
+fn resolved_path(p: &Pointer, row: usize, col: usize) -> Option<PathBuf> {
+  path_hit(p, row, col).map(|(path, _)| path)
+}
+
+/// A path candidate under a cell, together with what it resolved to.
+fn path_hit(p: &Pointer, row: usize, col: usize) -> Option<(PathBuf, vt::PathHit)> {
+  let (resolve, _) = p.path.as_ref()?;
+  let hit = p.session.with_term(|t| t.path_at(row, col))?;
+  resolve(&hit).map(|path| (path, hit))
+}
 
 /// The default [`CopyHook`]: a plain system-clipboard write.
 pub fn clipboard_copy(text: String, cx: &mut App) {
@@ -73,9 +105,10 @@ pub struct Pointer {
   pub rows: usize,
   pub copy_on_select: bool,
   pub copy: Rc<CopyHook>,
-  /// What an open-modifier click on a path does. `None` (the default) leaves
-  /// paths inert, exactly as before there was a scanner for them.
-  pub path: Option<Rc<PathHook>>,
+  /// How a path candidate is resolved and what opening it does. `None` (the
+  /// default) leaves paths inert, exactly as before there was a scanner for
+  /// them.
+  pub path: Option<(Rc<PathResolve>, Rc<PathOpen>)>,
   pub smart_select: bool,
   pub middle_click_paste: bool,
 }
@@ -86,6 +119,7 @@ fn mods(m: &Modifiers) -> input::Mods {
     alt: m.alt,
     ctrl: m.control,
     cmd: m.platform,
+    ..Default::default()
   }
 }
 
@@ -173,19 +207,23 @@ pub fn down(p: &Pointer, e: &MouseDownEvent, window: &mut Window, _cx: &mut App)
 pub fn moved(p: &Pointer, e: &MouseMoveEvent, window: &mut Window, _cx: &mut App) {
   let m = mods(&e.modifiers);
 
-  // Link hover: while the open-modifier is held, find the link under the
-  // pointer so the view can underline it and show the pointing-hand cursor.
-  let hover = if open_mod(&m) && !p.state.borrow().selecting && p.bounds.contains(&e.position) {
-    let (row, col) = cell_at(p, e.position);
-    p.session
-      .with_term(|t| t.link_at(row, col))
-      .map(|l| (row, l.start_col, l.end_col))
-  } else {
-    None
-  };
-  if p.state.borrow().hover_link != hover {
-    p.state.borrow_mut().hover_link = hover;
-    window.refresh();
+  // Hover: while the open-modifier is held, find whatever under the pointer a
+  // click would open, so the view can underline it and show the pointing-hand
+  // cursor. Both link and path, since both are clickable.
+  let cell = (open_mod(&m) && !p.state.borrow().selecting && p.bounds.contains(&e.position))
+    .then(|| cell_at(p, e.position));
+  // Resolving a path candidate stats the filesystem, so it is only asked once
+  // per cell rather than once per pixel of travel.
+  if p.state.borrow().hover_cell != cell {
+    let hover = cell.and_then(|(row, col)| openable_at(p, row, col));
+    let mut s = p.state.borrow_mut();
+    s.hover_cell = cell;
+    let changed = s.hover_link != hover;
+    s.hover_link = hover;
+    drop(s);
+    if changed {
+      window.refresh();
+    }
   }
 
   if p.state.borrow().selecting && e.pressed_button == Some(gpui::MouseButton::Left) {
@@ -276,7 +314,7 @@ pub fn up(p: &Pointer, e: &MouseUpEvent, window: &mut Window, cx: &mut App) {
     // declines a cell a URL covers, and asking twice would scan the row for
     // nothing on every click that lands on one.
     let path = match (&url, &p.path) {
-      (None, Some(_)) => p.session.with_term(|t| t.path_at(row, col)),
+      (None, Some(_)) => resolved_path(p, row, col),
       _ => None,
     };
     let acted = match (url, path) {
@@ -288,12 +326,12 @@ pub fn up(p: &Pointer, e: &MouseUpEvent, window: &mut Window, cx: &mut App) {
         }
         true
       }
-      (None, Some(hit)) => {
-        // The hook resolves and checks the candidate, so a click on
-        // text that merely looked like a path does nothing — including
-        // not clearing the selection under it.
-        if let Some(hook) = p.path.clone() {
-          hook(hit, cx);
+      (None, Some(path)) => {
+        // Only ever a candidate that resolved, so a click on text that
+        // merely looked like a path does nothing — including not clearing
+        // the selection under it.
+        if let Some((_, open)) = p.path.clone() {
+          open(&path, cx);
         }
         true
       }

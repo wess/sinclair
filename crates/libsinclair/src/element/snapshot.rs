@@ -12,6 +12,13 @@ struct CachedImage {
   image: Arc<RenderImage>,
   bytes: usize,
   used: u64,
+  /// The source's revision when this texture was built. A kitty image whose
+  /// pixels are edited (a new animation frame, a frame composition) bumps its
+  /// serial, and the texture is rebuilt rather than served stale.
+  serial: u64,
+  /// When this image's animation started, so the frame on screen is a pure
+  /// function of elapsed time rather than of how many frames were painted.
+  started: std::time::Instant,
 }
 
 /// Shared decoded-texture cache. Multiple panes can use one pool so their
@@ -140,21 +147,38 @@ impl ImageCache {
     }
   }
 
-  pub(super) fn texture(&mut self, id: u64, source: &vt::Image) -> Arc<RenderImage> {
+  /// The texture for one image, built once and reused by every placement of
+  /// it. `frames` is the still image alone, or an animation's frames in
+  /// order; `serial` changes whenever the pixels do.
+  ///
+  /// Cropping and scaling never enter here: a placement draws a slice of an
+  /// image by painting the whole texture under a content mask, so one image
+  /// needs exactly one texture no matter how many ways it is sliced.
+  pub(super) fn texture(&mut self, id: u64, serial: u64, frames: &[&vt::Image]) -> CachedTexture {
     let key = (self.pane, id);
     {
       let mut pool = self.pool.borrow_mut();
       pool.clock = pool.clock.wrapping_add(1);
       let used = pool.clock;
-      if let Some(entry) = pool.entries.get_mut(&key) {
+      let fresh = pool
+        .entries
+        .get(&key)
+        .is_some_and(|entry| entry.serial == serial);
+      if fresh {
+        let entry = pool.entries.get_mut(&key).expect("just checked");
         entry.used = used;
-        return entry.image.clone();
+        return CachedTexture {
+          image: entry.image.clone(),
+          started: entry.started,
+        };
       }
     }
 
-    let image = render_image(source);
-    let bytes = source.rgba.len();
+    let image = render_image(frames);
+    let bytes = frames.iter().map(|f| f.rgba.len()).sum();
+    let started = std::time::Instant::now();
     let mut pool = self.pool.borrow_mut();
+    pool.remove(key);
     pool.clock = pool.clock.wrapping_add(1);
     let used = pool.clock;
     pool.bytes = pool.bytes.saturating_add(bytes);
@@ -164,11 +188,19 @@ impl ImageCache {
         image: image.clone(),
         bytes,
         used,
+        serial,
+        started,
       },
     );
     pool.enforce(self.pane);
-    image
+    CachedTexture { image, started }
   }
+}
+
+/// A texture plus the instant its animation began.
+pub(crate) struct CachedTexture {
+  pub(crate) image: Arc<RenderImage>,
+  pub(crate) started: std::time::Instant,
 }
 
 impl Drop for ImageCache {
@@ -196,27 +228,108 @@ const STYLE_FLAGS: CellFlags = CellFlags::BOLD
   .union(CellFlags::ANY_UNDERLINE)
   .union(CellFlags::STRIKETHROUGH);
 
-/// A decoded image positioned for drawing: its absolute content line, column,
-/// pixel size, and shared GPU texture.
+/// A decoded image positioned for drawing.
+///
+/// `line`/`col` anchor the *visible slice* — the cells actually painted — and
+/// `full` is where the whole image would land if nothing clipped it. Painting
+/// the whole texture into `full` under a mask of the slice is what implements
+/// the protocol's source cropping, its cell offsets, and the way a unicode
+/// placeholder shows one piece of an image: one texture, no per-slice copies.
 pub(crate) struct ImageDraw {
+  /// Absolute content line and column of the slice's top-left cell.
   pub(crate) line: isize,
   pub(crate) col: usize,
+  /// The slice's size in pixels, and its offset inside the anchor cell.
   pub(crate) width: f32,
   pub(crate) height: f32,
+  pub(crate) offset_x: f32,
+  pub(crate) offset_y: f32,
+  /// Where the whole image lands, relative to the slice's top-left corner.
+  pub(crate) full_dx: f32,
+  pub(crate) full_dy: f32,
+  pub(crate) full_width: f32,
+  pub(crate) full_height: f32,
+  /// Stacking order: below the cell background, below the text, or above it.
+  pub(crate) z: i32,
   pub(crate) image: Arc<RenderImage>,
+  /// Playback description, for an animated image. Resolved to a frame index
+  /// at paint time rather than here: a running animation must advance without
+  /// the snapshot being rebuilt, and nothing else about it changes per tick.
+  pub(crate) anim: Option<Anim>,
 }
 
-/// Build a GPU texture from a decoded sixel image (RGBA -> the BGRA gpui wants).
-fn render_image(img: &vt::Image) -> Arc<RenderImage> {
-  let mut bgra = img.rgba.to_vec();
-  for px in bgra.chunks_exact_mut(4) {
-    px.swap(0, 2);
+/// What painting needs to pick an animation's current frame.
+#[derive(Clone)]
+pub(crate) struct Anim {
+  pub(crate) gaps: Vec<u32>,
+  pub(crate) play: vt::graphics::Playback,
+  pub(crate) started: std::time::Instant,
+}
+
+impl Anim {
+  /// The frame to paint now, and whether another tick is due.
+  pub(crate) fn resolve(&self) -> (usize, bool) {
+    animation_frame(&self.gaps, &self.play, self.started.elapsed())
   }
-  let buf = image::RgbaImage::from_raw(img.width as u32, img.height as u32, bgra)
-    .unwrap_or_else(|| image::RgbaImage::new(1, 1));
-  Arc::new(RenderImage::new(smallvec::SmallVec::from_buf([
-    image::Frame::new(buf),
-  ])))
+}
+
+/// Build a GPU texture from decoded frames (RGBA -> the BGRA gpui wants).
+fn render_image(frames: &[&vt::Image]) -> Arc<RenderImage> {
+  let built: smallvec::SmallVec<[image::Frame; 1]> = frames
+    .iter()
+    .map(|img| {
+      let mut bgra = img.rgba.to_vec();
+      for px in bgra.chunks_exact_mut(4) {
+        px.swap(0, 2);
+      }
+      let buf = image::RgbaImage::from_raw(img.width as u32, img.height as u32, bgra)
+        .unwrap_or_else(|| image::RgbaImage::new(1, 1));
+      image::Frame::new(buf)
+    })
+    .collect();
+  Arc::new(RenderImage::new(match built.is_empty() {
+    true => smallvec::SmallVec::from_buf([image::Frame::new(image::RgbaImage::new(1, 1))]),
+    false => built,
+  }))
+}
+
+/// The frame an animation is showing after `elapsed`, and whether it is still
+/// advancing. Frames with a zero gap are skipped, as the protocol asks; when
+/// every gap is zero the animation is effectively a still on its first frame.
+pub(crate) fn animation_frame(
+  gaps: &[u32],
+  play: &vt::graphics::Playback,
+  elapsed: std::time::Duration,
+) -> (usize, bool) {
+  if !play.running || gaps.len() < 2 {
+    return (play.current.min(gaps.len().saturating_sub(1)), false);
+  }
+  let total: u64 = gaps.iter().map(|&g| g as u64).sum();
+  if total == 0 {
+    return (play.current.min(gaps.len() - 1), false);
+  }
+  // Parking on the last frame that actually renders is what a finished
+  // animation looks like; a skipped frame would show the one before it.
+  let last = || gaps.iter().rposition(|&g| g > 0).unwrap_or(0);
+  let ms = elapsed.as_millis() as u64;
+  let loops_done = ms / total;
+  if play.loops.is_some_and(|limit| loops_done > limit as u64) {
+    return (last(), false);
+  }
+  if !play.looping && loops_done >= 1 {
+    return (last(), false);
+  }
+  let mut into = ms % total;
+  for (i, &gap) in gaps.iter().enumerate() {
+    if gap == 0 {
+      continue;
+    }
+    if into < gap as u64 {
+      return (i, true);
+    }
+    into -= gap as u64;
+  }
+  (gaps.len() - 1, true)
 }
 
 /// A horizontal run of equal non-default background color, in cells.
@@ -321,9 +434,13 @@ pub(crate) struct SnapKey {
   /// matches behind an `Rc` and replaces it on rescan).
   search: Option<(String, usize, Rc<Vec<vt::Match>>)>,
   hover_link: Option<(usize, usize, usize)>,
-  /// Image placement identity (id + anchor); decoded textures are cached
-  /// separately by id.
-  images: Vec<(u64, isize, usize)>,
+  /// Image placement identity: anchor, stacking order, and the source's
+  /// revision, so an edited image or a re-stacked placement rebuilds rather
+  /// than serving the previous frame. Decoded textures are cached separately.
+  images: Vec<(u64, isize, usize, i32, u64)>,
+  /// Virtual placements, which placeholder cells draw. They have no anchor,
+  /// so their identity is the image and placement they name.
+  virt: Vec<(u32, u32, i32, u64)>,
 }
 
 /// Capture the current snapshot inputs. Runs under the terminal lock.
@@ -348,7 +465,25 @@ pub(crate) fn snapkey(
     images: term
       .images()
       .iter()
-      .map(|p| (p.id, p.line, p.col))
+      .map(|p| {
+        let serial = p
+          .kitty
+          .as_ref()
+          .and_then(|k| term.graphics_playback(k.image_id))
+          .map_or(0, |play| play.serial);
+        (p.id, p.line, p.col, p.z(), serial)
+      })
+      .collect(),
+    virt: term
+      .virtual_placements()
+      .iter()
+      .filter_map(|p| {
+        let k = p.kitty.as_ref()?;
+        let serial = term
+          .graphics_playback(k.image_id)
+          .map_or(0, |play| play.serial);
+        Some((k.image_id, k.placement_id, k.z, serial))
+      })
       .collect(),
   }
 }
@@ -365,6 +500,7 @@ pub(crate) fn keyeq(a: &SnapKey, b: &SnapKey) -> bool {
     && a.selection == b.selection
     && a.hover_link == b.hover_link
     && a.images == b.images
+    && a.virt == b.virt
     && match (&a.search, &b.search) {
       (None, None) => true,
       (Some((qa, ca, ma)), Some((qb, cb, mb))) => qa == qb && ca == cb && Rc::ptr_eq(ma, mb),
@@ -764,22 +900,7 @@ fn build_snapshot(
     });
   }
 
-  let placements = term.images();
-  let live: HashSet<u64> = placements.iter().map(|p| p.id).collect();
-  image_cache.retain(&live);
-  let images = placements
-    .iter()
-    .map(|p| {
-      let image = image_cache.texture(p.id, &p.image);
-      ImageDraw {
-        line: p.line,
-        col: p.col,
-        width: p.image.width as f32,
-        height: p.image.height as f32,
-        image,
-      }
-    })
-    .collect();
+  let images = image_draws(term, cell, image_cache);
 
   let snapshot = Snapshot {
     #[cfg(test)]
@@ -890,4 +1011,165 @@ pub(crate) fn cursor_shape(style: vt::CursorStyle, fallback: CursorShape) -> Cur
     vt::CursorStyle::BlinkingUnderline | vt::CursorStyle::SteadyUnderline => CursorShape::Underline,
     vt::CursorStyle::BlinkingBar | vt::CursorStyle::SteadyBar => CursorShape::Bar,
   }
+}
+
+/// Textures for kitty images are keyed by image id, sixel by placement id.
+/// The tag keeps the two id spaces from colliding in one cache.
+const KITTY_KEY: u64 = 1 << 63;
+
+/// Everything to draw for one frame: every grid-anchored placement, plus the
+/// slices that unicode placeholder cells call for.
+pub(crate) fn image_draws(
+  term: &mut vt::Terminal,
+  cell: CellSize,
+  image_cache: &mut ImageCache,
+) -> Vec<ImageDraw> {
+  let (cw, ch) = (cell.width.max(1.0), cell.height.max(1.0));
+  let mut live = HashSet::new();
+  let mut draws = Vec::new();
+
+  for i in 0..term.images().len() {
+    let placement = &term.images()[i];
+    if placement.is_virtual() {
+      continue; // placeholder cells decide where these land
+    }
+    let (key, serial, frames) = source_of(term, i);
+    live.insert(key);
+    let placement = &term.images()[i];
+    let (source_w, source_h) = (placement.image.width as f32, placement.image.height as f32);
+    let (sx, sy, sw, sh) = placement.source().clip(placement.image.width, placement.image.height);
+    let (dest_w, dest_h) = placement.draw_size(cw as usize, ch as usize);
+    if sw == 0 || sh == 0 || dest_w <= 0.0 || dest_h <= 0.0 {
+      continue;
+    }
+    // Scale the whole image so the source rectangle covers the destination,
+    // then shift it so that rectangle starts at the destination's corner. A
+    // mask of the destination is what crops it.
+    let (scale_x, scale_y) = (dest_w / sw as f32, dest_h / sh as f32);
+    let (off_x, off_y) = placement
+      .kitty
+      .as_ref()
+      .map_or((0.0, 0.0), |k| (k.cell_x as f32, k.cell_y as f32));
+    let texture = image_cache.texture(key, serial, &frames);
+    let anim = anim_of(term, placement.kitty.as_ref().map(|k| k.image_id), texture.started);
+    draws.push(ImageDraw {
+      line: placement.line,
+      col: placement.col,
+      width: dest_w,
+      height: dest_h,
+      offset_x: off_x,
+      offset_y: off_y,
+      full_dx: -(sx as f32) * scale_x,
+      full_dy: -(sy as f32) * scale_y,
+      full_width: source_w * scale_x,
+      full_height: source_h * scale_y,
+      z: placement.z(),
+      image: texture.image,
+      anim,
+    });
+  }
+
+  draws.extend(placeholder_draws(term, cell, image_cache, &mut live));
+  image_cache.retain(&live);
+  // Stable within a z-level: later placements draw over earlier ones.
+  draws.sort_by_key(|d| d.z);
+  draws
+}
+
+/// The cache key, revision, and frames behind placement `i`.
+fn source_of(term: &vt::Terminal, i: usize) -> (u64, u64, Vec<&vt::Image>) {
+  let placement = &term.images()[i];
+  let Some(kitty) = placement.kitty.as_ref() else {
+    return (placement.id, 0, vec![&placement.image]);
+  };
+  let key = KITTY_KEY | kitty.image_id as u64;
+  let serial = term
+    .graphics_playback(kitty.image_id)
+    .map_or(0, |p| p.serial);
+  match term.graphics_frames(kitty.image_id) {
+    Some(frames) => (key, serial, frames.iter().map(|f| &f.image).collect()),
+    None => (key, serial, vec![&placement.image]),
+  }
+}
+
+/// An image's playback description, if it has frames to play.
+fn anim_of(term: &vt::Terminal, image_id: Option<u32>, started: std::time::Instant) -> Option<Anim> {
+  let id = image_id?;
+  let frames = term.graphics_frames(id)?;
+  Some(Anim {
+    gaps: frames.iter().map(|f| f.gap).collect(),
+    play: term.graphics_playback(id)?,
+    started,
+  })
+}
+
+/// Slices called for by unicode placeholder cells. Each run paints its
+/// virtual placement's whole image, positioned so the run's piece lands on
+/// the run's cells, and masked down to them.
+fn placeholder_draws(
+  term: &mut vt::Terminal,
+  cell: CellSize,
+  image_cache: &mut ImageCache,
+  live: &mut HashSet<u64>,
+) -> Vec<ImageDraw> {
+  let runs = term.placeholder_draws();
+  if runs.is_empty() {
+    return Vec::new();
+  }
+  let (cw, ch) = (cell.width.max(1.0), cell.height.max(1.0));
+  let offset = term.display_offset() as isize;
+  let mut out = Vec::new();
+  for run in runs {
+    let Some(placement) = term.virtual_placement(run.image_id, run.placement_id) else {
+      continue;
+    };
+    let image = &placement.image;
+    let (sx, sy, sw, sh) = placement.source().clip(image.width, image.height);
+    if sw == 0 || sh == 0 {
+      continue;
+    }
+    // The placement's cell box: what the client asked for, or the image's
+    // own size in cells when it asked for neither.
+    let kitty = placement.kitty.as_ref().expect("virtual placements are kitty");
+    let box_cols = match kitty.cols {
+      0 => (sw as f32 / cw).ceil().max(1.0),
+      c => c as f32,
+    };
+    let box_rows = match kitty.rows {
+      0 => (sh as f32 / ch).ceil().max(1.0),
+      r => r as f32,
+    };
+    // One image cell maps to one grid cell, so the whole image scales to the
+    // box and the run reads off a `len`-wide slice of it.
+    let scale_x = (box_cols * cw) / sw as f32;
+    let scale_y = (box_rows * ch) / sh as f32;
+    let key = KITTY_KEY | run.image_id as u64;
+    let serial = term.graphics_playback(run.image_id).map_or(0, |p| p.serial);
+    let frames: Vec<&vt::Image> = match term.graphics_frames(run.image_id) {
+      Some(f) => f.iter().map(|f| &f.image).collect(),
+      None => vec![image],
+    };
+    let (image_w, image_h) = (image.width as f32, image.height as f32);
+    let texture = image_cache.texture(key, serial, &frames);
+    live.insert(key);
+    let anim = anim_of(term, Some(run.image_id), texture.started);
+    out.push(ImageDraw {
+      // Placeholder runs are found in viewport space; anchors are in content
+      // space, so undo the scroll offset the painter will re-apply.
+      line: run.row as isize - offset,
+      col: run.col,
+      width: run.len as f32 * cw,
+      height: ch,
+      offset_x: 0.0,
+      offset_y: 0.0,
+      full_dx: -(sx as f32 * scale_x) - run.image_col as f32 * cw,
+      full_dy: -(sy as f32 * scale_y) - run.image_row as f32 * ch,
+      full_width: image_w * scale_x,
+      full_height: image_h * scale_y,
+      z: placement.z(),
+      image: texture.image,
+      anim,
+    });
+  }
+  out
 }

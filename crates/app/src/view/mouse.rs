@@ -177,8 +177,8 @@ impl TerminalView {
         crate::reveal::reveal(&reveal)
       }));
       let open = path.clone();
-      menu = menu.child(self.menu_row("Open", cx, move |this, cx| {
-        this.open_url(format!("file://{}", open.display()), cx)
+      menu = menu.child(self.menu_row("Open", cx, move |_this, _cx| {
+        crate::reveal::open(&open)
       }));
       let copy = path.display().to_string();
       menu = menu.child(self.menu_row("Copy Path", cx, move |this, cx| {
@@ -377,6 +377,7 @@ impl TerminalView {
       alt: false,
       ctrl: false,
       cmd: false,
+      ..Default::default()
     };
     if let Some(bytes) =
       input::encode_key(key, None, mods, self.term_state(), input::KeyEvent::Press)

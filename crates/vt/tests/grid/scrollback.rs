@@ -139,7 +139,7 @@ fn compacted_rows_round_trip_exactly() {
     }
     if n % 7 == 0 {
       row.cells[12].ch = 'e';
-      row.cells[12].zw = '\u{0301}';
+      row.cells[12].zw = crate::cell::ZeroWidth::from_bits(0x0301);
     }
     if n % 11 == 0 {
       for c in &mut row.cells[13..25] {

@@ -24,7 +24,7 @@ fn busy_row(cols: usize) -> Row {
     underline_color: Color::Rgb(200, 100, 0),
     flags: CellFlags::BOLD | CellFlags::CURLY_UNDERLINE | CellFlags::INVERSE,
     hyperlink: HyperlinkId::from_u16(7),
-    zw: '\u{0301}',
+    zw: crate::cell::ZeroWidth::from_bits(0x0301),
   };
   row.cells[1] = Cell {
     ch: '漢',

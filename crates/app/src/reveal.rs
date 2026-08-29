@@ -39,12 +39,46 @@ fn home() -> Option<PathBuf> {
 /// Show `path` in the desktop file manager, selected where the platform can
 /// select it.
 pub fn reveal(path: &Path) {
+  spawn(path, command);
+}
+
+/// Hand `path` to whatever the desktop opens that kind of file with — what an
+/// open-modifier click on a path does, matching what the same click does to a
+/// URL. A directory opens in the file manager.
+///
+/// The path is passed as an argument rather than built into a `file://` URL,
+/// so spaces and other characters that would need percent-encoding cannot be
+/// mangled on the way.
+pub fn open(path: &Path) {
+  spawn(path, open_command);
+}
+
+/// Run a launcher off the render thread: a cold app launch can block for
+/// seconds, and every caller here is a click handler.
+fn spawn(path: &Path, build: fn(&Path) -> Option<std::process::Command>) {
   let path = path.to_path_buf();
-  // Spawning a file manager can block on a cold launch, and this runs from a
-  // click handler on the render thread.
   std::thread::spawn(move || {
-    let _ = command(&path).map(|mut c| c.spawn());
+    let _ = build(&path).map(|mut c| c.spawn());
   });
+}
+
+#[cfg(target_os = "macos")]
+fn open_command(path: &Path) -> Option<std::process::Command> {
+  let mut c = std::process::Command::new("open");
+  c.arg(path);
+  Some(c)
+}
+
+#[cfg(target_os = "linux")]
+fn open_command(path: &Path) -> Option<std::process::Command> {
+  let mut c = std::process::Command::new("xdg-open");
+  c.arg(path);
+  Some(c)
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+fn open_command(_path: &Path) -> Option<std::process::Command> {
+  None
 }
 
 #[cfg(target_os = "macos")]
