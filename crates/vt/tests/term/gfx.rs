@@ -546,3 +546,67 @@ fn a_chunked_transfer_survives_being_split_many_ways() {
   assert_eq!(t.images().len(), 1);
   assert_eq!(t.images()[0].image.rgba.as_ref(), rgba.as_slice());
 }
+
+// ── resource bounds ───────────────────────────────────────────────────────
+
+#[test]
+fn virtual_placements_are_charged_to_the_pane_budget() {
+  // They have no grid anchor, so nothing scrolls them off. Without the
+  // budget a client could ask for them in a loop and grow the pane forever.
+  let mut t = term();
+  gfx(&mut t, "a=t,f=32,s=1,v=1,i=1,q=2", &solid(1, 1, [0; 4]));
+  for p in 1..=(crate::term::ops::MAX_GRAPHICS_ITEMS + 50) {
+    cmd(&mut t, &format!("a=p,i=1,U=1,p={p},q=2"));
+  }
+  assert!(
+    t.virtual_placements().len() <= crate::term::ops::MAX_GRAPHICS_ITEMS,
+    "virtual placements grew to {}",
+    t.virtual_placements().len()
+  );
+}
+
+#[test]
+fn animation_frames_are_capped() {
+  // Each frame is a whole canvas, so an unbounded count is an unbounded
+  // allocation driven entirely by the stream.
+  let mut t = term();
+  gfx(&mut t, "a=t,f=32,s=2,v=2,i=1,q=2", &solid(2, 2, [0; 4]));
+  for _ in 0..(crate::graphics::MAX_FRAMES + 20) {
+    gfx(&mut t, "a=f,f=32,s=2,v=2,i=1,c=1,q=2", &solid(2, 2, [1; 4]));
+  }
+  let frames = t.graphics_frames(1).expect("animated").len();
+  assert_eq!(frames, crate::graphics::MAX_FRAMES);
+
+  // And the refusal is reported, not silent.
+  gfx(&mut t, "a=f,f=32,s=2,v=2,i=1,c=1", &solid(2, 2, [1; 4]));
+  assert_eq!(reply(&mut t), "\x1b_Gi=1;ENOSPC\x1b\\");
+}
+
+#[test]
+fn a_flood_of_small_images_stays_inside_the_item_cap() {
+  // The eviction pass used to rescan every placement per victim, which made
+  // exactly this stream quadratic in what it retained.
+  let mut t = term();
+  for i in 1..=(crate::term::ops::MAX_GRAPHICS_ITEMS + 200) {
+    gfx(
+      &mut t,
+      &format!("a=t,f=32,s=1,v=1,i={i},q=2"),
+      &solid(1, 1, [0; 4]),
+    );
+  }
+  assert!(t.inner.gfx_store.len() <= crate::term::ops::MAX_GRAPHICS_ITEMS);
+  assert!(t.graphics_memory() <= crate::term::ops::MAX_GRAPHICS_BYTES);
+}
+
+#[test]
+fn placements_of_a_live_image_are_evicted_before_the_pixels() {
+  // Evicting the image out from under a placement would blank it on screen;
+  // the oldest placement goes first and the image follows once unused.
+  let mut t = term();
+  gfx(&mut t, "a=t,f=32,s=1,v=1,i=1,q=2", &solid(1, 1, [0; 4]));
+  for p in 1..=(crate::term::ops::MAX_GRAPHICS_ITEMS + 10) {
+    cmd(&mut t, &format!("a=p,i=1,p={p},C=1,q=2"));
+  }
+  assert!(t.images().len() <= crate::term::ops::MAX_GRAPHICS_ITEMS);
+  assert!(t.graphics_image(1).is_some(), "the image is still drawn");
+}

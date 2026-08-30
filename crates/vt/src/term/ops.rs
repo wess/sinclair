@@ -15,9 +15,9 @@ use super::Inner;
 
 /// Pane-wide retained decoded-image budget. Stored kitty images and placements
 /// on both screens share this cap; shared pixel buffers are counted once.
-const MAX_GRAPHICS_BYTES: usize = 128 * 1024 * 1024;
+pub(crate) const MAX_GRAPHICS_BYTES: usize = 128 * 1024 * 1024;
 /// Metadata cap for tiny images that would otherwise evade the byte budget.
-const MAX_GRAPHICS_ITEMS: usize = 4096;
+pub(crate) const MAX_GRAPHICS_ITEMS: usize = 4096;
 
 impl Inner {
   /// Write one already-charset-mapped character at the cursor.
@@ -148,13 +148,12 @@ impl Inner {
   }
 
   /// Decoded graphics bytes retained by kitty storage and placements across
-  /// both screens. Pixel buffers shared through `Arc` are counted once.
+  /// both screens. A placement shares its pixels with the stored image it
+  /// came from, so it adds nothing while that image is alive; only a sixel —
+  /// which has no store entry at all — is counted on its own.
   pub(crate) fn graphics_memory(&self) -> usize {
+    let mut bytes = self.gfx_store.bytes();
     let mut seen = HashSet::new();
-    let mut bytes = 0usize;
-    for image in self.gfx_store.values() {
-      bytes = bytes.saturating_add(image.bytes(&mut seen));
-    }
     for placement in self
       .primary
       .images
@@ -162,27 +161,64 @@ impl Inner {
       .chain(&self.alt.images)
       .chain(&self.virt)
     {
-      if seen.insert(placement.image.rgba.as_ptr()) {
+      let counted = placement
+        .kitty
+        .as_ref()
+        .is_some_and(|k| self.gfx_store.holds(k.image_id));
+      if !counted && seen.insert(placement.image.rgba.as_ptr()) {
         bytes = bytes.saturating_add(placement.image.rgba.len());
       }
     }
     bytes
   }
 
+  /// Items retained across the store and every placement list. Cheap, and
+  /// checked before the byte walk.
+  fn graphics_items(&self) -> usize {
+    self.gfx_store.len() + self.primary.images.len() + self.alt.images.len() + self.virt.len()
+  }
+
+  /// Whether retained graphics are past either bound. The item count is
+  /// tested first so the byte walk is skipped whenever it already decides.
+  fn over_graphics_budget(&self) -> bool {
+    self.graphics_items() > MAX_GRAPHICS_ITEMS || self.graphics_memory() > MAX_GRAPHICS_BYTES
+  }
+
+  /// The image ids some placement still draws.
+  fn placed_ids(&self) -> HashSet<u32> {
+    self
+      .primary
+      .images
+      .iter()
+      .chain(&self.alt.images)
+      .chain(&self.virt)
+      .filter_map(|p| p.kitty.as_ref().map(|k| k.image_id))
+      .collect()
+  }
+
   /// Evict retained graphics until the pane-wide budget is met. Unplaced
   /// kitty storage goes first, then the oldest placement across both screens.
   pub(crate) fn enforce_graphics_budget(&mut self) {
-    while self.graphics_memory() > MAX_GRAPHICS_BYTES
-      || self.gfx_store.len() + self.primary.images.len() + self.alt.images.len() + self.virt.len()
-        > MAX_GRAPHICS_ITEMS
-    {
+    // This runs on every transmit and every placement, so the in-budget case
+    // — nearly all of them — must be cheap.
+    if !self.over_graphics_budget() {
+      return;
+    }
+    // Over budget. The set of drawn images is built once and reused: asking
+    // "is this image placed?" by scanning every placement per victim made a
+    // stream of small images quadratic in the number retained, which is
+    // exactly the shape a hostile or runaway stream produces.
+    let mut placed = self.placed_ids();
+    while self.over_graphics_budget() {
       // Stored-but-unplaced images go first: nothing on screen is drawing
       // them, so evicting one costs the user nothing visible.
-      if let Some(id) = self.unplaced_image() {
+      let unplaced = self.gfx_store.ids().find(|id| !placed.contains(id));
+      if let Some(id) = unplaced {
         self.gfx_store.remove(id);
         continue;
       }
-
+      // Everything left is on screen. Dropping the oldest placement also
+      // makes its image evictable on the next pass.
       let primary = self.primary.images.first().map(|p| p.id);
       let alt = self.alt.images.first().map(|p| p.id);
       match (primary, alt) {
@@ -198,28 +234,15 @@ impl Inner {
         (None, Some(_)) => {
           self.alt.images.remove(0);
         }
-        (None, None) => match self.virt.is_empty() {
-          false => {
-            self.virt.remove(0);
-          }
-          true => break,
-        },
+        (None, None) if !self.virt.is_empty() => {
+          self.virt.remove(0);
+        }
+        // Nothing left to give back.
+        (None, None) => break,
       }
+      placed = self.placed_ids();
       self.full_damage = true;
     }
-  }
-
-  /// A stored image no placement draws, if there is one.
-  fn unplaced_image(&self) -> Option<u32> {
-    self.gfx_store.ids().find(|&id| {
-      !self
-        .primary
-        .images
-        .iter()
-        .chain(&self.alt.images)
-        .chain(&self.virt)
-        .any(|p| p.kitty.as_ref().is_some_and(|k| k.image_id == id))
-    })
   }
 
   /// REP: repeat the last printed character.

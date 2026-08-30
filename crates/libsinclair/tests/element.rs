@@ -113,7 +113,12 @@ fn an_animation_advances_by_elapsed_time_and_stops_when_asked() {
   assert_eq!(animation_frame(&frames, &running, Duration::from_millis(250)).0, 2);
   // Looping wraps around rather than parking.
   assert_eq!(animation_frame(&frames, &running, Duration::from_millis(350)).0, 0);
-  assert!(animation_frame(&frames, &running, Duration::from_millis(350)).1);
+  // Still advancing, and it says when: 100 ms into a 3x100 ms loop leaves
+  // 50 ms of the frame to run.
+  assert_eq!(
+    animation_frame(&frames, &running, Duration::from_millis(350)).1,
+    Some(Duration::from_millis(50))
+  );
 
   // A stopped image sits on whichever frame the client selected.
   let stopped = Playback {
@@ -123,7 +128,7 @@ fn an_animation_advances_by_elapsed_time_and_stops_when_asked() {
   };
   assert_eq!(
     animation_frame(&frames, &stopped, Duration::from_millis(999)),
-    (2, false)
+    (2, None)
   );
 
   // Run-and-wait stops at the end of one pass instead of looping.
@@ -133,7 +138,7 @@ fn an_animation_advances_by_elapsed_time_and_stops_when_asked() {
   };
   assert_eq!(
     animation_frame(&frames, &once, Duration::from_millis(400)),
-    (2, false)
+    (2, None)
   );
 
   // A zero gap means the frame is skipped entirely.
@@ -146,7 +151,7 @@ fn an_animation_advances_by_elapsed_time_and_stops_when_asked() {
   // A still image never animates, whatever the clock says.
   assert_eq!(
     animation_frame(&frames[..1], &running, Duration::from_millis(999)),
-    (0, false)
+    (0, None)
   );
 }
 
@@ -1192,7 +1197,9 @@ fn an_animated_image_carries_its_gaps_to_the_painter() {
   let anim = drawn[0].anim.as_ref().expect("an animation");
   assert_eq!(anim.gaps, vec![40, 70], "the root frame takes the default gap");
   assert!(anim.play.running && anim.play.looping);
-  assert_eq!(anim.resolve().0, 0, "it starts on the first frame");
+  let (frame, due) = anim.resolve();
+  assert_eq!(frame, 0, "it starts on the first frame");
+  assert!(due.is_some(), "and says when it next needs painting");
 }
 
 #[test]
@@ -1213,4 +1220,39 @@ fn a_sixel_placement_still_draws_untouched() {
   assert_eq!(drawn[0].z, 0);
   assert_eq!((drawn[0].full_dx, drawn[0].full_dy), (0.0, 0.0));
   assert!(drawn[0].anim.is_none());
+}
+
+#[test]
+fn an_animation_sleeps_between_frames_instead_of_repainting_every_vsync() {
+  use std::time::Duration;
+  use vt::graphics::Playback;
+
+  // Half-second frames: a repaint per vsync would be ~60x the work needed.
+  let gaps = vec![500u32, 500];
+  let play = Playback {
+    current: 0,
+    running: true,
+    looping: true,
+    loops: None,
+    serial: 0,
+  };
+  // Just started: the next frame is nearly a whole gap away.
+  assert_eq!(
+    animation_frame(&gaps, &play, Duration::from_millis(0)).1,
+    Some(Duration::from_millis(500))
+  );
+  // Near the boundary it asks to be woken soon, not in another full gap.
+  assert_eq!(
+    animation_frame(&gaps, &play, Duration::from_millis(495)).1,
+    Some(Duration::from_millis(5))
+  );
+  // A finished animation asks for nothing at all, so the pane goes quiet.
+  let once = Playback {
+    looping: false,
+    ..play
+  };
+  assert_eq!(
+    animation_frame(&gaps, &once, Duration::from_millis(2_000)).1,
+    None
+  );
 }

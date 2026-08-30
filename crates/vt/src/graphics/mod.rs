@@ -17,6 +17,8 @@ pub use store::{Frame, Playback};
 pub(crate) use decode::decode;
 pub(crate) use media::fetch;
 pub(crate) use store::{add_frame, compose_frames, AnimState, GfxImage, Store};
+#[cfg(test)]
+pub(crate) use store::MAX_FRAMES;
 
 /// The parsed `a=` action.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

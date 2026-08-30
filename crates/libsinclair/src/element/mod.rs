@@ -197,6 +197,39 @@ impl TerminalElement {
     self
   }
 
+  /// Arrange for a repaint when an on-screen animation next needs one.
+  ///
+  /// A running animation is the only thing here that changes without new pty
+  /// bytes, so it has to ask. Asking every vsync would be correct and wasteful;
+  /// asking once, at the right time, is the same picture for a fraction of the
+  /// work. The armed deadline is remembered so a paint triggered by something
+  /// else in the meantime does not queue a second timer.
+  fn schedule_animation(&self, due: Duration, window: &mut Window, cx: &mut App) {
+    if due <= FRAME_BUDGET {
+      window.request_animation_frame();
+      return;
+    }
+    let deadline = std::time::Instant::now() + due;
+    {
+      let mut cache = self.snap_cache.borrow_mut();
+      if cache.anim_wake.is_some_and(|armed| armed <= deadline) {
+        return; // a wake-up is already coming, at least as soon
+      }
+      cache.anim_wake = Some(deadline);
+    }
+    let view = window.current_view();
+    let cache = self.snap_cache.clone();
+    window
+      .spawn(cx, async move |cx| {
+        cx.background_executor().timer(due).await;
+        if let Ok(mut cache) = cache.try_borrow_mut() {
+          cache.anim_wake = None;
+        }
+        let _ = cx.update(|_, cx| cx.notify(view));
+      })
+      .detach();
+  }
+
   fn resize(&self, desired: ResizeRequest, current: (usize, usize), cx: &mut App) {
     let action = self
       .snap_cache
@@ -252,6 +285,8 @@ pub struct Frame {
   indicator: Option<Bounds<Pixels>>,
   /// Images to draw, in stacking order.
   images: Vec<ImagePaint>,
+  /// How long until an on-screen animation needs its next frame, if any.
+  anim_due: Option<Duration>,
   /// Grid size at prepaint, for pointer hit testing.
   grid: (usize, usize),
 }
@@ -260,13 +295,18 @@ pub struct Frame {
 /// `clip`. That pair is how a source crop, a cell offset, a scrolled-off top,
 /// and a unicode placeholder's single-cell slice all become the same
 /// operation.
+/// One display frame, near enough. An animation whose next frame is due
+/// within this asks for the next vsync; anything further away sleeps instead,
+/// because repainting the whole pane 60 times a second to advance a frame
+/// every half second is the difference between idle and a busy core.
+const FRAME_BUDGET: Duration = Duration::from_millis(8);
+
 pub(crate) struct ImagePaint {
   clip: Bounds<Pixels>,
   full: Bounds<Pixels>,
   image: Arc<RenderImage>,
   frame: usize,
   z: i32,
-  animating: bool,
 }
 
 /// Position every image draw for this frame, dropping the ones the viewport
@@ -277,6 +317,7 @@ fn image_paints(
   origin: Point<Pixels>,
   cell: CellSize,
   rows: usize,
+  next_due: &mut Option<Duration>,
 ) -> Vec<ImagePaint> {
   let (cell_w, cell_h) = (px(cell.width), px(cell.height));
   snap
@@ -298,14 +339,16 @@ fn image_paints(
       );
       // The frame is resolved here, not in the snapshot: a running animation
       // advances between repaints that reuse the same snapshot.
-      let (frame, animating) = img.anim.as_ref().map_or((0, false), Anim::resolve);
+      let (frame, due) = img.anim.as_ref().map_or((0, None), Anim::resolve);
+      if let Some(due) = due {
+        *next_due = Some(next_due.map_or(due, |soonest: Duration| soonest.min(due)));
+      }
       Some(ImagePaint {
         clip,
         full,
         image: img.image.clone(),
         frame,
         z: img.z,
-        animating,
       })
     })
     .collect()
@@ -400,7 +443,10 @@ impl Element for TerminalElement {
     let cell_w = px(self.cell.width);
     let cell_h = px(self.cell.height);
 
-    let images = image_paints(&snap, origin, self.cell, rows);
+    // The soonest an on-screen animation needs a new frame; `paint` turns it
+    // into one wake-up rather than a repaint every vsync.
+    let mut anim_due = None;
+    let images = image_paints(&snap, origin, self.cell, rows, &mut anim_due);
     let bg_quads = bg_quads(&snap.rows, origin, self.cell);
 
     let (box_w, box_h) = (self.cell.width, self.cell.height);
@@ -527,6 +573,7 @@ impl Element for TerminalElement {
       ghost,
       indicator: scroll_indicator(&bounds, rows, snap.offset, snap.scrollback),
       images,
+      anim_due,
       grid: (cols, rows),
     }
   }
@@ -562,6 +609,9 @@ impl Element for TerminalElement {
           .ok();
       }
       paint_images(&frame.images, window, |z| z >= 0);
+      if let Some(due) = frame.anim_due {
+        self.schedule_animation(due, window, cx);
+      }
       if let Some((pos, line)) = &frame.ghost {
         line
           .paint(*pos, line_height, TextAlign::Left, None, window, cx)
@@ -646,18 +696,12 @@ mod tests;
 /// crops it — gpui can scale a texture into a rectangle but cannot sample a
 /// sub-rectangle of one, and this gets the same result with one texture.
 fn paint_images(images: &[ImagePaint], window: &mut Window, layer: impl Fn(i32) -> bool) {
-  let mut animating = false;
   for img in images.iter().filter(|i| layer(i.z)) {
-    animating |= img.animating;
     window.with_content_mask(Some(ContentMask { bounds: img.clip }), |window| {
       window
         .paint_image(img.full, Corners::default(), img.image.clone(), img.frame, false)
         .ok();
     });
   }
-  if animating {
-    // A running animation is the only thing here that changes without new
-    // pty bytes, so it has to ask for the next frame itself.
-    window.request_animation_frame();
-  }
 }
+

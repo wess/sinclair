@@ -13,6 +13,12 @@ use crate::image::Image;
 /// The gap a frame gets when the client does not set one.
 pub(crate) const DEFAULT_GAP_MS: u32 = 40;
 
+/// Most frames one image may hold. Each is a whole canvas, so an unbounded
+/// count is an unbounded allocation driven entirely by the stream; the pane
+/// budget would eventually evict the image, but only after it had already
+/// grown. At 40 ms a frame this is still twenty seconds of animation.
+pub(crate) const MAX_FRAMES: usize = 512;
+
 /// One animation frame: a whole canvas, plus how long it stays up.
 #[derive(Debug, Clone)]
 pub struct Frame {
@@ -63,10 +69,16 @@ pub(crate) struct GfxImage {
   /// Bumped whenever the pixels change, so a renderer's texture cache can
   /// tell an edited image from the one it already uploaded.
   pub serial: u64,
+  /// Decoded bytes this image holds across all its frames, kept alongside
+  /// them rather than recounted. The pane budget is checked on every
+  /// transmit, and walking every frame of every image to answer it made a
+  /// stream of images quadratic in the number retained.
+  bytes: usize,
 }
 
 impl GfxImage {
   pub(crate) fn new(number: u32, image: Image) -> Self {
+    let bytes = image.rgba.len();
     Self {
       number,
       frames: vec![Frame {
@@ -77,7 +89,13 @@ impl GfxImage {
       loops: None,
       state: AnimState::Stopped,
       serial: 0,
+      bytes,
     }
+  }
+
+  /// Recount after the frames changed.
+  fn resync(&mut self) {
+    self.bytes = self.frames.iter().map(|f| f.image.rgba.len()).sum();
   }
 
   /// The root frame — what a still placement displays.
@@ -90,15 +108,6 @@ impl GfxImage {
     self.frames.len() > 1
   }
 
-  /// Decoded bytes this image retains, counting each shared buffer once.
-  pub fn bytes(&self, seen: &mut std::collections::HashSet<*const u8>) -> usize {
-    self
-      .frames
-      .iter()
-      .filter(|f| seen.insert(f.image.rgba.as_ptr()))
-      .map(|f| f.image.rgba.len())
-      .sum()
-  }
 }
 
 /// Every transmitted image, keyed by id, with a number → id index alongside.
@@ -109,6 +118,10 @@ pub(crate) struct Store {
   /// Where the search for a free id resumes. Client ids and terminal ids
   /// share one space, so allocation always probes for a vacancy.
   next_id: u32,
+  /// Running total of [`GfxImage::bytes`], so the pane budget is an O(1)
+  /// question. Every mutation goes through this type, which is what lets the
+  /// total be maintained rather than recomputed.
+  bytes: usize,
 }
 
 impl Store {
@@ -132,16 +145,35 @@ impl Store {
     self.images.get_mut(&id)
   }
 
+  /// Edit an image's frames, keeping the byte total in step. Anything that
+  /// changes how many frames an image has, or how big they are, belongs here
+  /// rather than going through [`Store::get_mut`].
+  pub fn edit<R>(&mut self, id: u32, f: impl FnOnce(&mut GfxImage) -> R) -> Option<R> {
+    let image = self.images.get_mut(&id)?;
+    let before = image.bytes;
+    let out = f(image);
+    image.resync();
+    self.bytes = self.bytes + image.bytes - before;
+    Some(out)
+  }
+
+  /// Decoded bytes across every stored image.
+  pub fn bytes(&self) -> usize {
+    self.bytes
+  }
+
+  /// Whether these pixels belong to a stored image, so a placement sharing
+  /// them is already counted.
+  pub fn holds(&self, id: u32) -> bool {
+    self.images.contains_key(&id)
+  }
+
   pub fn len(&self) -> usize {
     self.images.len()
   }
 
   pub fn ids(&self) -> impl Iterator<Item = u32> + '_ {
     self.images.keys().copied()
-  }
-
-  pub fn values(&self) -> impl Iterator<Item = &GfxImage> {
-    self.images.values()
   }
 
   /// Store `image` under the id or number the command asks for, replacing any
@@ -161,6 +193,7 @@ impl Store {
       self.allocate()
     };
     if let Some(old) = self.images.remove(&id) {
+      self.bytes -= old.bytes;
       if old.number != 0 && old.number != control.image_number {
         self.by_number.remove(&old.number);
       }
@@ -168,12 +201,15 @@ impl Store {
     if control.image_number != 0 {
       self.by_number.insert(control.image_number, id);
     }
-    self.images.insert(id, GfxImage::new(control.image_number, image));
+    let entry = GfxImage::new(control.image_number, image);
+    self.bytes += entry.bytes;
+    self.images.insert(id, entry);
     id
   }
 
   pub fn remove(&mut self, id: u32) -> Option<GfxImage> {
     let image = self.images.remove(&id)?;
+    self.bytes -= image.bytes;
     if image.number != 0 {
       self.by_number.remove(&image.number);
     }
@@ -183,6 +219,7 @@ impl Store {
   pub fn clear(&mut self) {
     self.images.clear();
     self.by_number.clear();
+    self.bytes = 0;
   }
 
   /// Any id not already taken. Terminal-allocated ids climb from 1 and wrap,
@@ -237,6 +274,9 @@ pub(crate) fn add_frame(
     return Ok(());
   }
 
+  if image.frames.len() >= MAX_FRAMES {
+    return Err(GfxError("ENOSPC"));
+  }
   let mut canvas = match control.base_frame() {
     0 => {
       let [r, g, b, a] = control.frame_background();

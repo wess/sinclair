@@ -267,8 +267,8 @@ pub(crate) struct Anim {
 }
 
 impl Anim {
-  /// The frame to paint now, and whether another tick is due.
-  pub(crate) fn resolve(&self) -> (usize, bool) {
+  /// The frame to paint now, and how long until it changes.
+  pub(crate) fn resolve(&self) -> (usize, Option<std::time::Duration>) {
     animation_frame(&self.gaps, &self.play, self.started.elapsed())
   }
 }
@@ -293,20 +293,26 @@ fn render_image(frames: &[&vt::Image]) -> Arc<RenderImage> {
   }))
 }
 
-/// The frame an animation is showing after `elapsed`, and whether it is still
-/// advancing. Frames with a zero gap are skipped, as the protocol asks; when
-/// every gap is zero the animation is effectively a still on its first frame.
+/// The frame an animation is showing after `elapsed`, and how long until it
+/// changes — `None` once it has stopped, so nothing schedules another wake.
+///
+/// The remaining time matters as much as the frame: repainting every vsync
+/// for an animation whose frames are 500 ms apart is ~60x the work it needs,
+/// forever, for as long as the image is on screen.
+///
+/// Frames with a zero gap are skipped, as the protocol asks; when every gap is
+/// zero the animation is effectively a still on its first frame.
 pub(crate) fn animation_frame(
   gaps: &[u32],
   play: &vt::graphics::Playback,
   elapsed: std::time::Duration,
-) -> (usize, bool) {
+) -> (usize, Option<std::time::Duration>) {
   if !play.running || gaps.len() < 2 {
-    return (play.current.min(gaps.len().saturating_sub(1)), false);
+    return (play.current.min(gaps.len().saturating_sub(1)), None);
   }
   let total: u64 = gaps.iter().map(|&g| g as u64).sum();
   if total == 0 {
-    return (play.current.min(gaps.len() - 1), false);
+    return (play.current.min(gaps.len() - 1), None);
   }
   // Parking on the last frame that actually renders is what a finished
   // animation looks like; a skipped frame would show the one before it.
@@ -314,10 +320,10 @@ pub(crate) fn animation_frame(
   let ms = elapsed.as_millis() as u64;
   let loops_done = ms / total;
   if play.loops.is_some_and(|limit| loops_done > limit as u64) {
-    return (last(), false);
+    return (last(), None);
   }
   if !play.looping && loops_done >= 1 {
-    return (last(), false);
+    return (last(), None);
   }
   let mut into = ms % total;
   for (i, &gap) in gaps.iter().enumerate() {
@@ -325,11 +331,12 @@ pub(crate) fn animation_frame(
       continue;
     }
     if into < gap as u64 {
-      return (i, true);
+      let left = std::time::Duration::from_millis(gap as u64 - into);
+      return (i, Some(left));
     }
     into -= gap as u64;
   }
-  (gaps.len() - 1, true)
+  (gaps.len() - 1, Some(std::time::Duration::from_millis(1)))
 }
 
 /// A horizontal run of equal non-default background color, in cells.
@@ -521,6 +528,9 @@ pub struct SnapCache {
   last_shaped_rows: usize,
   pub(super) resize: super::ResizeState,
   stats: RenderStats,
+  /// When a delayed repaint is already scheduled for an animation, so a
+  /// paint that happens for some other reason does not queue a second one.
+  pub(crate) anim_wake: Option<std::time::Instant>,
 }
 
 /// Monotonic renderer work counters, useful for profiling and regression tests.

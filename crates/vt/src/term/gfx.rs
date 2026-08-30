@@ -91,16 +91,20 @@ impl Inner {
         let id = self.gfx_store.resolve(control).ok_or(GfxError("ENOENT"))?;
         let bytes = graphics::fetch(control, &raw)?;
         let rect = graphics::decode(control, &bytes)?;
-        let image = self.gfx_store.get_mut(id).ok_or(GfxError("ENOENT"))?;
-        graphics::add_frame(image, control, &rect)?;
+        self
+          .gfx_store
+          .edit(id, |image| graphics::add_frame(image, control, &rect))
+          .ok_or(GfxError("ENOENT"))??;
         self.enforce_graphics_budget();
         self.damage_image(id);
         Ok(id)
       }
       Action::Compose => {
         let id = self.gfx_store.resolve(control).ok_or(GfxError("ENOENT"))?;
-        let image = self.gfx_store.get_mut(id).ok_or(GfxError("ENOENT"))?;
-        graphics::compose_frames(image, control)?;
+        self
+          .gfx_store
+          .edit(id, |image| graphics::compose_frames(image, control))
+          .ok_or(GfxError("ENOENT"))??;
         self.damage_image(id);
         Ok(id)
       }
@@ -157,9 +161,12 @@ impl Inner {
 
     if control.unicode {
       // Virtual placements have no anchor: placeholder cells decide where
-      // they land, so they live apart from the grid-anchored list.
+      // they land, so they live apart from the grid-anchored list. They are
+      // still charged to the pane budget — nothing about being unanchored
+      // makes them free, and a client can ask for them in a loop.
       self.virt.push(placement);
       self.full_damage = true;
+      self.enforce_graphics_budget();
       return Ok(());
     }
 
@@ -244,12 +251,12 @@ impl Inner {
     // past the root, leaving the still image in place.
     if spec == b'f' {
       if let Some(id) = self.gfx_store.resolve(control) {
-        if let Some(image) = self.gfx_store.get_mut(id) {
+        self.gfx_store.edit(id, |image| {
           image.frames.truncate(1);
           image.current = 0;
           image.state = graphics::AnimState::Stopped;
           image.serial += 1;
-        }
+        });
         self.damage_image(id);
       }
       return;
