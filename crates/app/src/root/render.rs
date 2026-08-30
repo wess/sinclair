@@ -107,8 +107,13 @@ impl Render for WorkspaceView {
     }
     base = base.child(div().absolute().top_0().left_0().size_full().bg(winbg));
 
-    // No separate titlebar: the pane group's top-row tab bar *is* the
-    // titlebar (it reserves the traffic-light inset and drags the window).
+    // With `unified-tab-bar` on there is no separate titlebar: the pane
+    // group's top-row tab bar *is* the titlebar, reserving the traffic-light
+    // inset and dragging the window. With it off the window gets an ordinary
+    // one, above everything including the docks.
+    if !self.opts.unified_tab_bar {
+      base = base.child(self.window_titlebar(cx));
+    }
     // macOS uses native traffic lights and Windows native caption controls;
     // only Linux (client-side decorations) overlays its own at the top-right.
     #[cfg(target_os = "linux")]
@@ -342,4 +347,125 @@ fn macro_pill(recording: bool, replaying: bool, palette: &Colors) -> Option<AnyE
       .child(SharedString::from(label))
       .into_any_element(),
   )
+}
+
+impl WorkspaceView {
+  /// The window titlebar drawn when the unified tab bar is off.
+  ///
+  /// With the unified bar on there is no such thing: the pane group's top-row
+  /// tab bar *is* the titlebar, reserving the window-control inset and
+  /// dragging the window itself. Turning it off means the window needs an
+  /// ordinary one, and it takes over the two jobs the tab bar was doing —
+  /// clearing room for the platform's controls, and carrying the split
+  /// buttons, which now act on whichever pane has focus rather than on the
+  /// pane whose bar they sat in.
+  fn window_titlebar(&self, cx: &mut Context<Self>) -> AnyElement {
+    let t = guise::theme(cx);
+    let (leading, trailing) = super::titlebar_insets();
+    let active = self.group.read(cx).active_item();
+    let title = {
+      let items = self.items.borrow();
+      items
+        .get(&active)
+        .map(|it| it.content.title(cx))
+        .unwrap_or_default()
+    };
+    let title = if self.opts.tab_title_show_host {
+      title
+    } else {
+      crate::tabbar::strip_host(&title).to_string()
+    };
+
+    div()
+      .flex()
+      .flex_row()
+      .items_center()
+      .flex_none()
+      .w_full()
+      .h(px(super::TAB_HEIGHT))
+      .bg(t.surface().hsla())
+      .border_b_1()
+      .border_color(t.border().hsla())
+      // The whole strip drags the window, and double-click zooms it, which
+      // is what a titlebar is for. The controls on top of it opt out by
+      // handling their own clicks.
+      .child(
+        div()
+          .id("wb-drag")
+          .flex_1()
+          .h_full()
+          .flex()
+          .items_center()
+          .justify_center()
+          .pl(px(leading))
+          .window_control_area(gpui::WindowControlArea::Drag)
+          .on_mouse_down(gpui::MouseButton::Left, |_, window, _| {
+            window.start_window_move()
+          })
+          .child(
+            div()
+              .text_color(t.dimmed().hsla())
+              .text_size(px(12.0))
+              .overflow_hidden()
+              .child(SharedString::from(title)),
+          ),
+      )
+      .child(self.titlebar_split(SplitAxis::Horizontal, cx))
+      .child(self.titlebar_split(SplitAxis::Vertical, cx))
+      .when(trailing > 0.0, |d| d.pr(px(trailing)))
+      .into_any_element()
+  }
+
+  /// One split button for the window titlebar, drawn to match the ones the
+  /// tab bars carry when the unified bar is on.
+  fn titlebar_split(&self, axis: SplitAxis, cx: &mut Context<Self>) -> AnyElement {
+    let t = guise::theme(cx);
+    let line = t.dimmed().hsla();
+    let h = (super::TAB_HEIGHT * 0.4).clamp(9.0, 14.0);
+    let frame = div()
+      .relative()
+      .w(px(h * 1.2))
+      .h(px(h))
+      .border_1()
+      .border_color(line)
+      .rounded(px(2.0));
+    // Laying panes side by side draws the divider the other way round.
+    let frame = match axis {
+      SplitAxis::Horizontal => frame.child(
+        div()
+          .absolute()
+          .top_0()
+          .bottom_0()
+          .left(gpui::relative(0.5))
+          .w(px(1.0))
+          .bg(line),
+      ),
+      SplitAxis::Vertical => frame.child(
+        div()
+          .absolute()
+          .left_0()
+          .right_0()
+          .top(gpui::relative(0.5))
+          .h(px(1.0))
+          .bg(line),
+      ),
+    };
+    div()
+      .id(match axis {
+        SplitAxis::Horizontal => "wb-split-right",
+        SplitAxis::Vertical => "wb-split-down",
+      })
+      .flex_none()
+      .flex()
+      .items_center()
+      .justify_center()
+      .w(px(super::TAB_HEIGHT))
+      .h(px(super::TAB_HEIGHT))
+      .hover(|s| s.bg(t.surface_hover().hsla()))
+      .child(frame)
+      .on_click(cx.listener(move |this, _ev, window, cx| {
+        this.split(axis, false, window, cx);
+      }))
+      .into_any_element()
+  }
 }

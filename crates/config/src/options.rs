@@ -212,6 +212,11 @@ pub struct Options {
   /// File key: `autosuggest-assist` - rank suggestions with the local assist
   /// model rather than plain recency. On by default.
   pub autosuggest_assist: bool,
+  /// File key: `unified-tab-bar`. Fold the tabs into the window titlebar,
+  /// so the top row of tabs *is* the titlebar. On by default. Turned off,
+  /// the window gets an ordinary titlebar — controls, the active tab's
+  /// title, and the split buttons — with the tab bars beneath it.
+  pub unified_tab_bar: bool,
   /// File key: `tab-title-show-host`. Keep the leading `user@host:` that
   /// shells set in the terminal title when showing it in a tab. Off by
   /// default, so tabs show just the path (the host wraps to two lines and
@@ -489,6 +494,7 @@ impl Default for Options {
       autosuggest_paths: true,
       autosuggest_assist: true,
       session_restore: false,
+      unified_tab_bar: true,
       tab_title_show_host: false,
       tab_peek: true,
       tab_peek_hover: 0,

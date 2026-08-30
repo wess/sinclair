@@ -456,6 +456,13 @@ pub fn apply(opts: &mut Options, d: &Options, key: &str, val: &str) -> Result<()
         value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
       };
     }
+    "unified-tab-bar" => {
+      opts.unified_tab_bar = if empty {
+        d.unified_tab_bar
+      } else {
+        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+      };
+    }
     "tab-title-show-host" => {
       opts.tab_title_show_host = if empty {
         d.tab_title_show_host

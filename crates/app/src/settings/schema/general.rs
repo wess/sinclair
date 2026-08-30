@@ -86,6 +86,13 @@ pub(super) fn settings() -> Vec<Setting> {
       |o| o.session_restore,
     ),
     toggle(
+      "unified-tab-bar",
+      "Unified tab bar",
+      "Fold the tabs into the titlebar. Off gives a normal titlebar with the tabs beneath it.",
+      s,
+      |o| o.unified_tab_bar,
+    ),
+    toggle(
       "tab-title-show-host",
       "Show user@host in tab title",
       "Keep the leading user@host: shells put in the terminal title.",

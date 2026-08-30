@@ -158,6 +158,17 @@ pub fn replays_changed(cx: &mut App, delta: i32) {
 const SPAWN_COLS: usize = 80;
 const SPAWN_ROWS: usize = 24;
 
+/// The space a titlebar must leave clear for the platform's window controls:
+/// the traffic lights on macOS, and Linux's own controls, which it draws on
+/// the right instead.
+pub(crate) fn titlebar_insets() -> (f32, f32) {
+  if cfg!(target_os = "macos") {
+    (crate::titlebar::TRAFFIC_LIGHT_INSET, 0.0)
+  } else {
+    (8.0, 120.0)
+  }
+}
+
 /// Height of a pane's tab bar — and, in the top row, of the titlebar the group
 /// doubles as. Anything the workspace hangs off the tab bar (the tab peek)
 /// measures from here, so the two cannot drift apart.
@@ -500,7 +511,13 @@ impl WorkspaceView {
     // first terminal, then rebuild the group around it below.
     let placeholder = item_ids.next();
     let show_host = Rc::new(std::cell::Cell::new(opts.tab_title_show_host));
-    let group = Self::build_group(placeholder, items.clone(), show_host.clone(), cx);
+    let group = Self::build_group(
+      placeholder,
+      items.clone(),
+      show_host.clone(),
+      opts.unified_tab_bar,
+      cx,
+    );
     let group_sub = cx.subscribe_in(
       &group,
       window,
@@ -607,7 +624,13 @@ impl WorkspaceView {
       }
     };
     // Rebuild the group around the real first item (the placeholder held none).
-    this.group = Self::build_group(first, this.items.clone(), this.show_host.clone(), cx);
+    this.group = Self::build_group(
+      first,
+      this.items.clone(),
+      this.show_host.clone(),
+      this.opts.unified_tab_bar,
+      cx,
+    );
     this._group_sub = cx.subscribe_in(
       &this.group,
       window,
@@ -661,20 +684,20 @@ impl WorkspaceView {
     first: ItemId,
     items: Rc<RefCell<Items>>,
     show_host: Rc<std::cell::Cell<bool>>,
+    unified: bool,
     cx: &mut Context<Self>,
   ) -> Entity<PaneGroup> {
-    // The group doubles as the window titlebar: reserve the top-left inset
-    // for the macOS traffic lights (Linux draws its own controls on the
-    // right, so reserve there instead).
-    let (leading, trailing) = if cfg!(target_os = "macos") {
-      (crate::titlebar::TRAFFIC_LIGHT_INSET, 0.0)
-    } else {
-      (8.0, 120.0)
-    };
     cx.new(|cx| {
-      PaneGroup::new(first, cx)
-        .titlebar(leading, trailing)
-        .tab_height(TAB_HEIGHT)
+      let group = PaneGroup::new(first, cx).tab_height(TAB_HEIGHT);
+      // With the unified bar on, the group *is* the titlebar and owns the
+      // split controls. With it off the window grows its own titlebar, which
+      // takes both jobs over.
+      let group = if unified {
+        group.titlebar(titlebar_insets().0, titlebar_insets().1)
+      } else {
+        group.split_controls(false)
+      };
+      group
         .on_render_item({
           let items = items.clone();
           move |id, _w, _cx| {
@@ -938,6 +961,14 @@ impl WorkspaceView {
     self.base_font_size = px(opts.font_size.max(1.0));
     self.opts = opts;
     self.show_host.set(self.opts.tab_title_show_host);
+    // The tab bar can stop being the titlebar (or start again) without the
+    // window being rebuilt, so tell the group rather than reconstructing it
+    // and losing every pane.
+    let unified = self.opts.unified_tab_bar;
+    self.group.update(cx, |group, _| {
+      group.set_titlebar(unified.then(titlebar_insets));
+      group.set_split_controls(unified);
+    });
     if plugins_changed {
       self.plugins = loadplugins(&self.opts);
       // Drop the resident instances with them. A plugin that was disabled

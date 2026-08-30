@@ -213,3 +213,21 @@ fn sidebar_widths_parse_and_reject_junk() {
   assert_eq!(diags.len(), 1);
   assert_eq!(o.sidebar_left_width, Options::default().sidebar_left_width);
 }
+
+#[test]
+fn unified_tab_bar_defaults_on_and_parses() {
+  // On is the shape the window has always had: the tabs are the titlebar.
+  assert!(Options::default().unified_tab_bar);
+  let (o, diags) = parse_str("unified-tab-bar = false\n");
+  assert!(diags.is_empty(), "{diags:?}");
+  assert!(!o.unified_tab_bar);
+  let (o, diags) = parse_str("unified-tab-bar = true\n");
+  assert!(diags.is_empty(), "{diags:?}");
+  assert!(o.unified_tab_bar);
+  // An empty value falls back to the default rather than erroring.
+  let (o, _) = parse_str("unified-tab-bar =\n");
+  assert!(o.unified_tab_bar);
+  // A non-boolean is a diagnostic, not a silent misread.
+  let (_, diags) = parse_str("unified-tab-bar = sideways\n");
+  assert_eq!(diags.len(), 1, "{diags:?}");
+}

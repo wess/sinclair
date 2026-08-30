@@ -73,6 +73,7 @@ pub const KEYS: &[(&str, Kind)] = &[
   ("autosuggest-commands", Kind::Bool),
   ("autosuggest-paths", Kind::Bool),
   ("autosuggest-assist", Kind::Bool),
+  ("unified-tab-bar", Kind::Bool),
   ("tab-title-show-host", Kind::Bool),
   ("tab-peek", Kind::Bool),
   ("tab-peek-hover", Kind::Int),
