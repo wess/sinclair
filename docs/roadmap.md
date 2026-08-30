@@ -482,3 +482,49 @@ Conventions (non-negotiable):
   docks with six sections; CPU during sustained terminal output is unchanged
   within noise (6.2% open vs 6.3% closed — the grid renderer dominates and gpui
   coalesces repaints); 200 toggle cycles move RSS by 0.5MB.
+- 2026-08-29: the kitty protocols, in full. Graphics moved into
+  `vt/graphics/` (control model, decode, media, store) with dispatch in
+  `vt/term/gfx.rs`, and now answers all eight actions. Transmission gained the
+  file, temp-file and shared-memory media with `O=`/`S=` windows — the one
+  place `vt` touches the OS, confined to `graphics/media.rs`, because a
+  terminal that will not read them does not implement the protocol. Images
+  gained numbers alongside ids, the whole delete-specifier table, source
+  cropping, cell-box scaling, cell offsets, z-index (including below the cell
+  background), placement ids, and animation (frames, gaps, composition modes,
+  loops, playback state).
+
+  Unicode placeholders needed somewhere to put a cell's decoded coordinates.
+  Rather than widen every cell, the zero-width slot became a tagged `u32`
+  holding either one combining mark or a placeholder's row, column and
+  image-id high byte — the same four bytes a `char` took, so no grid or
+  scrollback block grew (`size_of::<Cell>()` is 24 either side). The renderer
+  keeps one texture per image and clips with a content mask, so a crop, a cell
+  offset, a scrolled-off top and a placeholder's single-cell slice are all the
+  same operation.
+
+  Keyboard: all five enhancement flags over the full functional-key table —
+  F13–F35, keypad, media, lock and modifier keys, the last synthesised from
+  the window layer's modifier-state changes. The modifier parameter carries
+  super, hyper, meta and the locks, so cmd+arrow reports instead of vanishing.
+  The remaining limits are the window layer's, not the encoding's: gpui
+  reports no hyper, meta, or num lock, and does not name keypad keys
+  separately on macOS.
+
+  Three resource bugs found auditing the result, all the shape a runaway
+  stream produces: the pane byte budget was recomputed by walking every frame
+  of every image on every transmit (quadratic — a flood of small images cost
+  93us apiece on accounting alone; the store now keeps a running total, and
+  the same flood costs 0.01s where it cost 0.40s); virtual placements were
+  charged to nothing at all, and animation frames were unbounded; and an
+  on-screen animation asked for a repaint every vsync however far off its next
+  frame was, where it now sleeps until the frame is due. Measured after: 8
+  panes idle at ~95MB (~200KB per pane), 60k scrollback rows ~13MB, idle
+  threads all blocked, parser ~104 MiB/s.
+
+  Also: an open-modifier click on a filesystem path opens it with the
+  desktop's default handler rather than only revealing it, and hovering
+  underlines it — but only once the candidate resolves against the pane's cwd,
+  so text that merely looks like a path stays inert. And `unified-tab-bar`
+  (on) keeps the tabs-as-titlebar layout; off gives an ordinary titlebar with
+  the tab bars beneath it. The split controls sit at the titlebar's right edge
+  either way, acting on the focused pane when they are in a shared one.

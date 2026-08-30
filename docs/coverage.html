@@ -51,7 +51,7 @@
               <tr><td>Legacy key encoding</td><td>✓</td><td>modifiers, cursor/tilde/function keys, app cursor/keypad</td></tr>
               <tr><td>Mouse reporting</td><td>✓</td><td>X10/normal/button/any + SGR (1000/1002/1003/1006), alt-scroll</td></tr>
               <tr><td>Bracketed paste</td><td>✓</td><td></td></tr>
-              <tr><td>Kitty keyboard protocol</td><td>◑</td><td>negotiation + disambiguation encoding, super (cmd) reported on the CSI-u path (modified Enter/Tab/Backspace included, so shift+enter / cmd+enter are distinguishable); <strong>press/repeat/release</strong> event types encoded when <code>report_event_types</code> is set (gpui delivers key-up + <code>is_held</code>). Alternate-key and associated-text flags are still tracked but not encoded</td></tr>
+              <tr><td>Kitty keyboard protocol</td><td>✓</td><td>all five enhancement flags encoded, over the full functional-key table: negotiation (<code>CSI ? / &gt; / &lt; / = u</code>, 16-deep per-screen stack), disambiguation, press/repeat/release event types, alternate (shifted) keys, associated text, and all-keys-as-escape-codes — including the bare modifier keys, synthesised from the window layer's modifier-state changes. The modifier parameter carries super, hyper, meta and the locks; keys with no legacy spelling (F13–F35, keypad, media, lock and menu keys) use their <code>57344+</code> codes. Reported modifiers are the ones the window layer delivers — gpui exposes shift/alt/ctrl/super and caps lock, not hyper, meta, or num lock</td></tr>
             </tbody>
           </table>
         </div>
@@ -69,8 +69,9 @@
               <tr><td>OSC 7 cwd reporting</td><td>✓</td><td>inherited by new splits, tabs, and windows; defaults to <code>$HOME</code> when unknown</td></tr>
               <tr><td>OSC 52 clipboard</td><td>✓</td><td>base64 decode → system clipboard</td></tr>
               <tr><td>Desktop notifications (OSC 9 / 777 / 99)</td><td>✓</td><td>native banner + per-tab attention indicator; cleared on focus</td></tr>
-              <tr><td>OSC 8 hyperlinks</td><td>✓</td><td>interned per-cell, underlined, cmd-click opens</td></tr>
-              <tr><td>URL detection (no OSC 8)</td><td>✓</td><td>cmd-click opens detected URLs</td></tr>
+              <tr><td>OSC 8 hyperlinks</td><td>✓</td><td>interned per-cell, underlined, open-modifier click opens</td></tr>
+              <tr><td>URL detection (no OSC 8)</td><td>✓</td><td>open-modifier click opens detected URLs</td></tr>
+              <tr><td>Path detection</td><td>✓</td><td>an open-modifier click opens a filesystem path with the desktop's default handler, and hovering underlines it — but only once the candidate resolves against the pane's cwd, so text that merely looks like a path stays inert. Right-click still reveals it in the file manager. The modifier is cmd on macOS, ctrl elsewhere</td></tr>
               <tr><td>Focus reporting (?1004)</td><td>✓</td><td></td></tr>
               <tr><td>Synchronized output (?2026)</td><td>✓</td><td>frame-gated with a 150 ms stuck-sync timeout</td></tr>
               <tr><td>XTGETTCAP, DA1/DA2, DSR</td><td>✓</td><td></td></tr>
@@ -108,7 +109,7 @@
               <tr><td>Box-drawing / blocks</td><td>◑</td><td>light lines/junctions, blocks, shades, eighths drawn custom; heavy/double/dashed/rounded fall back to font</td></tr>
               <tr><td>Cursor styles (DECSCUSR)</td><td>✓</td><td>block/bar/underline, config default</td></tr>
               <tr><td>Images (sixel)</td><td>✓</td><td>sixel decoded (RGB/HLS palette, RLE, raster attrs) and GPU-composited, anchored to the grid so it scrolls with text</td></tr>
-              <tr><td>Images (kitty graphics)</td><td>◑</td><td>common-case: a byte-level APC pre-parser (<code>term/apc.rs</code>) captures <code>ESC _G … ST</code> — which vte still discards — and decodes direct base64 payloads in RGB/RGBA (<code>f=24</code>/<code>32</code>) and PNG (<code>f=100</code>), zlib-compressed (<code>o=z</code>) and chunked (<code>m=1</code>), then transmit/display/delete/query with OK/error responses honoring the quiet level. Reuses the sixel placement + compositor. Deferred: file/shared-memory transmission, animation, unicode placeholders, z-index/cropping</td></tr>
+              <tr><td>Images (kitty graphics)</td><td>✓</td><td>a byte-level APC pre-parser (<code>term/apc.rs</code>) captures <code>ESC _G … ST</code> — which vte still discards — and <code>term/gfx.rs</code> dispatches all eight actions: transmit, transmit-and-display, display, delete, query, frame, animate, compose. Every medium (<code>t=d/f/t/s</code>, with <code>O=</code>/<code>S=</code> windows), every format (RGB/RGBA/PNG, zlib, chunked), image ids <em>and</em> image numbers, the full delete-specifier table, source cropping, cell-box scaling, cell offsets, z-index (including below the cell background), placement ids, virtual placements with unicode placeholders, and animation — frames, gaps, composition modes, loops, playback state</td></tr>
             </tbody>
           </table>
         </div>
@@ -161,10 +162,8 @@
 
         <h2>Prioritized remaining gaps</h2>
         <ol>
-          <li><strong>Kitty graphics protocol (advanced)</strong> — the common case works (see the images row); still deferred are file / temp-file / shared-memory transmission, animation frames, unicode placeholders, and z-index/cropping/compositing.</li>
-          <li><strong>Stacked combining marks</strong> — only the first combining mark per cell is kept; full grapheme clusters / ZWJ emoji need spillover storage.</li>
+          <li><strong>Stacked combining marks</strong> — only the first combining mark per cell is kept; full grapheme clusters / ZWJ emoji need spillover storage. (Kitty placeholder cells are unaffected: their marks are decoded to coordinates on write and packed into the same slot.)</li>
           <li><strong>Damage-clipped rendering</strong> — shape only dirty rows for big-throughput wins.</li>
-          <li><strong>Kitty alternate-key / associated-text flags</strong> — press, repeat, and release event types are encoded; these two flags are still tracked but not reported.</li>
           <li><strong>Heavy/double/dashed/rounded box-drawing</strong> — extend <code>boxdraw</code> geometry.</li>
           <li><strong>macOS status-bar (tray) item</strong> — needs native NSStatusBar code.</li>
         </ol>

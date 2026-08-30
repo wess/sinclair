@@ -29,8 +29,13 @@ These counters make the useful ratios explicit:
   coalesced redraw wakeup and eventual exit. With the OSC 52 payload limit,
   queued metadata retains at most 64 MiB.
 - Decoded terminal graphics: 128 MiB per pane across kitty storage and image
-  placements on both screens. Pixel buffers shared by storage and placement are
-  counted once; 4096 total stored/placed items also cap tiny-image metadata.
+  placements on both screens, virtual (unicode-placeholder) placements
+  included. Pixel buffers shared by storage and placement are counted once;
+  4096 total stored/placed items also cap tiny-image metadata, and one image
+  holds at most 512 animation frames. The store keeps a running byte total
+  rather than recounting: the budget is checked on every transmit, and walking
+  every frame of every image to answer it made a stream of images quadratic in
+  what it retained.
 - Render-image cache: 128 MiB per pane and 512 MiB across Sinclair's panes,
   evicted least-recently-used. Embedders can select another global limit with
   `ImageCachePool::new`.
@@ -53,6 +58,10 @@ These counters make the useful ratios explicit:
   candidates.
 - Resize gestures settle for 80 ms before one full-history reflow. Initial
   layout remains immediate.
+- An on-screen kitty animation sleeps until its next frame is actually due
+  rather than asking for a repaint every vsync, and asks for nothing once it
+  has stopped. Repainting a whole pane 60 times a second to advance a frame
+  every half second is the difference between an idle window and a busy core.
 - Config reload uses the OS filesystem event backend with trailing-edge
   debounce and only falls back to a sleeping mtime poll when no watch can be
   installed.

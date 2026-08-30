@@ -135,7 +135,20 @@
           plain word selection.
         </p>
 
-        <h2>9. Search every tab at once</h2>
+        <h2>9. Open what's under the pointer</h2>
+        <p>
+          Hold the open modifier — <kbd>⌘</kbd> on macOS, <kbd>Ctrl</kbd> elsewhere — and
+          anything clickable under the pointer underlines itself. Click a URL to open it in
+          your browser; click a filesystem path to open it with whatever your desktop uses
+          for that kind of file. Paths work in build output and stack traces because they
+          are resolved against the pane's working directory, which is where they were
+          printed from. Text that merely <em>looks</em> like a path is never underlined and
+          does nothing when clicked — only a candidate that resolves to something real is
+          treated as a link. Right-click a path instead to reveal it in your file manager,
+          or to copy it.
+        </p>
+
+        <h2>10. Search every tab at once</h2>
         <p>
           Where <kbd>⌘F</kbd> searches the current pane, <kbd>⌘⌥F</kbd>
           (<code>search_all</code>) opens a fuzzy picker over recent output from <em>every</em>

@@ -56,19 +56,21 @@ chafa -f sixels photo.png</code></pre>
         </p>
         <div class="callout note">
           <span class="label">Note</span>
-          <p>Sinclair speaks <strong>sixel</strong> and the common case of the
+          <p>Sinclair speaks <strong>sixel</strong> and the whole
           <strong>kitty graphics protocol</strong>. Tools that support several backends
           usually pick one automatically from DA1; if one needs a hint, look for a
           <code>--format sixel</code> or similar flag. Sixel images up to 10,000&nbsp;px per
           side (8&nbsp;megapixels total) are accepted.</p>
-          <p>For kitty graphics, the supported shape is direct transmission: base64 payloads
-          in RGB (<code>f=24</code>), RGBA (<code>f=32</code>), or PNG (<code>f=100</code>),
+          <p>For kitty graphics that means every transmission medium — inline base64, a file
+          path, a temp file the terminal consumes, or POSIX shared memory — in RGB
+          (<code>f=24</code>), RGBA (<code>f=32</code>), or PNG (<code>f=100</code>),
           optionally zlib-compressed (<code>o=z</code>) and split across chunks
-          (<code>m=1</code>), with transmit, display, delete, and query all answered. Images
-          land in the grid through the same compositor as sixel, so they scroll with the text
-          they arrived with. Not yet supported: transmission by file path or shared memory,
-          animation frames, unicode placeholders, and z-index/cropping — a tool relying on
-          those should be pointed at sixel instead.</p>
+          (<code>m=1</code>). Images can be cropped, scaled into a cell box, offset inside
+          their first cell, and stacked above or below the text, addressed by image id or by
+          image number, and animated with their own frames, gaps and loops. Unicode
+          placeholders work too, so an image survives being passed through a multiplexer.
+          Images land in the grid through the same compositor as sixel, so they scroll with
+          the text they arrived with.</p>
         </div>
 
         <h2>3. Previews in your file manager</h2>
