@@ -135,6 +135,7 @@ impl WorkspaceView {
         name: name.to_string(),
         panes,
       }),
+      crate::root::Restore::Fresh,
       cx,
     );
   }

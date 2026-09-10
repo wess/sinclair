@@ -225,7 +225,18 @@ fn open_default_window(opts: config::Options, cx: &mut App) {
     .filter(|w| w.usable())
     .map(|w| Bounds::new(point(px(w.x), px(w.y)), size(px(w.width), px(w.height))));
   open_window(
-    opts, colors, font, font_size, cell, pad, None, None, place, None, cx,
+    opts,
+    colors,
+    font,
+    font_size,
+    cell,
+    pad,
+    None,
+    None,
+    place,
+    None,
+    root::Restore::Saved,
+    cx,
   );
 }
 
@@ -290,6 +301,9 @@ pub(crate) fn open_window(
   place: Option<Bounds<Pixels>>,
   // A Relay team to fill the window with, one member per pane.
   team: Option<root::TeamOpen>,
+  // Whether the window rebuilds the saved session (app launch) or opens as a
+  // single fresh pane (new-window, tear-off, team).
+  restore: root::Restore,
   cx: &mut App,
 ) {
   let (bounds, cols, rows) = match place {
@@ -348,7 +362,8 @@ pub(crate) fn open_window(
   let handle = match cx.open_window(options, move |window, cx| {
     cx.new(move |cx| {
       root::WorkspaceView::new(
-        opts, colors, font, font_size, cell, pad, cols, rows, cwd, adopt, team, window, cx,
+        opts, colors, font, font_size, cell, pad, cols, rows, cwd, adopt, team, restore, window,
+        cx,
       )
     })
   }) {

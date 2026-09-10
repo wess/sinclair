@@ -258,8 +258,12 @@ impl WorkspaceView {
 
   /// Open another top-level window, cloning this window's current
   /// appearance so the new one matches without re-reading config.
+  ///
+  /// A new window is a new session: one pane, no restored tabs, and no cwd
+  /// carried over from the pane you asked from — it starts where a launch
+  /// would (`working-directory`, else home). Inheriting the directory is
+  /// what a split or a tab is for.
   pub(crate) fn newwindow(&self, cx: &mut Context<Self>) {
-    let cwd = self.focused_cwd_path(cx);
     crate::open_window(
       self.opts.clone(),
       self.colors.clone(),
@@ -267,10 +271,11 @@ impl WorkspaceView {
       self.font_size,
       self.cell,
       self.pad,
-      cwd,
       None,
       None,
       None,
+      None,
+      crate::root::Restore::Fresh,
       cx,
     );
   }

@@ -466,6 +466,19 @@ pub(crate) struct TeamOpen {
   pub panes: crate::relay::TeamPanes,
 }
 
+/// What a freshly opened window starts with. Only the app's own launch (and a
+/// dock reopen, which is a launch with no windows left) rebuilds the saved
+/// session; a window the user asks for is a new session by definition, so it
+/// opens as one pane in the default directory rather than a copy of the work
+/// already on screen.
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub(crate) enum Restore {
+  /// Rebuild the saved tabs, splits and cwds into this window.
+  Saved,
+  /// Open a single pane and restore nothing.
+  Fresh,
+}
+
 /// Whether a gpui window appearance is one of the dark variants.
 pub(crate) fn is_dark(a: gpui::WindowAppearance) -> bool {
   matches!(
@@ -490,6 +503,8 @@ impl WorkspaceView {
     adopt: Option<PaneContent>,
     // A Relay team to fill this window with, instead of a single shell.
     team: Option<TeamOpen>,
+    // Whether this window rebuilds the saved session.
+    restore: Restore,
     window: &mut Window,
     cx: &mut Context<Self>,
   ) -> Self {
@@ -668,9 +683,9 @@ impl WorkspaceView {
     }
     // Restoring re-spawns shells; with the first spawn already failed there
     // is nothing to restore into (and closing the placeholder would close
-    // the window before the error is ever seen). A team window is already
-    // full of the roster it was opened for, and never restores.
-    if this.opts.session_restore && this.spawn_error.is_none() && this.team.is_none() {
+    // the window before the error is ever seen). Windows opened by hand
+    // (new-window, a tear-off, a team) pass `Fresh` and never restore.
+    if restore == Restore::Saved && this.opts.session_restore && this.spawn_error.is_none() {
       this.try_restore(window, cx);
     }
     this
@@ -904,6 +919,7 @@ impl WorkspaceView {
       Some(content),
       place,
       None,
+      Restore::Fresh,
       cx,
     );
     cx.notify();
