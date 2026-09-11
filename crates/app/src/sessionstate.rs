@@ -20,6 +20,7 @@ use crate::tiles::Layout;
 /// pre-order leaf order), and the tab title. For panes that were running a
 /// reporting agent, `commands`/`sessions` carry the launch command and the
 /// native session id so the agent can be relaunched and resumed on restore.
+/// `buffers` carries what each pane had on screen and in scrollback.
 #[derive(Clone, Serialize, Deserialize)]
 pub struct TabState {
   pub layout: Layout,
@@ -34,6 +35,13 @@ pub struct TabState {
   /// pane wasn't running a session-reporting agent.
   #[serde(default)]
   pub sessions: Vec<Option<String>>,
+  /// Per-pane buffer dump (pre-order leaf order): the pane's last lines as
+  /// the escape sequences that redraw them, replayed into the restored pane
+  /// before its shell starts. `None` when there was nothing to keep or
+  /// `session-restore-lines` is `0`. Absent for a session saved before
+  /// buffers were kept, which restores as it always did.
+  #[serde(default)]
+  pub buffers: Vec<Option<String>>,
 }
 
 /// Where the window was on screen, in logical pixels. Restored as-is when it

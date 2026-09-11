@@ -7,7 +7,7 @@
 //! which unblocks the reader at EOF.
 
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use crate::Event;
 
@@ -90,6 +90,20 @@ impl EventSender {
 fn event_channel(counters: Arc<Counters>) -> (EventSender, crate::EventReceiver) {
   let (inner, receiver) = flume::bounded(EVENT_CHANNEL_CAPACITY);
   (EventSender { inner, counters }, receiver)
+}
+
+/// Replay a saved buffer into the emulator before the reader thread can
+/// deliver a single byte from the child, so restored history is always
+/// *under* the new shell's first prompt rather than interleaved with it.
+/// Anything the replay asks the host to write back is dropped: those
+/// replies would belong to the session that ended, not this child.
+pub(crate) fn preload(term: &Mutex<vt::Terminal>, bytes: &[u8]) {
+  if bytes.is_empty() {
+    return;
+  }
+  let mut term = term.lock().unwrap_or_else(|e| e.into_inner());
+  term.feed(bytes);
+  term.take_output();
 }
 
 #[cfg(unix)]

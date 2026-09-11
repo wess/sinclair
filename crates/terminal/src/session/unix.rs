@@ -77,6 +77,7 @@ impl Session {
       rows,
       scrollback_limit,
       mut spawn,
+      preload,
     } = options;
     spawn.winsize.cols = cols as u16;
     spawn.winsize.rows = rows as u16;
@@ -86,6 +87,7 @@ impl Session {
     let (pump, waker) = pty.pump()?;
 
     let term = Arc::new(Mutex::new(vt::Terminal::new(cols, rows, scrollback_limit)));
+    super::preload(&term, &preload);
     let input = Arc::new(Mutex::new(VecDeque::new()));
     let stop = Arc::new(AtomicBool::new(false));
     let wakeup_pending = Arc::new(AtomicBool::new(false));

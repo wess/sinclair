@@ -181,6 +181,12 @@ pub struct Options {
   /// File key: `session-restore`. Save the window's tabs/splits/cwds on quit
   /// and restore them on the next launch. Off by default.
   pub session_restore: bool,
+  /// File key: `session-restore-lines`. How many lines of each pane's
+  /// scrollback are saved with the session and replayed into the pane when
+  /// it comes back, so a restored window opens on the history it had rather
+  /// than on an empty screen. `0` restores the layout only. Ignored entirely
+  /// when `session-restore` is off.
+  pub session_restore_lines: u32,
   /// File key: `shell-integration`. Inject OSC 133 prompt marks + OSC 7 cwd
   /// reporting into the spawned shell (zsh/bash/fish) so jump-to-prompt and
   /// cwd inheritance work without editing your shell rc. On by default.
@@ -494,6 +500,7 @@ impl Default for Options {
       autosuggest_paths: true,
       autosuggest_assist: true,
       session_restore: false,
+      session_restore_lines: 1000,
       unified_tab_bar: true,
       tab_title_show_host: false,
       tab_peek: true,

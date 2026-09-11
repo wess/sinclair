@@ -239,3 +239,20 @@ fn drop_escalates_when_the_child_ignores_hangup() {
   let (_, code) = drain_until_exit(&rx);
   assert_eq!(code, None); // group SIGKILL
 }
+
+#[test]
+fn preload_lands_before_the_child_says_anything() {
+  let mut options = command(&["/bin/sh", "-c", "printf 'live output\\n'; exit 0"]);
+  options.preload = b"restored history\r\n".to_vec();
+  let (session, rx) = Session::spawn(options).expect("spawn");
+  // Before any output has been read at all, the history is already there.
+  let early = session.with_term(|term| term.buffer_dump(100));
+  assert!(early.contains("restored history"), "{early:?}");
+  drain_until_exit(&rx);
+  let after = session.with_term(|term| term.buffer_dump(100));
+  let history = after.find("restored history").expect("history kept");
+  let live = after.find("live output").expect("child output arrived");
+  assert!(history < live, "the child printed above the history: {after:?}");
+  // The replay is emulator-only: nothing of it was written to the pty.
+  assert_eq!(session.stats().input_bytes, 0);
+}

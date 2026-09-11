@@ -1,13 +1,22 @@
 use super::*;
 use gpui::prelude::*;
 
-/// One pane's restore seed: its working directory, and (for agent panes) the
-/// launch command plus the native session id used to resume it.
+/// Ceiling on one pane's saved buffer. `session-restore-lines` bounds the
+/// rows; this bounds what those rows can weigh, so a pane that scrolled a
+/// megabyte of densely colored output past can't turn the session file into
+/// something slow to write on quit and slow to parse on launch. The newest
+/// whole rows are the ones kept.
+const MAX_PANE_BUFFER_BYTES: usize = 512 * 1024;
+
+/// One pane's restore seed: its working directory, what it had on screen and
+/// in scrollback, and (for agent panes) the launch command plus the native
+/// session id used to resume it.
 #[derive(Default, Clone)]
 pub(crate) struct RestoredPane {
   cwd: Option<std::path::PathBuf>,
   command: Option<String>,
   session: Option<String>,
+  buffer: Option<String>,
 }
 
 impl WorkspaceView {
@@ -68,17 +77,25 @@ impl WorkspaceView {
   /// Spawn one restored pane: relaunch (and resume) a saved agent when both a
   /// command and a native session id are present, else a plain shell at the
   /// saved cwd. Only session-backed agent panes are relaunched, so ordinary
-  /// shells never re-run a stale command.
+  /// shells never re-run a stale command. Either way the pane's saved buffer
+  /// goes back first, so the new shell's prompt lands under the history the
+  /// pane had rather than on an empty screen.
   fn spawn_restored(
     &mut self,
     seed: &RestoredPane,
     window: &mut Window,
     cx: &mut Context<Self>,
   ) -> Option<ItemId> {
+    let mut options = session::options(&self.opts, SPAWN_COLS, SPAWN_ROWS, seed.cwd.clone());
+    options.preload = seed.buffer.clone().unwrap_or_default().into_bytes();
     match (seed.command.as_deref(), seed.session.as_deref()) {
       (Some(command), Some(session)) if !session.is_empty() => {
         let run = crate::resume::resume_command(command, session);
-        let id = self.spawn_command_cwd(&run, seed.cwd.clone(), window, cx)?;
+        let cwd = options.spawn.cwd.clone();
+        options.spawn = commandspawn(&self.opts, &run);
+        options.spawn.cwd = cwd;
+        let id = self.spawn(options, window, cx)?;
+        self.set_item_command(id, &run);
         // Keep the original command + session so a further restart resumes
         // again (resume_command is a no-op on an already-resumed command).
         if let Some(it) = self.items.borrow_mut().get_mut(&id) {
@@ -87,7 +104,7 @@ impl WorkspaceView {
         }
         Some(id)
       }
-      _ => self.spawn_cwd(seed.cwd.clone(), window, cx),
+      _ => self.spawn(options, window, cx),
     }
   }
 
@@ -172,6 +189,7 @@ impl WorkspaceView {
             .map(std::path::PathBuf::from),
           command: tab.commands.get(i).cloned().flatten(),
           session: tab.sessions.get(i).cloned().flatten(),
+          buffer: tab.buffers.get(i).cloned().flatten(),
         })
         .collect();
       self.restore_layout(&tab.layout, &panes, tab.title.as_deref(), window, cx);
@@ -240,6 +258,8 @@ impl WorkspaceView {
     let mut cwds = Vec::with_capacity(panes.len());
     let mut commands = Vec::with_capacity(panes.len());
     let mut sessions = Vec::with_capacity(panes.len());
+    let mut buffers = Vec::with_capacity(panes.len());
+    let lines = self.opts.session_restore_lines as usize;
     for &p in &panes {
       let ids = self
         .group
@@ -268,6 +288,14 @@ impl WorkspaceView {
           .flatten(),
       );
       sessions.push(it.and_then(|it| it.agent_session.clone()));
+      // What the pane had on screen and in scrollback, capped by
+      // `session-restore-lines`. Empty panes store nothing rather than an
+      // empty string, so a session file stays readable.
+      buffers.push(
+        it.and_then(|it| it.content.buffer_dump(lines, cx))
+          .map(|dump| trim_to_bytes(dump, MAX_PANE_BUFFER_BYTES))
+          .filter(|dump| !dump.is_empty()),
+      );
     }
     let tabs = vec![crate::sessionstate::TabState {
       layout: crate::tiles::from_tree(tree.root()),
@@ -275,6 +303,7 @@ impl WorkspaceView {
       title: None,
       commands,
       sessions,
+      buffers,
     }];
     crate::sessionstate::save(&crate::sessionstate::SessionState {
       tabs,
@@ -489,3 +518,28 @@ impl WorkspaceView {
     self.refresh_menu_data(cx);
   }
 }
+
+/// Keep the tail of `dump` within `max` bytes, cut at a row boundary so the
+/// kept text always starts with a whole line and never mid-escape.
+fn trim_to_bytes(dump: String, max: usize) -> String {
+  if dump.len() <= max {
+    return dump;
+  }
+  // Step forward to a character boundary: the cut is a byte offset into
+  // text that may hold multibyte graphemes.
+  let mut cut = dump.len() - max;
+  while !dump.is_char_boundary(cut) {
+    cut += 1;
+  }
+  let tail = &dump[cut..];
+  match tail.find("\r\n") {
+    Some(i) => tail[i + 2..].to_string(),
+    // One row longer than the ceiling on its own: keep nothing rather than
+    // replay half a line of someone's output.
+    None => String::new(),
+  }
+}
+
+#[cfg(test)]
+#[path = "../../tests/persist.rs"]
+mod tests;

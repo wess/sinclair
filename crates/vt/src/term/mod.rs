@@ -391,6 +391,34 @@ impl Terminal {
     lines.join("\n")
   }
 
+  /// The primary screen's buffer as replayable bytes: at most `max_rows`
+  /// rows, taken from the end of scrollback-plus-screen, serialized by
+  /// [`crate::dump`]. Feeding the result into a fresh terminal reproduces
+  /// the text and its colors — this is how a pane's history survives a
+  /// restart.
+  ///
+  /// Always the *primary* screen, never the alternate one: a pane sitting in
+  /// a full-screen program should come back to the shell history underneath
+  /// it, not to a frozen frame of an editor that is no longer running.
+  pub fn buffer_dump(&mut self, max_rows: usize) -> String {
+    if max_rows == 0 {
+      return String::new();
+    }
+    let grid = &mut self.inner.primary.grid;
+    let sb_len = grid.scrollback().len();
+    let start = (sb_len + grid.rows()).saturating_sub(max_rows);
+    let mut rows: Vec<Row> = Vec::with_capacity(max_rows.min(sb_len + grid.rows()));
+    for i in start..sb_len {
+      if let Some(row) = grid.scrollback_mut().row(i) {
+        rows.push(row.clone());
+      }
+    }
+    for r in start.saturating_sub(sb_len)..grid.rows() {
+      rows.push(grid.row(r).clone());
+    }
+    crate::dump::write_rows(rows.iter())
+  }
+
   /// Rows committed to scrollback (survives eviction; only moves for rows
   /// genuinely entering or leaving history, so resizes don't inflate it).
   /// Used by the host to stamp scrollback lines with a time.

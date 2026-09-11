@@ -68,8 +68,9 @@ custom.
 
 If you need a terminal that survives its own window closing — a real
 detachable multiplexer — WezTerm has that built in, and tmux inside any of
-these does it too. Sinclair restores your tab/split/cwd layout on relaunch
-(and relaunches agent panes *resumed*), but it is not a live mux server.
+these does it too. Sinclair restores your tab/split/cwd layout on relaunch —
+with each pane's scrollback replayed into it, and agent panes relaunched
+*resumed* — but it is not a live mux server.
 
 ## Configuration and extensibility
 

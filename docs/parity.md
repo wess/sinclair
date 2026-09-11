@@ -114,7 +114,7 @@ documented limits), **✗** not yet.
 | Keybindings (`trigger = action`) | ✓ | config-driven, defaults + user overrides + unbind |
 | Command palette | ✓ | cmd+shift+p fuzzy launcher over the action catalog, shows keybinds |
 | Broadcast input | ✓ | cmd+shift+b mirrors typed keys to every pane in the tab (floating indicator) |
-| Session restore | ✓ | `session-restore` saves tabs/splits/cwds on quit, rebuilds on launch |
+| Session restore | ✓ | `session-restore` saves tabs/splits/cwds on quit, rebuilds on launch; each pane comes back with its last `session-restore-lines` rows of scrollback (colors and all), agent panes resumed |
 | Session recording | ✓ | record a pane to an asciinema v2 `.cast` (cmd+shift+r); plays with `asciinema play`, embeddable |
 | Per-tab context | ✓ | each tab shows the focused pane's git branch + working directory |
 | Agent attention | ✓ | OSC 9/777/99 (or `sinclair notify`) post a native banner and light up the tab |

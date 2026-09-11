@@ -264,7 +264,12 @@ worktree_remove:../pr-1234             <span class="c"># git worktree remove, wh
           it relaunches the agent — <em>resumed</em>, reloading its own session
           rather than starting cold where the provider supports it (Claude Code
           today) — instead of dropping to a bare shell. Plain shells restore as
-          before. The <code>window-inherit-working-directory</code> option makes every
+          before. Every pane also comes back with what was on it: the last
+          <code>session-restore-lines</code> rows of its scrollback (1000 by
+          default, <code>0</code> for layout only) are replayed into the pane,
+          colors and all, so the new prompt lands under the history you left
+          rather than on a blank screen. Text is what survives — the images and
+          clickable links of the old session do not. The <code>window-inherit-working-directory</code> option makes every
           new tab and split open in the focused pane's current directory instead
           of your home folder, which keeps related shells rooted in the same
           project.

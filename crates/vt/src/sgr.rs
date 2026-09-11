@@ -1,4 +1,5 @@
-//! SGR (Select Graphic Rendition) application onto a pen cell.
+//! SGR (Select Graphic Rendition) application onto a pen cell, and the
+//! reverse: emitting the sequence that would reproduce a pen.
 //!
 //! Accepts the parameter shape produced by `vte::Params`: an iterator of
 //! slices, where colon subparameters arrive grouped in one slice
@@ -66,6 +67,56 @@ where
   }
   if !any {
     reset(pen);
+  }
+}
+
+/// Write the SGR sequence that turns a *default* pen into `pen`'s style, or
+/// nothing at all when the style already is the default. The inverse of
+/// [`apply`]: feeding the result back through a parser reproduces the cell's
+/// colors and attributes. It only ever *adds* attributes, so callers put the
+/// pen back to the default first — see [`crate::dump`].
+///
+/// Colors go out in their indexed/RGB long forms (`38;5;n`, `38;2;r;g;b`)
+/// rather than the 30-37 shorthands, so a palette index survives as itself
+/// instead of as a bold-adjacent legacy code.
+pub fn emit(pen: &Cell, out: &mut String) {
+  let mut params: Vec<String> = Vec::new();
+  for (flag, code) in [
+    (CellFlags::BOLD, "1"),
+    (CellFlags::DIM, "2"),
+    (CellFlags::ITALIC, "3"),
+    (CellFlags::UNDERLINE, "4"),
+    (CellFlags::DOUBLE_UNDERLINE, "4:2"),
+    (CellFlags::CURLY_UNDERLINE, "4:3"),
+    (CellFlags::DOTTED_UNDERLINE, "4:4"),
+    (CellFlags::DASHED_UNDERLINE, "4:5"),
+    (CellFlags::BLINK, "5"),
+    (CellFlags::INVERSE, "7"),
+    (CellFlags::INVISIBLE, "8"),
+    (CellFlags::STRIKETHROUGH, "9"),
+  ] {
+    if pen.flags.contains(flag) {
+      params.push(code.to_string());
+    }
+  }
+  color_params(pen.fg, 38, &mut params);
+  color_params(pen.bg, 48, &mut params);
+  color_params(pen.underline_color, 58, &mut params);
+  if params.is_empty() {
+    return;
+  }
+  out.push_str("\x1b[");
+  out.push_str(&params.join(";"));
+  out.push('m');
+}
+
+/// One color's parameters under `base` (38 foreground, 48 background, 58
+/// underline). The terminal default needs nothing said about it.
+fn color_params(color: Color, base: u16, params: &mut Vec<String>) {
+  match color {
+    Color::Default => {}
+    Color::Indexed(n) => params.push(format!("{base};5;{n}")),
+    Color::Rgb(r, g, b) => params.push(format!("{base};2;{r};{g};{b}")),
   }
 }
 

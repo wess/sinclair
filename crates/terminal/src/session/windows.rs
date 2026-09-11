@@ -57,6 +57,7 @@ impl Session {
       rows,
       scrollback_limit,
       mut spawn,
+      preload,
     } = options;
     spawn.winsize.cols = cols as u16;
     spawn.winsize.rows = rows as u16;
@@ -67,6 +68,7 @@ impl Session {
     let writer = pty.try_clone_writer()?;
 
     let term = Arc::new(Mutex::new(vt::Terminal::new(cols, rows, scrollback_limit)));
+    super::preload(&term, &preload);
     let pty = Arc::new(Mutex::new(pty));
     let wakeup_pending = Arc::new(AtomicBool::new(false));
     let output_generation = Arc::new(AtomicU64::new(0));

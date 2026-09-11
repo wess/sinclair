@@ -68,3 +68,36 @@ fn window_and_dock_state_round_trip() {
   assert_eq!(docks[0].sections, vec![("terminals".to_string(), false)]);
   assert!(!docks[1].open);
 }
+
+/// A session written before pane buffers were saved still loads; those tabs
+/// simply restore with empty panes, as they always did.
+#[test]
+fn an_older_session_without_buffers_still_loads() {
+  let json = r#"{"tabs":[{"layout":{"t":"leaf"},"cwds":["/tmp"]}],"active":0}"#;
+  let state: SessionState = serde_json::from_str(json).expect("older session");
+  assert!(state.tabs[0].buffers.is_empty());
+  assert_eq!(state.tabs[0].cwds, vec![Some("/tmp".to_string())]);
+}
+
+#[test]
+fn pane_buffers_round_trip() {
+  let state = SessionState {
+    tabs: vec![TabState {
+      layout: Layout::Leaf,
+      cwds: vec![Some("/tmp".into()), None],
+      title: None,
+      commands: vec![None, None],
+      sessions: vec![None, None],
+      buffers: vec![Some("\u{1b}[31mred\u{1b}[0m\r\n".into()), None],
+    }],
+    active: 0,
+    window: None,
+    docks: None,
+  };
+  let json = serde_json::to_string(&state).unwrap();
+  let back: SessionState = serde_json::from_str(&json).unwrap();
+  assert_eq!(
+    back.tabs[0].buffers,
+    vec![Some("\u{1b}[31mred\u{1b}[0m\r\n".to_string()), None]
+  );
+}

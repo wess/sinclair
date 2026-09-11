@@ -229,6 +229,9 @@ pub(crate) const ARTICLES: &[Article] = &[
       Block::Bullet("clipboard-paste-protection — confirm before a risky paste (off by default)"),
       Block::Bullet("shell-integration — inject OSC 133/7 hooks for prompt-jump and cwd (on)"),
       Block::Bullet("session-restore — reopen tabs/splits on launch (off by default)"),
+      Block::Bullet(
+        "session-restore-lines — scrollback lines each restored pane comes back with (1000; 0 for layout only)",
+      ),
       Block::Bullet("unified-tab-bar — fold the tabs into the titlebar (on; off puts them beneath it)"),
       Block::Bullet("tab-title-show-host — keep user@host: in tab titles (off; tabs show just the path)"),
       Block::Bullet("confirm-quit — warn on quit if a process is still running (on)"),

@@ -386,6 +386,13 @@ pub fn apply(opts: &mut Options, d: &Options, key: &str, val: &str) -> Result<()
         value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
       };
     }
+    "session-restore-lines" => {
+      opts.session_restore_lines = if empty {
+        d.session_restore_lines
+      } else {
+        value::parse_u32(val).ok_or_else(|| bad("non-negative integer", val))?
+      };
+    }
     "shell-integration" => {
       opts.shell_integration = if empty {
         d.shell_integration

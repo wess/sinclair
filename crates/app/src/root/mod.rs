@@ -236,6 +236,14 @@ impl PaneContent {
     }
   }
 
+  /// The terminal's saved-session buffer dump; webviews have none.
+  fn buffer_dump(&self, rows: usize, cx: &App) -> Option<String> {
+    match self {
+      PaneContent::Terminal(v) => Some(v.read(cx).buffer_dump(rows)),
+      PaneContent::Webview(_) => None,
+    }
+  }
+
   fn cwd_path(&self, cx: &App) -> Option<std::path::PathBuf> {
     match self {
       PaneContent::Terminal(v) => v.read(cx).cwd_path(),

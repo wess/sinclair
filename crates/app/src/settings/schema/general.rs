@@ -85,6 +85,15 @@ pub(super) fn settings() -> Vec<Setting> {
       s,
       |o| o.session_restore,
     ),
+    slider(
+      "session-restore-lines",
+      "Restore lines per pane",
+      "Lines of each pane's scrollback saved with the session and put back on restore; 0 keeps only the layout.",
+      s,
+      |o| o.session_restore_lines as f32,
+      (0.0, 5000.0, 100.0),
+      true,
+    ),
     toggle(
       "unified-tab-bar",
       "Unified tab bar",

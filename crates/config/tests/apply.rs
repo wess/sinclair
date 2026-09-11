@@ -231,3 +231,21 @@ fn unified_tab_bar_defaults_on_and_parses() {
   let (_, diags) = parse_str("unified-tab-bar = sideways\n");
   assert_eq!(diags.len(), 1, "{diags:?}");
 }
+
+#[test]
+fn session_restore_lines_defaults_to_a_screenful_of_history() {
+  // Restoring a session restores what was in the panes, not just the panes.
+  assert_eq!(Options::default().session_restore_lines, 1000);
+  let (o, diags) = parse_str("session-restore-lines = 250\n");
+  assert!(diags.is_empty(), "{diags:?}");
+  assert_eq!(o.session_restore_lines, 250);
+  // Zero is the "layout only" setting, not an error.
+  let (o, diags) = parse_str("session-restore-lines = 0\n");
+  assert!(diags.is_empty(), "{diags:?}");
+  assert_eq!(o.session_restore_lines, 0);
+  // An empty value falls back to the default; junk is a diagnostic.
+  let (o, _) = parse_str("session-restore-lines =\n");
+  assert_eq!(o.session_restore_lines, 1000);
+  let (_, diags) = parse_str("session-restore-lines = lots\n");
+  assert_eq!(diags.len(), 1, "{diags:?}");
+}
