@@ -3,6 +3,11 @@
 use crate::options::{ClipboardAccess, CursorStyle, FontStyle, OptionAsAlt, Options};
 use crate::value;
 
+/// Ceiling on `session-restore-lines`. Far past anything worth replaying into
+/// a pane on launch, and it keeps a typo (`10000000`) from asking the host to
+/// serialize a whole scrollback.
+const MAX_SESSION_RESTORE_LINES: u32 = 50_000;
+
 /// Apply one `key = value` pair to the options. An empty value resets the
 /// key to its default, read from the caller-built `d` (one default set per
 /// parse, not one per line). Returns an error message for unknown keys or
@@ -390,7 +395,9 @@ pub fn apply(opts: &mut Options, d: &Options, key: &str, val: &str) -> Result<()
       opts.session_restore_lines = if empty {
         d.session_restore_lines
       } else {
-        value::parse_u32(val).ok_or_else(|| bad("non-negative integer", val))?
+        value::parse_u32(val)
+          .ok_or_else(|| bad("non-negative integer", val))?
+          .min(MAX_SESSION_RESTORE_LINES)
       };
     }
     "shell-integration" => {

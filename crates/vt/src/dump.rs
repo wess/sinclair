@@ -54,22 +54,10 @@ pub fn write_row(row: &Row, out: &mut String) {
   }
 }
 
-/// Serialize `rows` in order, dropping trailing blank ones so a mostly empty
-/// screen does not restore as a wall of newlines. Returns an empty string
-/// when every row is blank.
-pub fn write_rows<'a>(rows: impl IntoIterator<Item = &'a Row>) -> String {
-  let mut rows: Vec<&Row> = rows.into_iter().collect();
-  while rows
-    .last()
-    .is_some_and(|r| r.cells.iter().all(is_plain_blank))
-  {
-    rows.pop();
-  }
-  let mut out = String::new();
-  for row in rows {
-    write_row(row, &mut out);
-  }
-  out
+/// A row with nothing on it: the blank padding under a short pane, which a
+/// restored pane does not need replayed into it.
+pub(crate) fn is_blank_row(row: &Row) -> bool {
+  row.cells.iter().all(is_plain_blank)
 }
 
 /// A cell holding nothing anyone can see: a space with no styling. The

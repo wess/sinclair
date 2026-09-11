@@ -237,9 +237,9 @@ impl PaneContent {
   }
 
   /// The terminal's saved-session buffer dump; webviews have none.
-  fn buffer_dump(&self, rows: usize, cx: &App) -> Option<String> {
+  fn buffer_dump(&self, rows: usize, bytes: usize, cx: &App) -> Option<String> {
     match self {
-      PaneContent::Terminal(v) => Some(v.read(cx).buffer_dump(rows)),
+      PaneContent::Terminal(v) => Some(v.read(cx).buffer_dump(rows, bytes)),
       PaneContent::Webview(_) => None,
     }
   }

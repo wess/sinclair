@@ -391,32 +391,66 @@ impl Terminal {
     lines.join("\n")
   }
 
-  /// The primary screen's buffer as replayable bytes: at most `max_rows`
-  /// rows, taken from the end of scrollback-plus-screen, serialized by
-  /// [`crate::dump`]. Feeding the result into a fresh terminal reproduces
-  /// the text and its colors — this is how a pane's history survives a
-  /// restart.
+  /// The primary screen's buffer as replayable bytes: the newest rows of
+  /// scrollback-plus-screen, serialized by [`crate::dump`]. Feeding the
+  /// result into a fresh terminal reproduces the text and its colors — this
+  /// is how a pane's history survives a restart.
+  ///
+  /// Bounded twice, and it stops at whichever bound comes first: `max_rows`
+  /// is how much history the user asked to keep, `max_bytes` is what that
+  /// history is allowed to weigh. Rows are serialized newest-first so a
+  /// tight budget keeps recent history rather than ancient history, and
+  /// nothing larger than the budget is ever built in memory.
   ///
   /// Always the *primary* screen, never the alternate one: a pane sitting in
   /// a full-screen program should come back to the shell history underneath
   /// it, not to a frozen frame of an editor that is no longer running.
-  pub fn buffer_dump(&mut self, max_rows: usize) -> String {
-    if max_rows == 0 {
+  pub fn buffer_dump(&mut self, max_rows: usize, max_bytes: usize) -> String {
+    if max_rows == 0 || max_bytes == 0 {
       return String::new();
     }
     let grid = &mut self.inner.primary.grid;
     let sb_len = grid.scrollback().len();
-    let start = (sb_len + grid.rows()).saturating_sub(max_rows);
-    let mut rows: Vec<Row> = Vec::with_capacity(max_rows.min(sb_len + grid.rows()));
-    for i in start..sb_len {
-      if let Some(row) = grid.scrollback_mut().row(i) {
-        rows.push(row.clone());
+    // Drop the unused bottom of the pane, which is the blank tail of the
+    // live screen. Blank rows in *scrollback* are left alone: something
+    // printed them, they are as much history as any other row, and a pane
+    // that scrolled thousands of them past is not worth walking.
+    let mut last = sb_len + grid.rows();
+    while last > sb_len {
+      match primary_row(grid, sb_len, last - 1) {
+        Some(row) if crate::dump::is_blank_row(row) => last -= 1,
+        _ => break,
       }
     }
-    for r in start.saturating_sub(sb_len)..grid.rows() {
-      rows.push(grid.row(r).clone());
+    let floor = last.saturating_sub(max_rows);
+    let mut kept: Vec<(usize, String)> = Vec::new();
+    let mut bytes = 0;
+    for global in (floor..last).rev() {
+      let mut text = String::new();
+      match primary_row(grid, sb_len, global) {
+        Some(row) => crate::dump::write_row(row, &mut text),
+        None => break,
+      }
+      if bytes + text.len() > max_bytes {
+        break;
+      }
+      bytes += text.len();
+      kept.push((global, text));
     }
-    crate::dump::write_rows(rows.iter())
+    // A run that starts mid-logical-line would replay a fragment whose
+    // beginning was dropped: walk the front back to a row that starts a
+    // line of its own.
+    while let Some(&(global, _)) = kept.last() {
+      if global == 0 || !primary_row(grid, sb_len, global - 1).is_some_and(|r| r.wrapped) {
+        break;
+      }
+      kept.pop();
+    }
+    let mut out = String::with_capacity(bytes);
+    for (_, text) in kept.iter().rev() {
+      out.push_str(text);
+    }
+    out
   }
 
   /// Rows committed to scrollback (survives eviction; only moves for rows
@@ -833,6 +867,17 @@ impl Terminal {
       }
     }
     lines
+  }
+}
+
+/// One row of the primary screen by global index: scrollback first, then the
+/// live grid. Borrowed one at a time, so a walk over history never clones a
+/// row and never holds more than the one it is looking at.
+fn primary_row(grid: &mut Grid, sb_len: usize, global: usize) -> Option<&Row> {
+  if global < sb_len {
+    grid.scrollback_mut().row(global)
+  } else {
+    (global - sb_len < grid.rows()).then(|| grid.row(global - sb_len))
   }
 }
 

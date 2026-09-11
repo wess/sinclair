@@ -248,4 +248,8 @@ fn session_restore_lines_defaults_to_a_screenful_of_history() {
   assert_eq!(o.session_restore_lines, 1000);
   let (_, diags) = parse_str("session-restore-lines = lots\n");
   assert_eq!(diags.len(), 1, "{diags:?}");
+  // A typo with too many zeroes is clamped, not honoured.
+  let (o, diags) = parse_str("session-restore-lines = 10000000\n");
+  assert!(diags.is_empty(), "{diags:?}");
+  assert_eq!(o.session_restore_lines, 50_000);
 }

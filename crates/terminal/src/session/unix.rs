@@ -87,7 +87,7 @@ impl Session {
     let (pump, waker) = pty.pump()?;
 
     let term = Arc::new(Mutex::new(vt::Terminal::new(cols, rows, scrollback_limit)));
-    super::preload(&term, &preload);
+    super::preload(&term, &preload, scrollback_limit);
     let input = Arc::new(Mutex::new(VecDeque::new()));
     let stop = Arc::new(AtomicBool::new(false));
     let wakeup_pending = Arc::new(AtomicBool::new(false));

@@ -95,14 +95,27 @@ fn event_channel(counters: Arc<Counters>) -> (EventSender, crate::EventReceiver)
 /// Replay a saved buffer into the emulator before the reader thread can
 /// deliver a single byte from the child, so restored history is always
 /// *under* the new shell's first prompt rather than interleaved with it.
-/// Anything the replay asks the host to write back is dropped: those
-/// replies would belong to the session that ended, not this child.
-pub(crate) fn preload(term: &Mutex<vt::Terminal>, bytes: &[u8]) {
+/// Anything the replay asks the host to write back is dropped: those replies
+/// would belong to the session that ended, not this child.
+///
+/// A panic in here would take the app down on the way *up*, before a window
+/// exists — and the buffer that caused it would still be on disk for the
+/// next launch to trip over. So a failed replay is caught the way the reader
+/// thread catches one: log it, start the pane from a clean terminal, and let
+/// the session open without its history rather than not at all.
+pub(crate) fn preload(term: &Mutex<vt::Terminal>, bytes: &[u8], scrollback_limit: usize) {
   if bytes.is_empty() {
     return;
   }
   let mut term = term.lock().unwrap_or_else(|e| e.into_inner());
-  term.feed(bytes);
+  let fed = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| term.feed(bytes)));
+  if fed.is_err() {
+    eprintln!(
+      "vt: parser panicked replaying a {}-byte saved buffer; opening the pane empty",
+      bytes.len()
+    );
+    *term = vt::Terminal::new(term.cols(), term.rows(), scrollback_limit);
+  }
   term.take_output();
 }
 

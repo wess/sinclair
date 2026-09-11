@@ -101,3 +101,38 @@ fn pane_buffers_round_trip() {
     vec![Some("\u{1b}[31mred\u{1b}[0m\r\n".to_string()), None]
   );
 }
+
+fn tmpdir(tag: &str) -> std::path::PathBuf {
+  let dir = std::env::temp_dir().join(format!("sinclairsession{tag}{}", std::process::id()));
+  let _ = std::fs::remove_dir_all(&dir);
+  std::fs::create_dir_all(&dir).unwrap();
+  dir
+}
+
+/// The session file holds terminal output, so it goes down owner-only and
+/// through a rename: an interrupted save must not leave a partial file where
+/// the last good one was.
+#[test]
+fn persist_is_atomic_and_owner_only() {
+  let dir = tmpdir("a");
+  let path = dir.join("session.json");
+  std::fs::write(&path, b"{\"tabs\":[]}").unwrap();
+  persist(&path, b"{\"tabs\":[],\"active\":0}");
+  assert_eq!(
+    std::fs::read_to_string(&path).unwrap(),
+    "{\"tabs\":[],\"active\":0}"
+  );
+  let leftovers: Vec<_> = std::fs::read_dir(&dir)
+    .unwrap()
+    .filter_map(|e| e.ok())
+    .filter(|e| e.file_name().to_string_lossy().ends_with(".tmp"))
+    .collect();
+  assert!(leftovers.is_empty(), "temp file left behind");
+  #[cfg(unix)]
+  {
+    use std::os::unix::fs::PermissionsExt;
+    let mode = std::fs::metadata(&path).unwrap().permissions().mode();
+    assert_eq!(mode & 0o777, 0o600, "session file is not owner-only");
+  }
+  let _ = std::fs::remove_dir_all(&dir);
+}

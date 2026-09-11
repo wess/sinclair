@@ -1,28 +1,17 @@
 use super::*;
 
+/// The saved buffers are bounded twice: by `session-restore-lines` and by the
+/// window's share of the byte budget. The share is what keeps a window full
+/// of dense panes from writing a session file nobody wants to parse.
 #[test]
-fn a_dump_under_the_ceiling_is_kept_whole() {
-  let dump = "one\r\ntwo\r\n".to_string();
-  assert_eq!(trim_to_bytes(dump.clone(), 1024), dump);
-}
-
-#[test]
-fn an_oversized_dump_keeps_whole_trailing_rows() {
-  let dump = "aaaa\r\nbbbb\r\ncccc\r\n".to_string();
-  let kept = trim_to_bytes(dump, 12);
-  // Never a partial row, and always the newest ones.
-  assert_eq!(kept, "cccc\r\n");
-}
-
-#[test]
-fn a_single_oversized_row_is_dropped_rather_than_cut() {
-  let dump = format!("{}\r\n", "x".repeat(100));
-  assert_eq!(trim_to_bytes(dump, 10), "");
-}
-
-#[test]
-fn trimming_multibyte_text_does_not_panic() {
-  let dump = "日本語日本語\r\n語語語語語語\r\n".to_string();
-  let kept = trim_to_bytes(dump, 20);
-  assert!(kept.is_empty() || kept.ends_with("\r\n"));
+fn the_byte_budget_is_shared_evenly_between_panes() {
+  let share = |panes: usize| (MAX_SESSION_BUFFER_BYTES / panes.max(1)).min(MAX_PANE_BUFFER_BYTES);
+  // A lone pane gets its own ceiling, not the whole window budget.
+  assert_eq!(share(1), MAX_PANE_BUFFER_BYTES);
+  assert_eq!(share(4), MAX_PANE_BUFFER_BYTES);
+  // Past that the panes divide the window budget between them.
+  assert_eq!(share(8), MAX_SESSION_BUFFER_BYTES / 8);
+  assert!(share(32) * 32 <= MAX_SESSION_BUFFER_BYTES);
+  // No pane count divides by zero or exceeds the total.
+  assert!(share(0) <= MAX_PANE_BUFFER_BYTES);
 }

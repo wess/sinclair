@@ -246,10 +246,10 @@ fn preload_lands_before_the_child_says_anything() {
   options.preload = b"restored history\r\n".to_vec();
   let (session, rx) = Session::spawn(options).expect("spawn");
   // Before any output has been read at all, the history is already there.
-  let early = session.with_term(|term| term.buffer_dump(100));
+  let early = session.with_term(|term| term.buffer_dump(100, usize::MAX));
   assert!(early.contains("restored history"), "{early:?}");
   drain_until_exit(&rx);
-  let after = session.with_term(|term| term.buffer_dump(100));
+  let after = session.with_term(|term| term.buffer_dump(100, usize::MAX));
   let history = after.find("restored history").expect("history kept");
   let live = after.find("live output").expect("child output arrived");
   assert!(history < live, "the child printed above the history: {after:?}");

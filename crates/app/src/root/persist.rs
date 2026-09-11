@@ -1,11 +1,15 @@
 use super::*;
 use gpui::prelude::*;
 
-/// Ceiling on one pane's saved buffer. `session-restore-lines` bounds the
-/// rows; this bounds what those rows can weigh, so a pane that scrolled a
-/// megabyte of densely colored output past can't turn the session file into
-/// something slow to write on quit and slow to parse on launch. The newest
-/// whole rows are the ones kept.
+/// Ceilings on the saved buffers. `session-restore-lines` says how much
+/// history the user wants back; these say what it may weigh, so a window of
+/// panes that each scrolled a megabyte of densely colored output past can't
+/// turn the session file into something slow to write on quit and slow to
+/// parse on launch. The window's whole budget is shared evenly between its
+/// panes, and no single pane may take more than its own ceiling. Measured:
+/// a dense 200x50 pane fills 512 KiB in about 7 ms and replays in 7; an
+/// ordinary shell pane's 1000 lines weigh 40 KiB.
+const MAX_SESSION_BUFFER_BYTES: usize = 2 * 1024 * 1024;
 const MAX_PANE_BUFFER_BYTES: usize = 512 * 1024;
 
 /// One pane's restore seed: its working directory, what it had on screen and
@@ -260,6 +264,7 @@ impl WorkspaceView {
     let mut sessions = Vec::with_capacity(panes.len());
     let mut buffers = Vec::with_capacity(panes.len());
     let lines = self.opts.session_restore_lines as usize;
+    let budget = (MAX_SESSION_BUFFER_BYTES / panes.len().max(1)).min(MAX_PANE_BUFFER_BYTES);
     for &p in &panes {
       let ids = self
         .group
@@ -288,12 +293,12 @@ impl WorkspaceView {
           .flatten(),
       );
       sessions.push(it.and_then(|it| it.agent_session.clone()));
-      // What the pane had on screen and in scrollback, capped by
-      // `session-restore-lines`. Empty panes store nothing rather than an
-      // empty string, so a session file stays readable.
+      // What the pane had on screen and in scrollback, within both the
+      // configured line count and this pane's share of the byte budget.
+      // Empty panes store nothing rather than an empty string, so a session
+      // file stays readable.
       buffers.push(
-        it.and_then(|it| it.content.buffer_dump(lines, cx))
-          .map(|dump| trim_to_bytes(dump, MAX_PANE_BUFFER_BYTES))
+        it.and_then(|it| it.content.buffer_dump(lines, budget, cx))
           .filter(|dump| !dump.is_empty()),
       );
     }
@@ -516,27 +521,6 @@ impl WorkspaceView {
       Err(e) => eprintln!("sinclair: save layout failed: {e}"),
     }
     self.refresh_menu_data(cx);
-  }
-}
-
-/// Keep the tail of `dump` within `max` bytes, cut at a row boundary so the
-/// kept text always starts with a whole line and never mid-escape.
-fn trim_to_bytes(dump: String, max: usize) -> String {
-  if dump.len() <= max {
-    return dump;
-  }
-  // Step forward to a character boundary: the cut is a byte offset into
-  // text that may hold multibyte graphemes.
-  let mut cut = dump.len() - max;
-  while !dump.is_char_boundary(cut) {
-    cut += 1;
-  }
-  let tail = &dump[cut..];
-  match tail.find("\r\n") {
-    Some(i) => tail[i + 2..].to_string(),
-    // One row longer than the ceiling on its own: keep nothing rather than
-    // replay half a line of someone's output.
-    None => String::new(),
   }
 }
 

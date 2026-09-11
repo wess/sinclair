@@ -645,10 +645,11 @@ impl TerminalView {
     self.session.with_term(|term| term.buffer_text())
   }
 
-  /// The last `rows` lines of the pane's buffer as bytes that redraw them,
-  /// for saving into the session (see [`vt::Terminal::buffer_dump`]).
-  pub fn buffer_dump(&self, rows: usize) -> String {
-    self.session.with_term(|term| term.buffer_dump(rows))
+  /// The newest of the pane's buffer as bytes that redraw it, for saving
+  /// into the session: at most `rows` lines weighing at most `bytes` (see
+  /// [`vt::Terminal::buffer_dump`]).
+  pub fn buffer_dump(&self, rows: usize, bytes: usize) -> String {
+    self.session.with_term(|term| term.buffer_dump(rows, bytes))
   }
 
   /// Apply one session event; called from the bridge task.

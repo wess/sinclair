@@ -44,6 +44,34 @@ These counters make the useful ratios explicit:
 - OSC retained data: 4 KiB titles, 16 KiB working directories and notification
   bodies, 512-byte notification titles, 8 MiB clipboard writes, 8 KiB link
   targets, and a 4 MiB hyperlink registry.
+- Saved session buffers: `session-restore-lines` rows per pane (1000 by
+  default, 50k ceiling), and 2 MiB per window shared evenly between its panes
+  with 512 KiB the most any one pane may take. `Terminal::buffer_dump`
+  serializes newest-row-first and stops at whichever bound comes first, so
+  nothing bigger than the budget is built in memory and a tight budget keeps
+  recent history rather than ancient history. A session file over 32 MiB is
+  not one Sinclair wrote and is ignored rather than parsed.
+
+## Quit and launch
+
+Session save and restore are the only work that scales with how much you had
+on screen, and both stay inside a frame's worth of time per pane. Measured on
+a release build, per pane:
+
+| Pane | Dump | Size | Replay |
+|---|---|---|---|
+| Dense 200x50, every run styled | 7 ms | 512 KiB (at the ceiling) | 7 ms |
+| Ordinary shell, 1000 lines | 1 ms | 40 KiB | 1 ms |
+
+Saving walks history newest-first and borrows one row at a time, so a dump
+never clones the scrollback, and compressed history decodes one block per 512
+rows rather than once per row. Replay happens inside `Session::spawn`, before
+the reader thread starts, which is what puts restored history above the new
+shell's first prompt instead of racing it — and it is wrapped in
+`catch_unwind`, so a buffer the parser chokes on costs that pane's history
+rather than the launch.
+
+None of this runs unless `session-restore` is on; it is off by default.
 
 ## CPU controls
 

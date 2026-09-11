@@ -68,7 +68,7 @@ impl Session {
     let writer = pty.try_clone_writer()?;
 
     let term = Arc::new(Mutex::new(vt::Terminal::new(cols, rows, scrollback_limit)));
-    super::preload(&term, &preload);
+    super::preload(&term, &preload, scrollback_limit);
     let pty = Arc::new(Mutex::new(pty));
     let wakeup_pending = Arc::new(AtomicBool::new(false));
     let output_generation = Arc::new(AtomicU64::new(0));
