@@ -124,6 +124,13 @@ pub fn apply(opts: &mut Options, d: &Options, key: &str, val: &str) -> Result<()
         value::parse_f32_range(val, 0.2, 1.0).ok_or_else(|| bad("number in 0.2..1", val))?
       };
     }
+    "terminal-background-opacity" => {
+      opts.terminal_background_opacity = if empty {
+        d.terminal_background_opacity
+      } else {
+        value::parse_f32_range(val, 0.2, 1.0).ok_or_else(|| bad("number in 0.2..1", val))?
+      };
+    }
     "focus-follows-mouse" => {
       opts.focus_follows_mouse = if empty {
         d.focus_follows_mouse

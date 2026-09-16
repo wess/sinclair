@@ -60,6 +60,7 @@ impl WorkspaceView {
         self.opts.clipboard_paste_protection,
         self.opts.clipboard_write,
         self.opts.unfocused_split_opacity,
+        self.opts.terminal_background_opacity,
         crate::suggest::SuggestConfig::from_opts(&self.opts),
         fallback,
         window,

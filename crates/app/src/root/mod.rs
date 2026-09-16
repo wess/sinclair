@@ -1052,6 +1052,7 @@ impl WorkspaceView {
       clipboard_write: self.opts.clipboard_write,
       suggest: crate::suggest::SuggestConfig::from_opts(&self.opts),
       unfocused_split_opacity: self.opts.unfocused_split_opacity,
+      terminal_background_opacity: self.opts.terminal_background_opacity,
     };
     let terminals: Vec<_> = self
       .items

@@ -133,7 +133,7 @@ pre,
   width: 2.25rem;
   height: 2.25rem;
   border-radius: 9px;
-  box-shadow: 0 10px 32px rgb(79 149 244 / 0.28);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.3);
 }
 
 .navlinks {

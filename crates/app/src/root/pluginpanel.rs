@@ -76,7 +76,8 @@ impl WorkspaceView {
     }
   }
 
-  /// The `Action::Sidebar` token for a panel: `terminals` for built-ins,
+  /// The `Action::Sidebar` token for a panel: `sessions` / `terminals` for
+  /// built-ins,
   /// `plugin:<id>` for plugin panels.
   pub(crate) fn panel_token_of(&self, panel: SidebarPanel) -> String {
     token_of(&self.plugins, panel)

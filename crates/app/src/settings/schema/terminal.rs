@@ -208,6 +208,15 @@ pub(super) fn settings() -> Vec<Setting> {
       (0.2, 1.0, 0.05),
       false,
     ),
+    slider(
+      "terminal-background-opacity",
+      "Terminal background opacity",
+      "Opacity of each terminal view's theme background; text stays clear.",
+      s,
+      |o| o.terminal_background_opacity,
+      (0.2, 1.0, 0.05),
+      false,
+    ),
     text(
       "background-image",
       "Background image",

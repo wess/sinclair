@@ -388,6 +388,10 @@ pub struct Options {
   pub redact: Vec<String>,
   /// File key: `background-opacity` - window background alpha (0.2..=1.0).
   pub background_opacity: f32,
+  /// File key: `terminal-background-opacity` - alpha of each terminal view's
+  /// theme background (0.2..=1.0). Text and colored cell backgrounds stay
+  /// opaque; `background-opacity` controls the window backdrop separately.
+  pub terminal_background_opacity: f32,
   /// File key: `focus-follows-mouse` - focus the split under the pointer.
   pub focus_follows_mouse: bool,
   /// File key: `middle-click-paste` - paste the selection on a middle click.
@@ -562,6 +566,7 @@ impl Default for Options {
       smart_select: true,
       redact: Vec::new(),
       background_opacity: 1.0,
+      terminal_background_opacity: 1.0,
       focus_follows_mouse: false,
       middle_click_paste: false,
       trigger: Vec::new(),

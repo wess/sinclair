@@ -211,6 +211,7 @@ impl WorkspaceView {
   fn panel_body(&self, panel: SidebarPanel, cx: &mut Context<Self>) -> AnyElement {
     match panel {
       SidebarPanel::Terminals => self.panel_terminals(cx),
+      SidebarPanel::Sessions => self.panel_sessions(cx),
       SidebarPanel::Layouts => self.panel_layouts(cx),
       SidebarPanel::Containers => self.panel_containers(cx),
       SidebarPanel::Activity => self.panel_activity(cx),
@@ -397,6 +398,60 @@ impl WorkspaceView {
         );
         row += 1;
       }
+    }
+    body.into_any_element()
+  }
+
+  /// Sessions panel: a flat, tab-alternative view of every open item. Unlike
+  /// the Terminals panel this intentionally ignores split and pane nesting, so
+  /// the list answers the simple question: "what can I switch to?"
+  fn panel_sessions(&self, cx: &mut Context<Self>) -> AnyElement {
+    let items = self.group.read(cx).items();
+    let active_item = self.group.read(cx).active_item();
+    let mut body = self.sidebar_body("sb-sessions");
+    let count = items.len();
+    body = body.child(self.sidebar_note(&format!(
+      "{} open {}",
+      count,
+      if count == 1 { "session" } else { "sessions" }
+    )));
+
+    for (i, item) in items.into_iter().enumerate() {
+      let (title, cwd, attention) = {
+        let map = self.items.borrow();
+        match map.get(&item) {
+          Some(it) => (
+            it.content.title(cx),
+            it.content.cwd(cx),
+            it.content.needs_attention(cx),
+          ),
+          None => (String::new(), None, false),
+        }
+      };
+      let title = if title.trim().is_empty() {
+        format!("Session {}", i + 1)
+      } else {
+        title
+      };
+      let label = match cwd {
+        Some(cwd) if !cwd.trim().is_empty() => {
+          format!("{title}  ·  {}", std::path::Path::new(&cwd).display())
+        }
+        _ => title,
+      };
+      body = body.child(
+        self
+          .sidebar_row(
+            ("sb-session", i),
+            label,
+            false,
+            item == active_item,
+            attention,
+          )
+          .on_click(cx.listener(move |this, _: &gpui::ClickEvent, window, cx| {
+            this.activate_item(item, window, cx);
+          })),
+      );
     }
     body.into_any_element()
   }

@@ -91,6 +91,11 @@ pub(crate) const ARTICLES: &[Article] = &[
                  while the pointer rests on the tab bar.",
       ),
       Block::Key("Peek at tabs", "\u{2318} E"),
+      Block::Heading("Sessions panel"),
+      Block::Para(
+        "Open the left sidebar's Sessions panel for a flat list of every open session. \
+                 Select a row to switch directly, even when sessions live in different splits.",
+      ),
       Block::Heading("Closing"),
       Block::Key("Close tab", "\u{2318} \u{2325} W"),
       Block::Key("Close window", "\u{2318} \u{21e7} W"),

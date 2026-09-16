@@ -345,6 +345,9 @@ pub struct Appearance {
   /// Opacity applied to a pane while it is not focused, so the active split is
   /// obvious. `1.0` disables the dimming.
   pub unfocused_split_opacity: f32,
+  /// Alpha of the theme background painted by each terminal view. The window
+  /// backdrop remains controlled by `background-opacity`.
+  pub terminal_background_opacity: f32,
 }
 
 pub struct TerminalView {
@@ -371,6 +374,8 @@ pub struct TerminalView {
   /// Opacity applied while this pane is unfocused, so the active split reads
   /// clearly. `1.0` means no dimming.
   unfocused_split_opacity: f32,
+  /// Alpha of this pane's theme background, independent of window opacity.
+  terminal_background_opacity: f32,
   /// Open right-click menu, at its window-coordinate anchor.
   context_menu: Option<Point<Pixels>>,
   /// The grid's window-space bounds, captured each frame, so a right-click
@@ -473,6 +478,7 @@ impl TerminalView {
     paste_protection: bool,
     clipboard_write: config::ClipboardAccess,
     unfocused_split_opacity: f32,
+    terminal_background_opacity: f32,
     suggest_cfg: crate::suggest::SuggestConfig,
     fallback: String,
     window: &mut Window,
@@ -498,6 +504,7 @@ impl TerminalView {
       paste_protection,
       clipboard_write,
       unfocused_split_opacity,
+      terminal_background_opacity,
       context_menu: None,
       grid_bounds: gpui::Bounds::default(),
       mouse: Rc::new(RefCell::new(MouseState::default())),
@@ -621,6 +628,7 @@ impl TerminalView {
     self.paste_protection = a.paste_protection;
     self.clipboard_write = a.clipboard_write;
     self.unfocused_split_opacity = a.unfocused_split_opacity;
+    self.terminal_background_opacity = a.terminal_background_opacity;
     self.suggest_cfg = a.suggest;
     self.session.with_term(|term| {
       term.set_report_colors(colors::report_colors(&self.colors));
@@ -961,9 +969,12 @@ impl Render for TerminalView {
     };
     // Pointing-hand cursor while the open-modifier hovers a link.
     let link_hover = self.mouse.borrow().hover_link.is_some();
+    let mut terminal_bg = colors::hsla(self.colors.bg);
+    terminal_bg.a = self.terminal_background_opacity.clamp(0.0, 1.0);
     div()
       .relative()
       .size_full()
+      .bg(terminal_bg)
       .opacity(dim)
       .when(link_hover, |d| d.cursor_pointer())
       .key_context("Terminal")

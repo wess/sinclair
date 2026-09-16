@@ -15,7 +15,7 @@ body.docs {
   min-width: 320px;
 }
 
-/* ---- top bar -------------------------------------------------------------- */
+/* top bar */
 
 .dc-header {
   position: sticky;
@@ -87,7 +87,7 @@ body.docs {
   font-size: 1.1rem;
 }
 
-/* ---- layout grid ---------------------------------------------------------- */
+/* layout grid */
 
 .dc-grid {
   display: grid;
@@ -98,7 +98,7 @@ body.docs {
   padding: 0 0 4rem;
 }
 
-/* ---- sidebar -------------------------------------------------------------- */
+/* sidebar */
 
 .dc-sidebar {
   position: sticky;
@@ -145,7 +145,7 @@ body.docs {
   box-shadow: inset 2px 0 0 var(--blue);
 }
 
-/* ---- main content --------------------------------------------------------- */
+/* main content */
 
 .doc-main {
   min-width: 0;
@@ -296,13 +296,14 @@ body.docs {
   color: var(--muted);
 }
 
-/* ---- tables --------------------------------------------------------------- */
+/* tables */
 
 .doc-article .tablewrap {
   margin: 0 0 1.4rem;
   overflow-x: auto;
   border: 1px solid var(--line);
   border-radius: 12px;
+  padding: 0.5rem;
 }
 
 .doc-article table {
@@ -333,13 +334,12 @@ body.docs {
   white-space: nowrap;
 }
 
-/* ---- callouts ------------------------------------------------------------- */
+/* callouts */
 
 .doc-article .callout {
   margin: 0 0 1.4rem;
   padding: 0.9rem 1.1rem;
   border: 1px solid var(--line);
-  border-left-width: 3px;
   border-radius: 10px;
   background: rgb(255 255 255 / 0.035);
 }
@@ -349,15 +349,15 @@ body.docs {
 }
 
 .doc-article .callout.note {
-  border-left-color: var(--blue);
+  background: rgb(110 180 255 / 0.07);
 }
 
 .doc-article .callout.tip {
-  border-left-color: var(--mint);
+  background: rgb(80 220 170 / 0.07);
 }
 
 .doc-article .callout.warn {
-  border-left-color: var(--amber);
+  background: rgb(240 190 80 / 0.07);
 }
 
 .doc-article .callout .label {
@@ -422,7 +422,7 @@ body.docs {
   font-size: 1.02rem;
 }
 
-/* ---- prev / next ---------------------------------------------------------- */
+/* prev / next */
 
 .dc-prevnext {
   display: flex;
@@ -457,7 +457,7 @@ body.docs {
   text-align: right;
 }
 
-/* ---- on-page TOC ---------------------------------------------------------- */
+/* on-page TOC */
 
 .dc-toc {
   position: sticky;
@@ -502,7 +502,7 @@ body.docs {
   border-left-color: var(--blue);
 }
 
-/* ---- responsive ----------------------------------------------------------- */
+/* responsive */
 
 @media (max-width: 1100px) {
   .dc-grid {

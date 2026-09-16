@@ -16,6 +16,7 @@ selection-background = #000000
 bold-is-bright = true
 minimum-contrast = 3
 unfocused-split-opacity = 0.5
+terminal-background-opacity = 0.65
 split-divider-color = #444444
 mouse-scroll-multiplier = 2.5
 macos-option-as-alt = left
@@ -41,6 +42,7 @@ clipboard-write = ask
   assert!(o.bold_is_bright);
   assert_eq!(o.minimum_contrast, 3.0);
   assert_eq!(o.unfocused_split_opacity, 0.5);
+  assert_eq!(o.terminal_background_opacity, 0.65);
   assert_eq!(o.split_divider_color.as_deref(), Some("#444444"));
   assert_eq!(o.mouse_scroll_multiplier, 2.5);
   assert_eq!(o.macos_option_as_alt, OptionAsAlt::Left);
@@ -93,6 +95,7 @@ fn new_options_empty_value_resets() {
                    bold-is-bright = true\nbold-is-bright =\n\
                    minimum-contrast = 4\nminimum-contrast =\n\
                    unfocused-split-opacity = 0.5\nunfocused-split-opacity =\n\
+                   terminal-background-opacity = 0.5\nterminal-background-opacity =\n\
                    split-divider-color = #ff0000\nsplit-divider-color =\n\
                    mouse-scroll-multiplier = 3\nmouse-scroll-multiplier =\n\
                    macos-option-as-alt = left\nmacos-option-as-alt =\n\
@@ -109,19 +112,23 @@ fn new_options_empty_value_resets() {
 #[test]
 fn ranged_values_clamp() {
   let src = "minimum-contrast = 0.5\nunfocused-split-opacity = 0.01\n\
+                   terminal-background-opacity = 0.01\n\
                    mouse-scroll-multiplier = 0.001\n";
   let (o, diags) = parse_str(src);
   assert!(diags.is_empty());
   assert_eq!(o.minimum_contrast, 1.0);
   assert_eq!(o.unfocused_split_opacity, 0.15);
+  assert_eq!(o.terminal_background_opacity, 0.2);
   assert_eq!(o.mouse_scroll_multiplier, 0.01);
 
   let src = "minimum-contrast = 100\nunfocused-split-opacity = 2\n\
+                   terminal-background-opacity = 2\n\
                    mouse-scroll-multiplier = 99999999\n";
   let (o, diags) = parse_str(src);
   assert!(diags.is_empty());
   assert_eq!(o.minimum_contrast, 21.0);
   assert_eq!(o.unfocused_split_opacity, 1.0);
+  assert_eq!(o.terminal_background_opacity, 1.0);
   assert_eq!(o.mouse_scroll_multiplier, 10_000.0);
 }
 

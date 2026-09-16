@@ -339,6 +339,7 @@ fn open(cx: &mut App) {
   let paste_protection = opts.clipboard_paste_protection;
   let clipboard_write = opts.clipboard_write;
   let unfocused_split_opacity = opts.unfocused_split_opacity;
+  let terminal_background_opacity = opts.terminal_background_opacity;
   let suggest_cfg = crate::suggest::SuggestConfig::from_opts(&opts);
 
   let window_options = window_options(cx);
@@ -361,6 +362,7 @@ fn open(cx: &mut App) {
         paste_protection,
         clipboard_write,
         unfocused_split_opacity,
+        terminal_background_opacity,
         suggest_cfg,
         fallback,
         toggle_chord,
@@ -433,6 +435,7 @@ impl QuickTerminalView {
     paste_protection: bool,
     clipboard_write: config::ClipboardAccess,
     unfocused_split_opacity: f32,
+    terminal_background_opacity: f32,
     suggest_cfg: crate::suggest::SuggestConfig,
     fallback: String,
     toggle_chord: Option<(config::Mods, String)>,
@@ -455,6 +458,7 @@ impl QuickTerminalView {
         paste_protection,
         clipboard_write,
         unfocused_split_opacity,
+        terminal_background_opacity,
         suggest_cfg,
         fallback,
         window,

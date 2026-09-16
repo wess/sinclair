@@ -85,6 +85,7 @@ pub const KEYS: &[(&str, Kind)] = &[
   ("smart-select", Kind::Bool),
   ("redact", Kind::List),
   ("background-opacity", Kind::Float),
+  ("terminal-background-opacity", Kind::Float),
   ("focus-follows-mouse", Kind::Bool),
   ("middle-click-paste", Kind::Bool),
   ("trigger", Kind::List),

@@ -60,6 +60,8 @@ impl SidebarSide {
 pub enum SidebarPanel {
   /// Tree of tabs and their terminal panes.
   Terminals,
+  /// Flat, tab-alternative list of every open session in the workspace.
+  Sessions,
   /// At-a-glance activity: each tab's working / attention / idle state.
   Activity,
   /// Tile presets and saved custom layouts.
@@ -83,8 +85,9 @@ pub enum SidebarPanel {
 impl SidebarPanel {
   /// Every built-in section, in catalog order. This is what the settings
   /// designer offers; it is *not* what any one dock contains.
-  pub const ALL: [SidebarPanel; 9] = [
+  pub const ALL: [SidebarPanel; 10] = [
     SidebarPanel::Terminals,
+    SidebarPanel::Sessions,
     SidebarPanel::Activity,
     SidebarPanel::Layouts,
     SidebarPanel::Worktrees,
@@ -101,6 +104,7 @@ impl SidebarPanel {
   pub fn id(self) -> &'static str {
     match self {
       SidebarPanel::Terminals => "terminals",
+      SidebarPanel::Sessions => "sessions",
       SidebarPanel::Activity => "activity",
       SidebarPanel::Layouts => "layouts",
       SidebarPanel::Containers => "containers",
@@ -121,6 +125,7 @@ impl SidebarPanel {
   pub fn label(self) -> &'static str {
     match self {
       SidebarPanel::Terminals => "Terminals",
+      SidebarPanel::Sessions => "Sessions",
       SidebarPanel::Activity => "Activity",
       SidebarPanel::Layouts => "Layouts",
       SidebarPanel::Containers => "Containers",
@@ -142,6 +147,7 @@ impl SidebarPanel {
   pub fn label_upper(self) -> &'static str {
     match self {
       SidebarPanel::Terminals => "TERMINALS",
+      SidebarPanel::Sessions => "SESSIONS",
       SidebarPanel::Activity => "ACTIVITY",
       SidebarPanel::Layouts => "LAYOUTS",
       SidebarPanel::Containers => "CONTAINERS",
@@ -160,6 +166,7 @@ impl SidebarPanel {
   pub fn icon(self) -> &'static str {
     match self {
       SidebarPanel::Terminals => "\u{25a3}",  // ▣ panes
+      SidebarPanel::Sessions => "\u{25a4}",   // ▤ session list
       SidebarPanel::Activity => "\u{25c9}",   // ◉ activity
       SidebarPanel::Layouts => "\u{25f0}",    // ◰ tiles
       SidebarPanel::Containers => "\u{2756}", // ❖ containers
@@ -221,7 +228,7 @@ pub type Docks = [Dock; 2];
 pub fn defaults(side: SidebarSide) -> Vec<SidebarPanel> {
   match side {
     SidebarSide::Left => vec![
-      SidebarPanel::Terminals,
+      SidebarPanel::Sessions,
       SidebarPanel::Worktrees,
       SidebarPanel::Layouts,
     ],

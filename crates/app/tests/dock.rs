@@ -51,7 +51,8 @@ fn the_two_sides_default_differently() {
   let left = defaults(SidebarSide::Left);
   let right = defaults(SidebarSide::Right);
   assert_ne!(left, right);
-  assert!(left.contains(&SidebarPanel::Terminals));
+  assert!(left.contains(&SidebarPanel::Sessions));
+  assert_eq!(left[0], SidebarPanel::Sessions);
   assert!(right.contains(&SidebarPanel::Agents));
   assert!(
     left.iter().all(|p| !right.contains(p)),
