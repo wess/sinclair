@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Agent status at a glance — Sinclair docs</title>
+    <meta name="description" content="Wire Claude Code's lifecycle hooks so every pane shows a live status dot — working, blocked, done, or idle — and roll them up in the Activity panel and the mesh.">
+    <meta name="theme-color" content="#05070c">
+    <link rel="icon" href="icon.png">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="docs.css">
+  </head>
+  <body class="docs">
+    <a class="skip" href="#doc-main">Skip to content</a>
+    <main id="doc-main" class="doc-main">
+      <article class="doc-article" data-doc-page="statushooks">
+        <p class="kicker">Tutorial</p>
+        <h1>Agent status at a glance</h1>
+        <p class="lede">
+          When you're running more than one agent, the hardest part isn't the work — it's
+          knowing <em>which one needs you</em>. Sinclair gives every pane a semantic status
+          dot: working, blocked, done, or idle. This walkthrough wires Claude Code's
+          lifecycle hooks so that dot updates itself, then shows how to report status from
+          anything else — a script, a build, or an agent on the mesh.
+        </p>
+
+        <h2>1. What the dots mean</h2>
+        <p>
+          Each tab carries a colored dot, and the <strong>Activity</strong> sidebar panel
+          (the ◉ icon on the activity bar) rolls every tab up into one "who's blocked,
+          working, or done" view — click a row to focus that tab. When a pane reports an
+          agent state, its dot follows that state:
+        </p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Dot</th><th>State</th><th>Means</th></tr></thead>
+            <tbody>
+              <tr><td>🟡</td><td><code>working</code></td><td>The agent is actively doing the task.</td></tr>
+              <tr><td>🔴</td><td><code>blocked</code></td><td>It's waiting on <em>you</em> — a question, a permission, a decision.</td></tr>
+              <tr><td>🔵</td><td><code>done</code></td><td>It finished its turn.</td></tr>
+              <tr><td>🟢</td><td><code>idle</code></td><td>Registered and ready, nothing in flight.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          A pane that <em>isn't</em> reporting agent status falls back to the terminal's own
+          signals — 🔴 for a bell or notification, 🟡 while a foreground command runs, 🟢 when
+          idle — so the Activity panel is useful for plain shells too.
+        </p>
+
+        <h2>2. Install the Claude Code hooks</h2>
+        <p>
+          One command wires Claude Code to report its state automatically:
+        </p>
+        <pre><code>sinclair agent-hooks install</code></pre>
+        <p>
+          That writes a few hook entries into your Claude Code settings
+          (<code>~/.claude/settings.json</code>). It's <strong>idempotent</strong> — running
+          it again changes nothing — and the uninstall is surgical, touching only the entries
+          Sinclair added. To scope the hooks to just the current repository instead, add
+          <code>--project</code> (they land in the repo's
+          <code>.claude/settings.json</code>, which you can commit so your whole team gets
+          them):
+        </p>
+        <pre><code>sinclair agent-hooks install --project</code></pre>
+
+        <h2>3. See it work</h2>
+        <p>
+          Start a Claude Code session in a pane and give it a task. Watch the tab: the dot
+          goes 🟡 <strong>working</strong> the moment you submit a prompt, flips to 🔴
+          <strong>blocked</strong> if Claude stops to ask you something, and settles on 🔵
+          <strong>done</strong> when the turn ends. Open the <strong>Activity</strong> panel
+          and you can see that across every tab at once — the whole point when three agents
+          are running and only one of them is stuck on a question for you.
+        </p>
+
+        <h2>4. What actually got wired</h2>
+        <p>
+          No magic — the hooks just map Claude Code's lifecycle events onto states, each one
+          shelling out to <code>sinclair agent-status</code>:
+        </p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Claude Code event</th><th>Reported state</th></tr></thead>
+            <tbody>
+              <tr><td><code>SessionStart</code></td><td><code>idle</code></td></tr>
+              <tr><td><code>UserPromptSubmit</code></td><td><code>working</code></td></tr>
+              <tr><td><code>Notification</code> (Claude needs you)</td><td><code>blocked</code></td></tr>
+              <tr><td><code>Stop</code></td><td><code>done</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          The report travels over Sinclair's single-instance socket and is addressed by a
+          <code>SINCLAIR_PANE</code> token that every session gets in its environment — that's
+          how the status lands on the <em>right</em> tab even when it comes from a background
+          hook process.
+        </p>
+
+        <h2>5. Report status from anything</h2>
+        <p>
+          The hooks are just a convenience wrapper. Any command can report a state directly,
+          which is handy for a long build, a deploy script, or a coding tool that isn't
+          Claude Code:
+        </p>
+        <pre><code>sinclair agent-status working
+long-build-or-deploy
+sinclair agent-status done</code></pre>
+        <p>
+          It's best-effort and never blocks — if no window is listening it just exits.
+          Optional flags let a wrapper target a specific pane or thread a session id:
+          <code>--pane &lt;token&gt;</code>, <code>--name &lt;n&gt;</code>,
+          <code>--session &lt;id&gt;</code>. See the
+          <a href="cli.html#sinclair-agent-status">CLI reference</a>.
+        </p>
+
+        <h2>6. Status on the mesh</h2>
+        <p>
+          Agents launched by the <a href="agents.html">relay</a> don't need the hooks at
+          all — they report the same states over the bus with the <code>report_status</code>
+          tool, and their status shows up in the <strong>Relay</strong> panel alongside the
+          roster. Even better, one agent can <em>wait</em> on another's status — the
+          reviewer calls the <code>wait_status</code> tool to park until both workers finish,
+          then reviews exactly once:
+        </p>
+        <pre><code><span class="c"># the reviewer's tool calls, not shell commands</span>
+wait_status(name: "frontend", status: "done")
+wait_status(name: "backend",  status: "done")</code></pre>
+        <p>
+          <code>wait_status</code> blocks for free on the shared wake signal and returns the
+          status the moment it's reached (or on timeout — call again to keep waiting). It
+          turns "are you done yet?" polling into a single cheap call.
+        </p>
+
+        <h2>7. Removing the hooks</h2>
+        <p>Changed your mind, or want them out of a repo? The uninstall removes only Sinclair's entries:</p>
+        <pre><code>sinclair agent-hooks uninstall
+sinclair agent-hooks uninstall --project   <span class="c"># the project-scoped ones</span></code></pre>
+
+        <h2>Where to next</h2>
+        <div class="cards">
+          <a href="worktreeagents.html"><strong>Parallel agents in worktrees</strong>Where the dots pay off most — one isolated agent per tab.</a>
+          <a href="productivity.html"><strong>Productivity</strong>The Activity dashboard in context with the rest of the terminal's power features.</a>
+          <a href="agents.html"><strong>Agent mesh reference</strong>report_status, wait_status, and the full coordination toolset.</a>
+        </div>
+      </article>
+    </main>
+    <script type="module" src="docs.js"></script>
+  </body>
+</html>

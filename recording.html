@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Record &amp; share your terminal — Sinclair docs</title>
+    <meta name="description" content="Record a terminal session to an asciinema .cast, play it back, export it to a GIF or video for a README or PR, and save the whole scrollback buffer to a text file.">
+    <meta name="theme-color" content="#05070c">
+    <link rel="icon" href="icon.png">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="docs.css">
+  </head>
+  <body class="docs">
+    <a class="skip" href="#doc-main">Skip to content</a>
+    <main id="doc-main" class="doc-main">
+      <article class="doc-article" data-doc-page="recording">
+        <p class="kicker">Tutorial</p>
+        <h1>Record &amp; share your terminal</h1>
+        <p class="lede">
+          A crisp screencast of your terminal is one of the highest-leverage things you can
+          drop into a README, a pull request, or a chat: it shows the tool working instead of
+          describing it. This walkthrough records a pane to an asciinema <code>.cast</code>,
+          plays it back, exports it to a GIF or a video anyone can watch inline, and finally
+          saves a whole session's scrollback to a plain text file for the receipts.
+        </p>
+
+        <div class="callout note">
+          <p>On macOS, <kbd>⌘</kbd> is the modifier. On Linux, read <kbd>⌘</kbd> as
+          <kbd>⌃</kbd> (Ctrl) throughout. Every shortcut here maps to an action you can
+          remap or run from the command palette by name.</p>
+        </div>
+
+        <h2>1. Record a pane</h2>
+        <p>
+          Focus the pane you want to capture and press <kbd>⌘⇧R</kbd>
+          (<code>toggle_recording</code>). Recording starts immediately, capturing everything
+          that pane prints to an asciinema v2 <code>.cast</code> file. A red <em>● REC</em>
+          pill shows while capture is running, so you always know you're rolling. Do your thing — run the
+          command, show the failure, walk through the fix — then press <kbd>⌘⇧R</kbd> again to
+          stop.
+        </p>
+        <p>
+          A <code>.cast</code> is a small, text-based recording of output over time, not a
+          heavy video, so it's cheap to keep around and fast to export later. Capture the take
+          you want now; you'll turn it into a GIF or an MP4 in step 4.
+        </p>
+        <div class="callout tip">
+          <span class="label">Tip</span>
+          <p>Don't remember the key? Open the command palette with <kbd>⌘⇧P</kbd> and type
+          <em>record</em> — <code>toggle_recording</code> is right there, along with every
+          other action in this tutorial.</p>
+        </div>
+
+        <h2>2. Recording is not a macro</h2>
+        <p>
+          These two features sound similar and are easy to mix up, so it's worth being exact
+          before you go further.
+        </p>
+        <div class="callout note">
+          <span class="label">Note</span>
+          <p>Recording and macros are distinct. <strong>Recording</strong> produces a
+          <code>.cast</code> screencast of everything that happened in a pane — a playback of
+          the session. A <strong>macro</strong> replays a list of commands you typed, running
+          them again. Use recording to <em>show</em> a session; use a macro to <em>repeat</em>
+          one.</p>
+        </div>
+
+        <h2>3. Play it back</h2>
+        <p>
+          Before you export anything, watch the take to make sure it's the one you want. If you
+          have the asciinema player installed, play the file straight from the shell:
+        </p>
+        <pre><code>asciinema play session.cast</code></pre>
+        <p>
+          It replays at the original pacing, right in your terminal. A <code>.cast</code> can
+          also be embedded on a web page with the asciinema player, which is perfect for docs
+          sites — but for a README, a chat, or a PR you'll usually want a GIF or a video
+          instead, which is the next step.
+        </p>
+
+        <h2>4. Export to a GIF or video</h2>
+        <p>
+          The fastest path is inside the app. Run <em>Export Recording as GIF</em> or
+          <em>Export Recording as MP4</em> — both in the File menu, and in the command palette
+          as <em>Export Recording (GIF)</em> / <em>(MP4)</em>. It renders your most
+          recent recording in the background and posts a notification when the file is ready,
+          so you can keep working while it encodes. A <strong>GIF needs no external tools</strong>;
+          an <strong>MP4 needs ffmpeg</strong> on your <code>PATH</code>.
+        </p>
+        <p>
+          The same renderer is available from the command line, which is where the real control
+          lives. The output format is chosen by the extension — <code>.gif</code>,
+          <code>.mp4</code>, <code>.mov</code>, or <code>.webm</code>:
+        </p>
+        <pre><code><span class="c"># GIF — no extra tools needed</span>
+sinclair export session.cast demo.gif
+
+<span class="c"># video — needs ffmpeg on PATH</span>
+sinclair export session.cast demo.mp4</code></pre>
+        <p>
+          Timing and layout are tunable so the clip lands well wherever you paste it:
+        </p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Option</th><th>What it controls</th></tr></thead>
+            <tbody>
+              <tr><td><code>--fps</code></td><td>Frame rate of the exported clip (default 30).</td></tr>
+              <tr><td><code>--speed</code></td><td>Playback speed multiplier.</td></tr>
+              <tr><td><code>--idle-cap</code></td><td>Collapse long idle gaps (default 2s), so dead air doesn't bloat the file. <code>--no-idle-cap</code> keeps real time.</td></tr>
+              <tr><td><code>--tail</code></td><td>Hold the final frame for this many seconds (default 1), so the ending is readable.</td></tr>
+              <tr><td><code>--font-px</code></td><td>Font size, in pixels, of the rendered frames (default 16).</td></tr>
+              <tr><td><code>--cols</code> / <code>--rows</code></td><td>Terminal grid size to render at.</td></tr>
+              <tr><td><code>--theme</code></td><td>Color scheme used for the frames.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          On macOS, add <code>--fidelity</code> to render through the app's own gpui text
+          system: the exported frames carry the same ligatures, exact fonts, and crisp
+          box-drawing geometry you see live in the terminal, and <code>--scale</code> sets the
+          device-pixel scale for a retina-sharp result. Other platforms fall back to the
+          bundled software renderer.
+        </p>
+        <pre><code><span class="c"># a polished macOS export: fidelity rendering at 30 fps</span>
+sinclair export session.cast demo.mp4 --fidelity --fps 30</code></pre>
+        <div class="callout tip">
+          <span class="label">Tip</span>
+          <p>Trimming <code>--idle-cap</code> down and nudging <code>--speed</code> up turns a
+          rambling take into a tight demo loop — the kind of GIF that actually reads at the top
+          of a README.</p>
+        </div>
+
+        <h2>5. Save the whole buffer</h2>
+        <p>
+          Sometimes you don't want a screencast — you want the text. <em>Save Buffer</em> — in
+          the File menu and the command palette as <code>save_buffer</code>, default
+          <kbd>⌘S</kbd> — writes the focused terminal's <strong>whole buffer</strong> to a plain
+          text file. It captures every scrollback row plus the live screen, independent of what
+          you have selected or scrolled to, so you get the full session rather than just the
+          visible viewport.
+        </p>
+        <p>
+          A native save dialog opens in the terminal's working directory with a filename
+          suggested from the tab title. Confirm it and the file is written in the background,
+          with a notification to confirm when it's saved. It's the quickest way to attach a
+          complete log to a bug report or paste an entire session into a ticket without
+          scrolling and selecting by hand.
+        </p>
+
+        <h2>Where to next</h2>
+        <div class="cards">
+          <a href="automation.html"><strong>Automate your terminal with MCP</strong>Drive Sinclair from an agent or a script — including kicking off recordings and exports.</a>
+          <a href="cli.html"><strong>CLI reference</strong>Every <code>sinclair</code> subcommand, including the full <code>sinclair export</code> option list.</a>
+          <a href="awareness.html"><strong>Triggers, notifications &amp; annotations</strong>Surface what matters while a long session records itself in the background.</a>
+        </div>
+      </article>
+    </main>
+    <script type="module" src="docs.js"></script>
+  </body>
+</html>

@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Parallel agents in git worktrees — Sinclair docs</title>
+    <meta name="description" content="Run several coding agents at once without them clobbering each other: give every agent its own git worktree, launch one per tab, watch their status dots, then merge and clean up.">
+    <meta name="theme-color" content="#05070c">
+    <link rel="icon" href="icon.png">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="docs.css">
+  </head>
+  <body class="docs">
+    <a class="skip" href="#doc-main">Skip to content</a>
+    <main id="doc-main" class="doc-main">
+      <article class="doc-article" data-doc-page="worktreeagents">
+        <p class="kicker">Tutorial</p>
+        <h1>Parallel agents in git worktrees</h1>
+        <p class="lede">
+          Running two coding agents in the same checkout is a recipe for collisions —
+          they overwrite each other's edits, trip over a half-finished change, and fight
+          the same <code>git</code> index. A <strong>git worktree</strong> fixes that: each
+          agent gets its own directory on its own branch, backed by the same repo. This
+          walkthrough gives three agents three isolated worktrees, launches one into each,
+          and lets you watch all of them finish — then merges and cleans up.
+        </p>
+
+        <div class="callout note">
+          <p>This builds on <a href="agentteams.html">Run your first agent team</a> — have
+          the relay enabled and an agent CLI installed. Worktrees themselves are plain
+          <code>git</code>, so nothing here is Sinclair-specific except how smoothly it wires
+          them into tabs.</p>
+        </div>
+
+        <h2>1. Why a worktree per agent</h2>
+        <p>
+          <code>git worktree</code> lets one repository have several working directories
+          checked out at once, each on a different branch, all sharing the same object store
+          and history. Give <code>frontend</code> a worktree on <code>feat/toggle-ui</code>
+          and <code>backend</code> one on <code>feat/prefs-api</code>, and they can build,
+          test, and commit fully in parallel — no stashing, no waiting, no stepped-on files.
+          When each is done you merge its branch like any other.
+        </p>
+
+        <h2>2. Create a worktree</h2>
+        <p>
+          From a pane inside your repo, <code>worktree_create:PATH</code> runs
+          <code>git worktree add</code> branched from <code>HEAD</code> and opens the new
+          checkout in a fresh tab, already <code>cd</code>'d into it. Append
+          <code>@branch</code> to name the branch (otherwise the path's basename is used):
+        </p>
+        <pre><code><span class="c"># action string — bind a fixed worktree to a key in your config</span>
+keybind = cmd+ctrl+w=worktree_create:../wt/toggle-ui@feat/toggle-ui</code></pre>
+        <p>The companion verbs round out the lifecycle:</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Action</th><th>Does</th></tr></thead>
+            <tbody>
+              <tr><td><code>worktree_create:PATH[@branch]</code></td><td>Add a worktree branched from HEAD and open it in a tab</td></tr>
+              <tr><td><code>worktree_open:PATH</code></td><td>Open an existing worktree in a tab</td></tr>
+              <tr><td><code>worktree_remove:PATH</code></td><td>Remove a worktree (<code>git worktree remove</code>)</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          You can bind a fixed scratch worktree to a key in your config, but the real value
+          is dynamic paths — which is exactly what the next step does from an agent.
+        </p>
+
+        <h2>3. Let the agents branch themselves</h2>
+        <p>
+          The same four verbs are exposed over MCP and the single-instance socket, so an
+          agent driving your terminal can spin up its own isolated checkout. The MCP tools
+          are <code>worktree_create</code> (<code>path</code>, optional <code>branch</code>),
+          <code>worktree_open</code>, <code>worktree_list</code>, and
+          <code>worktree_remove</code>. So your supervisor can set the whole thing up in one
+          instruction:
+        </p>
+        <pre><code>For each of these tasks, create a git worktree on its own branch and open it,
+then hand the task to the matching worker:
+  - frontend → feat/toggle-ui   (dark-mode toggle UI)
+  - backend  → feat/prefs-api   (theme preference endpoint)
+  - reviewer → review/toggle    (review both branches when they land)</code></pre>
+        <p>
+          The supervisor calls <code>worktree_create</code> three times, each opening a tab
+          rooted in a clean branch, then delegates over the bus. Each worker now edits,
+          commits, and tests entirely inside its own worktree.
+        </p>
+
+        <h2>4. Automate the setup with a trigger</h2>
+        <p>
+          A fresh worktree often needs the same one-time prep — install dependencies, warm a
+          build, copy a <code>.env</code>. Creating (or removing) a worktree fires the
+          <code>worktree_created</code> / <code>worktree_removed</code>
+          <a href="plugins.html">plugin triggers</a>, with the worktree path as the cwd, so a
+          tiny plugin can do it for you:
+        </p>
+        <pre><code><span class="c"># plugins/wtsetup/plugin.toml</span>
+id = "wtsetup"
+name = "Worktree setup"
+
+[[trigger]]
+on = "worktree_created"
+run = "bun install"       <span class="c"># runs in the new worktree's directory</span></code></pre>
+        <p>
+          Now every worktree an agent (or you) creates lands ready to build. Filter with
+          <code>when = "…"</code> on a path substring if you only want it for some worktrees.
+        </p>
+
+        <h2>5. Watch them all at once</h2>
+        <p>
+          Three agents in three tabs is exactly where Sinclair's <strong>status dots</strong>
+          earn their keep. Each tab carries a colored dot — 🟡 working, 🔴 blocked, 🔵 done,
+          🟢 idle — and the <strong>Activity</strong> sidebar rolls them all up into a single
+          "who's blocked, working, or done" glance. You don't have to click through panes to
+          know the backend agent finished and the reviewer is waiting on you. Wire it up with
+          the <a href="statushooks.html">Agent status tutorial</a>.
+        </p>
+        <div class="callout tip">
+          <span class="label">Tip</span>
+          <p>On the mesh, the reviewer can call <code>wait_status</code> to park until both
+          <code>frontend</code> and <code>backend</code> report <code>done</code> — so it
+          reviews exactly once, when both branches are actually ready, instead of polling.</p>
+        </div>
+
+        <h2>6. Merge and clean up</h2>
+        <p>
+          When a branch is ready, merge it from your main checkout like any other feature
+          branch, then remove the worktree — from the pane, over MCP, or on the command line:
+        </p>
+        <pre><code><span class="c"># in your primary checkout</span>
+git merge feat/toggle-ui
+git merge feat/prefs-api
+
+<span class="c"># then retire the worktrees (also: worktree_remove:PATH, or the MCP verb)</span>
+git worktree remove ../wt/toggle-ui
+git worktree remove ../wt/prefs-api</code></pre>
+        <p>
+          Removing a worktree fires <code>worktree_removed</code>, so the same plugin pattern
+          can tear down anything the setup trigger created.
+        </p>
+
+        <h2>The pattern in one line</h2>
+        <p>
+          <strong>One worktree per agent, one tab per worktree, one dot per tab.</strong>
+          Isolated branches keep the agents from colliding; tabs keep them visible; status
+          dots keep them legible. That's how you scale from one agent to a bench of them
+          without losing the plot.
+        </p>
+
+        <h2>Where to next</h2>
+        <div class="cards">
+          <a href="statushooks.html"><strong>Agent status at a glance</strong>Wire the dots that make this legible.</a>
+          <a href="workspace.html#worktrees"><strong>Worktrees reference</strong>The actions, MCP verbs, and triggers in the workspace docs.</a>
+          <a href="automation.html"><strong>Automate your terminal</strong>Triggers, macros, and MCP — the glue around workflows like this.</a>
+        </div>
+      </article>
+    </main>
+    <script type="module" src="docs.js"></script>
+  </body>
+</html>

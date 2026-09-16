@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Install — Sinclair docs</title>
+    <meta name="description" content="Install Sinclair on macOS with Homebrew or the DMG, on Linux with the AppImage/deb/tarball, or build it from source.">
+    <meta name="theme-color" content="#05070c">
+    <link rel="icon" href="icon.png">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="docs.css">
+  </head>
+  <body class="docs">
+    <a class="skip" href="#doc-main">Skip to content</a>
+    <main id="doc-main" class="doc-main">
+      <article class="doc-article" data-doc-page="install">
+        <p class="kicker">Getting started</p>
+        <h1>Install</h1>
+        <p class="lede">
+          Sinclair ships from GitHub releases with a Homebrew cask for macOS and
+          AppImage, deb, and tarball packages for Linux on both x86_64 and aarch64.
+          You can also build it from source.
+        </p>
+
+        <h2>macOS</h2>
+        <p>The Homebrew cask is the simplest path and keeps Sinclair up to date:</p>
+        <pre><code>brew install --cask wess/packages/sinclair</code></pre>
+        <p>
+          Prefer a direct download? Grab the latest <code>Sinclair.dmg</code> from the
+          <a href="https://github.com/wess/sinclair/releases">releases page</a>, open it,
+          and drag <strong>Sinclair.app</strong> into <code>/Applications</code>.
+        </p>
+        <div class="callout note">
+          <span class="label">Note</span>
+          <p>Release builds are signed and notarized. If macOS still warns on first
+          launch, right-click the app and choose <strong>Open</strong> once.</p>
+        </div>
+
+        <h2>Linux</h2>
+        <p>
+          Every release publishes packages for <code>x86_64</code> and
+          <code>aarch64</code>. Pick whichever fits your distro.
+        </p>
+
+        <h3>AppImage (no install)</h3>
+        <pre><code>chmod +x Sinclair-*-x86_64.AppImage
+./Sinclair-*-x86_64.AppImage</code></pre>
+
+        <h3>Debian / Ubuntu (.deb)</h3>
+        <pre><code>sudo apt install ./sinclair_*_amd64.deb</code></pre>
+
+        <h3>Tarball</h3>
+        <pre><code>tar xzf sinclair-*-linux-x86_64.tar.gz
+# run it directly…
+./sinclair-*-linux-x86_64/usr/bin/sinclair
+# …or install the tree under /usr/local
+</code></pre>
+
+        <h2>From source</h2>
+        <p>
+          Sinclair is a Cargo workspace. The GUI lives in the <code>app</code> crate and
+          the shipped binary is <code>sinclair</code>. A recent stable Rust toolchain is
+          required.
+        </p>
+        <pre><code>git clone https://github.com/wess/sinclair
+cd sinclair
+cargo run -p app --release</code></pre>
+
+        <p>To assemble distributable packages locally:</p>
+        <div class="tablewrap">
+          <table>
+            <thead>
+              <tr><th>Command</th><th>Produces</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>scripts/bundle.sh</code></td><td>A release build assembled into <code>dist/Sinclair.app</code> (macOS).</td></tr>
+              <tr><td><code>scripts/dmg.sh</code></td><td><code>dist/Sinclair.dmg</code> (run <code>bundle.sh</code> first).</td></tr>
+              <tr><td><code>scripts/linux.sh [x86_64|aarch64]</code></td><td><code>.tar.gz</code>, <code>.deb</code>, and <code>.AppImage</code> (Linux).</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h2>First run</h2>
+        <p>
+          Launch Sinclair and you get a single tab running your login shell. From here:
+        </p>
+        <ul>
+          <li>Open the in-app settings with <kbd>⌘,</kbd>, or edit the config file directly — see <a href="configuration.html">Configuration</a>.</li>
+          <li>Split the pane with <kbd>⌘D</kbd> (right) or <kbd>⌘⇧D</kbd> (down) — see <a href="workspace.html">Tabs, splits &amp; layouts</a>.</li>
+          <li>Press <kbd>⌘P</kbd> to open the quick launcher and discover commands.</li>
+        </ul>
+        <div class="callout tip">
+          <span class="label">Tip</span>
+          <p>Config changes apply live — there's no need to restart Sinclair after editing
+          your theme, fonts, padding, or keybindings.</p>
+        </div>
+
+        <h2>Keeping Sinclair up to date</h2>
+        <p>Sinclair checks GitHub for a newer release on launch and once an hour, and offers to update when one is available. You can also check any time from <strong>Sinclair → Check for Updates…</strong>. Turn the automatic check off with <code>"auto-update": false</code>.</p>
+        <p>How the update is applied depends on how you installed Sinclair:</p>
+        <ul>
+          <li><strong>macOS <code>.app</code></strong> — Homebrew cask or manual <code>.dmg</code> alike: Sinclair downloads the notarized disk image, rewrites the app in place, and relaunches into the new version. (The bundle is updated where it sits, so a cask install stays where <code>brew</code> expects it.)</li>
+          <li><strong>AppImage</strong> — Sinclair downloads the new image, replaces the running one, and relaunches.</li>
+          <li><strong>Debian/Ubuntu (<code>.deb</code>) and other package installs</strong> — the install is root-owned, so Sinclair opens the release page instead of swapping files itself; update through your package flow.</li>
+        </ul>
+        <div class="callout note"><span class="label">Note</span><p>The update check only asks GitHub for the latest release tag — no package manager is consulted, and nothing is downloaded until you say yes.</p></div>
+      </article>
+    </main>
+    <script type="module" src="docs.js"></script>
+  </body>
+</html>

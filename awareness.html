@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Triggers, notifications &amp; annotations — Sinclair docs</title>
+    <meta name="description" content="Stay aware of what your terminal is doing: fire notifications on output triggers, post banners from a script, stamp scrollback with relative times, pin line annotations, watermark panes, and roll every tab up in the Activity dashboard.">
+    <meta name="theme-color" content="#05070c">
+    <link rel="icon" href="icon.png">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="docs.css">
+  </head>
+  <body class="docs">
+    <a class="skip" href="#doc-main">Skip to content</a>
+    <main id="doc-main" class="doc-main">
+      <article class="doc-article" data-doc-page="awareness">
+        <p class="kicker">Tutorial</p>
+        <h1>Stay aware: triggers, notifications &amp; annotations</h1>
+        <p class="lede">
+          The best thing a terminal can do while you're looking somewhere else is tell you
+          when something needs you. This walkthrough wires that up end to end: fire a
+          notification the instant a line of output matches, post banners from your own
+          scripts, stamp every scrollback row with a relative time, pin notes to the exact
+          lines that matter, watermark each pane with its context, and roll all of it up in
+          one panel that tells you which tab to look at next.
+        </p>
+
+        <div class="callout note">
+          <p>On macOS, <kbd>⌘</kbd> is the modifier. On Linux, read <kbd>⌘</kbd> as
+          <kbd>⌃</kbd> (Ctrl) throughout. Every shortcut here maps to an action you can
+          remap — see <a href="keybindings.html">Keybindings</a>.</p>
+        </div>
+
+        <h2>1. Fire a notification on matching output</h2>
+        <p>
+          Triggers watch a pane's output and raise a desktop notification the moment a line
+          matches a regular expression. Each <code>trigger</code> entry is a
+          regex, optionally followed by <code>| Title</code> to set a custom notification
+          title; the <strong>matched line becomes the notification body</strong>. Add a
+          couple to your config:
+        </p>
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "trigger": [
+    "error|Build failed",
+    "\\bDONE\\b | Job finished"
+  ]
+}</code></pre>
+        <p>
+          Now kick off a long build in one pane and go read something in another. When a line
+          containing <code>error</code> scrolls by, a banner titled <em>Build failed</em> pops
+          with that line as the body; when your job prints <code>DONE</code>, you get
+          <em>Job finished</em>. This is the payoff — you stop babysitting the scrollback of
+          long-running work and let the failures and finishes come to you.
+        </p>
+        <div class="callout tip">
+          <span class="label">Tip</span>
+          <p>The part before the optional <code>|</code> is the regex, so escape or anchor it
+          the way you would any pattern (<code>\bDONE\b</code> matches the whole word, not
+          <code>DONELIST</code>). Leave off <code>| Title</code> and the notification uses a
+          default title with the matched line as the body.</p>
+        </div>
+
+        <h2>2. Post a notification from anything</h2>
+        <p>
+          Triggers cover output you don't control. When you <em>do</em> control the program,
+          it can raise a banner itself by emitting an <strong>OSC 9</strong>,
+          <strong>OSC 777</strong>, or <strong>OSC 99</strong> escape sequence. And for
+          scripts and agent hooks that can't easily emit an escape sequence, post one straight
+          from the command line:
+        </p>
+        <pre><code>sinclair notify --title "Deploy" "Production is live"</code></pre>
+        <p>
+          The general form is <code>sinclair notify [--title T] &lt;message&gt;</code>. Drop it
+          at the end of a slow script and you'll hear about it wherever you are:
+        </p>
+        <pre><code>./scripts/migrate.sh &amp;&amp; sinclair notify "Migration complete"</code></pre>
+        <p>
+          The awareness carries into the tab strip, too. When a program in a
+          <strong>background</strong> tab emits an in-pane notification escape (OSC 9, 777,
+          or 99), that tab grows an <strong>attention dot</strong> that stays until you focus
+          it — so even if you missed the banner, you can see at a glance which session was
+          trying to reach you. (<code>sinclair notify</code> runs outside your panes, so it
+          posts the desktop notification without marking a tab.) See the
+          <a href="cli.html">CLI</a> page for <code>sinclair notify</code>.
+        </p>
+
+        <h2>3. Stamp scrollback with relative times</h2>
+        <p>
+          "How long ago did that line print?" is a question you ask constantly while a job
+          churns. Answer it permanently with one config key:
+        </p>
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "timestamps": true
+}</code></pre>
+        <p>
+          Now each scrollback row carries a faint relative time beside it —
+          <code>5s</code>, <code>2m</code>, <code>1h</code>, <code>3d</code> — captured as the
+          row scrolls into history and travelling with the content as you scroll. No more
+          guessing whether that stack trace landed a moment ago or ten minutes back.
+        </p>
+
+        <h2>4. Pin a note to a line</h2>
+        <p>
+          When you find the line that matters — the error, the config value, the request id —
+          mark it so you can find it again. Put the cursor's line in view and press
+          <kbd>⌘⌥A</kbd> (<code>annotate</code>): a small dialog takes the text, and your note
+          is drawn as a pill in that row's left gutter.
+        </p>
+        <p>
+          Annotations are keyed to a stable line sequence, so the pill <strong>scrolls with
+          the content</strong> and survives until the line falls off the end of the
+          scrollback. Scatter a few — <em>"the error is here"</em>, <em>"good build"</em> —
+          across a long session and you've built yourself a set of bookmarks you can scroll
+          back to instead of re-hunting the same output.
+        </p>
+
+        <h2>5. Watermark each pane with its context</h2>
+        <p>
+          With a grid of panes open, "which host am I on?" gets dangerous. A badge answers it
+          without stealing space: it's a faint watermark drawn in the pane's corner. Set
+          <code>badge</code> to any text, and <code>{cwd}</code> and <code>{host}</code> are
+          substituted per pane:
+        </p>
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "badge": "{host} · {cwd}"
+}</code></pre>
+        <p>
+          Every pane now quietly labels itself with its own host and working directory. It
+          reads as a background watermark, not chrome — present when you glance for it,
+          invisible when you're working — and it's the cheapest insurance there is against
+          running the wrong command on the wrong box.
+        </p>
+
+        <h2>6. Roll it all up in the Activity dashboard</h2>
+        <p>
+          Everything above tells you about <em>one</em> pane. The <strong>Activity</strong>
+          sidebar panel — the ◉ icon on the activity bar — rolls <em>every</em> tab up to a
+          single status dot, so you can see who's blocked, working, done, or idle at a glance
+          across all your shell and agent panes. <strong>Click a row to focus that tab.</strong>
+        </p>
+        <p>
+          When a pane reports an agent state, its dot follows that state:
+        </p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Dot</th><th>State</th></tr></thead>
+            <tbody>
+              <tr><td>🔴</td><td>blocked</td></tr>
+              <tr><td>🟡</td><td>working</td></tr>
+              <tr><td>🔵</td><td>done</td></tr>
+              <tr><td>🟢</td><td>idle</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          A pane that <em>isn't</em> reporting an agent state falls back to the terminal's own
+          signals, so the panel is useful for plain shells too: 🔴 attention (an OSC 9/777/99
+          notification fired while the tab was in the background), 🟡 a foreground command is
+          running, and 🟢 idle. That's the whole awareness story in one column — a notifying
+          background job turns its tab red, a running build shows yellow, and you know exactly
+          where to click.
+        </p>
+        <div class="callout note">
+          <p>Coding agents can drive these dots directly by reporting their state. To wire
+          that up — Claude Code's lifecycle hooks and reporting status from any script — walk
+          through <a href="statushooks.html">Agent status at a glance</a>.</p>
+        </div>
+
+        <h2>Where to next</h2>
+        <div class="cards">
+          <a href="statushooks.html"><strong>Agent status at a glance</strong>Make the Activity dots update themselves, from lifecycle hooks to any script.</a>
+          <a href="recording.html"><strong>Record &amp; share your terminal</strong>Capture a pane to a screencast and export it as a GIF or video.</a>
+          <a href="configkeys.html"><strong>Configuration &amp; keybindings</strong>Every config key and action, including the ones you just used.</a>
+        </div>
+      </article>
+    </main>
+    <script type="module" src="docs.js"></script>
+  </body>
+</html>
