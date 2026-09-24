@@ -107,6 +107,11 @@ jobs:
           security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | sed s/\"//g)
           rm -f "$RUNNER_TEMP/cert.p12"
 
+      # lld links libkrun's guest init for the built-in OS Tab VM runtime,
+      # which bundle.sh builds from source (scripts/krun.sh).
+      - name: Install lld
+        run: brew install lld
+
       - name: Build + bundle (.app)
         run: |
           export CODESIGN_IDENTITY="${APPLE_SIGNING_IDENTITY:--}"

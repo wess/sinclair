@@ -1,0 +1,76 @@
+diff --git a/src/devices/src/virtio/console/device.rs b/src/devices/src/virtio/console/device.rs
+index b1022a3..516e146 100644
+--- a/src/devices/src/virtio/console/device.rs
++++ b/src/devices/src/virtio/console/device.rs
+@@ -2,7 +2,7 @@ use std::cmp;
+ use std::io::Write;
+ use std::iter::zip;
+ use std::mem::{size_of, size_of_val};
+-use std::os::unix::io::{AsRawFd, RawFd};
++use std::os::unix::io::RawFd;
+ use std::sync::Arc;
+ 
+ use utils::eventfd::EventFd;
+@@ -112,8 +112,17 @@ impl Console {
+         defs::CONSOLE_DEV_ID
+     }
+ 
++    /// The fd the SIGWINCH handler writes to. On macOS `EventFd` is a pipe,
++    /// so that is its write end rather than the fd polled for events.
+     pub fn get_sigwinch_fd(&self) -> RawFd {
+-        self.sigwinch_evt.as_raw_fd()
++        #[cfg(target_os = "macos")]
++        {
++            self.sigwinch_evt.get_write_fd()
++        }
++        #[cfg(not(target_os = "macos"))]
++        {
++            std::os::unix::io::AsRawFd::as_raw_fd(&self.sigwinch_evt)
++        }
+     }
+ 
+     pub fn update_console_size(&mut self, port_id: u32, cols: u16, rows: u16) {
+diff --git a/src/vmm/src/builder.rs b/src/vmm/src/builder.rs
+index 1714390..6f10e53 100644
+--- a/src/vmm/src/builder.rs
++++ b/src/vmm/src/builder.rs
+@@ -2154,6 +2154,8 @@ fn attach_console_devices(
+     #[cfg(target_os = "linux")]
+     register_sigwinch_handler(console.lock().unwrap().get_sigwinch_fd())
+         .map_err(RegisterFsSigwinch)?;
++    #[cfg(target_os = "macos")]
++    macos_sigwinch::register(console.lock().unwrap().get_sigwinch_fd());
+ 
+     // The device mutex mustn't be locked here otherwise it will deadlock.
+     attach_mmio_device(vmm, format!("hvc{id_number}"), intc, console)
+@@ -2491,3 +2493,30 @@ pub mod tests {
+         let _ = format!("{err}{err:?}");
+     }
+ }
++
++/// Forward host terminal resizes to the guest console on macOS, where the
++/// Linux signal-handler module is not built.
++#[cfg(target_os = "macos")]
++mod macos_sigwinch {
++    use std::os::unix::io::RawFd;
++    use std::sync::atomic::{AtomicI32, Ordering};
++
++    static FD: AtomicI32 = AtomicI32::new(-1);
++
++    extern "C" fn handler(_: libc::c_int) {
++        let val: u64 = 1;
++        let fd = FD.load(Ordering::Relaxed);
++        // Async-signal-safe: a single write to a non-blocking pipe.
++        let _ = unsafe { libc::write(fd, &val as *const u64 as *const libc::c_void, 8) };
++    }
++
++    pub fn register(fd: RawFd) {
++        FD.store(fd, Ordering::Relaxed);
++        unsafe {
++            let mut action: libc::sigaction = std::mem::zeroed();
++            action.sa_sigaction = handler as *const () as usize;
++            action.sa_flags = libc::SA_RESTART;
++            libc::sigaction(libc::SIGWINCH, &action, std::ptr::null_mut());
++        }
++    }
++}

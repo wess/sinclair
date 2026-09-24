@@ -249,8 +249,9 @@ pub struct Options {
   /// entries (raw strings, parsed by the `container` crate). Each adds or
   /// overrides an OS profile offered by the "New OS Tab" picker.
   pub container: Vec<String>,
-  /// File key: `container-engine` - `docker`, `podman`, or `auto` (the
-  /// default, `None`, which detects whichever is installed).
+  /// File key: `container-engine` - `docker`, `podman`, `builtin` (Sinclair's
+  /// own microVM), or `auto` (the default, `None`: an installed engine, else
+  /// the built-in VM).
   pub container_engine: Option<String>,
   /// File key: `container-persist` - default lifecycle for container tabs.
   /// When false (default) a fresh container is removed on tab close; when

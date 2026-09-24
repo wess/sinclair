@@ -28,6 +28,7 @@ mod mcpbridge;
 mod notes;
 mod notify;
 mod ospicker;
+mod ostab;
 mod panelui;
 mod paths;
 mod pluginmanager;
@@ -121,6 +122,12 @@ fn main() {
   // Install / remove the Claude Code lifecycle hooks that drive the status dots.
   if args.first().map(String::as_str) == Some("agent-hooks") {
     std::process::exit(agenthooks::hooks(&args[1..]));
+  }
+
+  // A built-in OS Tab: this process pulls and prepares the image, then runs
+  // the VM in a child that libkrun takes over. Sinclair is the whole engine.
+  if args.first().map(String::as_str) == Some("_vm") {
+    std::process::exit(vm::main(&args[1..], &paths::data_dir("vm")));
   }
 
   if args.first().map(String::as_str) == Some("export") {

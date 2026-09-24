@@ -290,6 +290,7 @@ dependencies = [
  "terminal",
  "theme",
  "updater",
+ "vm",
  "vt",
  "x11rb",
 ]
@@ -8156,6 +8157,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "tar"
+version = "0.4.46"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3f6221d9a6003c78398e3b239969f352578258df48c8eb051caadae0015bc840"
+dependencies = [
+ "filetime",
+ "libc",
+]
+
+[[package]]
 name = "target-lexicon"
 version = "0.12.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9007,6 +9018,17 @@ name = "version_check"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
+
+[[package]]
+name = "vm"
+version = "1.35.1"
+dependencies = [
+ "flate2",
+ "libc",
+ "serde_json",
+ "sha2",
+ "tar",
+]
 
 [[package]]
 name = "vswhom"

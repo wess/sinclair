@@ -99,7 +99,7 @@ pub struct OsPickerView {
 impl OsPickerView {
   fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
     let (opts, _) = config::load();
-    let available = container::Engine::resolve(opts.container_engine.as_deref()).is_some();
+    let available = crate::ostab::runner(opts.container_engine.as_deref()).is_some();
     let (profiles, _) = container::profiles(&opts.container);
 
     let input =
@@ -175,7 +175,7 @@ impl Render for OsPickerView {
         .child(
           div()
             .text_size(px(13.0))
-            .child("No container engine found. Install Docker or Podman."),
+            .child("OS Tabs are unavailable: no container engine is installed and this build has no VM runtime."),
         )
         .into_any_element();
     }

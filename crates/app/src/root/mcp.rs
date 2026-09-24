@@ -361,21 +361,41 @@ impl WorkspaceView {
     window: &mut Window,
     cx: &mut Context<Self>,
   ) {
-    let Some(engine) = container::Engine::resolve(self.opts.container_engine.as_deref()) else {
-      eprintln!("sinclair: no container engine available (install Docker or Podman)");
-      return;
-    };
     let n = CONTAINER_SEQ.fetch_add(1, Ordering::Relaxed) + 1;
-    let name = Some(format!("sinclair-{}-{n}", slug(&profile.label)));
-    let target =
-      container::Target::from_profile(engine, profile, self.opts.container_persist, name);
-    if let Some(id) = self.spawn_container(&target, window, cx) {
-      // Ephemeral containers are force-removed when their item closes.
-      if !target.persist {
-        if let Some(name) = &target.name {
+    let name = format!("sinclair-{}-{n}", slug(&profile.label));
+    let spawned = match crate::ostab::runner(self.opts.container_engine.as_deref()) {
+      Some(crate::ostab::Runner::Engine(engine)) => {
+        let target = container::Target::from_profile(
+          engine,
+          profile,
+          self.opts.container_persist,
+          Some(name),
+        );
+        let id = self.spawn_container(&target, window, cx);
+        // Ephemeral containers are force-removed when their item closes.
+        if let (Some(id), false, Some(name)) = (id, target.persist, &target.name) {
           self.kill_on_close.insert(id, name.clone());
         }
+        id
       }
+      Some(crate::ostab::Runner::Builtin(exe)) => {
+        // The VM process removes an ephemeral machine itself. A persistent
+        // one is named after its profile so the next tab finds it again.
+        let persist = profile.persist.unwrap_or(self.opts.container_persist);
+        let machine = if persist {
+          format!("sinclair-{}", slug(&profile.label))
+        } else {
+          name
+        };
+        let argv = vm::argv(&exe, &profile.image, &profile.command, persist, &machine);
+        self.spawn_tab_argv(argv, window, cx)
+      }
+      None => {
+        eprintln!("sinclair: nothing can run an OS tab (no container engine or VM runtime)");
+        None
+      }
+    };
+    if let Some(id) = spawned {
       self.group.update(cx, |g, cx| g.add_to_focused(id, cx));
       self.rename_item(id, &profile.label, cx);
       self.focusactive(window, cx);

@@ -27,6 +27,7 @@ cargo clippy --all-targets        # lint
 scripts/bundle.sh                 # cargo build --release + assemble dist/Sinclair.app
 scripts/dmg.sh                    # package dist/Sinclair.dmg (needs bundle first)
 scripts/linux.sh [x86_64|aarch64] # build + package .tar.gz/.deb/.AppImage (Linux)
+scripts/krun.sh [sign]            # build the OS Tab VM runtime (libkrun); `sign` adds the hypervisor entitlement to dev builds
 ```
 
 Each crate keeps its tests in a sibling `tests/` directory (e.g.
@@ -81,6 +82,12 @@ The workspace is layered bottom-up; each crate depends only on those below it.
   devcontainer is entered rather than duplicated. `app` drives it; `relay` uses
   the same builders so a `docker exec` assembled on either side cannot drift.
   See `docs/sandbox.md`.
+- **`vm`** — built-in OS Tabs: a Linux microVM Sinclair runs itself when no
+  container engine is installed. Pulls OCI images (curl), unpacks layers with
+  guest ownership in xattrs, clones a per-tab rootfs (APFS `clonefile`), and
+  boots it through libkrun loaded with `dlopen`. `app` runs it as the hidden
+  `sinclair _vm` process mode. macOS arm64 only; the libraries come from
+  `scripts/krun.sh`. See `docs/vm.md`.
 - **`input`** — keyboard/mouse encoding to terminal byte sequences (CSI, kitty
   keyboard protocol, mouse reporting, bracketed paste).
 - **`config`** — layered settings: compiled-in defaults overridden by the
@@ -169,6 +176,7 @@ The `sinclair` binary dispatches on argv before starting the GUI:
   terminal (used by Wayland compositor keybinds), then exits.
 - `sinclair mcp` — runs the MCP stdio server (`mcpbridge`), bridging tool calls
   into a running GUI instance.
+- `sinclair _vm run|boot …` — a built-in OS Tab's VM (hidden; see `docs/vm.md`).
 - `sinclair notify [--title T] <message>` — posts a desktop notification, for
   agent hooks that can't emit an OSC 9/777/99 escape themselves.
 - otherwise — loads config and launches the gpui app.
@@ -228,5 +236,7 @@ boundary is the bridge.
 - `docs/sandbox.md` — the shared project sandbox: one container for a human and
   a whole agent team, the identity mount, the generated image, adoption, and
   which `devcontainer.json` fields are honoured.
+- `docs/vm.md` — built-in OS Tabs: the microVM Sinclair runs when no
+  container engine is installed.
 - `docs/relay.md` — the agent mesh: roles, teams/tiles, the `relay` CLI, and the
   MCP coordination tools.

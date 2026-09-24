@@ -41,6 +41,16 @@ cp "target/release/relay" "$contents/MacOS/relay"
 cp "target/release/notes" "$contents/MacOS/notes"
 cp assets/icon.icns "$contents/Resources/icon.icns"
 
+# The VM runtime behind built-in OS Tabs (libkrun + the libkrunfw guest
+# kernel), found by the app in Frameworks. arm64 only: upstream libkrun runs
+# Hypervisor.framework on Apple silicon alone.
+if [ "$(uname -m)" = "arm64" ]; then
+  echo "[bundle] VM runtime"
+  scripts/krun.sh
+  mkdir -p "$contents/Frameworks"
+  cp target/krun/lib/libkrun.1.dylib target/krun/lib/libkrunfw.5.dylib "$contents/Frameworks/"
+fi
+
 
 cat > "$contents/Info.plist" << PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -80,6 +90,10 @@ PLIST
 echo "[bundle] codesign ($identity)"
 runtime_opts=()
 [ "$identity" != "-" ] && runtime_opts=(--options runtime --timestamp)
+for lib in "$contents"/Frameworks/*.dylib; do
+  [ -e "$lib" ] || continue
+  codesign --force ${runtime_opts[@]+"${runtime_opts[@]}"} -s "$identity" "$lib"
+done
 codesign --force ${runtime_opts[@]+"${runtime_opts[@]}"} \
   --entitlements assets/sinclair.entitlements \
   -s "$identity" "$contents/MacOS/$bin_name"

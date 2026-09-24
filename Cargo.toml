@@ -19,6 +19,7 @@ members = [
     "crates/terminal",
     "crates/theme",
     "crates/updater",
+    "crates/vm",
     "crates/vt",
 ]
 # vendor/guise is its own cargo workspace (a submodule); exclude it so its

@@ -179,10 +179,10 @@ pub(super) fn settings() -> Vec<Setting> {
     choice(
       "container-engine",
       "Container engine",
-      "Engine for OS tabs; auto detects whichever is installed.",
+      "Engine for OS tabs; auto uses an installed engine, else Sinclair's built-in VM.",
       s,
       |o| o.container_engine.clone().unwrap_or_default(),
-      || strs(&["docker", "podman"]),
+      || strs(&["docker", "podman", "builtin"]),
       Some("auto"),
     ),
     toggle(
