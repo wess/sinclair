@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Automate your terminal — Sinclair docs</title>
+    <meta name="description" content="Three ways to automate Sinclair: let an MCP client drive your live window, record and replay command macros, and react to terminal events with triggers.">
+    <meta name="theme-color" content="#05070c">
+    <link rel="icon" href="icon.png">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="docs.css">
+  </head>
+  <body class="docs">
+    <a class="skip" href="#doc-main">Skip to content</a>
+    <main id="doc-main" class="doc-main">
+      <article class="doc-article" data-doc-page="automation">
+        <p class="kicker">Tutorial</p>
+        <h1>Automate your terminal with MCP</h1>
+        <p class="lede">
+          Sinclair gives you three layers of automation that stack: let an AI client
+          <strong>drive your live window</strong> over MCP, record the keystrokes you repeat
+          into replayable <strong>macros</strong>, and have the terminal <strong>react to its
+          own events</strong> with triggers. This walkthrough wires up all three around one
+          example — an agent that runs your tests, a macro for the setup you type every
+          morning, and a trigger that notifies you when a long job fails.
+        </p>
+
+        <h2>1. Let an agent drive your terminal</h2>
+        <p>
+          <code>sinclair mcp</code> is a Model Context Protocol server. It's a thin stdio
+          process that forwards every tool call to your <em>already-running</em> Sinclair
+          window over a per-user socket — so the agent acts in the same terminal you're
+          looking at, not a hidden headless one. First enable it in
+          <strong>Settings → AI</strong> (<kbd>⌘,</kbd>):
+        </p>
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "ai-enabled": true,
+  "mcp-server-enabled": true
+}</code></pre>
+        <p>Then point a client at it. With Claude Code that's one line:</p>
+        <pre><code>claude mcp add sinclair -- sinclair mcp</code></pre>
+        <p>Any MCP client works — the generic form is just a command to spawn:</p>
+        <pre><code>{
+  "mcpServers": {
+    "sinclair": { "command": "sinclair", "args": ["mcp"] }
+  }
+}</code></pre>
+        <div class="callout note">
+          <p>Keep a Sinclair window open — <code>sinclair mcp</code> bridges to the running
+          instance. If nothing's listening, there's nothing to drive.</p>
+        </div>
+
+        <h2>2. What the agent can do</h2>
+        <p>
+          Now the client sees a set of tools that act on your real window. Ask it something
+          like <em>"open a split, run the test suite there, and tell me if anything fails,"</em>
+          and it strings these together:
+        </p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Tool</th><th>What it does</th></tr></thead>
+            <tbody>
+              <tr><td><code>run_command</code></td><td>Type and run a command — in the pane, a new tab, or a split.</td></tr>
+              <tr><td><code>read_screen</code></td><td>Read recent output so it can see results.</td></tr>
+              <tr><td><code>split</code> / <code>new_tab</code></td><td>Make room for parallel work.</td></tr>
+              <tr><td><code>list_panes</code> / <code>list_tabs</code> / <code>focus_tab</code></td><td>Find its way around your window.</td></tr>
+              <tr><td><code>run_macro</code></td><td>Replay a macro you recorded (next section).</td></tr>
+              <tr><td><code>worktree_create</code> …</td><td>Branch off an isolated checkout for a task.</td></tr>
+              <tr><td><code>notify</code></td><td>Raise a desktop banner when it's done or needs you.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          And it doesn't stop at the built-ins: <strong>every plugin tool joins this list
+          automatically</strong>. Install a plugin that queries your database or reads host
+          stats, and the same agent driving your terminal can call it too. The full table is
+          on the <a href="mcp.html">MCP &amp; automation</a> reference.
+        </p>
+
+        <h2>3. Record a macro for what you repeat</h2>
+        <p>
+          Some sequences you type by hand every day — activate a venv, export a couple of
+          vars, start a dev server. Record them once. Run <code>macro_record</code> — from the command palette
+          (<kbd>⌘⇧P</kbd>), or bind it to a key — type the commands, then run it again to
+          stop and name the macro.
+          It's stored as plain text you can version-control, and you replay it with a
+          keybinding or <code>macro:NAME</code>:
+        </p>
+        <pre><code><span class="c">// bind a recorded macro to a key, in ~/.config/sinclair/settings.json</span>
+{
+  "keybind": ["cmd+ctrl+m=macro:morning-setup"]
+}</code></pre>
+        <p>
+          Replay is paced by shell prompt marks when they're available, so a macro waits for
+          one command's prompt before sending the next instead of dumping everything at once.
+          Because macros are exposed as <code>run_macro</code>, your agent can trigger the
+          exact same setup — one definition, two callers.
+        </p>
+
+        <h2>4. React to events with a trigger</h2>
+        <p>
+          The third layer runs without you or an agent asking: a <a href="plugins.html">plugin
+          trigger</a> hooks a terminal event and fires one action. The classic is "tell me
+          when a long job fails" — a folder with a <code>plugin.toml</code> is the whole thing:
+        </p>
+        <pre><code><span class="c"># plugins/alert/plugin.toml</span>
+id = "alert"
+name = "Failure alert"
+
+[[trigger]]
+on = "command_finished"    <span class="c"># fires on OSC 133 command-end marks</span>
+when = "nonzero"           <span class="c"># only when the exit code is non-zero</span>
+notify = "A command failed"</code></pre>
+        <p>
+          Triggers can hook a bell, a title change, a notification, a process exit, a command
+          finishing, a directory change, or a <a href="workspace.html#worktrees">worktree
+          being created or removed</a> — and instead of <code>notify</code> they can
+          <code>run</code> a command or <code>invoke</code> a plugin method. The exit-code and
+          substring filters keep them from crying wolf. For the config-only cousin — regex
+          <em>output</em> triggers plus notifications, timestamps, and annotations — see
+          <a href="awareness.html">Triggers, notifications &amp; annotations</a>.
+        </p>
+
+        <h2>5. Record and share the result</h2>
+        <p>
+          Automated a nice workflow? Capture it. <code>toggle_recording</code> records the
+          focused pane to an asciinema <code>.cast</code>; <strong>Export Recording as
+          GIF/MP4</strong> (File menu or command palette) renders it to a shareable GIF or
+          video, carrying the
+          same ligatures, fonts, and box-drawing you see on screen — the full walkthrough is
+          in <a href="recording.html">Record &amp; share your terminal</a>. From the CLI:
+        </p>
+        <pre><code>sinclair export session.cast demo.gif
+sinclair export session.cast demo.mp4 --fidelity --fps 30</code></pre>
+
+        <h2>Putting it together</h2>
+        <p>
+          The three layers cover the three shapes of repetition: <strong>MCP</strong> for the
+          work an agent should do <em>for</em> you, <strong>macros</strong> for the keystrokes
+          <em>you</em> repeat, and <strong>triggers</strong> for the things that should just
+          happen <em>on their own</em>. They share the same surface — a macro is an MCP tool,
+          a trigger can run any command, an agent can fire a macro — so you rarely define the
+          same thing twice.
+        </p>
+
+        <h2>Where to next</h2>
+        <div class="cards">
+          <a href="mcp.html"><strong>MCP reference</strong>Every tool, its arguments, and how the bridge works.</a>
+          <a href="plugintutorial.html"><strong>Build a plugin</strong>Turn a trigger into a full command, panel, or agent-callable tool.</a>
+          <a href="agentteams.html"><strong>Run an agent team</strong>When one agent driving your terminal isn't enough.</a>
+        </div>
+      </article>
+    </main>
+    <script type="module" src="docs.js"></script>
+  </body>
+</html>
