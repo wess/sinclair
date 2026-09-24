@@ -3901,7 +3901,7 @@ dependencies = [
 
 [[package]]
 name = "guise-ui"
-version = "1.5.3"
+version = "1.7.0"
 dependencies = [
  "gpui",
  "wry",
