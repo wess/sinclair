@@ -1029,7 +1029,7 @@ fn realign_handles_a_row_object_appearing_in_two_slots() {
   assert!(cache[1].is_none());
 }
 
-// ── kitty graphics geometry ───────────────────────────────────────────────
+// kitty graphics geometry
 
 /// Standard base64, for building graphics payloads inline.
 fn b64(data: &[u8]) -> String {

@@ -42,7 +42,7 @@ const tabs = [...document.querySelectorAll("[data-install-tab]")];
 const downloadsBox = document.querySelector("[data-install-downloads]");
 const hero = document.querySelector("[data-download-hero]");
 
-// --- platform + architecture detection ---
+// platform + architecture detection
 const detect = () => {
   const ua = navigator.userAgent || "";
   const uad = navigator.userAgentData;

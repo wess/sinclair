@@ -9,17 +9,14 @@ pub fn parse_bool(s: &str) -> Option<bool> {
   }
 }
 
-/// Parse an f32.
 pub fn parse_f32(s: &str) -> Option<f32> {
   s.parse().ok()
 }
 
-/// Parse a u32.
 pub fn parse_u32(s: &str) -> Option<u32> {
   s.parse().ok()
 }
 
-/// Parse a usize.
 pub fn parse_usize(s: &str) -> Option<usize> {
   s.parse().ok()
 }

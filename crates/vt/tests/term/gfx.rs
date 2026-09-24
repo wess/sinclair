@@ -51,7 +51,7 @@ fn solid(w: usize, h: usize, px: [u8; 4]) -> Vec<u8> {
   px.repeat(w * h)
 }
 
-// ── transmission ──────────────────────────────────────────────────────────
+// transmission
 
 #[test]
 fn transmit_stores_without_placing() {
@@ -146,7 +146,7 @@ fn a_file_medium_transmission_reads_the_file() {
   std::fs::remove_file(&path).unwrap();
 }
 
-// ── display ───────────────────────────────────────────────────────────────
+// display
 
 #[test]
 fn display_geometry_is_carried_onto_the_placement() {
@@ -213,7 +213,7 @@ fn a_virtual_placement_stays_off_the_grid() {
   assert_eq!(t.cursor_pos(), (0, 0), "and never moves the cursor");
 }
 
-// ── delete ────────────────────────────────────────────────────────────────
+// delete
 
 /// Place three images: ids 1..=3 at rows 0, 2 and 4, one cell wide.
 fn three_placed() -> Terminal {
@@ -351,7 +351,7 @@ fn deleting_everything_also_takes_sixel_placements() {
   assert!(t.images().is_empty());
 }
 
-// ── animation ─────────────────────────────────────────────────────────────
+// animation
 
 /// A 2x1 image with one extra frame.
 fn animated() -> Terminal {
@@ -448,7 +448,7 @@ fn playback_starts_stopped_on_the_first_frame() {
   assert_eq!(t.inner.gfx_store.get(1).unwrap().state, AnimState::Stopped);
 }
 
-// ── end-to-end shapes real clients emit ───────────────────────────────────
+// end-to-end shapes real clients emit
 
 #[test]
 fn a_placeholder_run_resolves_to_the_virtual_placement_it_names() {
@@ -547,7 +547,7 @@ fn a_chunked_transfer_survives_being_split_many_ways() {
   assert_eq!(t.images()[0].image.rgba.as_ref(), rgba.as_slice());
 }
 
-// ── resource bounds ───────────────────────────────────────────────────────
+// resource bounds
 
 #[test]
 fn virtual_placements_are_charged_to_the_pane_budget() {

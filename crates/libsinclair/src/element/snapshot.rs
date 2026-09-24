@@ -279,7 +279,7 @@ fn render_image(frames: &[&vt::Image]) -> Arc<RenderImage> {
     .iter()
     .map(|img| {
       let mut bgra = img.rgba.to_vec();
-      for px in bgra.chunks_exact_mut(4) {
+      for px in bgra.as_chunks_mut::<4>().0 {
         px.swap(0, 2);
       }
       let buf = image::RgbaImage::from_raw(img.width as u32, img.height as u32, bgra)

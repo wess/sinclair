@@ -41,7 +41,7 @@ const el = (tag, cls, txt) => {
   return n;
 };
 
-// ---------------------------------------------------------------- boot
+// boot
 
 (async function boot() {
   state.vault = await api.get("/vault");
@@ -82,7 +82,7 @@ function connectWs() {
   ws.onclose = () => setTimeout(connectWs, 1500);
 }
 
-// ---------------------------------------------------------------- render
+// render
 
 function render() {
   app.innerHTML = "";
@@ -249,7 +249,7 @@ async function renameEntry(n) {
   renderEditor();
 }
 
-// ---------------------------------------------------------------- editor
+// editor
 
 async function openNote(path) {
   if (state.dirty) await saveNow();

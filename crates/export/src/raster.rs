@@ -31,7 +31,7 @@ impl Rgba {
 
   /// Reset every pixel to opaque `bg`.
   pub fn fill_bg(&mut self, bg: Rgb) {
-    for px in self.data.chunks_exact_mut(4) {
+    for px in self.data.as_chunks_mut::<4>().0 {
       px[0] = bg.r;
       px[1] = bg.g;
       px[2] = bg.b;

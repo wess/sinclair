@@ -54,7 +54,7 @@ pub(crate) struct Control {
   /// `q=`: 0 respond, 1 suppress OK, 2 suppress all.
   pub quiet: u8,
 
-  // ── transmission ──────────────────────────────────────────────────────
+  // transmission
   /// `f=`: 24 (RGB), 32 (RGBA), 100 (PNG).
   pub format: u32,
   /// `t=`: `d` direct, `f` file, `t` temp file (deleted after), `s` POSIX
@@ -77,7 +77,7 @@ pub(crate) struct Control {
   /// `O=`: byte offset to start reading the medium at.
   pub offset: u32,
 
-  // ── identity ──────────────────────────────────────────────────────────
+  // identity
   /// `i=`: client-assigned image id (0 = unset).
   pub image_id: u32,
   /// `I=`: image *number* — the terminal assigns the id and reports it back
@@ -86,7 +86,7 @@ pub(crate) struct Control {
   /// `p=`: placement id (0 = unset).
   pub placement_id: u32,
 
-  // ── display ───────────────────────────────────────────────────────────
+  // display
   /// `x=`/`y=`: top-left of the source rectangle, in pixels. Also the frame
   /// rectangle's origin for `a=f`, the source origin for `a=c`, and the cell
   /// coordinates a `d=p`/`d=q`/`d=r`/`d=x`/`d=y` delete names.

@@ -37,7 +37,7 @@ fn blank_screen_is_all_background() {
   let bg = colors.bg;
   assert!(img
     .data
-    .chunks_exact(4)
+    .as_chunks::<4>().0.iter()
     .all(|px| px[0] == bg.r && px[1] == bg.g && px[2] == bg.b && px[3] == 255));
 }
 
@@ -49,7 +49,7 @@ fn glyph_paints_foreground_pixels() {
   let bg = colors.bg;
   let painted = img
     .data
-    .chunks_exact(4)
+    .as_chunks::<4>().0.iter()
     .any(|px| px[0] != bg.r || px[1] != bg.g || px[2] != bg.b);
   assert!(painted, "expected glyph pixels distinct from background");
 }
@@ -58,5 +58,5 @@ fn glyph_paints_foreground_pixels() {
 fn every_pixel_is_opaque() {
   let (term, colors, mut font) = setup(b"hello \x1b[31mred\x1b[0m", 20, 2);
   let img = render(&term, &colors, &mut font);
-  assert!(img.data.chunks_exact(4).all(|px| px[3] == 255));
+  assert!(img.data.as_chunks::<4>().0.iter().all(|px| px[3] == 255));
 }

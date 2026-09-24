@@ -78,7 +78,7 @@ impl Quantizer {
   pub fn map(&self, rgba: &[u8], out: &mut Vec<u8>) {
     out.clear();
     out.reserve(rgba.len() / 4);
-    for px in rgba.chunks_exact(4) {
+    for px in rgba.as_chunks::<4>().0 {
       let key =
         ((px[0] as usize >> 3) << 10) | ((px[1] as usize >> 3) << 5) | (px[2] as usize >> 3);
       out.push(self.lut[key]);

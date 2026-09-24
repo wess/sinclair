@@ -83,7 +83,7 @@ impl Vault {
     Self::default()
   }
 
-  // --- recents --------------------------------------------------------
+  // recents
 
   pub fn recents(&self) -> Vec<Recent> {
     read_json::<Vec<Recent>>(&recents_file(), Vec::new())
@@ -127,7 +127,7 @@ impl Vault {
     );
   }
 
-  // --- open / current -------------------------------------------------
+  // open / current
 
   pub fn current(&mut self) -> Option<VaultInfo> {
     if self.root.is_none() {
@@ -172,7 +172,7 @@ impl Vault {
     self.open(dir)
   }
 
-  // --- path safety ----------------------------------------------------
+  // path safety
 
   fn abs(&self, rel: &str) -> Result<PathBuf, String> {
     let root = self.root.as_ref().ok_or("no vault open")?;
@@ -186,14 +186,14 @@ impl Vault {
     Ok(root.join(rel))
   }
 
-  // --- tree -----------------------------------------------------------
+  // tree
 
   pub fn tree(&self) -> Result<Vec<Node>, String> {
     let root = self.root.as_ref().ok_or("no vault open")?;
     Ok(walk(root, root))
   }
 
-  // --- file ops -------------------------------------------------------
+  // file ops
 
   pub fn read(&self, rel: &str) -> Result<String, String> {
     fs::read_to_string(self.abs(rel)?).map_err(|e| e.to_string())

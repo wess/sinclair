@@ -154,7 +154,7 @@ async fn auth(State(s): State<Arc<AppState>>, req: Request, next: Next) -> Respo
   }
 }
 
-// --- helpers ---------------------------------------------------------------
+// helpers
 
 /// A shorthand for a POST-only route (axum 0.8 has no `post()` free fn import
 /// clash with our module fn names, so alias it here).
@@ -281,7 +281,7 @@ fn spawn_reaper(state: Arc<AppState>) {
   });
 }
 
-// --- handlers --------------------------------------------------------------
+// handlers
 
 async fn health(
   State(s): State<Arc<AppState>>,
@@ -578,7 +578,7 @@ async fn resolve(
   }
 }
 
-// --- websocket -------------------------------------------------------------
+// websocket
 
 async fn ws_upgrade(State(s): State<Arc<AppState>>, upgrade: WebSocketUpgrade) -> Response {
   upgrade.on_upgrade(move |socket| ws_task(socket, s))
@@ -608,7 +608,7 @@ async fn ws_task(mut socket: WebSocket, state: Arc<AppState>) {
   touch(&state);
 }
 
-// --- static assets ---------------------------------------------------------
+// static assets
 
 async fn static_asset(uri: axum::http::Uri) -> Response {
   let path = uri.path().trim_start_matches('/');
@@ -635,7 +635,7 @@ fn content_type(path: &str) -> &'static str {
   }
 }
 
-// --- folder picker ---------------------------------------------------------
+// folder picker
 
 /// Native "choose folder" dialog. macOS via `osascript`, Linux via
 /// `zenity`/`kdialog` when present. `None` if cancelled or unavailable.

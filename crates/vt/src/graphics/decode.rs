@@ -84,12 +84,12 @@ pub(crate) fn decode_png(data: &[u8]) -> Result<Image, GfxError> {
   match frame.color_type {
     png::ColorType::Rgba => rgba.extend_from_slice(src),
     png::ColorType::Rgb => {
-      for p in src.chunks_exact(3) {
+      for p in src.as_chunks::<3>().0 {
         rgba.extend_from_slice(&[p[0], p[1], p[2], 255]);
       }
     }
     png::ColorType::GrayscaleAlpha => {
-      for p in src.chunks_exact(2) {
+      for p in src.as_chunks::<2>().0 {
         rgba.extend_from_slice(&[p[0], p[0], p[0], p[1]]);
       }
     }
