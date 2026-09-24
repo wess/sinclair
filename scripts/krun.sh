@@ -42,6 +42,18 @@ if ! command -v ld.lld >/dev/null; then
 fi
 command -v ld.lld >/dev/null || { echo "error: lld not found (brew install lld)" >&2; exit 1; }
 
+# bindgen's libclang. Left to itself clang-sys may link Xcode's, whose
+# @rpath install name the build script then can't resolve at run time;
+# Homebrew llvm's (installed alongside lld) carries an absolute one.
+if [ -z "${LIBCLANG_PATH:-}" ]; then
+  for d in /opt/homebrew/opt/llvm/lib /opt/homebrew/opt/llvm@*/lib; do
+    if [ -f "$d/libclang.dylib" ]; then
+      export LIBCLANG_PATH="$d"
+      break
+    fi
+  done
+fi
+
 fetch() { # repo tag dir
   if [ ! -d "$3/.git" ] || [ "$(git -C "$3" describe --tags 2>/dev/null)" != "$2" ]; then
     rm -rf "$3"
