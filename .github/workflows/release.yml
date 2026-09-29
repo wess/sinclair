@@ -192,7 +192,8 @@ jobs:
             libwayland-dev \
             libx11-xcb-dev \
             libxkbcommon-x11-dev \
-            libwebkit2gtk-4.1-dev
+            libwebkit2gtk-4.1-dev \
+            zsync
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -207,7 +208,7 @@ jobs:
         run: scripts/linux.sh ${{ matrix.arch }}
 
       - name: Upload to release
-        run: gh release upload "v${{ needs.check-version.outputs.version }}" dist/linux/*.tar.gz dist/linux/*.deb dist/linux/*.AppImage --clobber
+        run: gh release upload "v${{ needs.check-version.outputs.version }}" dist/linux/*.tar.gz dist/linux/*.deb dist/linux/*.AppImage dist/linux/*.AppImage.zsync --clobber
         env:
           GH_TOKEN: ${{ github.token }}
 
