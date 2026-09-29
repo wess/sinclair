@@ -1,0 +1,17 @@
+# Lima VM for smoke-testing the Linux packages on a clean Ubuntu 22.04 (the same
+# glibc the release builder links against). Driven by scripts/vmtest.sh.
+minimumLimaVersion: 2.0.0
+base: template:ubuntu-22.04
+cpus: 4
+memory: 4GiB
+disk: 20GiB
+provision:
+  - mode: system
+    script: |
+      #!/bin/bash
+      set -eux
+      export DEBIAN_FRONTEND=noninteractive
+      apt-get update
+      apt-get install -y xvfb x11-apps x11-utils vulkan-tools tigervnc-standalone-server imagemagick xdotool libfuse2 file \
+        mesa-vulkan-drivers libvulkan1 libgl1-mesa-dri fonts-dejavu-core \
+        libgbm1 libegl1 libasound2 libfontconfig1 libwayland-client0 libxkbcommon-x11-0
