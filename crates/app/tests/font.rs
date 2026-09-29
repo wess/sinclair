@@ -42,3 +42,23 @@ fn build_defaults_to_menlo_without_config() {
   assert_eq!(font.family.as_ref(), "Menlo");
   assert!(font.fallbacks.is_none());
 }
+
+fn names(list: &[&str]) -> Vec<String> {
+  list.iter().map(|s| s.to_string()).collect()
+}
+
+#[test]
+fn keeps_an_installed_primary() {
+  assert_eq!(resolve_primary("Menlo", &names(&["Menlo", "DejaVu Sans Mono"])), "Menlo");
+}
+
+#[test]
+fn swaps_a_missing_primary_for_the_first_installed_mono() {
+  let installed = names(&["Noto Sans Mono", "Liberation Mono", "DejaVu Sans"]);
+  assert_eq!(resolve_primary("Menlo", &installed), "Liberation Mono");
+}
+
+#[test]
+fn keeps_the_name_when_nothing_better_is_installed() {
+  assert_eq!(resolve_primary("Menlo", &names(&["DejaVu Sans"])), "Menlo");
+}

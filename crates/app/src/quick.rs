@@ -313,7 +313,7 @@ fn open(cx: &mut App) {
     &opts,
     crate::root::is_dark(cx.window_appearance()),
   ));
-  let font = crate::font::build(&opts);
+  let font = crate::font::build_installed(&opts, cx.text_system());
   let font_size = px(opts.font_size.max(1.0));
   let cell = libsinclair::metrics::measure(cx.text_system(), &font, font_size);
   let pad = Padding {

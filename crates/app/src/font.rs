@@ -19,6 +19,45 @@ pub fn build(opts: &config::Options) -> Font {
   }
 }
 
+/// Monospace families tried, in order, when the configured primary is not
+/// installed. The built-in default is `Menlo`, which only macOS ships; on Linux
+/// a missing primary otherwise resolves to a proportional face and glyphs no
+/// longer land on the cell grid.
+const MONO_FALLBACKS: &[&str] = &[
+  "DejaVu Sans Mono",
+  "Liberation Mono",
+  "Noto Sans Mono",
+  "Ubuntu Mono",
+  "Cousine",
+  "Hack",
+  "Courier New",
+];
+
+/// Pick the primary family from `installed`: the configured one when present,
+/// else the first installed [`MONO_FALLBACKS`] entry, else the configured name
+/// unchanged (nothing better to offer).
+fn resolve_primary<'a>(configured: &'a str, installed: &[String]) -> &'a str {
+  let has = |name: &str| installed.iter().any(|n| n == name);
+  if has(configured) {
+    return configured;
+  }
+  MONO_FALLBACKS
+    .iter()
+    .find(|name| has(name))
+    .copied()
+    .unwrap_or(configured)
+}
+
+/// [`build`], with the primary family checked against the fonts the platform
+/// actually has.
+pub fn build_installed(opts: &config::Options, text_system: &gpui::TextSystem) -> Font {
+  let mut font = build(opts);
+  let installed = text_system.all_font_names();
+  let primary = resolve_primary(opts.primary_font(), &installed).to_string();
+  font.family = primary.into();
+  font
+}
+
 fn weight_style(s: config::FontStyle) -> (FontWeight, FontStyle) {
   match s {
     config::FontStyle::Normal => (FontWeight::NORMAL, FontStyle::Normal),

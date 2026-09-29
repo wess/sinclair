@@ -974,7 +974,7 @@ impl WorkspaceView {
     self.colors = Rc::new(colors::from_config(&opts, self.dark));
     crate::guisetheme::install(&self.colors, cx);
     if font_changed {
-      self.font = crate::font::build(&opts);
+      self.font = crate::font::build_installed(&opts, cx.text_system());
       self.font_size = px(opts.font_size.max(1.0));
       self.cell = libsinclair::metrics::measure(cx.text_system(), &self.font, self.font_size);
     }

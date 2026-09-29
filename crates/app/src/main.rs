@@ -214,7 +214,7 @@ fn open_default_window(opts: config::Options, cx: &mut App) {
     root::is_dark(cx.window_appearance()),
   ));
   guisetheme::install(&colors, cx);
-  let font = font::build(&opts);
+  let font = font::build_installed(&opts, cx.text_system());
   let font_size = px(opts.font_size.max(1.0));
   let cell = metrics::measure(cx.text_system(), &font, font_size);
   let pad = metrics::Padding {
