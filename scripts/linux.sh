@@ -81,10 +81,12 @@ chmod +x "$ld" "$ait"
   --desktop-file "$appdir/usr/share/applications/sinclair.desktop" \
   --icon-file "$appdir/usr/share/pixmaps/sinclair.png"
 # -u embeds update info so AppImageUpdate can delta-update; appimagetool writes
-# the matching .zsync beside the image (needs zsyncmake), which the release ships.
+# the matching .zsync (in the cwd) (needs zsyncmake), which the release ships.
 command -v zsyncmake >/dev/null 2>&1 || echo "[linux] zsyncmake missing: no .zsync will be produced" >&2
 ARCH="$arch" "$ait" -u "gh-releases-zsync|wess|sinclair|latest|Sinclair-*-$arch.AppImage.zsync" \
   "$appdir" "$out/Sinclair-$version-$arch.AppImage"
+# appimagetool drops the .zsync in the cwd, not beside the image
+mv -f "Sinclair-$version-$arch.AppImage.zsync" "$out/" 2>/dev/null || echo "[linux] no .zsync produced" >&2
 echo "[linux] -> Sinclair-$version-$arch.AppImage"
 
 # cleanup intermediates, leave only shippable artifacts
