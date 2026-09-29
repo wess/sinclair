@@ -2,8 +2,8 @@
 # Smoke-test dist/linux packages inside a throwaway Ubuntu 22.04 VM (Lima).
 #
 #   scripts/vmtest.sh up         create/start the VM (first run provisions it)
-#   scripts/vmtest.sh appimage   run the AppImage under Xvfb, screenshot to dist/linux/vm-appimage.png
-#   scripts/vmtest.sh deb        install the .deb, launch it under Xvfb, screenshot
+#   scripts/vmtest.sh appimage   run the AppImage under headless sway, screenshot to dist/linux/vm-appimage.png
+#   scripts/vmtest.sh deb        install the .deb, launch it under headless sway, screenshot
 #   scripts/vmtest.sh shell      open a shell in the VM
 #   scripts/vmtest.sh down       stop the VM; `destroy` deletes it
 #
@@ -20,25 +20,26 @@ lima() { limactl shell "$vm" -- "$@"; }
 
 need() { limactl list -q 2>/dev/null | grep -qx "$vm" || { echo "run: scripts/vmtest.sh up" >&2; exit 1; }; }
 
-# launch $1 under Xvfb for a few seconds, screenshot to $2, fail if it died early
+# launch $1 inside a headless sway (Wayland) for a few seconds, grim-screenshot to $2,
+# fail if the app died early. Xvfb/Xvnc were tried first: the app's Vulkan surface
+# renders black on both, so the Wayland path is the one that shows real output.
 shot() {
   local cmd="$1" png="$2"
   lima bash -c "
-    set -u
-    pkill Xvfb 2>/dev/null; rm -f /tmp/shot.png
-    Xvfb :99 -screen 0 1280x800x24 >/dev/null 2>&1 &
-    sleep 1
-    export DISPLAY=:99 WGPU_BACKEND=vulkan
+    export XDG_RUNTIME_DIR=/tmp/xdg; rm -rf \$XDG_RUNTIME_DIR /tmp/shot.png
+    mkdir -p \$XDG_RUNTIME_DIR; chmod 700 \$XDG_RUNTIME_DIR
+    WLR_BACKENDS=headless WLR_LIBINPUT_NO_DEVICES=1 WLR_RENDERER=pixman sway >/tmp/sway.log 2>&1 &
+    sleep 4
+    export WAYLAND_DISPLAY=\$(ls \$XDG_RUNTIME_DIR | grep -m1 '^wayland-[0-9]*\$'); unset DISPLAY
     $cmd >/tmp/app.log 2>&1 &
     pid=\$!
-    sleep 8
-    if ! kill -0 \$pid 2>/dev/null; then echo 'app exited early:'; tail -30 /tmp/app.log; exit 1; fi
-    import -window root /tmp/shot.png
-    kill \$pid
+    sleep 12
+    if ! kill -0 \$pid 2>/dev/null; then echo 'app exited early:'; tail -30 /tmp/app.log; pkill -x sway; exit 1; fi
+    grim /tmp/shot.png
+    kill \$pid; pkill -x sway; true
   "
   lima cat /tmp/shot.png >"$png"
   echo "[vmtest] screenshot -> $png"
-  lima tail -5 /tmp/app.log || true
 }
 
 case "${1:-}" in

@@ -12,6 +12,6 @@ provision:
       set -eux
       export DEBIAN_FRONTEND=noninteractive
       apt-get update
-      apt-get install -y xvfb x11-apps x11-utils vulkan-tools tigervnc-standalone-server imagemagick xdotool libfuse2 file \
+      apt-get install -y sway grim vulkan-tools libfuse2 file \
         mesa-vulkan-drivers libvulkan1 libgl1-mesa-dri fonts-dejavu-core \
         libgbm1 libegl1 libasound2 libfontconfig1 libwayland-client0 libxkbcommon-x11-0
