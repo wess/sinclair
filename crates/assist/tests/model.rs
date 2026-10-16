@@ -28,15 +28,3 @@ fn compose_shim_echoes_a_miss() {
 fn explains_permission_errors() {
   assert!(explain("permission denied").contains("permission"));
 }
-
-#[cfg(feature = "candle")]
-#[test]
-fn candle_backend_is_available() {
-  assert!(candleprobe());
-}
-
-#[cfg(not(feature = "candle"))]
-#[test]
-fn candle_probe_reports_absence() {
-  assert!(!candleprobe());
-}

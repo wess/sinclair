@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Share one container with your agents — Sinclair docs</title>
-    <meta name="description" content="Put a project's panes and its whole agent team inside one Docker or Podman container: a shared filesystem, one toolchain, and a real boundary around unattended agents.">
+    <meta name="description" content="Put a project's panes and every agent you run in it inside one Docker or Podman container: a shared filesystem, one toolchain, and a real boundary around unattended agents.">
     <meta name="theme-color" content="#05070c">
     <link rel="icon" href="icon.png">
     <link rel="stylesheet" href="style.css">
@@ -17,12 +17,12 @@
         <p class="kicker">Tutorial</p>
         <h1>Share one container with your agents</h1>
         <p class="lede">
-          A team of agents working in your checkout is a team working on your real machine,
-          with your real credentials, usually with their permission prompts turned off. The
-          sandbox puts the whole project — your panes and every agent on the team — inside a
-          single container instead. One filesystem, one toolchain, one blast radius. This
-          walkthrough turns it on, opens a shell in it, sends a team into it, and shows what
-          it does and does not protect.
+          Agents working in your checkout are working on your real machine, with your real
+          credentials, usually with their permission prompts turned off. The sandbox puts the
+          whole project — your panes and every agent you run in them — inside a single
+          container instead. One filesystem, one toolchain, one blast radius. This walkthrough
+          turns it on, opens a shell in it, runs agents in it, and shows what it does and does
+          not protect.
         </p>
 
         <div class="callout note">
@@ -35,8 +35,7 @@
 
         <h2>1. Turn it on</h2>
         <p>
-          Open <strong>File ▸ Sandbox</strong> (it is also under <strong>AI ▸ Sandbox</strong>
-          once AI is enabled) and pick <em>Use Sandbox for This Project</em>. The first row of
+          Open <strong>File ▸ Sandbox</strong> and pick <em>Use Sandbox for This Project</em>. The first row of
           that menu is a live status line, so it is always the place to look when you want to
           know what the sandbox is doing.
         </p>
@@ -97,7 +96,7 @@
           mapping, a worktree made inside the container is broken on the host and vice versa.
           With the paths equal, the <a href="worktreeagents.html">worktree workflow</a> keeps
           working unchanged from both sides — which matters, because giving each agent its own
-          worktree is exactly how you keep a team from editing over each other <em>inside</em>
+          worktree is exactly how you keep agents from editing over each other <em>inside</em>
           the shared container.
         </p>
         <div class="callout warn">
@@ -107,26 +106,15 @@
           see them. <code>.worktrees/thing</code> is inside, and works.</p>
         </div>
 
-        <h2>4. Send a team in</h2>
+        <h2>4. Run your agents in it</h2>
         <p>
-          With the sandbox on, <strong>AI ▸ Teams ▸</strong> any team brings the container up
-          <em>first</em>, then opens the roster. Every member is exec'd into that same
-          container, so the whole team shares a filesystem, a build cache, and one toolchain.
-          A quick-launched agent (<strong>AI ▸ Agents ▸ Launch …</strong>) and a saved agent
-          definition go to the same place.
+          Open a sandbox shell for each agent — <strong>Sandbox ▸ Open Shell in Sandbox</strong>,
+          or split a tile and open one per pane — and start the CLI there:
+          <code>claude</code>, <code>codex</code>, or whatever <code>sandbox-agents</code>
+          installed into the image. Every shell is exec'd into the same container, so all of
+          your agents share a filesystem, a build cache, and one toolchain. Your terminal
+          stays on the host, so a crash in the container never takes it down.
         </p>
-        <p>
-          Relay itself stays on the host. Only the agent process runs inside, which is why a
-          crash in the container can never take the mesh — or your terminal — down with it.
-          The bus is still reachable: Sinclair points each agent at the engine's gateway host
-          (<code>host.docker.internal</code>, or <code>host.containers.internal</code> under
-          Podman) instead of a loopback address that would mean the container itself.
-        </p>
-        <p>Standalone, the same thing from the CLI:</p>
-<pre><code class="language-sh">relay launch alice --role frontend \
-  --sandbox sinclair-sbx-api-9f3c1a20 \
-  --sandbox-engine docker \
-  --sandbox-workdir /Users/you/code/api</code></pre>
 
         <h2>5. Signing in, once</h2>
         <p>
@@ -139,8 +127,8 @@
 
         <h2>6. What it actually protects</h2>
         <p>
-          Sinclair launches unattended team members with their permission prompts bypassed,
-          because a member sitting on a dialog in a split nobody is watching is a member doing
+          Agents left to run unattended usually run with their permission prompts bypassed,
+          because an agent sitting on a dialog in a split nobody is watching is an agent doing
           nothing. That trade is very different depending on where it happens:
         </p>
         <ul>
@@ -149,8 +137,7 @@
           <li><strong>Only the credentials you mount are present.</strong> Nothing reaches
           your keychain, your other repos, or your cloud config unless you put it in
           <code>sandbox-mount</code> yourself.</li>
-          <li><strong>Resources are capped.</strong> A supervisor can spawn up to eight
-          workers into one container; a pid ceiling is always set, and
+          <li><strong>Resources are capped.</strong> A pid ceiling is always set, and
           <code>sandbox-memory</code> / <code>sandbox-cpus</code> bound the rest.</li>
         </ul>
         <div class="callout warn">
@@ -214,7 +201,7 @@
           <span class="label">Tip</span>
           <p>Two lines in your <code>devcontainer.json</code> make it behave much better with
           agents: <code>"shutdownAction": "none"</code> so closing your editor does not stop a
-          container with a team working in it, and the identity mount below so worktrees stay
+          container with agents working in it, and the identity mount below so worktrees stay
           valid on both sides.</p>
         </div>
 <pre><code class="language-jsonc">// .devcontainer/devcontainer.json
@@ -249,10 +236,6 @@
 
         <h2>Known limits</h2>
         <ul>
-          <li>A worker a supervisor starts with the MCP <code>spawn</code> tool runs on the
-          <em>host</em>, not in the sandbox: the relay daemon is not told which container a
-          session belongs to. Thanks to the identity mount it sees the same files; its
-          toolchain is the host's.</li>
           <li>The generated image assumes an <code>apt-get</code> base. Use
           <code>sandbox-image</code> otherwise.</li>
           <li>A <code>devcontainer.json</code> that builds from a Dockerfile is not built for
@@ -261,8 +244,7 @@
 
         <h2>Where next</h2>
         <ul>
-          <li><a href="agentteams.html">Run an agent team</a> — the roster the sandbox holds.</li>
-          <li><a href="worktreeagents.html">Parallel agents in worktrees</a> — how members stay
+          <li><a href="worktreeagents.html">Parallel agents in worktrees</a> — how agents stay
           out of each other's way inside one container.</li>
           <li><a href="devcontainers.html">Work in your project's dev container</a> — using
           the environment your repo already defines.</li>

@@ -228,7 +228,7 @@ Conventions (non-negotiable):
   in the `.app`. Roles: `relay role {list,info,create,edit,delete}` with an
   `$EDITOR` drop-in and TOML files layered project → user → built-in (seven
   built-ins embedded); `launch --role` injects the brief and applies the role's
-  channels/agent/model as overridable defaults. See `docs/relay.md`.
+  channels/agent/model as overridable defaults. (Removed 2026-10-16; see below.)
 - 2026-06-24: tiles, teams, and the AI menu. Tiles (`app/tiles.rs`): pane-layout
   presets (columns/rows/grid/main-bottom/main-right, generated for any N as a
   binary split tree) applied via the **Workspace** menu into a fresh tab; **Save Current
@@ -239,7 +239,7 @@ Conventions (non-negotiable):
   **AI** menu (shown when AI is enabled) with Launch Agent / Open Feed and a
   **Teams ▸** submenu that opens a team as a tiled set of agents (each pane runs
   `relay launch <member> --role <role>`). New actions `tile:`, `save_layout`,
-  `open_team:`. See `docs/relay.md`.
+  `open_team:`. (Teams and the AI menu removed 2026-10-16; tiles remain.)
 - 2026-06-24: multi-tool agents. Three integration tiers in `relay`'s adapter
   table (`cli/agent.rs`): MCP-native (**claude** via `--mcp-config`, **codex** via
   `-c mcp_servers.relay.url` — both verified streamable-HTTP MCP), bridged
@@ -249,7 +249,7 @@ Conventions (non-negotiable):
   MCP tools onto a shared `bus.rs`. Settings → AI gained an **Agent tools** group
   with per-tool enable toggles (`agent-claude|codex|ollama|gemini`) and a **Test**
   button that probes reachability (CLI `--version` or the Ollama port) off-thread.
-  See `docs/relay.md`.
+  (Removed 2026-10-16.)
 - 2026-06-24: New Agent modal + movable utility windows. `app/newagent.rs`: a
   modal to add an agent to the current workspace — provider dropdown (enabled
   tools), name, and a role preset (from `relay role list --json`) or a custom
@@ -353,7 +353,8 @@ Conventions (non-negotiable):
   windows (guise PaneGroup), keeping the live shell. Self-update: Sinclair checks
   GitHub on launch + hourly and offers to update — deferring to Homebrew/apt for
   managed installs, or swapping a manual `.dmg`/AppImage in place and relaunching
-  via gpui's restart hook (`auto-update`).
+  via gpui's restart hook (`auto-update`). (The AI items and the autosuggest AI
+  fallback were removed 2026-10-16.)
 - 2026-07-06: agent status, session resume, and git worktrees (1.23.0). Semantic
   agent state across the session. Status dots: every pane self-reports
   `working`/`blocked`/`done`/`idle`, drawn as a colored dot on the tab (new guise
@@ -364,7 +365,7 @@ Conventions (non-negotiable):
   Claude Code's lifecycle hooks (idempotent install, surgical uninstall). Mesh:
   relay gains `report_status`/`wait_status` tools and a status column, riding the
   `/control` snapshot + events stream. Session resume closes step 4 of
-  `docs/pauseresume.md` — an agent pane persists its launch command + native
+  the pause/resume plan (issue #4) — an agent pane persists its launch command + native
   session id and relaunches *resumed* on restore, while plain shells restore as
   before. Git worktrees: `worktree_create`/`open`/`list`/`remove` as keybind
   actions and MCP/IPC verbs that open a tab at the worktree, with new
@@ -399,7 +400,7 @@ Conventions (non-negotiable):
   `relay launch` would re-register a team the daemon may still be running.
   Known gap: the permission bypass does not cover Claude Code's separate
   first-run *folder trust* dialog, which still stops every pane the first time a
-  team runs in an unfamiliar directory.
+  team runs in an unfamiliar directory. (Teams removed 2026-10-16.)
 - 2026-07-27: the shared project sandbox. A project's panes and its whole agent
   team can now run inside **one container** instead of on the host, turning
   `relay-team-autonomy`'s permission bypass from a promise into a boundary.
@@ -421,7 +422,8 @@ Conventions (non-negotiable):
   fourteen `sandbox-*` settings in Settings → AI, and six bindable actions.
   Known gap: a worker started with the MCP `spawn` tool runs on the host — the
   daemon is not told which container a session belongs to. See
-  `docs/sandbox.md`.
+  `docs/sandbox.md`. (The relay half went with relay on 2026-10-16; the sandbox
+  settings moved to Settings → Agents and the submenu to File only.)
 - 2026-07-27: tab renaming, tab context menu, and window dragging (issue #15).
   Renaming a tab was already an action, a View-menu item, a palette entry, and a
   documented keybinding — and the dialog **never painted**: its host element had
@@ -528,3 +530,23 @@ Conventions (non-negotiable):
   (on) keeps the tabs-as-titlebar layout; off gives an ordinary titlebar with
   the tab bars beneath it. The split controls sit at the titlebar's right edge
   either way, acting on the focused pane when they are in a shared one.
+- 2026-10-16: relay removed. The `relay` crate and sidecar binary (the agent
+  mesh: register/message/wait, roles, teams, background workers, the feed, the
+  SQLite bus) are gone, along with everything in the app built on them: the AI
+  menu (Agents, Relay, and Teams submenus, Define Agent, Build Team / Team
+  Builder, team windows), the Relay and Agents sidebar panels (the right dock
+  now defaults to Activity + Notes), the relay/provider rows and tool Test
+  buttons in Settings → AI, AI next-command suggestions (`autosuggest-ai`), and
+  token optimization. Removed settings keys are silently ignored: `ai-enabled`,
+  `ai-optimize-tokens`, `autosuggest-ai`, `relay-*`, and `agent-*`. Removed
+  actions: `relay_feed`, `relay_launch`, `relay_log`, `relay_start`,
+  `relay_stop`, `relay_restart`, `open_team`, `build_team`, `agent_def`,
+  `launch_agent`, and their default binds (cmd+shift+a/i/l). The sandbox no
+  longer mounts a relay directory. What stays: `sinclair mcp`, agent status
+  hooks and the Activity panel, `sinclair notify`, the project sandbox (its
+  settings and the MCP toggle now live in Settings → Agents; the Sandbox submenu
+  is under File), worktrees, tiles and saved layouts, and resumed
+  `claude`/`codex` sessions. Agent CLIs run in any pane like any other command.
+  The `assist` crate's optional `candle` backend is gone too; it is pure
+  heuristics. `docs/relay.md`, `docs/pauseresume.md`, and the agent-team
+  tutorial were deleted; the entries above are kept as history.

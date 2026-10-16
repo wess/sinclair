@@ -69,7 +69,6 @@ pub const KEYS: &[(&str, Kind)] = &[
   ("autosuggest-ghost", Kind::Bool),
   ("autosuggest-popup", Kind::Bool),
   ("autosuggest-tab", Kind::Bool),
-  ("autosuggest-ai", Kind::Bool),
   ("autosuggest-history", Kind::Bool),
   ("autosuggest-commands", Kind::Bool),
   ("autosuggest-paths", Kind::Bool),
@@ -118,27 +117,39 @@ pub const KEYS: &[(&str, Kind)] = &[
   ("sidebar-collapsed", Kind::List),
   ("sidebar-left-width", Kind::Int),
   ("sidebar-right-width", Kind::Int),
-  ("ai-enabled", Kind::Bool),
-  ("ai-optimize-tokens", Kind::Bool),
   ("mcp-server-enabled", Kind::Bool),
-  ("relay-enabled", Kind::Bool),
-  ("relay-start-on-launch", Kind::Bool),
-  ("relay-address", Kind::Str),
-  ("relay-default-agent", Kind::Str),
-  ("relay-team-autonomy", Kind::Bool),
-  ("relay-team-window", Kind::Bool),
-  ("agent-claude", Kind::Bool),
-  ("agent-codex", Kind::Bool),
-  ("agent-ollama", Kind::Bool),
-  ("agent-gemini", Kind::Bool),
-  ("agent-claude-path", Kind::Str),
-  ("agent-codex-path", Kind::Str),
-  ("agent-gemini-path", Kind::Str),
-  ("agent-claude-args", Kind::Str),
-  ("agent-codex-args", Kind::Str),
-  ("agent-gemini-args", Kind::Str),
-  ("agent-custom", Kind::List),
 ];
+
+/// Keys from removed features (the Relay agent mesh, agent launching, AI
+/// suggestions). A settings file that still carries them loads silently: the
+/// user didn't do anything wrong, the feature just went away.
+const RETIRED: &[&str] = &[
+  "ai-enabled",
+  "ai-optimize-tokens",
+  "autosuggest-ai",
+  "relay-enabled",
+  "relay-start-on-launch",
+  "relay-address",
+  "relay-default-agent",
+  "relay-team-autonomy",
+  "relay-team-window",
+  "agent-claude",
+  "agent-codex",
+  "agent-ollama",
+  "agent-gemini",
+  "agent-claude-path",
+  "agent-codex-path",
+  "agent-gemini-path",
+  "agent-claude-args",
+  "agent-codex-args",
+  "agent-gemini-args",
+  "agent-custom",
+];
+
+/// Whether `key` belonged to a removed feature and should be ignored.
+pub fn retired(key: &str) -> bool {
+  RETIRED.contains(&key)
+}
 
 /// The kind of a known key, or `None` for an unknown one.
 pub fn kind(key: &str) -> Option<Kind> {

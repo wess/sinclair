@@ -89,7 +89,6 @@ impl SettingsView {
       Section::Keyboard => vec![self.keyboard_group(cx).into_any_element()],
       Section::Macros => vec![self.macros_group(cx).into_any_element()],
       Section::Sidebar => self.sidebar_content(cx),
-      Section::Ai => self.ai_content(cx),
       section => {
         let settings: Vec<&'static Setting> = schema::in_section(section).collect();
         self.rows_and_groups(&settings, cx)

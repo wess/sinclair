@@ -10,7 +10,6 @@ use super::schema::Section;
 use super::SettingsView;
 use crate::colors;
 
-mod ai;
 mod controls;
 mod lists;
 mod rows;
@@ -303,15 +302,6 @@ fn button_box(label: impl Into<SharedString>) -> Div {
 
 fn hsla(rgb: theme::Rgb) -> Hsla {
   colors::hsla(rgb)
-}
-
-/// Truncate to `n` chars with an ellipsis.
-fn trunc(s: &str, n: usize) -> String {
-  if s.chars().count() > n {
-    format!("{}\u{2026}", s.chars().take(n).collect::<String>())
-  } else {
-    s.to_string()
-  }
 }
 
 // The palette, sampled from Zed's dark settings window.

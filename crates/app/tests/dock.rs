@@ -53,7 +53,7 @@ fn the_two_sides_default_differently() {
   assert_ne!(left, right);
   assert!(left.contains(&SidebarPanel::Sessions));
   assert_eq!(left[0], SidebarPanel::Sessions);
-  assert!(right.contains(&SidebarPanel::Agents));
+  assert!(right.contains(&SidebarPanel::Activity));
   assert!(
     left.iter().all(|p| !right.contains(p)),
     "a section is in both defaults"
@@ -77,12 +77,12 @@ fn an_emptied_dock_stays_empty() {
 
 #[test]
 fn config_order_is_dock_order() {
-  let dock = compose_left(&["relay", "terminals", "activity"], &[]);
+  let dock = compose_left(&["containers", "terminals", "activity"], &[]);
   let panels: Vec<SidebarPanel> = dock.sections.iter().map(|s| s.panel).collect();
   assert_eq!(
     panels,
     [
-      SidebarPanel::Relay,
+      SidebarPanel::Containers,
       SidebarPanel::Terminals,
       SidebarPanel::Activity
     ]
@@ -175,7 +175,7 @@ fn revealing_into_a_closed_dock_opens_rather_than_toggling_off() {
 
 #[test]
 fn revealing_an_unplaced_section_adds_it_to_the_named_side() {
-  let mut docks = docks_of(&[SidebarPanel::Terminals], &[SidebarPanel::Agents]);
+  let mut docks = docks_of(&[SidebarPanel::Terminals], &[SidebarPanel::Containers]);
   let out = reveal(&mut docks, SidebarSide::Right, SidebarPanel::Notes);
   assert!(out.added);
   assert_eq!(out.side, SidebarSide::Right);
@@ -202,13 +202,13 @@ fn toggling_a_side_open_expands_something() {
 fn move_to_transfers_between_docks() {
   let mut docks = docks_of(
     &[SidebarPanel::Terminals, SidebarPanel::Layouts],
-    &[SidebarPanel::Agents],
+    &[SidebarPanel::Containers],
   );
   move_to(&mut docks, SidebarSide::Left, 1, SidebarSide::Right, 0);
   let left: Vec<SidebarPanel> = docks[0].sections.iter().map(|s| s.panel).collect();
   let right: Vec<SidebarPanel> = docks[1].sections.iter().map(|s| s.panel).collect();
   assert_eq!(left, [SidebarPanel::Terminals]);
-  assert_eq!(right, [SidebarPanel::Layouts, SidebarPanel::Agents]);
+  assert_eq!(right, [SidebarPanel::Layouts, SidebarPanel::Containers]);
 }
 
 #[test]
@@ -245,16 +245,16 @@ fn add_refuses_to_place_a_section_twice() {
 
 #[test]
 fn available_excludes_whatever_is_placed() {
-  let docks = docks_of(&[SidebarPanel::Terminals], &[SidebarPanel::Agents]);
+  let docks = docks_of(&[SidebarPanel::Terminals], &[SidebarPanel::Containers]);
   let pool = available(&docks);
   assert!(!pool.contains(&SidebarPanel::Terminals));
-  assert!(!pool.contains(&SidebarPanel::Agents));
+  assert!(!pool.contains(&SidebarPanel::Containers));
   assert!(pool.contains(&SidebarPanel::Notes));
 }
 
 #[test]
 fn a_new_plugin_panel_lands_on_the_right_collapsed() {
-  let mut docks = docks_of(&[SidebarPanel::Terminals], &[SidebarPanel::Agents]);
+  let mut docks = docks_of(&[SidebarPanel::Terminals], &[SidebarPanel::Containers]);
   place_unplaced(&mut docks, &[SidebarPanel::Plugin(0)]);
 
   let right = SidebarSide::Right.index();
@@ -274,7 +274,7 @@ fn a_new_plugin_panel_lands_on_the_right_collapsed() {
 fn composition_round_trips_through_tokens() {
   let docks = docks_of(
     &[SidebarPanel::Terminals, SidebarPanel::Worktrees],
-    &[SidebarPanel::Agents],
+    &[SidebarPanel::Containers],
   );
   let tokens = tokens_of(&docks[0], tokenizer(NONE));
   assert_eq!(tokens, ["terminals", "worktrees"]);
@@ -313,13 +313,13 @@ fn an_emptied_dock_round_trips_as_empty() {
 fn collapsed_tokens_gathers_from_both_docks() {
   let mut docks = docks_of(
     &[SidebarPanel::Terminals, SidebarPanel::Layouts],
-    &[SidebarPanel::Agents],
+    &[SidebarPanel::Containers],
   );
   docks[0].sections[1].expanded = false;
   docks[1].sections[0].expanded = false;
   let mut got = collapsed_tokens(&docks, tokenizer(NONE));
   got.sort();
-  assert_eq!(got, ["agents", "layouts"]);
+  assert_eq!(got, ["containers", "layouts"]);
 }
 
 #[test]

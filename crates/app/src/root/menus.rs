@@ -72,9 +72,6 @@ impl WorkspaceView {
       self.window_menu(&mut actions),
     ];
     menus.push(self.plugins_menu(&mut actions));
-    if self.opts.ai_enabled {
-      menus.push(self.ai_menu(&mut actions, cx));
-    }
     menus.push(Menu {
       name: "Help".into(),
       items: vec![MenuItem::action("Documents", ShowDocs)],
@@ -84,36 +81,18 @@ impl WorkspaceView {
     cx.set_menus(menus);
   }
 
-  /// Refresh the cached menu/panel data that needs blocking reads — the relay
-  /// `team list` subprocess, saved agent defs, and the custom-layouts dir —
-  /// off the UI thread, then rebuild the menus when anything changed.
-  /// `setmenus` itself only reads these caches, so it stays synchronous and
-  /// cheap on every toggle/reload.
+  /// Refresh the custom-layouts cache off the UI thread (it reads a
+  /// directory), then rebuild the menus when it changed. `setmenus` itself
+  /// only reads the cache, so it stays synchronous and cheap on every
+  /// toggle/reload.
   pub(crate) fn refresh_menu_data(&self, cx: &mut Context<Self>) {
     let executor = cx.background_executor().clone();
-    let ai = crate::relay::available(&self.opts);
     cx.spawn(async move |this, cx| {
-      let (teams, defs, tiles) = executor
-        .spawn(async move {
-          let teams = if ai {
-            crate::relay::team_list()
-          } else {
-            Vec::new()
-          };
-          (
-            teams,
-            crate::relay::list_agent_defs(),
-            crate::tiles::list_custom(),
-          )
-        })
+      let tiles = executor
+        .spawn(async move { crate::tiles::list_custom() })
         .await;
       let _ = this.update(cx, |view, cx| {
-        let changed = view.menu_teams != teams
-          || view.menu_agent_defs != defs
-          || view.menu_custom_tiles != tiles;
-        if changed {
-          view.menu_teams = teams;
-          view.menu_agent_defs = defs;
+        if view.menu_custom_tiles != tiles {
           view.menu_custom_tiles = tiles;
           view.setmenus(cx);
           cx.notify();
@@ -123,119 +102,7 @@ impl WorkspaceView {
     .detach();
   }
 
-  // Only built when AI is enabled (see `setmenus`), so the server is available
-  // on demand — no need to gate the contents on the persistent-mesh setting.
-  fn ai_menu(&self, a: &mut Vec<Action>, cx: &App) -> Menu {
-    let mut items: Vec<Option<MenuItem>> = vec![
-      Some(MenuItem::submenu(self.agents_submenu(a))),
-      Some(MenuItem::submenu(self.relay_submenu(a, cx))),
-      Some(MenuItem::submenu(self.sandbox_submenu(a))),
-      self.pick(a, "Open Feed", Action::RelayFeed),
-    ];
-    let mut t: Vec<Option<MenuItem>> = vec![self.pick(a, "Build Team\u{2026}", Action::BuildTeam)];
-    if !self.menu_teams.is_empty() {
-      t.push(Some(MenuItem::separator()));
-      for name in self.menu_teams.clone() {
-        t.push(self.pick(a, &name, Action::OpenTeam(name.clone())));
-      }
-    }
-    items.push(Some(MenuItem::separator()));
-    items.push(Some(MenuItem::submenu(Self::menu("Teams", t))));
-    Self::menu("AI", items)
-  }
-
-  /// Probe each enabled provider off the UI thread and cache the set that
-  /// verifies, then rebuild the menus so quick-launch lists only tools that
-  /// actually resolve here. Until it finishes, every enabled provider shows.
-  pub(crate) fn refresh_agent_verification(&self, cx: &mut Context<Self>) {
-    if !crate::relay::available(&self.opts) {
-      return;
-    }
-    let executor = cx.background_executor().clone();
-    let opts = self.opts.clone();
-    cx.spawn(async move |this, cx| {
-      let set = executor
-        .spawn(async move {
-          crate::relay::enabled_agents(&opts)
-            .into_iter()
-            .filter(|p| crate::relay::agent_verifies(&opts, p))
-            .collect::<HashSet<String>>()
-        })
-        .await;
-      let _ = this.update(cx, |view, cx| {
-        if view.verified_agents.as_ref() != Some(&set) {
-          view.verified_agents = Some(set);
-          view.setmenus(cx);
-        }
-      });
-    })
-    .detach();
-  }
-
-  fn agents_submenu(&self, a: &mut Vec<Action>) -> Menu {
-    let mut items: Vec<Option<MenuItem>> =
-      vec![self.pick(a, "Define Agent\u{2026}", Action::RelayLaunch)];
-    // Quick-launch: one item per configured provider that verified, launched
-    // straight into a split (default role, no task) via the shared path.
-    let providers = crate::relay::enabled_agents(&self.opts);
-    let mut providers = match &self.verified_agents {
-      Some(ok) => providers
-        .into_iter()
-        .filter(|p| ok.contains(p))
-        .collect::<Vec<_>>(),
-      None => providers,
-    };
-    // The configured default provider (`relay-default-agent`) leads the list.
-    if let Some(i) = providers
-      .iter()
-      .position(|p| *p == self.opts.relay_default_agent)
-    {
-      let default = providers.remove(i);
-      providers.insert(0, default);
-    }
-    if !providers.is_empty() {
-      items.push(Some(MenuItem::separator()));
-      for provider in providers {
-        let label = format!("Launch {}", crate::relay::provider_label(&provider));
-        items.push(self.pick(a, &label, Action::LaunchAgent(provider)));
-      }
-    }
-    if !self.menu_agent_defs.is_empty() {
-      items.push(Some(MenuItem::separator()));
-      for d in self.menu_agent_defs.clone() {
-        let label = format!("{} \u{00b7} {}", d.name, d.provider);
-        items.push(self.pick(a, &label, Action::AgentDef(d.name)));
-      }
-    }
-    Self::menu("Agents", items)
-  }
-
-  /// Relay server controls and logs (AI → Relay). Shows the live server
-  /// state — read from the `RelayStatus` global the `relay watch` stream
-  /// feeds, never probed synchronously — then start/stop/restart and a jump
-  /// to the server log.
-  fn relay_submenu(&self, a: &mut Vec<Action>, cx: &App) -> Menu {
-    let connected = cx.try_global::<RelayStatus>().is_some_and(|s| s.connected);
-    let status = if connected {
-      "\u{25cf} Server running"
-    } else {
-      "\u{25cb} Server stopped"
-    };
-    Self::menu(
-      "Relay",
-      vec![
-        Some(Self::status_item(status)),
-        Some(MenuItem::separator()),
-        self.pick(a, "Resume Mesh (start)", Action::RelayStart),
-        self.pick(a, "Pause Mesh (stop)", Action::RelayStop),
-        self.pick(a, "Restart Server", Action::RelayRestart),
-        Some(MenuItem::separator()),
-        self.pick(a, "View Logs", Action::RelayLog),
-      ],
-    )
-  }
-
-  /// Sandbox controls (AI → Sandbox). The shared container is a per-project
+  /// Sandbox controls (File → Sandbox). The shared container is a per-project
   /// setting, so the toggle here writes `sandbox-enabled` rather than
   /// flipping something that lasts only for this session. The first row is a
   /// live status line — during a first run it names the step in progress,
@@ -340,9 +207,6 @@ impl WorkspaceView {
         self.pick(a, "New Tab", Action::NewTab),
         self.pick(a, "OS Tabs\u{2026}", Action::NewContainerTab),
         self.pick(a, "Attach to Container\u{2026}", Action::AttachContainer),
-        // Also under AI: the sandbox is where a team works, but it is
-        // just as useful to a person alone, and the AI menu only
-        // appears once AI is enabled.
         Some(MenuItem::submenu(self.sandbox_submenu(a))),
         Some(MenuItem::separator()),
         self.pick(a, "Notes", Action::Notes),

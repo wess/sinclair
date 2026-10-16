@@ -22,9 +22,9 @@ feature-by-feature coverage map we keep as we build.
   Lua config, runs everywhere including Windows.
 - **Sinclair** covers the modern-terminal baseline (GPU rendering,
   tabs/splits, ligatures, themes, live-reload config) and then focuses on
-  something the others don't: being a workspace for coding agents — an agent
-  mesh, a built-in MCP server, per-pane agent status, plus a no-build plugin
-  system and built-in session recording.
+  something the others don't: being a workspace for coding agents — a
+  built-in MCP server, per-pane agent status, a shared project sandbox, plus a
+  no-build plugin system and built-in session recording.
 
 ## Core emulation
 
@@ -94,10 +94,10 @@ coding agents at all. If you don't, this section is mostly noise to you.
 - **MCP server built in.** `sinclair mcp` exposes the running terminal to any
   Model Context Protocol client: run commands into panes/tabs/splits, read
   the screen, replay macros, switch tabs, manage git worktrees.
-- **Relay, an agent mesh.** A bundled sidecar that lets independent agent
-  sessions (Claude Code, Codex, others) register on a shared bus, message
-  each other, and park cheaply between tasks — launched into splits and
-  arranged as tiled teams from the terminal.
+- **One sandbox for every agent.** Put a project and the agents working on it
+  in a single Docker/Podman container — shared filesystem, one toolchain, and
+  a real boundary around agents running with their prompts off — with the
+  project mounted at its own path so git worktrees stay valid on both sides.
 - **Agent-legible UI.** Every pane self-reports a state (working, blocked,
   done, idle) shown on its tab and rolled up in an activity panel; tabs show
   git branch + cwd; OSC 9/777/99 raise native notifications and light up

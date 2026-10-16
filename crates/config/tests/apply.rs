@@ -186,11 +186,11 @@ fn sidebar_composition_keeps_file_order() {
   // The order the tokens appear in the file *is* the top-to-bottom order in
   // the dock, so the two lists must accumulate rather than overwrite.
   let src = "sidebar-left = terminals\nsidebar-left = worktrees\n\
-               sidebar-right = agents\nsidebar-right = relay\n";
+               sidebar-right = agents\nsidebar-right = notes\n";
   let (o, diags) = parse_str(src);
   assert!(diags.is_empty(), "{diags:?}");
   assert_eq!(o.sidebar_left, ["terminals", "worktrees"]);
-  assert_eq!(o.sidebar_right, ["agents", "relay"]);
+  assert_eq!(o.sidebar_right, ["agents", "notes"]);
 }
 
 #[test]

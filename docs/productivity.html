@@ -31,11 +31,10 @@
 
         <h2>Autosuggestions &amp; completion</h2>
         <p>As you type a command, Sinclair suggests how to finish it. The default is fish-style <strong>inline ghost text</strong>: a dimmed completion appears past the cursor, and <kbd>→</kbd> or <kbd>End</kbd> accepts it. Suggestions are drawn from your captured <strong>command history</strong>, a built-in list of <strong>common commands</strong>, and <strong>filesystem paths</strong> under the working directory, ranked by the local assist model. Nothing leaves your machine.</p>
-        <p>Three more behaviors are available, each toggled independently:</p>
+        <p>Two more behaviors are available, each toggled independently:</p>
         <ul>
           <li><strong>Completion popup</strong> — a dropdown of ranked candidates under the cursor; <kbd>↑</kbd>/<kbd>↓</kbd> to move, <kbd>Enter</kbd> to accept, <kbd>Esc</kbd> to dismiss.</li>
           <li><strong>Tab-cycle</strong> — press <kbd>Tab</kbd> to cycle through inline completions instead of forwarding <kbd>Tab</kbd> to the shell.</li>
-          <li><strong>AI suggestions</strong> — when nothing local matches, ask Claude for the next command (requires AI enabled).</li>
         </ul>
         <div class="tablewrap">
           <table>
@@ -44,7 +43,6 @@
               <tr><td><code>autosuggest-ghost</code></td><td><code>true</code></td><td>Inline ghost text; accept with <kbd>→</kbd>/<kbd>End</kbd></td></tr>
               <tr><td><code>autosuggest-popup</code></td><td><code>false</code></td><td>Completion dropdown under the cursor</td></tr>
               <tr><td><code>autosuggest-tab</code></td><td><code>false</code></td><td><kbd>Tab</kbd> cycles completions</td></tr>
-              <tr><td><code>autosuggest-ai</code></td><td><code>false</code></td><td>Claude fallback when nothing local matches</td></tr>
               <tr><td><code>autosuggest-history</code></td><td><code>true</code></td><td>Suggest from command history</td></tr>
               <tr><td><code>autosuggest-commands</code></td><td><code>true</code></td><td>Suggest from the common-command list</td></tr>
               <tr><td><code>autosuggest-paths</code></td><td><code>true</code></td><td>Complete filesystem paths</td></tr>
@@ -171,7 +169,7 @@ cargo build --release
         <p>The <strong>Activity</strong> sidebar panel (the ◉ icon on the activity bar) rolls every tab up to a status dot — who's blocked, working, done, or idle at a glance across your shell and agent panes. When an agent reports its state (see <em>Agent status</em> below) its dot follows that: 🔴 blocked, 🟡 working, 🔵 done, 🟢 idle. Otherwise the dot falls back to the terminal's own signals — 🔴 attention (a bell or an OSC 9 notification fired), 🟡 a foreground command is running, 🟢 idle. Click a row to focus that tab.</p>
 
         <h2>Agent status</h2>
-        <p>Coding agents (Claude Code, Codex, and the rest) can report their state back to Sinclair so it shows up as a colored dot on the tab and in the Activity panel: <strong>working</strong>, <strong>blocked</strong> (waiting on you), <strong>done</strong>, or <strong>idle</strong>. Run <code>sinclair agent-hooks install</code> once to wire the Claude Code lifecycle hooks (add <code>--project</code> to scope it to the current repo); <code>sinclair agent-hooks uninstall</code> removes them again. Agents on the mesh can also call the <code>report_status</code> and <code>wait_status</code> tools to coordinate, and their state appears in the Relay panel. The <a href="statushooks.html">Agent status at a glance</a> tutorial walks through the whole setup.</p>
+        <p>Coding agents (Claude Code, Codex, and the rest) can report their state back to Sinclair so it shows up as a colored dot on the tab and in the Activity panel: <strong>working</strong>, <strong>blocked</strong> (waiting on you), <strong>done</strong>, or <strong>idle</strong>. Run <code>sinclair agent-hooks install</code> once to wire the Claude Code lifecycle hooks (add <code>--project</code> to scope it to the current repo); <code>sinclair agent-hooks uninstall</code> removes them again. The <a href="statushooks.html">Agent status at a glance</a> tutorial walks through the whole setup.</p>
 
         <h2>Clipboard</h2>
         <p>Copy with <kbd>⌘C</kbd> and paste with <kbd>⌘V</kbd>. Enable <code>copy-on-select</code> to automatically copy any selection the moment you make it, and <code>middle-click-paste</code> to paste the current selection with a middle click (X-style). Remote programs can set your clipboard through OSC 52, and <code>clipboard-paste-protection</code> warns you before pasting content that looks risky — for example multi-line text or shell control characters. All copy paths honor secret redaction and feed clipboard history (both above).</p>

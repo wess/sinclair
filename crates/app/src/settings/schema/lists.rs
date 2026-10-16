@@ -11,7 +11,6 @@ pub enum ListKind {
   Palette,
   Plugin,
   Keybind,
-  AgentTool,
   Redact,
   Trigger,
   Snippet,
@@ -33,7 +32,6 @@ impl ListKind {
       ListKind::Palette => "palette",
       ListKind::Plugin => "plugin",
       ListKind::Keybind => "keybind",
-      ListKind::AgentTool => "agent-custom",
       ListKind::Redact => "redact",
       ListKind::Trigger => "trigger",
       ListKind::Snippet => "snippet",
@@ -54,7 +52,6 @@ impl ListKind {
       ListKind::Palette => "Color palette",
       ListKind::Plugin => "Plugin directories",
       ListKind::Keybind => "Keybindings",
-      ListKind::AgentTool => "Custom tools",
       ListKind::Redact => "Redact secrets on copy",
       ListKind::Trigger => "Output triggers",
       ListKind::Snippet => "Snippets",
@@ -75,7 +72,6 @@ impl ListKind {
       ListKind::Palette => "Add color",
       ListKind::Plugin => "Add plugin",
       ListKind::Keybind => "Add binding",
-      ListKind::AgentTool => "Add tool",
       ListKind::Redact => "Add pattern",
       ListKind::Trigger => "Add trigger",
       ListKind::Snippet => "Add snippet",
@@ -96,7 +92,6 @@ impl ListKind {
       ListKind::Palette => "0=#1d1f21",
       ListKind::Plugin => "~/.config/sinclair/plugins/name",
       ListKind::Keybind => "cmd+shift+t=new_tab",
-      ListKind::AgentTool => "mytool|/path/to/bin {prompt} --mcp {mcp}",
       ListKind::Redact => "regex, e.g. sk-[A-Za-z0-9]{20,}",
       ListKind::Trigger => "error|Build failed",
       ListKind::Snippet => "deploy | git push origin main",
@@ -121,7 +116,6 @@ impl ListKind {
         let (binds, _) = config::resolve(&o.keybind);
         binds.iter().map(|kb| kb.config_line()).collect()
       }
-      ListKind::AgentTool => o.agent_custom.clone(),
       ListKind::Redact => o.redact.clone(),
       ListKind::Trigger => o.trigger.clone(),
       ListKind::Snippet => o.snippet.clone(),

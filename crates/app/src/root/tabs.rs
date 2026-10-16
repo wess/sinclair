@@ -86,7 +86,7 @@ impl WorkspaceView {
       SidebarPanel::Containers => self.refresh_containers(),
       // These render from the off-thread menu-data cache; re-snapshot so
       // the section reflects current disk state.
-      SidebarPanel::Agents | SidebarPanel::Layouts => self.refresh_menu_data(cx),
+      SidebarPanel::Layouts => self.refresh_menu_data(cx),
       SidebarPanel::Worktrees => self.refresh_worktrees(cx),
       SidebarPanel::Notes => self.refresh_notes(),
       _ => {}

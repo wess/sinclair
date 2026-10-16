@@ -21,8 +21,7 @@
           drawn from your own history, a ranked popup, a one-keystroke explanation of whatever
           a command just printed, and a composer that turns a plain-English request into a
           drafted command. The point that matters: <strong>these are local heuristics, not a
-          cloud call</strong> — instant, offline, and private by default, with one clearly
-          marked optional AI fallback.
+          cloud call</strong> — instant, offline, and private.
         </p>
 
         <div class="callout note">
@@ -86,17 +85,7 @@
           own words echoed back as a "command." <kbd>esc</kbd> closes the panel.
         </p>
 
-        <h2>4. The optional AI fallback</h2>
-        <p>
-          One assist can go beyond local: with <code>"autosuggest-ai": true</code>, when
-          <em>nothing local</em> completes your line, Sinclair asks the Claude CLI in the
-          background — passing your last few commands as context — and shows the reply as the
-          same accept-with-<kbd>→</kbd> ghost text. It's off by default and needs the
-          <code>claude</code> CLI (configure its path under <em>Settings → AI</em>). Local
-          candidates always win when they exist.
-        </p>
-
-        <h2>5. The safety net for pastes</h2>
+        <h2>4. The safety net for pastes</h2>
         <p>
           The same assist engine can inspect what you <em>paste</em>: multi-line blobs and
           dangerous patterns (<code>rm -rf</code>, <code>curl … | sh</code>, <code>sudo</code>,
@@ -110,7 +99,7 @@
         <div class="cards">
           <a href="navigate.html"><strong>Navigate &amp; select</strong>Semantic search over command blocks — the other thing shell integration unlocks.</a>
           <a href="clipboard.html"><strong>Clipboard, snippets &amp; pickers</strong>Paste protection in practice, plus history, redaction, and snippets.</a>
-          <a href="agentteams.html"><strong>Run an agent team</strong>When a heuristic isn't enough: put real coding agents in real panes.</a>
+          <a href="statushooks.html"><strong>Agent status at a glance</strong>When a heuristic isn't enough: put real coding agents in real panes and watch their state.</a>
         </div>
       </article>
     </main>

@@ -63,13 +63,6 @@ fn search_matches_key_label_and_description() {
 }
 
 #[test]
-fn tool_keys_exist_in_the_schema() {
-  for &key in TOOL_KEYS {
-    assert!(find(key).is_some(), "tool key `{key}` missing from schema");
-  }
-}
-
-#[test]
 fn list_kinds_round_trip_values() {
   let opts = config::Options {
     font_family: vec!["Hack".to_string()],

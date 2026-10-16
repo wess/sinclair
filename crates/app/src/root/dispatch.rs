@@ -15,32 +15,6 @@ impl WorkspaceView {
     }
   }
 
-  /// Make sure the relay daemon is up — a blocking start + health poll — on
-  /// the background executor, then run `then` back on this workspace's
-  /// window. The launch commands themselves keep their own in-pane fallback
-  /// when the server still is not up, matching the old synchronous path.
-  pub(crate) fn with_relay_running(
-    &self,
-    window: &mut Window,
-    cx: &mut Context<Self>,
-    then: impl FnOnce(&mut Self, &mut Window, &mut Context<Self>) + 'static,
-  ) {
-    let Some(handle) = window.window_handle().downcast::<Self>() else {
-      return;
-    };
-    let opts = self.opts.clone();
-    let executor = cx.background_executor().clone();
-    cx.spawn(async move |_this, cx| {
-      executor
-        .spawn(async move {
-          crate::relay::ensure_running(&opts);
-        })
-        .await;
-      let _ = handle.update(cx, |view, window, cx| then(view, window, cx));
-    })
-    .detach();
-  }
-
   /// Dispatch handler shared by every keybinding.
   pub(crate) fn runbind(&mut self, action: &RunBind, window: &mut Window, cx: &mut Context<Self>) {
     let Some(kb) = self.keybinds.get(action.0) else {
@@ -201,30 +175,6 @@ impl WorkspaceView {
       Action::ExportRecording(fmt) => self.onfocused(cx, |v, cx| v.export_recording(&fmt, cx)),
       Action::SaveBuffer => self.save_buffer(cx),
       Action::ToggleQuickTerminal => crate::quick::toggle(cx),
-      Action::RelayFeed => self.splitcommand(
-        &crate::relay::feed_command(),
-        SplitAxis::Vertical,
-        false,
-        window,
-        cx,
-      ),
-      Action::RelayLaunch => crate::agentpicker::open(window, cx),
-      Action::RelayLog => self.splitcommand(
-        &crate::relay::log_command(),
-        SplitAxis::Vertical,
-        false,
-        window,
-        cx,
-      ),
-      Action::RelayStart => {
-        crate::relay::start(&self.opts);
-        crate::relaywatch::start(&self.opts, cx);
-      }
-      Action::RelayStop => crate::relay::stop(),
-      Action::RelayRestart => {
-        crate::relay::restart(&self.opts);
-        crate::relaywatch::start(&self.opts, cx);
-      }
       Action::WorktreeCreate(spec) => self.worktree_create_bg(&spec, window, cx),
       Action::WorktreeOpen(path) => {
         if let Err(e) = self.worktree_open(&path, window, cx) {
@@ -235,30 +185,7 @@ impl WorkspaceView {
       Action::Tile(id) => self.apply_tile(&id, window, cx),
       Action::SaveLayout => self.open_save_layout(window, cx),
       Action::Sidebar(payload) => self.toggle_sidebar(&payload, cx),
-      Action::OpenTeam(name) => self.open_team(&name, window, cx),
-      Action::BuildTeam => {
-        let cwd = self.focused_cwd_path(cx);
-        self.with_relay_running(window, cx, move |_this, window, cx| {
-          crate::teambuilder::open(window, cwd, cx);
-        });
-      }
       Action::CheckUpdates => crate::updateui::check_now(cx),
-      Action::AgentDef(name) => {
-        self.with_relay_running(window, cx, move |this, window, cx| {
-          let sandbox = this.sandbox_ref();
-          if let Some(cmd) = crate::relay::launch_saved_command(&this.opts, &name, sandbox.as_ref())
-          {
-            this.splitcommand(&cmd, SplitAxis::Horizontal, false, window, cx);
-          }
-        });
-      }
-      Action::LaunchAgent(provider) => {
-        self.with_relay_running(window, cx, move |this, window, cx| {
-          let sandbox = this.sandbox_ref();
-          let cmd = crate::relay::quick_launch_command(&this.opts, &provider, sandbox.as_ref());
-          this.splitcommand(&cmd, SplitAxis::Horizontal, false, window, cx);
-        });
-      }
       Action::ManagePlugins => crate::pluginmanager::open(window, cx),
       Action::Quit => self.request_quit(window, cx),
       Action::Unbound => {}

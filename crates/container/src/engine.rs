@@ -30,8 +30,8 @@ impl Engine {
   /// The hostname a container uses to reach a service on the host.
   ///
   /// Each engine ships its own name for this, and getting it wrong is the
-  /// difference between an agent reaching the relay bus and every one of its
-  /// `wait` calls failing. On a bridged network the name still needs an
+  /// difference between an agent reaching a host-side MCP server and every
+  /// call to it failing. On a bridged network the name still needs an
   /// `--add-host …:host-gateway` entry to resolve (see
   /// [`crate::Sandbox::gateway`]); Docker Desktop provides it already, but
   /// adding it is harmless there and required on Linux.

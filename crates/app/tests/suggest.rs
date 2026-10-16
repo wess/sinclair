@@ -5,7 +5,6 @@ fn cfg() -> SuggestConfig {
     ghost: true,
     popup: true,
     tab: true,
-    ai: false,
     history: true,
     commands: true,
     paths: false,

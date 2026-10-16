@@ -2,7 +2,7 @@
 
 `crates/libsinclair` is Sinclair's terminal packaged as a library: the
 session/emulation core plus the gpui renderer, without the app shell
-(windows, tabs, settings, plugins, relay). The Sinclair app itself builds on
+(windows, tabs, settings, plugins). The Sinclair app itself builds on
 it — there is one renderer implementation, not a fork.
 
 ## What you get
@@ -16,7 +16,7 @@ it — there is one renderer implementation, not a fork.
   keyboard, mouse, selection, scrollback, links, and copy/paste wired up.
 
 Deliberately not included: `config` (bring your own settings; the library
-takes plain option structs), plugins, the relay mesh, auto-update, and all
+takes plain option structs), plugins, auto-update, and all
 window chrome.
 
 ## Consuming from another app

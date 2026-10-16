@@ -156,13 +156,6 @@ pub(super) fn settings() -> Vec<Setting> {
       |o| o.autosuggest_tab,
     ),
     toggle(
-      "autosuggest-ai",
-      "AI suggestions",
-      "Ask Claude for a next command when nothing local matches.",
-      s,
-      |o| o.autosuggest_ai,
-    ),
-    toggle(
       "autosuggest-history",
       "Suggest from history",
       "Use captured command history as a suggestion source.",

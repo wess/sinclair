@@ -1,7 +1,6 @@
 //! An agent's self-reported semantic work state, surfaced as a tab and sidebar
 //! status dot. Reported by an agent's hooks over the single-instance socket (see
-//! `agenthooks.rs`) and mirrored from the mesh vocabulary used by the `relay`
-//! `report_status` tool.
+//! `agenthooks.rs`).
 
 /// The four semantic states an agent can be in, "who's blocked / working / done
 /// / idle" at a glance across the whole session.

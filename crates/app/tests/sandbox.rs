@@ -11,7 +11,6 @@ fn env<'a>(dc: Option<&'a DevContainer>) -> Env<'a> {
     project: PROJECT,
     devcontainer: dc,
     host_user: Some("501:20".to_string()),
-    relay_dir: None,
     default_agent: "claude",
   }
 }
@@ -140,12 +139,12 @@ fn bad_mounts_and_env_are_notes_not_failures() {
 }
 
 #[test]
-fn network_none_warns_that_the_bus_is_unreachable() {
+fn network_none_warns_that_the_network_is_unreachable() {
   let mut o = opts();
   o.sandbox_network = Some("none".to_string());
   let s = build(&o, &env(None));
   assert_eq!(s.sandbox.network, Network::None);
-  assert!(s.notes.iter().any(|n| n.contains("relay bus")));
+  assert!(s.notes.iter().any(|n| n.contains("cannot reach")));
 }
 
 #[test]

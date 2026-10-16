@@ -79,8 +79,7 @@ The workspace is layered bottom-up; each crate depends only on those below it.
   means the same thing inside and out, so git worktrees stay valid from both
   sides), generates the image `Recipe` that installs the agent CLIs, and
   discovers containers a project already has by label so an editor's
-  devcontainer is entered rather than duplicated. `app` drives it; `relay` uses
-  the same builders so a `docker exec` assembled on either side cannot drift.
+  devcontainer is entered rather than duplicated. `app` drives it.
   See `docs/sandbox.md`.
 - **`vm`** — built-in OS Tabs: a Linux microVM Sinclair runs itself when no
   container engine is installed. Pulls OCI images (curl), unpacks layers with
@@ -119,9 +118,7 @@ The workspace is layered bottom-up; each crate depends only on those below it.
   Transport/framing only; the caller supplies the tool list and handler. Knows
   nothing about terminals.
 - **`assist`** — local, offline terminal assistance (command ranking,
-  suggestions, paste-risk safety checks). Optional `candle` feature (off by
-  default) for the candle-core backend; code is gated with
-  `#[cfg(feature = "candle")]` and has a non-candle fallback.
+  suggestions, paste-risk safety checks). Pure heuristics, no model runtime.
 - **`updater`** — self-update mechanics, gpui-free (Zed's `auto_update`
   design): GitHub release check, install detection, and **in-place** installs —
   macOS mounts the `.dmg` and rsyncs the new bundle's contents onto the
@@ -135,22 +132,6 @@ The workspace is layered bottom-up; each crate depends only on those below it.
   OS **and** architecture); GitHub publishes a release before CI uploads to it,
   so the gate is what stops a prompt whose Update button could only fail.
   Installs report `Stage`s as they run so `updateui` can show real progress.
-- **`relay`** — the agent mesh, shipped as a standalone sidecar binary
-  (`relay`), **not** part of the terminal. Lets independent coding-agent
-  sessions coordinate over a shared SQLite bus: agents
-  `register`, message each other / channels, and `wait` (a single blocking SSE
-  call) to park for free between tasks. Built on tokio + axum + sqlx; MCP
-  transport is Streamable HTTP so many sessions share one server. Submodules:
-  `protocol/` (wire types), `db/` (SQLite bus), `state/` (in-memory app +
-  wake signal), `bus.rs` (core park/deliver shared by both planes), `tools/`
-  (MCP tool impls), `mcp/` + `transport/` (MCP dispatch over HTTP), `control/`
-  (plain-HTTP control plane for the CLI and non-MCP bridges), `spawn/`
-  (background workers), and `cli/` (the `relay` subcommands). The app never runs
-  the mesh in-process — `app/src/relay/` starts/stops the bundled binary as a
-  detached daemon and builds the `relay launch` command lines the app runs:
-  single agents into splits, and a whole team into its own window (one member
-  per pane) unless `relay-team-window` is off. Reads no env vars; every
-  parameter comes from settings, passed explicitly. See `docs/relay.md`.
 - **`libsinclair`** — the terminal as an embeddable library: curated re-exports
   of the headless stack (`Session` + vt + input + theme) plus the gpui rendering
   layer moved out of `app` — the `colors`/`metrics`/`mouse`/`boxdraw` policy
@@ -238,5 +219,3 @@ boundary is the bridge.
   which `devcontainer.json` fields are honoured.
 - `docs/vm.md` — built-in OS Tabs: the microVM Sinclair runs when no
   container engine is installed.
-- `docs/relay.md` — the agent mesh: roles, teams/tiles, the `relay` CLI, and the
-  MCP coordination tools.

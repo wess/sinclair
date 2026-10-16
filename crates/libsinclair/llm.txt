@@ -137,5 +137,5 @@ Underlying crates (same workspace, re-exported): vt (emulation, pure),
 pty (unix + windows/conpty), terminal (session runtime), input (key/mouse
 encoding, zero deps), theme (schemes), cast (asciinema recording).
 
-Not in this crate: config loading, plugins, relay mesh, auto-update,
+Not in this crate: config loading, plugins, auto-update,
 window chrome — those live in the Sinclair app.

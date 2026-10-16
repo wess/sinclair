@@ -57,6 +57,6 @@ pub use mount::Mount;
 pub use profile::{builtin, parse_profile, profiles, Profile};
 pub use sandbox::{
   home_volume_for, name_for, parse_state, state_argv, Limits, Network, Sandbox, State, HOME_DIR,
-  LABEL_OWNER, LABEL_PROJECT, LABEL_SANDBOX, OWNER_SINCLAIR, RELAY_DIR,
+  LABEL_OWNER, LABEL_PROJECT, LABEL_SANDBOX, OWNER_SINCLAIR,
 };
 pub use target::Target;

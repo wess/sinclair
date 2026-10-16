@@ -66,10 +66,6 @@ pub enum SidebarPanel {
   Activity,
   /// Tile presets and saved custom layouts.
   Layouts,
-  /// Live Relay server status and connections.
-  Relay,
-  /// Saved agent definitions you can launch.
-  Agents,
   /// Installed plugins + the installable catalog.
   Plugins,
   /// Running containers (Docker/Podman): attach or spin up new OS tabs.
@@ -85,15 +81,13 @@ pub enum SidebarPanel {
 impl SidebarPanel {
   /// Every built-in section, in catalog order. This is what the settings
   /// designer offers; it is *not* what any one dock contains.
-  pub const ALL: [SidebarPanel; 10] = [
+  pub const ALL: [SidebarPanel; 8] = [
     SidebarPanel::Terminals,
     SidebarPanel::Sessions,
     SidebarPanel::Activity,
     SidebarPanel::Layouts,
     SidebarPanel::Worktrees,
     SidebarPanel::Containers,
-    SidebarPanel::Relay,
-    SidebarPanel::Agents,
     SidebarPanel::Notes,
     SidebarPanel::Plugins,
   ];
@@ -108,8 +102,6 @@ impl SidebarPanel {
       SidebarPanel::Activity => "activity",
       SidebarPanel::Layouts => "layouts",
       SidebarPanel::Containers => "containers",
-      SidebarPanel::Relay => "relay",
-      SidebarPanel::Agents => "agents",
       SidebarPanel::Plugins => "plugins",
       SidebarPanel::Worktrees => "worktrees",
       SidebarPanel::Notes => "notes",
@@ -129,8 +121,6 @@ impl SidebarPanel {
       SidebarPanel::Activity => "Activity",
       SidebarPanel::Layouts => "Layouts",
       SidebarPanel::Containers => "Containers",
-      SidebarPanel::Relay => "Relay",
-      SidebarPanel::Agents => "Agents",
       SidebarPanel::Plugins => "Plugins",
       SidebarPanel::Worktrees => "Worktrees",
       SidebarPanel::Notes => "Notes",
@@ -151,8 +141,6 @@ impl SidebarPanel {
       SidebarPanel::Activity => "ACTIVITY",
       SidebarPanel::Layouts => "LAYOUTS",
       SidebarPanel::Containers => "CONTAINERS",
-      SidebarPanel::Relay => "RELAY",
-      SidebarPanel::Agents => "AGENTS",
       SidebarPanel::Plugins => "PLUGINS",
       SidebarPanel::Worktrees => "WORKTREES",
       SidebarPanel::Notes => "NOTES",
@@ -170,8 +158,6 @@ impl SidebarPanel {
       SidebarPanel::Activity => "\u{25c9}",   // ◉ activity
       SidebarPanel::Layouts => "\u{25f0}",    // ◰ tiles
       SidebarPanel::Containers => "\u{2756}", // ❖ containers
-      SidebarPanel::Relay => "\u{21c4}",      // ⇄ connections
-      SidebarPanel::Agents => "\u{25c8}",     // ◈ agents
       SidebarPanel::Plugins => "\u{29c9}",    // ⧉ plugins
       SidebarPanel::Worktrees => "\u{2442}",  // ⑂ branches
       SidebarPanel::Notes => "\u{25a5}",      // ▥ pages
@@ -232,11 +218,7 @@ pub fn defaults(side: SidebarSide) -> Vec<SidebarPanel> {
       SidebarPanel::Worktrees,
       SidebarPanel::Layouts,
     ],
-    SidebarSide::Right => vec![
-      SidebarPanel::Activity,
-      SidebarPanel::Agents,
-      SidebarPanel::Relay,
-    ],
+    SidebarSide::Right => vec![SidebarPanel::Activity, SidebarPanel::Notes],
   }
 }
 

@@ -3,8 +3,8 @@
 //! A GUI-launched app (Finder / Dock on macOS, a `.desktop` launcher on Linux)
 //! inherits a bare `PATH` — `/usr/bin:/bin:/usr/sbin:/sbin` — not the user's
 //! login-shell PATH. So anything the app spawns can't find tools installed for
-//! the shell: plugin runtimes (`bun`, `node`), agent-tool probes, the relay
-//! mesh, or plugin commands like `git`/`docker`. Terminal panes are unaffected
+//! the shell: plugin runtimes (`bun`, `node`), container engines, or plugin
+//! commands like `git`/`docker`. Terminal panes are unaffected
 //! (they're login shells that source the profile themselves).
 //!
 //! This queries the login shell once at startup and adopts its `PATH`, unless

@@ -98,12 +98,6 @@ pub(crate) fn palette_catalog() -> Vec<(&'static str, Action)> {
     ("Save Buffer", Action::SaveBuffer),
     ("Settings", Action::ToggleSettings),
     ("Documentation", Action::ShowHelp),
-    ("Relay: Define Agent", Action::RelayLaunch),
-    ("Relay: Open Feed", Action::RelayFeed),
-    ("Relay: View Logs", Action::RelayLog),
-    ("Relay: Start Server", Action::RelayStart),
-    ("Relay: Stop Server", Action::RelayStop),
-    ("Relay: Restart Server", Action::RelayRestart),
     ("Quit", Action::Quit),
   ]
 }

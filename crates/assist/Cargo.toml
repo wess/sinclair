@@ -5,9 +5,4 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
-[features]
-default = []
-candle = ["dep:candle-core"]
-
 [dependencies]
-candle-core = { version = "0.10.2", optional = true }

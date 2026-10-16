@@ -148,7 +148,13 @@ fn current_exe() -> String {
 /// install path containing a space (or quote) would otherwise produce a
 /// permanently broken hook in the settings file.
 fn command_for(exe: &str, state: &str) -> String {
-  format!("{} {MARKER} {state}", crate::relay::sh_quote(exe))
+  format!("{} {MARKER} {state}", sh_quote(exe))
+}
+
+/// Single-quote `s` for a `/bin/sh` command line; embedded quotes are closed,
+/// escaped, and reopened so the content stays inert.
+fn sh_quote(s: &str) -> String {
+  format!("'{}'", s.replace('\'', "'\\''"))
 }
 
 fn settings_path(project: bool) -> Option<PathBuf> {

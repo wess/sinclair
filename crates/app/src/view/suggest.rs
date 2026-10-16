@@ -98,7 +98,7 @@ impl TerminalView {
   /// wakeup and after we send input to the pty.
   pub(crate) fn recompute_suggestions(&mut self, cx: &mut Context<Self>) {
     let cfg = self.suggest_cfg;
-    if !cfg.wants_local() && !cfg.ai {
+    if !cfg.wants_local() {
       self.clear_suggestions();
       return;
     }
@@ -146,7 +146,6 @@ impl TerminalView {
     self.suggest.popup_sel = 0;
     self.suggest.popup_open = false;
     self.suggest.ghost = None;
-    self.suggest.ai_ghost = None;
 
     let session = self.session.clone();
     let executor = cx.background_executor().clone();
@@ -170,9 +169,6 @@ impl TerminalView {
         } else {
           None
         };
-        if cfg.ai && this.suggest.ghost.is_none() && this.suggest.candidates.is_empty() {
-          this.fetch_ai_suggestion(&input, cx);
-        }
         cx.notify();
       });
     })
@@ -181,14 +177,7 @@ impl TerminalView {
 
   /// The ghost suffix to draw past the cursor right now, if any.
   pub(crate) fn suggestion_ghost(&self) -> Option<String> {
-    if self.suggest.ghost.is_some() {
-      return self.suggest.ghost.clone();
-    }
-    // AI ghost only if it's still for the current input line.
-    if self.suggest.ai_for.as_deref() == Some(self.suggest.input.as_str()) {
-      return self.suggest.ai_ghost.clone();
-    }
-    None
+    self.suggest.ghost.clone()
   }
 
   /// The open completion popup's candidates + selected index, for rendering.
@@ -205,8 +194,6 @@ impl TerminalView {
     self.suggest.input.clear();
     self.suggest.candidates.clear();
     self.suggest.ghost = None;
-    self.suggest.ai_ghost = None;
-    self.suggest.ai_for = None;
     self.suggest.cached_cwd = None;
     self.suggest.cached_config = None;
     self.suggest.popup_open = false;
@@ -221,7 +208,6 @@ impl TerminalView {
     };
     let _ = self.session.write(ghost.as_bytes());
     self.suggest.ghost = None;
-    self.suggest.ai_ghost = None;
     self.suggest.popup_open = false;
     cx.notify();
     true
@@ -287,7 +273,6 @@ impl TerminalView {
     let showing = self.suggest.ghost.is_some() || self.suggest.popup_open;
     if showing {
       self.suggest.ghost = None;
-      self.suggest.ai_ghost = None;
       self.suggest.popup_open = false;
       self.suggest.tab_idx = None;
       cx.notify();
@@ -332,44 +317,5 @@ impl TerminalView {
       self.suggest.candidates.clone(),
       self.suggest.popup_open,
     )
-  }
-
-  /// Ask Claude for a one-line next-command suggestion off the UI thread. The
-  /// result is only applied if it's still for the same input line.
-  fn fetch_ai_suggestion(&mut self, input: &str, cx: &mut Context<Self>) {
-    if self.suggest.ai_for.as_deref() == Some(input) {
-      return; // already fetching / fetched for this line
-    }
-    self.suggest.ai_for = Some(input.to_string());
-    self.suggest.ai_ghost = None;
-    let input = input.to_string();
-    let recent = self
-      .session
-      .with_term(|t| t.command_history().into_iter().take(10).collect::<Vec<_>>());
-    let executor = cx.background_executor().clone();
-    cx.spawn(async move |this, cx| {
-      let line = input.clone();
-      let suggestion = input.clone();
-      let result = executor
-        .spawn(async move {
-          let (opts, _) = config::load();
-          crate::relay::suggest_command(&opts, &recent, &suggestion)
-        })
-        .await;
-      let _ = this.update(cx, |view, cx| {
-        if view.suggest.ai_for.as_deref() != Some(line.as_str()) {
-          return; // input moved on
-        }
-        if let Some(full) = result {
-          if let Some(suffix) = full.strip_prefix(line.as_str()) {
-            if !suffix.is_empty() {
-              view.suggest.ai_ghost = Some(suffix.to_string());
-              cx.notify();
-            }
-          }
-        }
-      });
-    })
-    .detach();
   }
 }

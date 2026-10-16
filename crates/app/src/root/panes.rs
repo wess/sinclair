@@ -275,7 +275,6 @@ impl WorkspaceView {
       None,
       None,
       None,
-      None,
       crate::root::Restore::Fresh,
       cx,
     );

@@ -1,7 +1,7 @@
 name: Windows Build
 
 # Windows build gate. The whole workspace compiles on Windows: the terminal
-# app (ConPTY backend) and the relay sidecar included. The gpui/guise probes
+# app (ConPTY backend) included. The gpui/guise probes
 # run first as distinct steps so a failure in the make-or-break UI dependency
 # is obvious at a glance, then the full workspace build gates every crate.
 #
@@ -41,8 +41,8 @@ jobs:
         if: always()
         run: cargo build -p guise-ui
 
-      # The whole workspace now builds on Windows — the terminal app (ConPTY
-      # backend) and the relay sidecar included. This gates every crate.
+      # The whole workspace now builds on Windows, the terminal app (ConPTY
+      # backend) included. This gates every crate.
       - name: Build workspace
         if: always()
         run: cargo build --workspace

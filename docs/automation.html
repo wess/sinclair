@@ -31,11 +31,10 @@
           process that forwards every tool call to your <em>already-running</em> Sinclair
           window over a per-user socket — so the agent acts in the same terminal you're
           looking at, not a hidden headless one. First enable it in
-          <strong>Settings → AI</strong> (<kbd>⌘,</kbd>):
+          <strong>Settings → Agents</strong> (<kbd>⌘,</kbd>):
         </p>
         <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
 {
-  "ai-enabled": true,
   "mcp-server-enabled": true
 }</code></pre>
         <p>Then point a client at it. With Claude Code that's one line:</p>
@@ -148,7 +147,7 @@ sinclair export session.cast demo.mp4 --fidelity --fps 30</code></pre>
         <div class="cards">
           <a href="mcp.html"><strong>MCP reference</strong>Every tool, its arguments, and how the bridge works.</a>
           <a href="plugintutorial.html"><strong>Build a plugin</strong>Turn a trigger into a full command, panel, or agent-callable tool.</a>
-          <a href="agentteams.html"><strong>Run an agent team</strong>When one agent driving your terminal isn't enough.</a>
+          <a href="worktreeagents.html"><strong>Parallel agents in worktrees</strong>When one agent driving your terminal isn't enough.</a>
         </div>
       </article>
     </main>

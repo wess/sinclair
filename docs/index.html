@@ -51,7 +51,7 @@
           <p class="kicker">Built for you and a team of agents.</p>
           <h1>The terminal your agent team lives in.</h1>
           <p class="lede">
-            Run coding agents in panes on a shared bus, each reporting whether
+            Run coding agents in panes, each reporting whether
             it's working, blocked, or done — on top of a terminal that stands
             on its own. GPU-rendered, standards-complete, macOS and Linux.
           </p>
@@ -77,7 +77,7 @@
                 </div>
                 <div class="tab attention" role="tab" aria-selected="false">
                   <i class="tabdot" aria-hidden="true"></i>
-                  <span>relay · web</span>
+                  <span>agents · web</span>
                   <i class="tabclose" aria-hidden="true">×</i>
                 </div>
               </div>
@@ -88,12 +88,11 @@
             </div>
             <div class="workspacegrid">
               <section class="terminalpane" aria-label="Terminal session preview">
-                <pre><code><span class="prompt">~/dev/sinclair</span> <span class="cmd">relay ps</span>
-agents:
-<span class="ok">  ● lead      supervisor  ch:2</span>
-<span class="ok">  ● frontend  frontend    ch:1</span>
-<span class="ok">  ● backend   backend     ch:1</span>
-<span class="ok">  ● reviewer  reviewer    ch:1</span>
+                <pre><code><span class="prompt">~/dev/sinclair</span> <span class="cmd">git worktree list</span>
+<span class="ok">~/dev/sinclair           1ebb683 [main]</span>
+<span class="ok">~/dev/sinclair-frontend  4c2e9a1 [frontend]</span>
+<span class="ok">~/dev/sinclair-backend   9f03b7d [backend]</span>
+<span class="ok">~/dev/sinclair-review    1ebb683 [review]</span>
 
 <span class="prompt">~/dev/sinclair</span> <span class="cmd">cargo test -p vt screen</span>
 running 583 tests
@@ -102,11 +101,11 @@ running 583 tests
 <span class="prompt">~/dev/sinclair</span> <span class="cmd">sinclair notify "review ready"</span>
 <span class="cursor">█</span></code></pre>
               </section>
-              <aside class="agentpane" aria-label="Agent relay activity">
-                <div class="agentrow lead"><span></span><strong>lead</strong><em>delegating</em></div>
+              <aside class="agentpane" aria-label="Agent status">
+                <div class="agentrow lead"><span></span><strong>lead</strong><em>idle</em></div>
                 <div class="agentrow frontend"><span></span><strong>frontend</strong><em>working</em></div>
-                <div class="agentrow backend"><span></span><strong>backend</strong><em>waiting</em></div>
-                <div class="agentrow reviewer"><span></span><strong>reviewer</strong><em>ready</em></div>
+                <div class="agentrow backend"><span></span><strong>backend</strong><em>blocked</em></div>
+                <div class="agentrow reviewer"><span></span><strong>reviewer</strong><em>done</em></div>
               </aside>
             </div>
             <div class="flowline one" aria-hidden="true"></div>
@@ -141,7 +140,7 @@ running 583 tests
         </div>
         <div>
           <strong>Agent ready</strong>
-          <span>MCP bridge, live status dots, per-agent git worktrees, resumable sessions, and a local SQLite relay bus.</span>
+          <span>MCP bridge, live status dots, per-agent git worktrees, resumable sessions, and a shared sandbox container.</span>
         </div>
       </section>
 
@@ -176,37 +175,34 @@ running 583 tests
       <section class="agentsection" id="agents">
         <div class="agentcopy">
           <p class="kicker">For people running more than one brain at once.</p>
-          <h2>Launch agent teams into real terminal panes.</h2>
+          <h2>Run your agents in real terminal panes.</h2>
           <p>
-            Sinclair includes a bundled relay sidecar. Agents register, join
-            channels, send messages, wait without burning cycles, and show up
-            where command-line work already happens: in tabs and splits you can
-            see. Quick-launch Claude Code or Codex from the menu, or design a
-            whole team — by hand or with an AI-guided builder — and open it into
-            a window of its own, one member per pane, resizable dividers between
-            them, your existing layout untouched.
+            Claude Code, Codex, and every other agent CLI run where command-line
+            work already happens: in tabs and splits you can see. Tile a tab into
+            as many panes as you have agents, and let them drive the terminal
+            back through <code>sinclair mcp</code> — reading the screen, opening
+            splits, sending input, and managing worktrees.
           </p>
           <p>
             Every pane reports what it's doing as a <strong>colored status
             dot</strong> — working, blocked, done, idle — so you can read a whole
             team at a glance. Give each agent its own <strong>git worktree</strong>
             so they never clobber each other's files, and when you reopen Sinclair,
-            agent panes in your main window <strong>resume their sessions</strong>
-            instead of starting cold — a team window you reopen from the menu,
-            fresh.
+            agent panes <strong>resume their sessions</strong> instead of
+            starting cold.
           </p>
           <div class="actions" aria-label="Agent actions">
-            <a class="button primary" href="agentteams.html">Run your first team</a>
-            <a class="button secondary" href="agents.html">Read the mesh docs</a>
+            <a class="button primary" href="worktreeagents.html">Run agents in worktrees</a>
+            <a class="button secondary" href="agents.html">Read the agent docs</a>
           </div>
         </div>
-        <div class="mesh" aria-label="Relay mesh diagram">
+        <div class="mesh" aria-label="Agents connected to the terminal">
           <div class="node lead">lead</div>
           <div class="node frontend">frontend</div>
           <div class="node backend">backend</div>
           <div class="node reviewer">reviewer</div>
-          <div class="bus">relay bus</div>
-          <svg viewBox="0 0 640 360" role="img" aria-label="Agents connected through a local relay bus">
+          <div class="bus">sinclair mcp</div>
+          <svg viewBox="0 0 640 360" role="img" aria-label="Agents connected to the terminal through its MCP server">
             <path d="M154 100 C240 42 392 42 486 108"></path>
             <path d="M120 235 C250 182 394 182 530 238"></path>
             <path d="M320 82 L320 176"></path>
@@ -263,7 +259,7 @@ keybind = "cmd+ctrl+l"</code></pre>
         <div class="detailgrid">
           <article>
             <h3>Suggests as you type</h3>
-            <p>Fish-style inline autosuggestions complete your command from history, common commands, and paths — accept with <kbd>→</kbd>. Add a completion popup, Tab-cycling, or an AI fallback, each toggled on its own.</p>
+            <p>Fish-style inline autosuggestions complete your command from history, common commands, and paths — accept with <kbd>→</kbd>. Add a completion popup or Tab-cycling, each toggled on its own.</p>
           </article>
           <article>
             <h3>Readable automation</h3>

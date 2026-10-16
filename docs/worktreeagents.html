@@ -26,8 +26,8 @@
         </p>
 
         <div class="callout note">
-          <p>This builds on <a href="agentteams.html">Run your first agent team</a> — have
-          the relay enabled and an agent CLI installed. Worktrees themselves are plain
+          <p>You'll need an agent CLI installed, such as Claude Code (<code>claude</code>)
+          or Codex (<code>codex</code>). Worktrees themselves are plain
           <code>git</code>, so nothing here is Sinclair-specific except how smoothly it wires
           them into tabs.</p>
         </div>
@@ -73,17 +73,17 @@ keybind = cmd+ctrl+w=worktree_create:../wt/toggle-ui@feat/toggle-ui</code></pre>
           agent driving your terminal can spin up its own isolated checkout. The MCP tools
           are <code>worktree_create</code> (<code>path</code>, optional <code>branch</code>),
           <code>worktree_open</code>, <code>worktree_list</code>, and
-          <code>worktree_remove</code>. So your supervisor can set the whole thing up in one
-          instruction:
+          <code>worktree_remove</code>. So an agent in your main checkout can set the whole
+          thing up in one instruction:
         </p>
-        <pre><code>For each of these tasks, create a git worktree on its own branch and open it,
-then hand the task to the matching worker:
+        <pre><code>For each of these tasks, create a git worktree on its own branch and open it:
   - frontend → feat/toggle-ui   (dark-mode toggle UI)
   - backend  → feat/prefs-api   (theme preference endpoint)
   - reviewer → review/toggle    (review both branches when they land)</code></pre>
         <p>
-          The supervisor calls <code>worktree_create</code> three times, each opening a tab
-          rooted in a clean branch, then delegates over the bus. Each worker now edits,
+          The agent calls <code>worktree_create</code> three times, each opening a tab
+          rooted in a clean branch. Start an agent in each tab with its task — by hand, or
+          have the first agent type it in with <code>send_input</code>. Each one now edits,
           commits, and tests entirely inside its own worktree.
         </p>
 
@@ -118,9 +118,9 @@ run = "bun install"       <span class="c"># runs in the new worktree's directory
         </p>
         <div class="callout tip">
           <span class="label">Tip</span>
-          <p>On the mesh, the reviewer can call <code>wait_status</code> to park until both
-          <code>frontend</code> and <code>backend</code> report <code>done</code> — so it
-          reviews exactly once, when both branches are actually ready, instead of polling.</p>
+          <p>An agent connected to <code>sinclair mcp</code> can read the same dots with the
+          <code>agent_states</code> tool — so the reviewer can check that <code>frontend</code>
+          and <code>backend</code> both report <code>done</code> before it starts.</p>
         </div>
 
         <h2>6. Merge and clean up</h2>

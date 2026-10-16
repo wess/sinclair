@@ -310,18 +310,6 @@ pub enum Action {
   SaveBuffer,
   /// Toggle the Quake-style dropdown quick terminal.
   ToggleQuickTerminal,
-  /// Open the Relay agent-mesh feed in a split.
-  RelayFeed,
-  /// Launch a Relay agent in a split (prompts for a name).
-  RelayLaunch,
-  /// Tail the Relay server log in a split.
-  RelayLog,
-  /// Start the Relay server daemon.
-  RelayStart,
-  /// Stop the Relay server daemon.
-  RelayStop,
-  /// Restart the Relay server daemon.
-  RelayRestart,
   /// Create a git worktree at the given path (branched from HEAD) and open it
   /// in a new tab. The payload is the worktree path; append `@branch` to name
   /// the branch (else the path's basename is used).
@@ -335,20 +323,11 @@ pub enum Action {
   /// Save the current tab's layout as a named custom tile.
   SaveLayout,
   /// Show/toggle a side drawer. Payload is `side` (`left`/`right`, toggles the
-  /// side with its default panel) or `side:panel` (e.g. `left:relay`) to show
+  /// side with its default panel) or `side:panel` (e.g. `left:agents`) to show
   /// a specific panel; re-selecting the active panel collapses that side.
   Sidebar(String),
-  /// Open a Relay team by name (tiled agents).
-  OpenTeam(String),
-  /// Open the Team Builder window (manual or AI-guided team assembly).
-  BuildTeam,
   /// Check GitHub for a newer release now and prompt to update.
   CheckUpdates,
-  /// Launch a previously-saved agent by name.
-  AgentDef(String),
-  /// Quick-launch a configured provider (e.g. `claude`, `codex`) as a one-off
-  /// agent in a split, with default role and no task.
-  LaunchAgent(String),
   /// Open the Plugin Manager window (search / install / uninstall).
   ManagePlugins,
   Quit,
@@ -495,12 +474,6 @@ impl Action {
       "export_recording" => Ok(Self::ExportRecording(param.unwrap_or("gif").to_string())),
       "save_buffer" => only(Self::SaveBuffer, &name, param),
       "toggle_quick_terminal" | "quick_terminal" => only(Self::ToggleQuickTerminal, &name, param),
-      "relay_feed" => only(Self::RelayFeed, &name, param),
-      "relay_launch" => only(Self::RelayLaunch, &name, param),
-      "relay_log" => only(Self::RelayLog, &name, param),
-      "relay_start" => only(Self::RelayStart, &name, param),
-      "relay_stop" => only(Self::RelayStop, &name, param),
-      "relay_restart" => only(Self::RelayRestart, &name, param),
       "worktree_create" | "worktree_new" => {
         Ok(Self::WorktreeCreate(req(&name, param)?.to_string()))
       }
@@ -509,11 +482,7 @@ impl Action {
       "tile" => Ok(Self::Tile(req(&name, param)?.to_string())),
       "save_layout" => only(Self::SaveLayout, &name, param),
       "sidebar" => Ok(Self::Sidebar(req(&name, param)?.to_string())),
-      "open_team" => Ok(Self::OpenTeam(req(&name, param)?.to_string())),
-      "build_team" => only(Self::BuildTeam, &name, param),
       "check_updates" => only(Self::CheckUpdates, &name, param),
-      "agent_def" => Ok(Self::AgentDef(req(&name, param)?.to_string())),
-      "launch_agent" => Ok(Self::LaunchAgent(req(&name, param)?.to_string())),
       // Retired: plugins no longer contribute web views, and Notes is a
       // built-in surface. Kept as an alias so a binding someone already
       // wrote (`open_webview:notes`) still opens Notes.
@@ -581,23 +550,13 @@ impl Action {
       Self::ToggleSemanticSearch => "toggle_semantic_search".into(),
       Self::ExplainOutput => "explain_output".into(),
       Self::ComposeCommand => "compose_command".into(),
-      Self::RelayFeed => "relay_feed".into(),
-      Self::RelayLaunch => "relay_launch".into(),
-      Self::RelayLog => "relay_log".into(),
-      Self::RelayStart => "relay_start".into(),
-      Self::RelayStop => "relay_stop".into(),
-      Self::RelayRestart => "relay_restart".into(),
       Self::WorktreeCreate(s) => format!("worktree_create:{s}"),
       Self::WorktreeOpen(s) => format!("worktree_open:{s}"),
       Self::WorktreeRemove(s) => format!("worktree_remove:{s}"),
       Self::Tile(s) => format!("tile:{s}"),
       Self::SaveLayout => "save_layout".into(),
       Self::Sidebar(s) => format!("sidebar:{s}"),
-      Self::OpenTeam(s) => format!("open_team:{s}"),
-      Self::BuildTeam => "build_team".into(),
       Self::CheckUpdates => "check_updates".into(),
-      Self::AgentDef(s) => format!("agent_def:{s}"),
-      Self::LaunchAgent(s) => format!("launch_agent:{s}"),
       Self::ManagePlugins => "manage_plugins".into(),
       Self::PluginCommand(s) => format!("plugin_command:{s}"),
       Self::MacroRecord => "macro_record".into(),

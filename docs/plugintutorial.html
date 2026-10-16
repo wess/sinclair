@@ -244,7 +244,7 @@ target = "background"        <span class="c"># detached; no terminal UI</span></
         <div class="callout note"><span class="label">Note</span><p><code>command_finished</code> fires after every command (including a success at shell start), so filter early — <code>when = "nonzero"</code> or an <code>invoke</code> that returns quickly. <code>dir_changed</code> only fires when the directory actually changes, not on every prompt.</p></div>
 
         <h2>Tutorial 5 — an agent tool</h2>
-        <p>The previous tutorials extend the terminal for <em>you</em>. A <code>[[tool]]</code> extends it for your <strong>AI agents</strong>: it joins Sinclair's MCP server, so any MCP client — Claude, or an agent running in a relay session — can call it alongside the built-in terminal tools. This is what makes a plugin a capability, not just a UI.</p>
+        <p>The previous tutorials extend the terminal for <em>you</em>. A <code>[[tool]]</code> extends it for your <strong>AI agents</strong>: it joins Sinclair's MCP server, so any MCP client — Claude Code, Codex, or any other agent — can call it alongside the built-in terminal tools. This is what makes a plugin a capability, not just a UI.</p>
         <p>A tool needs a <code>[runtime]</code> to handle it. Declare it with a description (shown to the agent) and parameters as <code>param = "name | type | description | required"</code> — the host turns these into the MCP <code>inputSchema</code>:</p>
         <pre><code>[runtime]
 command = "bun run plugin.ts"

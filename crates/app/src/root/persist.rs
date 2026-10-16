@@ -112,55 +112,6 @@ impl WorkspaceView {
     }
   }
 
-  /// Spawn `command` rooted at `cwd` (like [`Self::spawncommand`] but with an
-  /// explicit working directory rather than the focused pane's). A window's
-  /// first item has no focused pane to inherit from yet, so the team path
-  /// uses this.
-  pub(super) fn spawn_command_cwd(
-    &mut self,
-    command: &str,
-    cwd: Option<std::path::PathBuf>,
-    window: &mut Window,
-    cx: &mut Context<Self>,
-  ) -> Option<ItemId> {
-    let mut options = session::options(&self.opts, SPAWN_COLS, SPAWN_ROWS, cwd);
-    let saved_cwd = options.spawn.cwd.clone();
-    options.spawn = commandspawn(&self.opts, command);
-    options.spawn.cwd = saved_cwd;
-    let id = self.spawn(options, window, cx)?;
-    self.set_item_command(id, command);
-    Some(id)
-  }
-
-  /// Open `name`'s roster in a window of its own, inheriting this window's
-  /// appearance so the two match without re-reading config. The new window
-  /// spawns the lead as its first item and splits the rest off it, so the
-  /// team is the only thing in there.
-  pub(crate) fn open_team_window(
-    &self,
-    name: &str,
-    panes: crate::relay::TeamPanes,
-    cx: &mut Context<Self>,
-  ) {
-    crate::open_window(
-      self.opts.clone(),
-      self.colors.clone(),
-      self.font.clone(),
-      self.font_size,
-      self.cell,
-      self.pad,
-      self.focused_cwd_path(cx),
-      None,
-      None,
-      Some(crate::root::TeamOpen {
-        name: name.to_string(),
-        panes,
-      }),
-      crate::root::Restore::Fresh,
-      cx,
-    );
-  }
-
   /// Rebuild the saved session into this fresh window, then drop the empty
   /// default item it launched with. No-op without a saved session.
   pub(crate) fn try_restore(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -247,14 +198,6 @@ impl WorkspaceView {
   /// path), so a Notes tab no longer discards the rest of the session.
   pub(crate) fn save_state(&self, cx: &App) {
     if !self.opts.session_restore {
-      return;
-    }
-    // A team window is not this window's session to save. Only one window's
-    // state fits the file (see `close_window`), so letting a team win the
-    // race would restore the roster in place of the user's real work — and
-    // replaying every member's `relay launch` would re-register a team the
-    // daemon may still be running. Re-open it from AI ▸ Teams instead.
-    if self.team.is_some() {
       return;
     }
     let tree = self.group.read(cx).tree().clone();
@@ -423,81 +366,6 @@ impl WorkspaceView {
       .unwrap_or_else(|| id.to_string());
     let commands = vec![None; n];
     self.apply_layout(&layout, &commands, Some(&label), window, cx);
-  }
-
-  /// Open a Relay team: a tile of agents, each pane launched into the mesh.
-  ///
-  /// When the project uses a sandbox, it is brought up *first*: every member
-  /// has to land in the same container, and a member launched before it
-  /// exists would end up on the host, working in a different toolchain from
-  /// the rest of its team.
-  pub(crate) fn open_team(&mut self, name: &str, window: &mut Window, cx: &mut Context<Self>) {
-    if self.opts.sandbox_enabled && self.sandbox.is_none() {
-      let name = name.to_string();
-      self.with_sandbox(window, cx, move |this, _sandbox, window, cx| {
-        this.open_team_panes(&name, window, cx);
-      });
-      return;
-    }
-    self.open_team_panes(name, window, cx);
-  }
-
-  /// The team open itself. The daemon start and the `team info` subprocess
-  /// both block, so they run on the background executor; the splits open in
-  /// the completion callback.
-  fn open_team_panes(&mut self, name: &str, window: &mut Window, cx: &mut Context<Self>) {
-    let Some(handle) = window.window_handle().downcast::<Self>() else {
-      return;
-    };
-    let opts = self.opts.clone();
-    let name = name.to_string();
-    let executor = cx.background_executor().clone();
-    cx.spawn(async move |_this, cx| {
-      let team = name.clone();
-      let info = executor
-        .spawn(async move {
-          crate::relay::ensure_running(&opts);
-          crate::relay::team_info(&team)
-        })
-        .await;
-      let _ = handle.update(cx, |view, window, cx| {
-        let Some((shape, members)) = info else {
-          eprintln!("sinclair: team `{name}` not found");
-          return;
-        };
-        if members.is_empty() {
-          return;
-        }
-        let sandbox = view.sandbox_ref();
-        let panes = crate::relay::team_layout(&view.opts, &shape, &members, sandbox.as_ref());
-        if view.opts.relay_team_window {
-          // The team gets a window of its own: every pane in it is a
-          // member, the dividers between them resize, and the layout
-          // you were working in is left alone.
-          view.open_team_window(&name, panes, cx);
-        } else {
-          view.apply_layout(&panes.layout, &panes.commands, Some(&name), window, cx);
-        }
-      });
-    })
-    .detach();
-  }
-
-  /// Rebuild menus after the Team Builder saves, so the new team shows under
-  /// AI → Teams without a restart.
-  pub(crate) fn after_team_saved(&mut self, cx: &mut Context<Self>) {
-    self.refresh_menu_data(cx);
-  }
-
-  /// Add an agent (a `relay launch` command from the New Agent modal) to the
-  /// current workspace as a split.
-  pub fn create_agent(&mut self, cmd: &str, window: &mut Window, cx: &mut Context<Self>) {
-    let cmd = cmd.to_string();
-    self.with_relay_running(window, cx, move |this, window, cx| {
-      this.splitcommand(&cmd, SplitAxis::Horizontal, false, window, cx);
-      // A new agent definition may have been saved alongside the launch.
-      this.refresh_menu_data(cx);
-    });
   }
 
   /// Sinclair for a name and save the current arrangement as a custom tile.

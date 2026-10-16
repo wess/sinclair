@@ -9,7 +9,7 @@ use gpui::{div, px, AnyElement, Context, MouseButton, SharedString};
 impl SettingsView {
   fn list_rows(&self, kind: ListKind, cx: &mut Context<Self>) -> Vec<AnyElement> {
     let width = match kind {
-      ListKind::Keybind | ListKind::AgentTool => 420.0,
+      ListKind::Keybind => 420.0,
       ListKind::Plugin | ListKind::Container => 380.0,
       _ => 320.0,
     };

@@ -2,12 +2,11 @@
 
 **The terminal your agent team lives in.**
 
-Run a team of coding agents in a window of panes — each on a shared bus, each
-reporting whether it's working, blocked, or done — on top of a terminal that
-stands on its own. GPU-rendered, standards-complete VT, tabs and splits,
+Run a team of coding agents in a window of panes — each reporting whether it's
+working, blocked, or done — on top of a terminal that stands on its own. GPU-rendered, standards-complete VT, tabs and splits,
 live-reloading config, 22 themes.
 
-![A Sinclair window running an agent team: a lead agent reporting the finished work, three workers parked below](assets/agentteam.png)
+![A Sinclair window running several coding agents, one per pane](assets/agentteam.png)
 
 macOS and Linux · Rust · Apache-2.0
 
@@ -30,9 +29,6 @@ things. Sinclair treats it as something you're supervising.
   blocked, done, idle — as a colored dot on its tab, rolled up in the Activity
   panel. `sinclair agent-hooks install` wires Claude Code's lifecycle to it, so
   you can see which of six agents is stuck without clicking through six panes.
-- **Whole teams, one window.** Open a roster at once: one member per pane, each
-  tab named for its agent, running unattended. They coordinate over a shared
-  bus and message each other directly.
 - **One sandbox for the team.** Put the project and every agent in a single
   container instead of on your host — shared filesystem, one toolchain, and a
   real boundary around agents whose permission prompts you just turned off.
@@ -48,15 +44,9 @@ things. Sinclair treats it as something you're supervising.
   so an agent can run commands, read the screen, switch tabs, replay macros, and
   manage worktrees.
 
-Claude Code and Codex join the mesh natively over MCP. Ollama runs through a
-bridge; anything else runs via `--cmd`. The mesh is a bundled sidecar, managed
-from **Settings → AI** — it never runs inside the terminal process.
-
-→ [Agent teams](https://wess.io/sinclair/agentteams.html) ·
-[Sandbox](https://wess.io/sinclair/sandbox.html) ·
+→ [Sandbox](https://wess.io/sinclair/sandbox.html) ·
 [Worktree agents](https://wess.io/sinclair/worktreeagents.html) ·
-[MCP](https://wess.io/sinclair/mcp.html) ·
-[`docs/relay.md`](docs/relay.md)
+[MCP](https://wess.io/sinclair/mcp.html)
 
 ## A terminal that earns the tab
 
@@ -139,9 +129,7 @@ reloads the moment you save, and it only lists what you change.
   "scrollback-limit": 100000,
   "shell-integration": true,   // OSC 133/7 prompt-jump + cwd inheritance
 
-  // AI — opt-in, also under Settings → AI
-  "ai-enabled": true,
-  "relay-enabled": true,
+  // Agents — also under Settings → Agents
   "sandbox-enabled": false,    // run this project + its agents in one container
 
   "keybind": ["cmd+shift+c=copy_to_clipboard"]
@@ -164,7 +152,6 @@ first split to a parallel agent team. In this repo:
 
 | | |
 |---|---|
-| [`docs/relay.md`](docs/relay.md) | The agent mesh: roles, teams, CLI, MCP tools |
 | [`docs/sandbox.md`](docs/sandbox.md) | The shared project container |
 | [`docs/compare.md`](docs/compare.md) | Sinclair vs. kitty, Alacritty, Ghostty, WezTerm |
 | [`docs/parity.md`](docs/parity.md) | Terminal feature coverage and gaps |

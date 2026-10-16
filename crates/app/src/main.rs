@@ -2,7 +2,6 @@
 
 mod about;
 mod agenthooks;
-mod agentpicker;
 mod agentstate;
 mod appid;
 mod appkit;
@@ -34,8 +33,6 @@ mod paths;
 mod pluginmanager;
 mod quick;
 mod redact;
-mod relay;
-mod relaywatch;
 mod reload;
 mod rename;
 mod resume;
@@ -50,7 +47,6 @@ mod sidecar;
 mod suggest;
 mod switcher;
 mod tabbar;
-mod teambuilder;
 mod tiles;
 mod titlebar;
 mod trigger;
@@ -241,7 +237,6 @@ fn open_default_window(opts: config::Options, cx: &mut App) {
     None,
     None,
     place,
-    None,
     root::Restore::Saved,
     cx,
   );
@@ -306,10 +301,8 @@ pub(crate) fn open_window(
   // Exact screen bounds to open at (a torn-off window cascades off its
   // source); `None` centers a default-sized window on the active display.
   place: Option<Bounds<Pixels>>,
-  // A Relay team to fill the window with, one member per pane.
-  team: Option<root::TeamOpen>,
   // Whether the window rebuilds the saved session (app launch) or opens as a
-  // single fresh pane (new-window, tear-off, team).
+  // single fresh pane (new-window, tear-off).
   restore: root::Restore,
   cx: &mut App,
 ) {
@@ -369,8 +362,7 @@ pub(crate) fn open_window(
   let handle = match cx.open_window(options, move |window, cx| {
     cx.new(move |cx| {
       root::WorkspaceView::new(
-        opts, colors, font, font_size, cell, pad, cols, rows, cwd, adopt, team, restore, window,
-        cx,
+        opts, colors, font, font_size, cell, pad, cols, rows, cwd, adopt, restore, window, cx,
       )
     })
   }) {

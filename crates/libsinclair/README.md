@@ -20,7 +20,7 @@ this crate — there is one renderer implementation, not a fork.
   selection, and copy/paste wired up.
 
 Deliberately not included: settings/config loading (the library takes plain
-option structs), plugins, the relay agent mesh, auto-update, window chrome.
+option structs), plugins, auto-update, window chrome.
 
 ## Install
 

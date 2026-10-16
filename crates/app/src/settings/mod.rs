@@ -36,14 +36,6 @@ pub(crate) enum EditTarget {
   MacroName(String),
 }
 
-/// Result of probing a tool's reachability.
-#[derive(Clone)]
-enum ToolTest {
-  Testing,
-  Ok(String),
-  Fail(String),
-}
-
 pub struct SettingsView {
   opts: config::Options,
   /// Keys the user's settings.json sets — the modified indicators.
@@ -65,8 +57,6 @@ pub struct SettingsView {
   /// When set, the next key chord is captured as the shortcut for this macro.
   capture_macro: Option<String>,
   focus: FocusHandle,
-  relay_running: bool,
-  tool_tests: HashMap<&'static str, ToolTest>,
   /// Each slider track's window-space bounds, captured every frame so a
   /// mouse-down (which carries a position but not the element's bounds) can
   /// be mapped to a value. Keyed by the option's settings key.
@@ -146,62 +136,16 @@ impl SettingsView {
       plugins: Vec::new(),
       capture_macro: None,
       focus: cx.focus_handle(),
-      // Probing the relay blocks (file read + TCP connect); start
-      // pessimistic and let the first off-thread poll fill it in.
-      relay_running: false,
-      tool_tests: HashMap::new(),
       slider_bounds: HashMap::new(),
       choice_bounds: HashMap::new(),
     };
     view.reload();
-    view.poll_relay_status(cx);
     view
   }
 
   /// The active search query (empty = no filter).
   fn search(&self) -> String {
     self.query.text().trim().to_string()
-  }
-
-  /// Probe a tool off-thread and record the result for the row to show.
-  fn test_tool(&mut self, tool: &'static str, cx: &mut Context<Self>) {
-    self.tool_tests.insert(tool, ToolTest::Testing);
-    cx.notify();
-    let executor = cx.background_executor().clone();
-    let path = tool_path(&self.opts, tool);
-    cx.spawn(async move |this, cx| {
-      let result = executor
-        .spawn(async move { crate::relay::test_tool(tool, path.as_deref()) })
-        .await;
-      let _ = this.update(cx, |view, cx| {
-        let state = match result {
-          Ok(m) => ToolTest::Ok(m),
-          Err(e) => ToolTest::Fail(e),
-        };
-        view.tool_tests.insert(tool, state);
-        cx.notify();
-      });
-    })
-    .detach();
-  }
-
-  /// Re-probe the relay server on an interval so the status dot stays live.
-  fn poll_relay_status(&self, cx: &mut Context<Self>) {
-    let executor = cx.background_executor().clone();
-    cx.spawn(async move |this, cx| loop {
-      let running = executor.spawn(async { crate::relay::running() }).await;
-      let updated = this.update(cx, |view, cx| {
-        if view.relay_running != running {
-          view.relay_running = running;
-          cx.notify();
-        }
-      });
-      if updated.is_err() {
-        break;
-      }
-      executor.timer(std::time::Duration::from_millis(1500)).await;
-    })
-    .detach();
   }
 
   fn reload(&mut self) {
@@ -705,17 +649,6 @@ fn capture_trigger(ks: &gpui::Keystroke) -> Option<String> {
     shift: m.shift,
   };
   Some(config::format_trigger(mods, &key))
-}
-
-/// The configured explicit path for a built-in tool, if any.
-fn tool_path(opts: &config::Options, tool: &str) -> Option<String> {
-  let p = match tool {
-    "claude" => &opts.agent_claude_path,
-    "codex" => &opts.agent_codex_path,
-    "gemini" => &opts.agent_gemini_path,
-    _ => &None,
-  };
-  p.clone().filter(|s| !s.trim().is_empty())
 }
 
 /// Write one key to settings.json (an empty value removes it). See

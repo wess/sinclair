@@ -1,8 +1,5 @@
-//! Small-model boundary. Today the helpers are deterministic and fast; the
-//! Candle touchpoint keeps the crate ready for a real local generator.
-
-#[cfg(feature = "candle")]
-use candle_core::{Device, Tensor};
+//! Deterministic output explanation and command composition: keyword
+//! matching, no model.
 
 pub fn explain(text: &str) -> String {
   let text = text.trim();
@@ -65,19 +62,6 @@ pub fn compose_match(request: &str) -> Option<String> {
 /// miss visible instead of disguising it as output.
 pub fn compose(request: &str) -> String {
   compose_match(request).unwrap_or_else(|| request.trim().to_string())
-}
-
-#[cfg(feature = "candle")]
-pub fn candleprobe() -> bool {
-  Tensor::from_vec(vec![1f32, 0f32], (2,), &Device::Cpu)
-    .and_then(|tensor| tensor.to_vec1::<f32>())
-    .map(|v| v == [1.0, 0.0])
-    .unwrap_or(false)
-}
-
-#[cfg(not(feature = "candle"))]
-pub fn candleprobe() -> bool {
-  false
 }
 
 #[cfg(test)]

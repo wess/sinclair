@@ -203,9 +203,6 @@ pub struct Options {
   /// File key: `autosuggest-tab` - press Tab to cycle inline completions
   /// instead of forwarding Tab to the shell. Off by default.
   pub autosuggest_tab: bool,
-  /// File key: `autosuggest-ai` - when nothing local matches, ask Claude for a
-  /// next-command suggestion (needs AI enabled). Off by default.
-  pub autosuggest_ai: bool,
   /// File key: `autosuggest-history` - use captured command history as a
   /// suggestion source. On by default.
   pub autosuggest_history: bool,
@@ -314,59 +311,8 @@ pub struct Options {
   pub sidebar_left_width: u32,
   /// File key: `sidebar-right-width` - the right dock's width in pixels.
   pub sidebar_right_width: u32,
-  /// File key: `ai-enabled` - master switch for all AI features.
-  pub ai_enabled: bool,
-  /// File key: `ai-optimize-tokens` - when true, prompts sent to AI agents are
-  /// compacted (trailing whitespace, repeated spaces, and blank-line runs
-  /// collapsed) to spend fewer tokens without dropping content.
-  pub ai_optimize_tokens: bool,
   /// File key: `mcp-server-enabled` - expose this terminal to agents over MCP.
   pub mcp_server_enabled: bool,
-  /// File key: `relay-enabled` - run the Relay agent mesh.
-  pub relay_enabled: bool,
-  /// File key: `relay-start-on-launch` - start Relay when Sinclair launches.
-  pub relay_start_on_launch: bool,
-  /// File key: `relay-address` - bind address for the Relay server.
-  pub relay_address: String,
-  /// File key: `relay-default-agent` - default agent CLI for launches.
-  pub relay_default_agent: String,
-  /// File key: `relay-team-autonomy` - launch team members with their
-  /// permission prompts bypassed. A team fills every split at once and nobody
-  /// is sitting in each one, so a member that stops to ask stalls until the
-  /// human finds the pane. On by default; turn it off to answer each prompt
-  /// yourself.
-  pub relay_team_autonomy: bool,
-  /// File key: `relay-team-window` - open a team in its own window, so the
-  /// roster gets a whole pane group to itself (one member per pane, resizable
-  /// dividers) instead of being folded into the focused pane as another tab
-  /// and carving up the layout already there. On by default.
-  pub relay_team_window: bool,
-  /// File key: `agent-claude` - Claude Code available as an agent.
-  pub agent_claude: bool,
-  /// File key: `agent-codex` - Codex available as an agent.
-  pub agent_codex: bool,
-  /// File key: `agent-ollama` - Ollama available as a (bridged) agent.
-  pub agent_ollama: bool,
-  /// File key: `agent-gemini` - Gemini available as an agent.
-  pub agent_gemini: bool,
-  /// File key: `agent-claude-path` - explicit path to the `claude` binary
-  /// (overrides PATH lookup). Empty means search PATH.
-  pub agent_claude_path: Option<String>,
-  /// File key: `agent-codex-path` - explicit path to the `codex` binary.
-  pub agent_codex_path: Option<String>,
-  /// File key: `agent-gemini-path` - explicit path to the `gemini` binary.
-  pub agent_gemini_path: Option<String>,
-  /// File key: `agent-claude-args` - extra CLI flags appended when launching
-  /// Claude Code (e.g. `--dangerously-skip-permissions`). Blank = none.
-  pub agent_claude_args: Option<String>,
-  /// File key: `agent-codex-args` - extra CLI flags appended when launching Codex.
-  pub agent_codex_args: Option<String>,
-  /// File key: `agent-gemini-args` - extra CLI flags appended when launching Gemini.
-  pub agent_gemini_args: Option<String>,
-  /// File key: `agent-custom` (repeatable) - user-defined agent tools, each
-  /// `label|command template`, where the template may use `{prompt}`, `{mcp}`,
-  /// `{url}`, and `{name}` placeholders.
-  pub agent_custom: Vec<String>,
   /// File key: `theme-light` - scheme used when the OS is in light mode. Set
   /// together with `theme-dark` to follow the system appearance automatically.
   pub theme_light: String,
@@ -499,7 +445,6 @@ impl Default for Options {
       autosuggest_ghost: true,
       autosuggest_popup: false,
       autosuggest_tab: false,
-      autosuggest_ai: false,
       autosuggest_history: true,
       autosuggest_commands: true,
       autosuggest_paths: true,
@@ -539,26 +484,7 @@ impl Default for Options {
       sidebar_collapsed: Vec::new(),
       sidebar_left_width: 260,
       sidebar_right_width: 260,
-      ai_enabled: false,
-      ai_optimize_tokens: false,
       mcp_server_enabled: false,
-      relay_enabled: false,
-      relay_start_on_launch: false,
-      relay_address: "127.0.0.1:7777".to_string(),
-      relay_default_agent: "claude".to_string(),
-      relay_team_autonomy: true,
-      relay_team_window: true,
-      agent_claude: true,
-      agent_codex: false,
-      agent_ollama: false,
-      agent_gemini: false,
-      agent_claude_path: None,
-      agent_codex_path: None,
-      agent_gemini_path: None,
-      agent_claude_args: None,
-      agent_codex_args: None,
-      agent_gemini_args: None,
-      agent_custom: Vec::new(),
       theme_light: String::new(),
       theme_dark: String::new(),
       timestamps: false,

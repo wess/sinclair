@@ -105,7 +105,7 @@ plugin_command:lazygit/open</code></pre>
         <pre><code>{
   "keybind": ["cmd+ctrl+g=unbind"]
 }</code></pre>
-        <div class="callout warn"><span class="label">Warning</span><p>A plugin keybind overrides any built-in binding with the same trigger. Avoid Sinclair's <kbd>⌘⇧</kbd> defaults (Compose, Broadcast, the relay shortcuts, and so on) — use the <kbd>⌘⌃</kbd> namespace for plugin commands to stay clear of them.</p></div>
+        <div class="callout warn"><span class="label">Warning</span><p>A plugin keybind overrides any built-in binding with the same trigger. Avoid Sinclair's <kbd>⌘⇧</kbd> defaults (Compose, Broadcast, and so on) — use the <kbd>⌘⌃</kbd> namespace for plugin commands to stay clear of them.</p></div>
 
         <h2>IPC plugins (live panels)</h2>
         <p>Beyond the declarative command model, a plugin can contribute a <strong>live side-drawer panel</strong> rendered from a block tree. Add two tables to <code>plugin.toml</code>: a <code>[runtime]</code> that names the program to spawn (any language) and a <code>[panel]</code> that describes the activity-bar entry.</p>
@@ -210,7 +210,7 @@ notify = "A command failed"  <span class="c"># one action: notify | run | invoke
         <p>Each trigger runs exactly one action: <code>notify = "…"</code> (a desktop notification); <code>run = "…"</code> with an optional <code>target</code> (<code>background</code> — the default, detached — or <code>pane</code>/<code>tab</code>/<code>split_right</code>/<code>split_down</code>, run with the focused pane's cwd); or <code>invoke = "method"</code>, which calls the plugin's <code>[runtime]</code> with the event payload and runs any <code>run</code> directives it returns. See <a href="https://github.com/wess/sinclair/tree/main/plugins/alert">alert</a> for a complete example.</p>
 
         <h2>Agent tools</h2>
-        <p>The bridge lets a plugin call <em>into</em> the terminal. <code>[[tool]]</code> is the other direction: a plugin exposes a <strong>tool your AI agents can call</strong>. Every plugin tool joins the built-in terminal tools in Sinclair's MCP server, so any MCP client — Claude, or an agent running in a relay session — sees and can invoke it. This is what makes Sinclair's plugins agent-native: a plugin isn't just UI for you, it's a capability for your agents.</p>
+        <p>The bridge lets a plugin call <em>into</em> the terminal. <code>[[tool]]</code> is the other direction: a plugin exposes a <strong>tool your AI agents can call</strong>. Every plugin tool joins the built-in terminal tools in Sinclair's MCP server, so any MCP client — Claude Code, Codex, or any other agent — sees and can invoke it. This is what makes Sinclair's plugins agent-native: a plugin isn't just UI for you, it's a capability for your agents.</p>
         <p>Add one or more <code>[[tool]]</code> tables. A tool needs a <code>[runtime]</code> to handle it; parameters are declared as <code>param = "name | type | description | required"</code> (type defaults to <code>string</code>; the host assembles them into the MCP <code>inputSchema</code>):</p>
         <pre><code>[runtime]
 command = "bun run plugin.ts"

@@ -15,7 +15,7 @@
 //! `sandbox-image` at a ready-made image to skip generation entirely.
 
 use crate::engine::Engine;
-use crate::sandbox::{HOME_DIR, RELAY_DIR};
+use crate::sandbox::HOME_DIR;
 
 /// The default base image: small, Debian, and `apt-get`-shaped so the
 /// generated layer applies cleanly.
@@ -108,7 +108,7 @@ impl Recipe {
     // is what lets the sandbox run as an arbitrary `--user` uid on Linux
     // and still write its credentials.
     out.push_str(&format!(
-      "RUN mkdir -p {HOME_DIR} {RELAY_DIR} && chmod 0777 {HOME_DIR}\n"
+      "RUN mkdir -p {HOME_DIR} && chmod 0777 {HOME_DIR}\n"
     ));
     out.push_str(&format!("ENV HOME={HOME_DIR}\n"));
 

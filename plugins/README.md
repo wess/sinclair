@@ -46,7 +46,7 @@ Modes:
 Keybind syntax: `cmd`/`ctrl`/`alt`/`shift`/`super` plus a key, joined with `+`
 (for example `cmd+ctrl+g`). A plugin keybind overrides any built-in binding with
 the same trigger, so avoid Sinclair's `cmd+shift+*` defaults (Compose, Broadcast,
-the relay shortcuts, and so on). The examples here use the `cmd+ctrl+*` namespace
+and so on). The examples here use the `cmd+ctrl+*` namespace
 to stay clear of them.
 
 ### Annotated example

@@ -28,8 +28,6 @@ pub struct Env<'a> {
   pub devcontainer: Option<&'a container::DevContainer>,
   /// `uid:gid` owning the project, used when `sandbox-user` is `host`.
   pub host_user: Option<String>,
-  /// Host directory holding generated relay MCP configs.
-  pub relay_dir: Option<&'a str>,
   /// Agent CLIs to install when nothing is configured explicitly.
   pub default_agent: &'a str,
 }
@@ -42,9 +40,6 @@ pub fn build(opts: &config::Options, env: &Env) -> Spec {
   let (image, recipe) = image_for(opts, env, &mut notes);
   let mut sandbox = Sandbox::for_project(env.engine, &project, &image)
     .with_home_volume(&container::home_volume_for(&project));
-  if let Some(dir) = env.relay_dir {
-    sandbox = sandbox.with_relay_dir(dir);
-  }
 
   // A project's devcontainer mounts come first, so an explicit
   // `sandbox-mount` for the same target is the one that wins.
@@ -92,7 +87,8 @@ pub fn build(opts: &config::Options, env: &Env) -> Spec {
   }
   if sandbox.network == Network::None {
     notes.push(
-      "sandbox-network is `none`: agents in this sandbox cannot reach the relay bus.".to_string(),
+      "sandbox-network is `none`: agents in this sandbox cannot reach their model APIs."
+        .to_string(),
     );
   }
   sandbox.limits = Limits {

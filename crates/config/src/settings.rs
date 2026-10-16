@@ -6,7 +6,7 @@
 
 use crate::apply::apply;
 use crate::json::{self, Value};
-use crate::kind::{kind, Kind};
+use crate::kind::{kind, retired, Kind};
 use crate::options::Options;
 use crate::parse::Diagnostic;
 
@@ -29,6 +29,9 @@ pub fn parse_json_str(text: &str) -> (Options, Vec<Diagnostic>) {
   };
 
   for m in &members {
+    if retired(&m.key) {
+      continue;
+    }
     let Some(kind) = kind(&m.key) else {
       diags.push(Diagnostic {
         line: m.line,

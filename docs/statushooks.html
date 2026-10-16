@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Agent status at a glance — Sinclair docs</title>
-    <meta name="description" content="Wire Claude Code's lifecycle hooks so every pane shows a live status dot — working, blocked, done, or idle — and roll them up in the Activity panel and the mesh.">
+    <meta name="description" content="Wire Claude Code's lifecycle hooks so every pane shows a live status dot — working, blocked, done, or idle — and roll them up in the Activity panel.">
     <meta name="theme-color" content="#05070c">
     <link rel="icon" href="icon.png">
     <link rel="stylesheet" href="style.css">
@@ -21,7 +21,7 @@
           knowing <em>which one needs you</em>. Sinclair gives every pane a semantic status
           dot: working, blocked, done, or idle. This walkthrough wires Claude Code's
           lifecycle hooks so that dot updates itself, then shows how to report status from
-          anything else — a script, a build, or an agent on the mesh.
+          anything else — a script, a build, or another agent CLI.
         </p>
 
         <h2>1. What the dots mean</h2>
@@ -114,25 +114,7 @@ sinclair agent-status done</code></pre>
           <a href="cli.html#sinclair-agent-status">CLI reference</a>.
         </p>
 
-        <h2>6. Status on the mesh</h2>
-        <p>
-          Agents launched by the <a href="agents.html">relay</a> don't need the hooks at
-          all — they report the same states over the bus with the <code>report_status</code>
-          tool, and their status shows up in the <strong>Relay</strong> panel alongside the
-          roster. Even better, one agent can <em>wait</em> on another's status — the
-          reviewer calls the <code>wait_status</code> tool to park until both workers finish,
-          then reviews exactly once:
-        </p>
-        <pre><code><span class="c"># the reviewer's tool calls, not shell commands</span>
-wait_status(name: "frontend", status: "done")
-wait_status(name: "backend",  status: "done")</code></pre>
-        <p>
-          <code>wait_status</code> blocks for free on the shared wake signal and returns the
-          status the moment it's reached (or on timeout — call again to keep waiting). It
-          turns "are you done yet?" polling into a single cheap call.
-        </p>
-
-        <h2>7. Removing the hooks</h2>
+        <h2>6. Removing the hooks</h2>
         <p>Changed your mind, or want them out of a repo? The uninstall removes only Sinclair's entries:</p>
         <pre><code>sinclair agent-hooks uninstall
 sinclair agent-hooks uninstall --project   <span class="c"># the project-scoped ones</span></code></pre>
@@ -141,7 +123,7 @@ sinclair agent-hooks uninstall --project   <span class="c"># the project-scoped 
         <div class="cards">
           <a href="worktreeagents.html"><strong>Parallel agents in worktrees</strong>Where the dots pay off most — one isolated agent per tab.</a>
           <a href="productivity.html"><strong>Productivity</strong>The Activity dashboard in context with the rest of the terminal's power features.</a>
-          <a href="agents.html"><strong>Agent mesh reference</strong>report_status, wait_status, and the full coordination toolset.</a>
+          <a href="mcp.html"><strong>MCP server</strong>agent_states and the rest of the tools an agent can use to drive the terminal.</a>
         </div>
       </article>
     </main>

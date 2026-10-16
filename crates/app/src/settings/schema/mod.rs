@@ -6,13 +6,12 @@
 
 use config::Options;
 
-mod ai;
+mod agents;
 mod appearance;
 mod general;
 mod lists;
 mod terminal;
 
-pub use ai::TOOL_KEYS;
 pub use lists::ListKind;
 
 /// Sidebar sections (the GUI's categories).
@@ -25,7 +24,7 @@ pub enum Section {
   Keyboard,
   Macros,
   Plugins,
-  Ai,
+  Agents,
 }
 
 impl Section {
@@ -37,7 +36,7 @@ impl Section {
     Section::Keyboard,
     Section::Macros,
     Section::Plugins,
-    Section::Ai,
+    Section::Agents,
   ];
 
   pub fn title(self) -> &'static str {
@@ -49,7 +48,7 @@ impl Section {
       Section::Keyboard => "Keyboard",
       Section::Macros => "Macros",
       Section::Plugins => "Plugins",
-      Section::Ai => "AI",
+      Section::Agents => "Agents",
     }
   }
 
@@ -64,7 +63,7 @@ impl Section {
       Section::Keyboard => "Keymap",
       Section::Macros => "Macros",
       Section::Plugins => "Plugin Settings",
-      Section::Ai => "AI Settings",
+      Section::Agents => "Agent Settings",
     }
   }
 }
@@ -164,7 +163,7 @@ pub fn all() -> &'static [Setting] {
     entries.extend(terminal::settings());
     entries.extend(lists::keyboard_settings());
     entries.extend(lists::plugin_settings());
-    entries.extend(ai::settings());
+    entries.extend(agents::settings());
     entries
   })
 }

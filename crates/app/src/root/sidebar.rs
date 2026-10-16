@@ -215,8 +215,6 @@ impl WorkspaceView {
       SidebarPanel::Layouts => self.panel_layouts(cx),
       SidebarPanel::Containers => self.panel_containers(cx),
       SidebarPanel::Activity => self.panel_activity(cx),
-      SidebarPanel::Relay => self.panel_relay(cx),
-      SidebarPanel::Agents => self.panel_agents(cx),
       SidebarPanel::Plugins => self.panel_pluginlist(cx),
       SidebarPanel::Worktrees => self.panel_worktrees(cx),
       SidebarPanel::Notes => self.panel_notes(cx),
@@ -611,91 +609,6 @@ impl WorkspaceView {
     body.into_any_element()
   }
 
-  /// Relay panel: live server status, connected agents, and workers.
-  fn panel_relay(&self, cx: &mut Context<Self>) -> AnyElement {
-    let status = cx.try_global::<RelayStatus>().cloned().unwrap_or_default();
-    let mut dim = colors::hsla(self.colors.fg);
-    dim.a = 0.6;
-    let mut body = self.sidebar_body("sb-relay");
-
-    if !crate::relay::available(&self.opts) {
-      return body
-        .child(self.sidebar_note("Enable AI in Settings to use Relay."))
-        .into_any_element();
-    }
-    let server = if status.connected {
-      "\u{25cf} Server connected"
-    } else {
-      "\u{25cb} Server stopped"
-    };
-    body = body.child(
-      div()
-        .px_3()
-        .py_1()
-        .text_color(dim)
-        .child(SharedString::from(server)),
-    );
-
-    body = body.child(self.sidebar_section("Agents"));
-    if status.agents.is_empty() {
-      body = body.child(self.sidebar_note("No agents connected."));
-    } else {
-      let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs() as i64)
-        .unwrap_or(0);
-      for (i, a) in status.agents.iter().enumerate() {
-        // Truthful liveness: a filled dot only while the agent is parked
-        // or recently active; otherwise hollow with how long it's been
-        // quiet, so a crashed agent no longer reads as alive (issue #9).
-        let state = if a.online {
-          // Prefer the agent's self-reported work state over bare liveness.
-          if a.status.is_empty() {
-            String::new()
-          } else {
-            format!("  ·  {}", a.status)
-          }
-        } else if !a.registered {
-          "  ·  pending".to_string()
-        } else if a.last_seen > 0 {
-          format!("  ·  quiet {}", rel_since(now, a.last_seen))
-        } else {
-          "  ·  offline".to_string()
-        };
-        // A semantic dot for a known work state, else bare liveness.
-        let dot = match crate::agentstate::AgentState::parse(&a.status) {
-          Some(st) if a.online => st.glyph(),
-          _ if a.online => "\u{25cf}", // ●
-          _ => "\u{25cb}",             // ○
-        };
-        let label = format!(
-          "{} {}  ·  {}  ch:{}{}",
-          dot, a.name, a.role, a.channels, state
-        );
-        body = body.child(self.sidebar_row(("sb-agentconn", i), label, false, false, false));
-      }
-    }
-
-    if !status.workers.is_empty() {
-      body = body.child(self.sidebar_section("Workers"));
-      for (i, w) in status.workers.iter().enumerate() {
-        let restarts = if w.restarts > 0 {
-          format!("  ↻{}", w.restarts)
-        } else {
-          String::new()
-        };
-        let role = if w.role.is_empty() {
-          String::new()
-        } else {
-          format!("  ·  {}", w.role)
-        };
-        let label = format!("{}{}  ·  {}{}", w.name, role, w.status, restarts);
-        body = body.child(self.sidebar_row(("sb-worker", i), label, false, false, false));
-      }
-    }
-    body.into_any_element()
-  }
-
   /// Activity panel: every tab rolled up to a status dot — who's blocked,
   /// working, done, or idle at a glance across the whole session. An agent's
   /// self-reported state (🔴 blocked, 🟡 working, 🔵 done, 🟢 idle) wins when
@@ -738,38 +651,6 @@ impl WorkspaceView {
           .sidebar_row(("sb-activity", i), label, item == active_item, false, false)
           .on_click(cx.listener(move |this, _: &gpui::ClickEvent, window, cx| {
             this.activate_item(item, window, cx);
-          })),
-      );
-    }
-    body.into_any_element()
-  }
-
-  /// Agents panel: saved agent definitions (from the off-thread menu-data
-  /// cache — never a disk read per repaint); click to launch in a split.
-  fn panel_agents(&self, cx: &mut Context<Self>) -> AnyElement {
-    let mut body = self.sidebar_body("sb-agents");
-    let defs = self.menu_agent_defs.clone();
-    if defs.is_empty() {
-      return body
-        .child(self.sidebar_note("No saved agents. Define one from the AI menu."))
-        .into_any_element();
-    }
-    for (i, d) in defs.into_iter().enumerate() {
-      let name = d.name.clone();
-      let label = format!("{}  ·  {}", d.name, d.provider);
-      body = body.child(
-        self
-          .sidebar_row(("sb-agentdef", i), label, false, false, false)
-          .on_click(cx.listener(move |this, _: &gpui::ClickEvent, window, cx| {
-            let name = name.clone();
-            this.with_relay_running(window, cx, move |this, window, cx| {
-              let sandbox = this.sandbox_ref();
-              if let Some(cmd) =
-                crate::relay::launch_saved_command(&this.opts, &name, sandbox.as_ref())
-              {
-                this.splitcommand(&cmd, SplitAxis::Horizontal, false, window, cx);
-              }
-            });
           })),
       );
     }
@@ -1027,19 +908,5 @@ impl WorkspaceView {
       .px_3()
       .py_2()
       .child(Text::new(text.to_string()).size(Size::Sm).dimmed())
-  }
-}
-
-/// Compact "5s"/"2m"/"1h"/"3d" since `then` (both epoch seconds).
-fn rel_since(now: i64, then: i64) -> String {
-  let s = (now - then).max(0);
-  if s < 60 {
-    format!("{s}s")
-  } else if s < 3600 {
-    format!("{}m", s / 60)
-  } else if s < 86400 {
-    format!("{}h", s / 3600)
-  } else {
-    format!("{}d", s / 86400)
   }
 }

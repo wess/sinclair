@@ -13,7 +13,6 @@ pub struct SuggestConfig {
   pub ghost: bool,
   pub popup: bool,
   pub tab: bool,
-  pub ai: bool,
   pub history: bool,
   pub commands: bool,
   pub paths: bool,
@@ -26,7 +25,6 @@ impl SuggestConfig {
       ghost: o.autosuggest_ghost,
       popup: o.autosuggest_popup,
       tab: o.autosuggest_tab,
-      ai: o.autosuggest_ai,
       history: o.autosuggest_history,
       commands: o.autosuggest_commands,
       paths: o.autosuggest_paths,
@@ -47,17 +45,13 @@ pub struct Suggest {
   pub input: String,
   /// Ranked completion candidates (full lines) for the popup / tab-cycle.
   pub candidates: Vec<String>,
-  /// The accepted-suffix ghost drawn past the cursor (top candidate, or AI).
+  /// The accepted-suffix ghost drawn past the cursor (the top candidate).
   pub ghost: Option<String>,
   /// Selected row while the popup is open.
   pub popup_open: bool,
   pub popup_sel: usize,
   /// Tab-cycle position through `candidates`, if cycling.
   pub tab_idx: Option<usize>,
-  /// The input an AI suggestion is being/was fetched for, and its result, so
-  /// a stale reply for an old line is ignored.
-  pub ai_for: Option<String>,
-  pub ai_ghost: Option<String>,
   /// Inputs beyond `input` that determine the cached candidate set.
   pub cached_cwd: Option<std::path::PathBuf>,
   pub cached_history_generation: u64,

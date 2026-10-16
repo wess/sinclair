@@ -25,8 +25,7 @@ impl SettingsView {
       .child(SharedString::from(glyph.to_string()))
   }
 
-  /// A plain label/control row, for the hand-built groups (macros, relay
-  /// status, agent tools).
+  /// A plain label/control row, for the hand-built groups (macros).
   pub(crate) fn row(
     &self,
     icon: impl IntoElement,

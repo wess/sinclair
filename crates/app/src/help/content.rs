@@ -172,13 +172,6 @@ pub(crate) const ARTICLES: &[Article] = &[
       Block::Key("Compose command", "\u{2318} \u{21e7} G"),
       Block::Heading("Semantic find"),
       Block::Key("Semantic find", "\u{2318} \u{21e7} F"),
-      Block::Heading("Agent mesh"),
-      Block::Para(
-        "Enable Relay in Settings \u{2192} AI to run a team of coding agents that \
-                 coordinate through Sinclair. The AI menu then offers Launch Agent, the live \
-                 Feed, Teams, and a Relay submenu to start, stop, restart, and check the \
-                 server and view its logs.",
-      ),
     ],
   },
   Article {

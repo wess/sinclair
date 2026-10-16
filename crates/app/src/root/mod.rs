@@ -106,45 +106,6 @@ impl gpui::Global for Broadcast {}
 pub struct MacroReplays(pub usize);
 impl gpui::Global for MacroReplays {}
 
-/// A live Relay connection (agent) from the status stream.
-#[derive(Clone, Default)]
-pub struct AgentConn {
-  pub name: String,
-  pub role: String,
-  /// Truthful liveness: parked on `wait` or active within the last minute.
-  /// Computed by the server from a heartbeat + parked set, not a sticky flag.
-  pub online: bool,
-  /// Whether the agent has ever registered (false = a pending direct-message
-  /// recipient the server pre-created; see relay issue #5).
-  pub registered: bool,
-  pub channels: i64,
-  /// Epoch seconds of the agent's last activity (0 if never seen).
-  pub last_seen: i64,
-  /// The agent's last self-reported semantic state (`working`/`blocked`/
-  /// `done`/`idle`, or a custom label); empty when none reported.
-  pub status: String,
-}
-
-/// A live Relay worker (spawned agent process) from the status stream.
-#[derive(Clone, Default)]
-pub struct WorkerConn {
-  pub name: String,
-  pub role: String,
-  pub status: String,
-  pub restarts: i64,
-}
-
-/// App-global snapshot of live Relay status, fed by the `relay watch`
-/// subprocess (see `relaywatch.rs`) and read by the Relay sidebar panel.
-/// Process-wide (one relay daemon) so it lives in a global like the others.
-#[derive(Clone, Default)]
-pub struct RelayStatus {
-  pub connected: bool,
-  pub agents: Vec<AgentConn>,
-  pub workers: Vec<WorkerConn>,
-}
-impl gpui::Global for RelayStatus {}
-
 /// Adjust the in-flight replay count by `delta` and repaint so every
 /// workspace's indicator reflects the change.
 pub fn replays_changed(cx: &mut App, delta: i32) {
@@ -391,11 +352,8 @@ pub struct WorkspaceView {
   /// (resolving stats `$PATH`, so never during render). `None` until the
   /// Containers panel first opens.
   engine: Option<Option<container::Engine>>,
-  /// Cached menu/panel data that needs blocking reads (the relay `team list`
-  /// subprocess, agents.json, the layouts dir). Refreshed off-thread by
+  /// Saved custom layout names (a directory read). Refreshed off-thread by
   /// [`Self::refresh_menu_data`]; `setmenus` and the sidebar render from here.
-  menu_teams: Vec<String>,
-  menu_agent_defs: Vec<crate::relay::AgentDef>,
   menu_custom_tiles: Vec<String>,
   /// Why the most recent shell spawn failed. Shown as an in-window error when
   /// the window has no live items (e.g. a bad `shell =` at startup), instead
@@ -416,7 +374,7 @@ pub struct WorkspaceView {
   /// Panes currently attached to the sandbox. The container outlives any one
   /// of them; the count is what decides when it may be retired.
   sandbox_panes: HashSet<ItemId>,
-  /// Live progress or the last failure, shown in the AI menu and the
+  /// Live progress or the last failure, shown in the Sandbox menu and the
   /// Containers panel. `None` when the sandbox is simply idle.
   sandbox_status: Option<String>,
   /// Advisories from the last resolve (a devcontainer that stops on close, a
@@ -427,10 +385,6 @@ pub struct WorkspaceView {
   sandbox_busy: bool,
   /// Configured font size, restored by `reset_font_size`.
   base_font_size: gpui::Pixels,
-  /// Enabled agent providers that passed their reachability probe, gating the
-  /// AI menu's quick-launch items. `None` until the first off-thread probe
-  /// finishes — treated as "unknown", so every enabled provider shows meanwhile.
-  verified_agents: Option<HashSet<String>>,
   /// Whether the OS appearance is currently dark (drives `theme-light`/`-dark`).
   dark: bool,
   /// Keeps the OS-appearance observer alive.
@@ -439,12 +393,6 @@ pub struct WorkspaceView {
   /// `render` so a live `background-opacity` change flips the window between
   /// opaque and transparent.
   bg_transparent: bool,
-  /// Set when this window was opened to hold a Relay team, naming it. Titles
-  /// the window and keeps the window out of session save/restore — the panes
-  /// are agents, reproducible from the team spec, and replaying their
-  /// `relay launch` on the next start would re-register a roster the daemon
-  /// may still be running.
-  team: Option<String>,
   /// Every item in the window, most recently active first. What the switcher
   /// walks — the tabs you actually move between are rarely neighbours in the
   /// strip, so position order is the wrong order to cycle in.
@@ -460,18 +408,6 @@ pub struct WorkspaceView {
   /// Bumped on every hover change, so a scheduled open or close can tell
   /// whether the pointer is still where it was when it was scheduled.
   peek_gen: u64,
-}
-
-/// A team to realize in a freshly opened window. The roster becomes the
-/// window's whole pane group — one member per pane, nothing else in it — so a
-/// team reads as its own divided workspace rather than a tab folded into
-/// whatever you were already doing.
-pub(crate) struct TeamOpen {
-  /// Team name, shown in the window title.
-  pub name: String,
-  /// The roster resolved into panes. `panes.commands[0]` runs in the window's
-  /// first pane instead of the default shell; the rest split off it.
-  pub panes: crate::relay::TeamPanes,
 }
 
 /// What a freshly opened window starts with. Only the app's own launch (and a
@@ -509,8 +445,6 @@ impl WorkspaceView {
     cwd: Option<std::path::PathBuf>,
     // A torn-off tab re-homed here as the first item (else spawn a shell).
     adopt: Option<PaneContent>,
-    // A Relay team to fill this window with, instead of a single shell.
-    team: Option<TeamOpen>,
     // Whether this window rebuilds the saved session.
     restore: Restore,
     window: &mut Window,
@@ -585,8 +519,6 @@ impl WorkspaceView {
       peek_gen: 0,
       containers: Vec::new(),
       engine: None,
-      menu_teams: Vec::new(),
-      menu_agent_defs: Vec::new(),
       menu_custom_tiles: Vec::new(),
       spawn_error: None,
       container_tabs: HashMap::new(),
@@ -596,12 +528,10 @@ impl WorkspaceView {
       sandbox_status: None,
       sandbox_notes: Vec::new(),
       sandbox_busy: false,
-      verified_agents: None,
       dark: is_dark(window.appearance()),
       _appearance: None,
       // main.rs always opens the window transparent-capable.
       bg_transparent: true,
-      team: team.as_ref().map(|t| t.name.clone()),
     };
     // Follow the OS light/dark appearance when `theme-light`/`theme-dark` are set.
     this._appearance = Some(cx.observe_window_appearance(window, |view, window, cx| {
@@ -618,22 +548,6 @@ impl WorkspaceView {
     let first = match adopt {
       // A torn-off tab: re-home its live terminal/webview as the first item.
       Some(content) => this.register_item(content, window, cx),
-      // A team window opens *on* its first member rather than spawning a
-      // shell and adding the team beside it, so no pane in the window
-      // holds anything but an agent. The lead takes the cwd explicitly:
-      // there is no focused pane to inherit one from yet, and every other
-      // member then inherits it from the lead. It is the directory each
-      // role resolves its project `.relay/roles` against.
-      None if team.is_some() => {
-        let lead = team
-          .as_ref()
-          .and_then(|t| t.panes.commands.first().cloned())
-          .flatten();
-        match lead.and_then(|c| this.spawn_command_cwd(&c, cwd, window, cx)) {
-          Some(id) => id,
-          None => placeholder,
-        }
-      }
       None => {
         let options = session::options(&this.opts, cols, rows, cwd);
         match this.spawn(options, window, cx) {
@@ -662,37 +576,11 @@ impl WorkspaceView {
       },
     );
     this.focusactive(window, cx);
-    crate::relay::on_launch(&this.opts);
-    crate::relaywatch::start(&this.opts, cx);
-    this.refresh_agent_verification(cx);
     this.refresh_menu_data(cx);
-    // Split the rest of the roster off the lead's pane. Done after the group
-    // is rebuilt so the splits land in the real tree, not the placeholder's.
-    // Every pane is titled after its member: the tab would otherwise read
-    // `zsh`, since the launch command runs under a shell.
-    if let Some(t) = team.filter(|_| this.spawn_error.is_none()) {
-      let host = this.group.read(cx).focused_pane();
-      if let Some(lead) = t.panes.names.first() {
-        this.rename_item(first, lead, cx);
-      }
-      this.realize_into(
-        &t.panes.layout,
-        host,
-        0,
-        &t.panes.commands,
-        &t.panes.names,
-        window,
-        cx,
-      );
-      // Land on the lead, not on whichever pane was split last: the lead
-      // is the member that stays interactive for the human, so it is the
-      // one you start typing to.
-      this.activate_item(first, window, cx);
-    }
     // Restoring re-spawns shells; with the first spawn already failed there
     // is nothing to restore into (and closing the placeholder would close
     // the window before the error is ever seen). Windows opened by hand
-    // (new-window, a tear-off, a team) pass `Fresh` and never restore.
+    // (new-window, a tear-off) pass `Fresh` and never restore.
     if restore == Restore::Saved && this.opts.session_restore && this.spawn_error.is_none() {
       this.try_restore(window, cx);
     }
@@ -835,9 +723,7 @@ impl WorkspaceView {
     self.settitle(window, cx);
   }
 
-  /// Set the window title from the focused item. A team window leads with the
-  /// team name, so its window is identifiable no matter which member has
-  /// focus.
+  /// Set the window title from the focused item.
   pub(crate) fn settitle(&self, window: &mut Window, cx: &App) {
     let item = self.group.read(cx).active_item();
     let title = self
@@ -846,10 +732,7 @@ impl WorkspaceView {
       .get(&item)
       .map(|it| it.content.title(cx))
       .unwrap_or_else(|| "sinclair".to_string());
-    match &self.team {
-      Some(team) => window.set_window_title(&format!("{team} \u{2014} {title}")),
-      None => window.set_window_title(&title),
-    }
+    window.set_window_title(&title);
   }
 
   /// Activate `item` in its pane and focus it.
@@ -926,7 +809,6 @@ impl WorkspaceView {
       None,
       Some(content),
       place,
-      None,
       Restore::Fresh,
       cx,
     );
@@ -958,15 +840,6 @@ impl WorkspaceView {
       || opts.adjust_cell_width != self.opts.adjust_cell_width
       || opts.adjust_cell_height != self.opts.adjust_cell_height;
     let plugins_changed = opts.plugin != self.opts.plugin;
-    let agents_changed = opts.ai_enabled != self.opts.ai_enabled
-      || opts.agent_claude != self.opts.agent_claude
-      || opts.agent_codex != self.opts.agent_codex
-      || opts.agent_ollama != self.opts.agent_ollama
-      || opts.agent_gemini != self.opts.agent_gemini
-      || opts.agent_claude_path != self.opts.agent_claude_path
-      || opts.agent_codex_path != self.opts.agent_codex_path
-      || opts.agent_gemini_path != self.opts.agent_gemini_path
-      || opts.agent_custom != self.opts.agent_custom;
     crate::redact::install(&opts.redact, cx);
     crate::badge::install(&opts.badge, cx);
     crate::view::install_timestamps(opts.timestamps, cx);
@@ -1010,18 +883,8 @@ impl WorkspaceView {
     }
     self.keybinds = keybinds;
     self.applykeybinds(cx);
-    if agents_changed {
-      // Re-probe providers: paths or toggles changed. Clear the cache
-      // first so a newly enabled tool shows immediately, then prune.
-      self.verified_agents = None;
-      self.refresh_agent_verification(cx);
-    }
     self.setmenus(cx);
     self.pushappearance(cx);
-    // Reconciling the relay daemon probes it (file read + TCP connect);
-    // keep that off the UI thread.
-    let relay_opts = self.opts.clone();
-    std::thread::spawn(move || crate::relay::on_reload(&relay_opts));
     self.refresh_menu_data(cx);
     cx.notify();
   }

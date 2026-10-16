@@ -26,8 +26,8 @@ if [ ! -f assets/icon.icns ]; then
   scripts/icon.sh
 fi
 
-echo "[bundle] cargo build --release -p app -p relay -p notes"
-cargo build --release -p app -p relay -p notes
+echo "[bundle] cargo build --release -p app -p notes"
+cargo build --release -p app -p notes
 
 app="dist/$app_name.app"
 contents="$app/Contents"
@@ -35,9 +35,7 @@ rm -rf "$app"
 mkdir -p "$contents/MacOS" "$contents/Resources"
 
 cp "target/release/$src_bin" "$contents/MacOS/$bin_name"
-# The Relay agent-mesh sidecar, found by the app as a sibling of its executable.
-cp "target/release/relay" "$contents/MacOS/relay"
-# The Notes vault-server sidecar, likewise a sibling of the executable.
+# The Notes vault-server sidecar, found by the app as a sibling of its executable.
 cp "target/release/notes" "$contents/MacOS/notes"
 cp assets/icon.icns "$contents/Resources/icon.icns"
 
@@ -97,9 +95,6 @@ done
 codesign --force ${runtime_opts[@]+"${runtime_opts[@]}"} \
   --entitlements assets/sinclair.entitlements \
   -s "$identity" "$contents/MacOS/$bin_name"
-codesign --force ${runtime_opts[@]+"${runtime_opts[@]}"} \
-  --entitlements assets/sinclair.entitlements \
-  -s "$identity" "$contents/MacOS/relay"
 codesign --force ${runtime_opts[@]+"${runtime_opts[@]}"} \
   --entitlements assets/sinclair.entitlements \
   -s "$identity" "$contents/MacOS/notes"

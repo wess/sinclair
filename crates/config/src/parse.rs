@@ -49,6 +49,9 @@ pub fn parse_str(input: &str) -> (Options, Vec<Diagnostic>) {
       });
       continue;
     }
+    if crate::kind::retired(key) {
+      continue;
+    }
     if let Err(message) = apply(&mut opts, &defaults, key, val) {
       diags.push(Diagnostic {
         line: lineno,

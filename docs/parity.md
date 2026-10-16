@@ -120,7 +120,7 @@ documented limits), **✗** not yet.
 | Agent attention | ✓ | OSC 9/777/99 (or `sinclair notify`) post a native banner and light up the tab |
 | Scripting API (MCP + socket) | ✓ | `sinclair mcp` exposes run_command, send_input, read_screen, new_tab, split, list_tabs/panes, focus_tab, notify |
 | Themes | ✓ | 22 builtin schemes + overrides |
-| Native macOS menu bar | ✓ | Sinclair/File/Edit/View/Workspace/Window menus (plus AI when enabled), items reuse config actions (shortcuts shown); includes an About panel (icon, version, release date) |
+| Native macOS menu bar | ✓ | Sinclair/File/Edit/View/Workspace/Window menus, items reuse config actions (shortcuts shown); includes an About panel (icon, version, release date) |
 | Custom window titlebar | ✓ | transparent native bar; app-drawn strip with drag-to-move. `unified-tab-bar` (on) folds the tabs into it; off gives an ordinary titlebar — controls, the active tab's title, the split buttons — with the tab bars beneath. The split controls sit at the right edge either way, and act on the focused pane when they are in the titlebar. macOS keeps the traffic lights; Linux draws its own minimize/maximize/close + resize edges (client-side decorations) |
 | macOS status-bar (tray) item | ✗ | NSStatusBar is not exposed by the UI layer; needs custom native code |
 

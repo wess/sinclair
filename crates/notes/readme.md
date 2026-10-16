@@ -1,7 +1,7 @@
 # notes
 
 The **Notes** vault server, shipped as a bundled sidecar binary beside the
-`prompt` executable (like `relay`). It replaces the old Bun-based Notes plugin —
+`prompt` executable. It replaces the old Bun-based Notes plugin —
 there is **no runtime dependency**; the web app is embedded in the binary.
 
 ## Modes

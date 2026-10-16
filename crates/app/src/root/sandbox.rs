@@ -15,17 +15,6 @@
 use super::*;
 use gpui::prelude::*;
 
-/// The active workspace window's sandbox, for surfaces that build a launch
-/// command from outside a window (the New Agent picker). `None` when no
-/// sandbox is up, which is a host launch.
-pub(crate) fn active_ref(app: &mut App) -> Option<crate::relay::SandboxRef> {
-  let handle = crate::mcpbridge::active_workspace(app)?;
-  handle
-    .update(app, |ws, _window, _cx| ws.sandbox_ref())
-    .ok()
-    .flatten()
-}
-
 impl WorkspaceView {
   /// The project the sandbox serves: the repository containing the focused
   /// pane, else that pane's own working directory.
@@ -44,11 +33,6 @@ impl WorkspaceView {
       return None;
     }
     Some(path)
-  }
-
-  /// This window's sandbox as launch flags, or `None` for a host launch.
-  pub(crate) fn sandbox_ref(&self) -> Option<crate::relay::SandboxRef> {
-    crate::relay::sandbox_ref(self.sandbox.as_ref().map(|r| &r.sandbox))
   }
 
   /// One line describing the sandbox for menus and the sidebar.
@@ -90,9 +74,6 @@ impl WorkspaceView {
       (None, None)
     };
     let engine = self.container_engine().unwrap_or(container::Engine::Docker);
-    let relay_dir = crate::relay::home().join("sandbox");
-    let relay_dir = relay_dir.to_string_lossy().into_owned();
-    let _ = std::fs::create_dir_all(&relay_dir);
     let mut spec = crate::sandbox::build(
       &self.opts,
       &crate::sandbox::Env {
@@ -100,8 +81,7 @@ impl WorkspaceView {
         project,
         devcontainer: dc.as_ref(),
         host_user: crate::sandbox::owner_of(project),
-        relay_dir: Some(&relay_dir),
-        default_agent: &self.opts.relay_default_agent,
+        default_agent: "claude",
       },
     );
     if let Some(note) = note {

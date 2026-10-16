@@ -442,13 +442,6 @@ pub fn apply(opts: &mut Options, d: &Options, key: &str, val: &str) -> Result<()
         value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
       };
     }
-    "autosuggest-ai" => {
-      opts.autosuggest_ai = if empty {
-        d.autosuggest_ai
-      } else {
-        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-      };
-    }
     "autosuggest-history" => {
       opts.autosuggest_history = if empty {
         d.autosuggest_history
@@ -699,121 +692,12 @@ pub fn apply(opts: &mut Options, d: &Options, key: &str, val: &str) -> Result<()
         value::parse_u32(val).ok_or_else(|| bad("non-negative integer", val))?
       };
     }
-    "ai-enabled" => {
-      opts.ai_enabled = if empty {
-        d.ai_enabled
-      } else {
-        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-      };
-    }
-    "ai-optimize-tokens" => {
-      opts.ai_optimize_tokens = if empty {
-        d.ai_optimize_tokens
-      } else {
-        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-      };
-    }
     "mcp-server-enabled" => {
       opts.mcp_server_enabled = if empty {
         d.mcp_server_enabled
       } else {
         value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
       };
-    }
-    "relay-enabled" => {
-      opts.relay_enabled = if empty {
-        d.relay_enabled
-      } else {
-        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-      };
-    }
-    "relay-start-on-launch" => {
-      opts.relay_start_on_launch = if empty {
-        d.relay_start_on_launch
-      } else {
-        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-      };
-    }
-    "relay-address" => {
-      opts.relay_address = if empty {
-        d.relay_address.clone()
-      } else {
-        val.to_string()
-      };
-    }
-    "relay-default-agent" => {
-      opts.relay_default_agent = if empty {
-        d.relay_default_agent.clone()
-      } else {
-        val.to_string()
-      };
-    }
-    "relay-team-autonomy" => {
-      opts.relay_team_autonomy = if empty {
-        d.relay_team_autonomy
-      } else {
-        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-      };
-    }
-    "relay-team-window" => {
-      opts.relay_team_window = if empty {
-        d.relay_team_window
-      } else {
-        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-      };
-    }
-    "agent-claude" => {
-      opts.agent_claude = if empty {
-        d.agent_claude
-      } else {
-        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-      };
-    }
-    "agent-codex" => {
-      opts.agent_codex = if empty {
-        d.agent_codex
-      } else {
-        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-      };
-    }
-    "agent-ollama" => {
-      opts.agent_ollama = if empty {
-        d.agent_ollama
-      } else {
-        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-      };
-    }
-    "agent-gemini" => {
-      opts.agent_gemini = if empty {
-        d.agent_gemini
-      } else {
-        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
-      };
-    }
-    "agent-claude-path" => {
-      opts.agent_claude_path = if empty { None } else { Some(val.to_string()) };
-    }
-    "agent-codex-path" => {
-      opts.agent_codex_path = if empty { None } else { Some(val.to_string()) };
-    }
-    "agent-gemini-path" => {
-      opts.agent_gemini_path = if empty { None } else { Some(val.to_string()) };
-    }
-    "agent-claude-args" => {
-      opts.agent_claude_args = if empty { None } else { Some(val.to_string()) };
-    }
-    "agent-codex-args" => {
-      opts.agent_codex_args = if empty { None } else { Some(val.to_string()) };
-    }
-    "agent-gemini-args" => {
-      opts.agent_gemini_args = if empty { None } else { Some(val.to_string()) };
-    }
-    "agent-custom" => {
-      if empty {
-        opts.agent_custom = d.agent_custom.clone();
-      } else {
-        opts.agent_custom.push(val.to_string());
-      }
     }
     _ => return Err(format!("unknown key `{key}`")),
   }

@@ -35,26 +35,23 @@ pub const OWNER_SINCLAIR: &str = "sinclair";
 /// or recreating the container.
 pub const HOME_DIR: &str = "/sandbox/home";
 
-/// Where the per-agent relay MCP configs are mounted.
-pub const RELAY_DIR: &str = "/sandbox/relay";
-
 /// The container's process: a keepalive loop, so the sandbox outlives any one
 /// pane. `sleep infinity` is GNU-only — busybox (Alpine) rejects it — so this
 /// spells the loop out and works on every base image.
 const KEEPALIVE: [&str; 3] = ["sh", "-c", "while :; do sleep 3600; done"];
 
-/// How the sandbox reaches the network, and with it the relay bus.
+/// How the sandbox reaches the network, and with it services on the host.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Network {
   /// The engine's default bridge. Combined with a gateway host entry this
-  /// reaches a relay bound to host loopback.
+  /// reaches a service bound to host loopback.
   #[default]
   Bridge,
   /// Share the host's network namespace: loopback inside *is* host loopback,
-  /// so the bus is reachable with no rebinding and nothing is exposed. Linux
+  /// so host services are reachable with no rebinding and nothing is exposed. Linux
   /// only in practice.
   Host,
-  /// No network at all. The strictest sandbox; agents cannot reach the bus.
+  /// No network at all. The strictest sandbox; agents cannot reach the host.
   None,
 }
 
@@ -160,7 +157,7 @@ pub struct Sandbox {
   pub user: Option<String>,
   pub network: Network,
   /// Add a `host.docker.internal` entry pointing at the host gateway, so a
-  /// relay bound to host loopback is reachable from a bridged container.
+  /// service bound to host loopback is reachable from a bridged container.
   pub gateway: bool,
   pub limits: Limits,
   pub labels: Vec<(String, String)>,
@@ -195,13 +192,6 @@ impl Sandbox {
   /// Attach the named volume holding the agent's `$HOME`.
   pub fn with_home_volume(mut self, volume: &str) -> Self {
     self.mounts.push(Mount::rw(volume, HOME_DIR));
-    self
-  }
-
-  /// Mount the directory holding generated relay MCP configs, so an agent
-  /// launched into the sandbox can read the one addressed to it.
-  pub fn with_relay_dir(mut self, host_dir: &str) -> Self {
-    self.mounts.push(Mount::ro(host_dir, RELAY_DIR));
     self
   }
 

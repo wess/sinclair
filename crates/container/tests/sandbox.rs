@@ -123,13 +123,6 @@ fn home_env_points_at_the_volume() {
 }
 
 #[test]
-fn relay_dir_is_mounted_read_only() {
-  let s = sbx().with_relay_dir("/host/relay");
-  let m = s.mounts.iter().find(|m| m.target == RELAY_DIR).unwrap();
-  assert!(m.readonly);
-}
-
-#[test]
 fn states_parse() {
   assert_eq!(parse_state(""), State::Missing);
   assert_eq!(parse_state("running\n"), State::Running);

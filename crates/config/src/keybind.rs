@@ -340,9 +340,6 @@ pub fn default_keybinds() -> Vec<Keybind> {
     kb(cmd, "down", Action::JumpToPrompt(1)),
     kb(cmd, ",", Action::ToggleSettings),
     kb(cmd_alt, "t", Action::ToggleQuickTerminal),
-    kb(cmd_shift, "a", Action::RelayLaunch),
-    kb(cmd_shift, "i", Action::RelayFeed),
-    kb(cmd_shift, "l", Action::RelayLog),
     kb(cmd, "q", Action::Quit),
   ];
   for n in 1..=9 {

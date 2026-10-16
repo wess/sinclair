@@ -53,6 +53,15 @@ fn invalid_values_fall_back_to_defaults_with_warnings() {
 }
 
 #[test]
+fn retired_keys_load_silently() {
+  let (opts, diags) = parse_json_str(
+    "{ \"relay-enabled\": true, \"agent-custom\": [\"x|y\"], \"font-size\": 15 }",
+  );
+  assert!(diags.is_empty(), "{diags:?}");
+  assert_eq!(opts.font_size, 15.0);
+}
+
+#[test]
 fn null_resets_to_default() {
   let (opts, diags) = parse_json_str("{ \"font-size\": null }");
   assert!(diags.is_empty());
