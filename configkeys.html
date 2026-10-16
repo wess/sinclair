@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Configuration &amp; keybindings — Sinclair docs</title>
+    <meta name="description" content="A hands-on walkthrough for configuring Sinclair: where the config file lives, live reload, friendly diagnostics, the settings UI, and rebinding keys to any action.">
+    <meta name="theme-color" content="#05070c">
+    <link rel="icon" href="icon.png">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="docs.css">
+  </head>
+  <body class="docs">
+    <a class="skip" href="#doc-main">Skip to content</a>
+    <main id="doc-main" class="doc-main">
+      <article class="doc-article" data-doc-page="configkeys">
+        <p class="kicker">Tutorial</p>
+        <h1>Configuration &amp; keybindings</h1>
+        <p class="lede">
+          Sinclair reads a single <code>settings.json</code> — JSON with
+          <code>//</code> comments — and watches it while it runs. In this walkthrough you'll find the config, save a
+          change and watch it apply live, see what happens when you fat-finger a line, and then
+          rebind a key to any action in the catalog. Nothing here needs a restart — every save
+          takes effect the instant you write it.
+        </p>
+
+        <div class="callout note">
+          <p>On macOS, <kbd>⌘</kbd> is the modifier. On Linux, read <kbd>⌘</kbd> as
+          <kbd>⌃</kbd> (Ctrl) throughout — and in your config, write the token <code>cmd</code>,
+          which maps to Command on macOS and Ctrl on Linux/Windows automatically.</p>
+        </div>
+
+        <h2>1. Find the config file</h2>
+        <p>
+          Sinclair loads its settings from
+          <code>$XDG_CONFIG_HOME/sinclair/settings.json</code>, falling back to
+          <code>~/.config/sinclair/settings.json</code> when <code>XDG_CONFIG_HOME</code> is
+          unset (on Windows: <code>%APPDATA%\sinclair\settings.json</code>). The file is
+          created on demand, so you can start from an empty <code>{}</code> — or no file at
+          all — and add only the keys you care about. If you have a legacy
+          <code>key = value</code> <code>config</code> file from an older Sinclair, it is
+          migrated into <code>settings.json</code> once on launch and no longer read.
+        </p>
+        <p>
+          The format is JSON with comments: one object, one member per setting, and
+          <code>//</code> comment lines are ignored. Most keys take a single scalar value;
+          a handful (like <code>font-family</code> and <code>keybind</code>) take an
+          <em>array</em> and accumulate entries. Every key is optional — remove one and it
+          falls back to its built-in default. Save one member and see for yourself:
+        </p>
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "theme": "Catppuccin Mocha",
+  "font-family": ["JetBrains Mono"],
+  "font-size": 14,
+  "cursor-style": "bar",
+  "copy-on-select": true
+}</code></pre>
+        <p>
+          Sinclair watches the file. Appearance settings — fonts, theme, colors, padding, cursor —
+          and keybindings <strong>take effect the moment you save</strong>, with no need to quit
+          and relaunch.
+        </p>
+        <div class="callout tip">
+          <span class="label">Tip</span>
+          <p>Keep the config open in a split next to a live terminal and tweak fonts or themes
+          interactively — each save redraws immediately.</p>
+        </div>
+
+        <h2>2. Break a line on purpose</h2>
+        <p>
+          A bad line never aborts the load. An unknown key, a malformed value, or a plain typo
+          becomes a friendly diagnostic surfaced on startup, and the rest of the file is applied
+          normally. Add a nonsense key and a broken one alongside your good keys:
+        </p>
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "theme": "Catppuccin Mocha",
+  "fnot-size": 14,        <span class="c">// unknown key → diagnostic, not a crash</span>
+  "font-size": "huge",    <span class="c">// malformed value → diagnostic, not a crash</span>
+  "cursor-style": "bar"
+}</code></pre>
+        <p>
+          Your <code>theme</code> and <code>cursor-style</code> still apply; the two bad lines are
+          reported and skipped. This is deliberate: one mistake never leaves you staring at an
+          unstyled terminal.
+        </p>
+
+        <h2>3. Round-trip through the settings UI</h2>
+        <p>
+          Prefer not to edit text by hand? Open the built-in GUI settings with <kbd>⌘,</kbd>
+          (the <code>toggle_settings</code> action) and the same options are exposed there. Change
+          a font or theme in the panel and it lands in the same config file the editor writes —
+          so the file and the UI stay in sync, and you can move between them however you like.
+        </p>
+
+        <h2>4. Rebind a key</h2>
+        <p>
+          Every command in Sinclair is an <em>action</em>, and any action can be bound to any key
+          combination from your config. Keybindings live in the same file, on <code>keybind</code>
+          lines. That key is <strong>repeatable</strong> — list as many as you like. Each binding
+          is a single line:
+        </p>
+        <pre><code>"keybind": ["trigger=action"]   <span class="c">// optionally with a :param</span></code></pre>
+        <p>
+          A <code>trigger</code> is one or more modifiers and a key, joined with <code>+</code>.
+          The modifier tokens are:
+        </p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Token</th><th>Modifier</th></tr></thead>
+            <tbody>
+              <tr><td><code>cmd</code></td><td>Command on macOS, Ctrl on Linux/Windows</td></tr>
+              <tr><td><code>ctrl</code></td><td>Control</td></tr>
+              <tr><td><code>alt</code></td><td>Alt / Option</td></tr>
+              <tr><td><code>shift</code></td><td>Shift</td></tr>
+              <tr><td><code>super</code></td><td>Alias for <code>cmd</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          Keys are the alphanumerics (<code>a</code>–<code>z</code>, <code>0</code>–<code>9</code>);
+          named keys like <code>enter</code>, <code>tab</code>, <code>escape</code>,
+          <code>space</code>, <code>up</code>, <code>down</code>, <code>left</code>,
+          <code>right</code>, and <code>f1</code>–<code>f12</code>; and punctuation names like
+          <code>comma</code>, <code>period</code>, <code>slash</code>, <code>bracket_left</code>,
+          and <code>bracket_right</code>. A parameter, if the action takes one, follows the action
+          after a colon (for example <code>new_split:right</code>). Your bindings are merged on top
+          of the defaults, so you only declare what you want to change:
+        </p>
+        <pre><code>{
+  "keybind": [
+    <span class="c">// Override: make Cmd+T open a split to the right instead of a new tab</span>
+    "cmd+t=new_split:right",
+
+    <span class="c">// Add: a fresh shortcut for clearing the screen and scrollback</span>
+    "cmd+shift+k=clear_screen",
+
+    <span class="c">// Add: jump straight to the first tab</span>
+    "cmd+shift+1=goto_tab:1"
+  ]
+}</code></pre>
+        <p>
+          You can also chain keys into a <strong>chord</strong> with <code>&gt;</code> — the binding
+          fires only when the keys are pressed in sequence. For example,
+          <code>keybind = ctrl+a&gt;n=next_tab</code> means "press <kbd>⌃</kbd><kbd>A</kbd>, then
+          <kbd>N</kbd>."
+        </p>
+        <div class="callout tip">
+          <span class="label">Tip</span>
+          <p>Keybindings reload live, just like appearance settings — save the file and your new
+          shortcut works immediately, no restart.</p>
+        </div>
+
+        <h2>5. Remove a default you never use</h2>
+        <p>
+          To reclaim a default shortcut, bind its trigger to the <code>unbind</code> action.
+          Sinclair then stops handling that combination and lets it fall through — handy when you
+          want a key back for the shell:
+        </p>
+        <pre><code>{
+  "keybind": [
+    "cmd+k=unbind"   <span class="c">// reclaim Cmd+K for the shell</span>
+  ]
+}</code></pre>
+
+        <h2>6. Discover an action's token</h2>
+        <p>
+          You never have to memorize the config strings. Two places surface every action:
+        </p>
+        <ul>
+          <li><strong>The command palette</strong> (<code>command_palette</code>, <kbd>⌘⇧P</kbd>)
+          lists every action by name and shows its current binding — a fast way to learn what a
+          shortcut is called before you rebind it.</li>
+          <li><strong>The keybindings page</strong> carries the full action catalog: each action's
+          config string, its parameters, and any alias you can use in its place.</li>
+        </ul>
+        <p>
+          Open the palette, find the action you want, note its token, and drop it onto a
+          <code>keybind</code> line. That loop — palette to config and back — is all you need to
+          bend the whole keymap to your hands.
+        </p>
+
+        <h2>Where to next</h2>
+        <div class="cards">
+          <a href="keybindings.html"><strong>Keybindings reference</strong>The full syntax, the default keymap, and every action you can bind.</a>
+          <a href="appearance.html"><strong>Themes, fonts &amp; appearance</strong>Color schemes, transparency, cursor styling, and readability controls.</a>
+          <a href="automation.html"><strong>Automate your terminal</strong>Triggers, snippets, profiles, macros, and the rest of the hands-off tooling.</a>
+        </div>
+      </article>
+    </main>
+    <script type="module" src="docs.js"></script>
+  </body>
+</html>
