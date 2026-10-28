@@ -3,6 +3,7 @@
 use std::backtrace::Backtrace;
 use std::fs::OpenOptions;
 use std::io::Write;
+#[cfg(unix)]
 use std::os::unix::fs::OpenOptionsExt;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -28,13 +29,12 @@ fn install_at(path: PathBuf) {
         .unwrap_or_default()
         .as_secs();
       let backtrace = Backtrace::force_capture();
-      if let Ok(mut file) = OpenOptions::new()
-        .create(true)
-        .write(true)
-        .truncate(true)
-        .mode(0o600)
-        .open(&path)
-      {
+      let mut options = OpenOptions::new();
+      options.create(true).write(true).truncate(true);
+      // Backtraces can carry paths and arguments: keep the log owner-only.
+      #[cfg(unix)]
+      options.mode(0o600);
+      if let Ok(mut file) = options.open(&path) {
         let _ = writeln!(
           file,
           "Sinclair {} ({} {})\nunix time: {timestamp}\n{info}\nthread: {}\n{backtrace}",
