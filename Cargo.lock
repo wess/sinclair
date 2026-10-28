@@ -206,7 +206,7 @@ checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 
 [[package]]
 name = "app"
-version = "1.38.0"
+version = "1.38.1"
 dependencies = [
  "assist",
  "block2 0.6.2",
@@ -325,7 +325,7 @@ dependencies = [
 
 [[package]]
 name = "assist"
-version = "1.38.0"
+version = "1.38.1"
 
 [[package]]
 name = "async-broadcast"
@@ -1115,7 +1115,7 @@ dependencies = [
 
 [[package]]
 name = "cast"
-version = "1.38.0"
+version = "1.38.1"
 dependencies = [
  "serde_json",
 ]
@@ -1387,7 +1387,7 @@ dependencies = [
 
 [[package]]
 name = "config"
-version = "1.38.0"
+version = "1.38.1"
 dependencies = [
  "notify",
 ]
@@ -1424,7 +1424,7 @@ dependencies = [
 
 [[package]]
 name = "container"
-version = "1.38.0"
+version = "1.38.1"
 dependencies = [
  "config",
 ]
@@ -2248,7 +2248,7 @@ dependencies = [
 
 [[package]]
 name = "export"
-version = "1.38.0"
+version = "1.38.1"
 dependencies = [
  "cast",
  "fontdue",
@@ -3937,7 +3937,7 @@ dependencies = [
 
 [[package]]
 name = "input"
-version = "1.38.0"
+version = "1.38.1"
 
 [[package]]
 name = "instant"
@@ -4318,7 +4318,7 @@ dependencies = [
 
 [[package]]
 name = "libsinclair"
-version = "1.38.0"
+version = "1.38.1"
 dependencies = [
  "cast",
  "flume",
@@ -4491,7 +4491,7 @@ dependencies = [
 
 [[package]]
 name = "macros"
-version = "1.38.0"
+version = "1.38.1"
 
 [[package]]
 name = "malloc_buf"
@@ -4537,7 +4537,7 @@ dependencies = [
 
 [[package]]
 name = "mcp"
-version = "1.38.0"
+version = "1.38.1"
 dependencies = [
  "serde_json",
 ]
@@ -4794,7 +4794,7 @@ checksum = "0676bb32a98c1a483ce53e500a81ad9c3d5b3f7c920c28c24e9cb0980d0b5bc8"
 
 [[package]]
 name = "notes"
-version = "1.38.0"
+version = "1.38.1"
 dependencies = [
  "axum",
  "include_dir",
@@ -5664,7 +5664,7 @@ checksum = "19f132c84eca552bf34cab8ec81f1c1dcc229b811638f9d283dceabe58c5569e"
 
 [[package]]
 name = "plugin"
-version = "1.38.0"
+version = "1.38.1"
 dependencies = [
  "serde",
  "toml 0.8.23",
@@ -5672,7 +5672,7 @@ dependencies = [
 
 [[package]]
 name = "pluginrt"
-version = "1.38.0"
+version = "1.38.1"
 dependencies = [
  "anyhow",
  "serde_json",
@@ -5936,7 +5936,7 @@ dependencies = [
 
 [[package]]
 name = "pty"
-version = "1.38.0"
+version = "1.38.1"
 dependencies = [
  "rustix 0.38.44",
  "windows 0.58.0",
@@ -7404,7 +7404,7 @@ dependencies = [
 
 [[package]]
 name = "terminal"
-version = "1.38.0"
+version = "1.38.1"
 dependencies = [
  "cast",
  "flume",
@@ -7414,7 +7414,7 @@ dependencies = [
 
 [[package]]
 name = "theme"
-version = "1.38.0"
+version = "1.38.1"
 
 [[package]]
 name = "thiserror"
@@ -7942,7 +7942,7 @@ checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
 
 [[package]]
 name = "updater"
-version = "1.38.0"
+version = "1.38.1"
 dependencies = [
  "serde_json",
 ]
@@ -8127,7 +8127,7 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "vm"
-version = "1.38.0"
+version = "1.38.1"
 dependencies = [
  "flate2",
  "libc",
@@ -8158,7 +8158,7 @@ dependencies = [
 
 [[package]]
 name = "vt"
-version = "1.38.0"
+version = "1.38.1"
 dependencies = [
  "bitflags 2.13.0",
  "flate2",
