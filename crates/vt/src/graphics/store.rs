@@ -107,7 +107,6 @@ impl GfxImage {
   pub fn animated(&self) -> bool {
     self.frames.len() > 1
   }
-
 }
 
 /// Every transmitted image, keyed by id, with a number → id index alongside.
@@ -129,7 +128,10 @@ impl Store {
   /// nothing, or names a number no image has claimed.
   pub fn resolve(&self, control: &Control) -> Option<u32> {
     if control.image_id != 0 {
-      return self.images.contains_key(&control.image_id).then_some(control.image_id);
+      return self
+        .images
+        .contains_key(&control.image_id)
+        .then_some(control.image_id);
     }
     if control.image_number != 0 {
       return self.by_number.get(&control.image_number).copied();
@@ -340,7 +342,15 @@ pub(crate) fn compose_frames(image: &mut GfxImage, control: &Control) -> Result<
   let dest = image.frames.get_mut(dst_i - 1).ok_or(GfxError("ENOENT"))?;
   let (dw, dh) = (dest.image.width, dest.image.height);
   let mut canvas = dest.image.rgba.to_vec();
-  blend(&mut canvas, dw, dh, &patch, dx as usize, dy as usize, overwrite);
+  blend(
+    &mut canvas,
+    dw,
+    dh,
+    &patch,
+    dx as usize,
+    dy as usize,
+    overwrite,
+  );
   dest.image.rgba = canvas.into();
   image.serial += 1;
   Ok(())
@@ -404,9 +414,7 @@ fn blend(
           let sc = src[c] as u32 * sa;
           let dc = canvas[d + c] as u32 * da * (255 - sa) / 255;
           // A fully transparent result has no color to carry.
-          canvas[d + c] = (sc + dc)
-            .checked_div(out_a)
-            .map_or(0, |v| v.min(255) as u8);
+          canvas[d + c] = (sc + dc).checked_div(out_a).map_or(0, |v| v.min(255) as u8);
         }
         canvas[d + 3] = out_a.min(255) as u8;
       }

@@ -43,3 +43,24 @@ This redirects guise's crates.io `gpui ^0.2.2` onto our exact rev. `vendor/guise
 is `exclude`d from our workspace (it is its own). When you bump the zed rev,
 rebuild guise against it on the `sinclair-v1.5.3` compatibility branch and
 re-pin the submodule. See `docs/guise.md`.
+
+## Native callback panics
+
+A Rust panic inside a macOS keyboard callback can abort at the Objective-C
+boundary. The macOS crash report then shows `panic_cannot_unwind` and
+`do_command_by_selector`, losing the original panic's location and stack.
+That callback also dispatches application handlers, so its presence alone
+does not establish a GPUI bug.
+
+The GUI installs a panic hook before startup that writes the first panic,
+version, timestamp, thread, and forced backtrace to
+`~/.config/sinclair/data/logs/sinclair.crash.log`. `XDG_CONFIG_HOME` and the
+legacy `prompt` data-directory fallback apply as usual; dev builds use
+`sinclairdev.crash.log`. The report survives relaunch and is replaced on
+the next process's first panic. Subsequent abort panics cannot overwrite
+the original cause. Normal stderr panic output is preserved, and an
+unwritable log does not change panic handling.
+
+For a native callback crash, collect that file alongside the macOS crash
+report and the last key or action. Logging records the failure; it does
+not recover from it.

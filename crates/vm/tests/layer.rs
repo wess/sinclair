@@ -71,14 +71,23 @@ fn writes_files_dirs_and_symlinks() {
       Item::Link("etc/alias", "hostname"),
     ],
   );
-  assert_eq!(fs::read_to_string(root.join("etc/hostname")).unwrap(), "vm\n");
-  assert_eq!(fs::read_link(root.join("etc/alias")).unwrap(), Path::new("hostname"));
+  assert_eq!(
+    fs::read_to_string(root.join("etc/hostname")).unwrap(),
+    "vm\n"
+  );
+  assert_eq!(
+    fs::read_link(root.join("etc/alias")).unwrap(),
+    Path::new("hostname")
+  );
 }
 
 #[test]
 fn whiteout_removes_a_lower_file() {
   let root = tmp();
-  apply_items(&root, &[Item::File("a/gone", "x"), Item::File("a/kept", "y")]);
+  apply_items(
+    &root,
+    &[Item::File("a/gone", "x"), Item::File("a/kept", "y")],
+  );
   apply_items(&root, &[Item::File("a/.wh.gone", "")]);
   assert!(!root.join("a/gone").exists());
   assert!(root.join("a/kept").exists());
@@ -88,7 +97,10 @@ fn whiteout_removes_a_lower_file() {
 fn opaque_whiteout_clears_the_directory() {
   let root = tmp();
   apply_items(&root, &[Item::File("a/old", "x")]);
-  apply_items(&root, &[Item::File("a/.wh..wh..opq", ""), Item::File("a/new", "y")]);
+  apply_items(
+    &root,
+    &[Item::File("a/.wh..wh..opq", ""), Item::File("a/new", "y")],
+  );
   assert!(!root.join("a/old").exists());
   assert!(root.join("a/new").exists());
 }
@@ -97,9 +109,15 @@ fn opaque_whiteout_clears_the_directory() {
 fn absolute_symlink_resolves_inside_the_rootfs() {
   let root = tmp();
   // A merged-usr style link, then a later layer writing through it.
-  apply_items(&root, &[Item::Dir("usr/lib/"), Item::Link("lib", "/usr/lib")]);
+  apply_items(
+    &root,
+    &[Item::Dir("usr/lib/"), Item::Link("lib", "/usr/lib")],
+  );
   apply_items(&root, &[Item::File("lib/libx.so", "elf")]);
-  assert_eq!(fs::read_to_string(root.join("usr/lib/libx.so")).unwrap(), "elf");
+  assert_eq!(
+    fs::read_to_string(root.join("usr/lib/libx.so")).unwrap(),
+    "elf"
+  );
 }
 
 #[test]
@@ -129,7 +147,10 @@ fn parent_dir_entries_are_skipped() {
 #[test]
 fn hardlink_shares_the_target() {
   let root = tmp();
-  apply_items(&root, &[Item::File("bin/a", "same"), Item::Hard("bin/b", "bin/a")]);
+  apply_items(
+    &root,
+    &[Item::File("bin/a", "same"), Item::Hard("bin/b", "bin/a")],
+  );
   assert_eq!(fs::read_to_string(root.join("bin/b")).unwrap(), "same");
 }
 

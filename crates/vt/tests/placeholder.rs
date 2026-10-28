@@ -104,7 +104,14 @@ fn a_fully_spelled_run_collapses_into_one_draw() {
 fn omitted_coordinates_continue_the_run() {
   // The compact form clients actually emit: spell the first cell, leave the
   // rest bare.
-  let cells = row(9, &[(Some(2), Some(5), None), (None, None, None), (None, None, None)]);
+  let cells = row(
+    9,
+    &[
+      (Some(2), Some(5), None),
+      (None, None, None),
+      (None, None, None),
+    ],
+  );
   let mut out = Vec::new();
   scan_row(&cells, 0, &mut out);
   assert_eq!(out.len(), 1);

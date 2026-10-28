@@ -157,7 +157,10 @@ fn event_type_forces_the_modifier_field_when_unmodified() {
 fn release_only_for_reported_keys() {
   // A plain letter is not in the disambiguated set, so even with event types
   // on there is no release to report (it never produced a press either).
-  assert_eq!(encode("a", None, NONE, DIS | EVENTS, KeyEvent::Release), None);
+  assert_eq!(
+    encode("a", None, NONE, DIS | EVENTS, KeyEvent::Release),
+    None
+  );
 }
 
 #[test]
@@ -294,19 +297,31 @@ fn a_functional_key_release_carries_the_event_type() {
 #[test]
 fn alternate_keys_report_the_shifted_character() {
   // shift+a types "A": the base key code stays 97, with 65 alongside it.
-  assert_eq!(typed("a", "A", SHIFT, ALL | ALTERNATE).unwrap(), b"\x1b[97:65;2u");
+  assert_eq!(
+    typed("a", "A", SHIFT, ALL | ALTERNATE).unwrap(),
+    b"\x1b[97:65;2u"
+  );
   // Without the flag the alternate is tracked but not written.
   assert_eq!(typed("a", "A", SHIFT, ALL).unwrap(), b"\x1b[97;2u");
   // No shift, no alternate.
   assert_eq!(typed("a", "a", NONE, ALL | ALTERNATE).unwrap(), b"\x1b[97u");
   // A shifted character equal to the base adds nothing.
-  assert_eq!(typed("a", "a", SHIFT, ALL | ALTERNATE).unwrap(), b"\x1b[97;2u");
+  assert_eq!(
+    typed("a", "a", SHIFT, ALL | ALTERNATE).unwrap(),
+    b"\x1b[97;2u"
+  );
 }
 
 #[test]
 fn associated_text_is_appended_as_codepoints() {
-  assert_eq!(typed("a", "a", NONE, ALL | ASSOC).unwrap(), b"\x1b[97;1;97u");
-  assert_eq!(typed("a", "A", SHIFT, ALL | ASSOC).unwrap(), b"\x1b[97;2;65u");
+  assert_eq!(
+    typed("a", "a", NONE, ALL | ASSOC).unwrap(),
+    b"\x1b[97;1;97u"
+  );
+  assert_eq!(
+    typed("a", "A", SHIFT, ALL | ASSOC).unwrap(),
+    b"\x1b[97;2;65u"
+  );
   // Multi-codepoint text is colon-separated.
   assert_eq!(
     typed("e", "e\u{301}", NONE, ALL | ASSOC).unwrap(),
@@ -314,7 +329,14 @@ fn associated_text_is_appended_as_codepoints() {
   );
   // A release typed nothing, so it carries no text.
   assert_eq!(
-    encode("a", Some("a"), NONE, ALL | ASSOC | EVENTS, KeyEvent::Release).unwrap(),
+    encode(
+      "a",
+      Some("a"),
+      NONE,
+      ALL | ASSOC | EVENTS,
+      KeyEvent::Release
+    )
+    .unwrap(),
     b"\x1b[97;1:3u"
   );
 }

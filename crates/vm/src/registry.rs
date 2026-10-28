@@ -69,12 +69,8 @@ impl Client {
   pub fn resolve(&mut self, arch: &str) -> Result<Image, String> {
     let (body, top) = self.manifest(&self.reference.reference.clone())?;
     let (body, manifest) = if top.get("manifests").is_some() {
-      let digest = pick(&top, arch).ok_or_else(|| {
-        format!(
-          "{} has no linux/{arch} image",
-          self.reference.repository
-        )
-      })?;
+      let digest = pick(&top, arch)
+        .ok_or_else(|| format!("{} has no linux/{arch} image", self.reference.repository))?;
       self.manifest(&digest)?
     } else {
       (body, top)
@@ -173,7 +169,10 @@ impl Client {
       .output()
       .map_err(|e| format!("curl: {e}"))?;
     if !out.status.success() {
-      return Err(format!("could not reach {} ({})", self.reference.registry, out.status));
+      return Err(format!(
+        "could not reach {} ({})",
+        self.reference.registry, out.status
+      ));
     }
     parse_response(&out.stdout)
   }
@@ -317,7 +316,9 @@ fn find(hay: &[u8], needle: &[u8]) -> Option<usize> {
 fn encode(s: &str) -> String {
   s.bytes()
     .map(|b| match b {
-      b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => (b as char).to_string(),
+      b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+        (b as char).to_string()
+      }
       _ => format!("%{b:02X}"),
     })
     .collect()

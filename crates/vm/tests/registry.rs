@@ -57,5 +57,8 @@ fn parse_response_keeps_a_401_challenge() {
   let raw = b"HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: Bearer realm=\"https://a\"\r\n\r\n";
   let res = parse_response(raw).unwrap();
   assert_eq!(res.status, 401);
-  assert_eq!(res.header("www-authenticate"), Some("Bearer realm=\"https://a\""));
+  assert_eq!(
+    res.header("www-authenticate"),
+    Some("Bearer realm=\"https://a\"")
+  );
 }

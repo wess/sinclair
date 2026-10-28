@@ -19,7 +19,9 @@ fn round_trip(cols: usize, rows: usize, input: &str) -> (Terminal, Terminal) {
 }
 
 fn visible(term: &mut Terminal) -> Vec<String> {
-  (0..term.rows()).map(|r| term.visible_row(r).text()).collect()
+  (0..term.rows())
+    .map(|r| term.visible_row(r).text())
+    .collect()
 }
 
 fn cell_at(term: &mut Terminal, row: usize, col: usize) -> Cell {
@@ -66,7 +68,11 @@ fn a_run_returning_to_the_default_pen_is_reset() {
   let (_, mut restored) = round_trip(20, 2, "\x1b[41mred\x1b[0m plain");
   assert_eq!(cell_at(&mut restored, 0, 0).bg, Color::Indexed(1));
   for col in 3..9 {
-    assert_eq!(cell_at(&mut restored, 0, col).bg, Color::Default, "col {col}");
+    assert_eq!(
+      cell_at(&mut restored, 0, col).bg,
+      Color::Default,
+      "col {col}"
+    );
   }
 }
 
@@ -107,10 +113,7 @@ fn scrollback_is_included_and_capped() {
   // trimmed before the cap applies, so five lines means five lines of
   // history, not four plus the row the cursor happened to sit on.
   let recent = term.buffer_dump(5, NO_BYTE_CAP);
-  assert_eq!(
-    recent,
-    "line15\r\nline16\r\nline17\r\nline18\r\nline19\r\n"
-  );
+  assert_eq!(recent, "line15\r\nline16\r\nline17\r\nline18\r\nline19\r\n");
 }
 
 #[test]
@@ -128,7 +131,10 @@ fn blank_history_is_kept_but_screen_padding_is_not() {
   term.feed(b"top\r\n\r\n\r\nbottom\r\n");
   // The blank lines something printed are history. The unused rows below
   // the cursor are not, and are dropped.
-  assert_eq!(term.buffer_dump(1000, NO_BYTE_CAP), "top\r\n\r\n\r\nbottom\r\n");
+  assert_eq!(
+    term.buffer_dump(1000, NO_BYTE_CAP),
+    "top\r\n\r\n\r\nbottom\r\n"
+  );
 }
 
 #[test]

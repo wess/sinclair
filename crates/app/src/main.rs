@@ -11,6 +11,7 @@ mod catalog;
 mod clipboard;
 mod colors;
 mod confwrite;
+mod crash;
 mod envpath;
 mod exportcmd;
 #[cfg(target_os = "macos")]
@@ -148,6 +149,8 @@ fn main() {
   if updater::migrate_bundle() {
     return;
   }
+
+  crash::install();
 
   // GUI launch (Finder/Dock) inherits a bare PATH; adopt the login shell's so
   // spawned tools (bun/node, agent CLIs, git/docker plugins) are found.

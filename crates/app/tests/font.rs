@@ -49,7 +49,10 @@ fn names(list: &[&str]) -> Vec<String> {
 
 #[test]
 fn keeps_an_installed_primary() {
-  assert_eq!(resolve_primary("Menlo", &names(&["Menlo", "DejaVu Sans Mono"])), "Menlo");
+  assert_eq!(
+    resolve_primary("Menlo", &names(&["Menlo", "DejaVu Sans Mono"])),
+    "Menlo"
+  );
 }
 
 #[test]

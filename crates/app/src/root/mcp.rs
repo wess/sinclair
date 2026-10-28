@@ -365,12 +365,8 @@ impl WorkspaceView {
     let name = format!("sinclair-{}-{n}", slug(&profile.label));
     let spawned = match crate::ostab::runner(self.opts.container_engine.as_deref()) {
       Some(crate::ostab::Runner::Engine(engine)) => {
-        let target = container::Target::from_profile(
-          engine,
-          profile,
-          self.opts.container_persist,
-          Some(name),
-        );
+        let target =
+          container::Target::from_profile(engine, profile, self.opts.container_persist, Some(name));
         let id = self.spawn_container(&target, window, cx);
         // Ephemeral containers are force-removed when their item closes.
         if let (Some(id), false, Some(name)) = (id, target.persist, &target.name) {

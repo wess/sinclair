@@ -51,7 +51,10 @@ fn machine_clones_and_persists() {
   };
 
   let rootfs = machine(&root, "m", &image, true).unwrap();
-  assert_eq!(fs::read_to_string(rootfs.join("etc/os-release")).unwrap(), "ID=test\n");
+  assert_eq!(
+    fs::read_to_string(rootfs.join("etc/os-release")).unwrap(),
+    "ID=test\n"
+  );
   fs::write(rootfs.join("etc/state"), "kept").unwrap();
 
   // Persistent: the second start sees what the first wrote.

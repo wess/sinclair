@@ -14,13 +14,19 @@ const NONE: Mods = Mods {
 #[test]
 fn no_change_reports_nothing() {
   assert!(modifier_events(NONE, NONE).is_empty());
-  let held = Mods { shift: true, ..NONE };
+  let held = Mods {
+    shift: true,
+    ..NONE
+  };
   assert!(modifier_events(held, held).is_empty());
 }
 
 #[test]
 fn holding_and_letting_go_are_a_press_and_a_release() {
-  let shift = Mods { shift: true, ..NONE };
+  let shift = Mods {
+    shift: true,
+    ..NONE
+  };
   assert_eq!(
     modifier_events(NONE, shift),
     vec![("left_shift", KeyEvent::Press)]
@@ -33,7 +39,10 @@ fn holding_and_letting_go_are_a_press_and_a_release() {
 
 #[test]
 fn swapping_one_modifier_for_another_releases_before_it_presses() {
-  let shift = Mods { shift: true, ..NONE };
+  let shift = Mods {
+    shift: true,
+    ..NONE
+  };
   let ctrl = Mods { ctrl: true, ..NONE };
   assert_eq!(
     modifier_events(shift, ctrl),

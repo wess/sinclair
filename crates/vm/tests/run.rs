@@ -6,7 +6,15 @@ fn strs(v: &[&str]) -> Vec<String> {
 
 #[test]
 fn parse_flags_image_and_command() {
-  let args = parse(&strs(&["--persist", "--name", "box", "debian:12", "bash", "-l"])).unwrap();
+  let args = parse(&strs(&[
+    "--persist",
+    "--name",
+    "box",
+    "debian:12",
+    "bash",
+    "-l",
+  ]))
+  .unwrap();
   assert_eq!(
     args,
     Args {
@@ -54,7 +62,12 @@ fn guest_defaults_to_sh() {
 fn guest_env_keeps_image_values_and_fills_defaults() {
   let config = json!({"config": {"Env": ["PATH=/custom", "LANG=C.UTF-8"]}});
   let g = guest(&config, &[], "box", "xterm-256color");
-  let env: Vec<&str> = g["env"].as_array().unwrap().iter().map(|v| v.as_str().unwrap()).collect();
+  let env: Vec<&str> = g["env"]
+    .as_array()
+    .unwrap()
+    .iter()
+    .map(|v| v.as_str().unwrap())
+    .collect();
   assert!(env.contains(&"PATH=/custom"));
   assert!(env.contains(&"LANG=C.UTF-8"));
   assert!(env.contains(&"HOME=/root"));
@@ -65,6 +78,9 @@ fn guest_env_keeps_image_values_and_fills_defaults() {
 
 #[test]
 fn guest_workdir_from_image_or_root_home() {
-  assert_eq!(guest(&json!({"config": {"WorkingDir": "/app"}}), &[], "m", "t")["workdir"], "/app");
+  assert_eq!(
+    guest(&json!({"config": {"WorkingDir": "/app"}}), &[], "m", "t")["workdir"],
+    "/app"
+  );
   assert_eq!(guest(&json!({}), &[], "m", "t")["workdir"], "/root");
 }

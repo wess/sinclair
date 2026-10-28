@@ -233,7 +233,12 @@ impl Inner {
       .images
       .iter()
       .any(|p| p.kitty.as_ref().is_some_and(|k| k.image_id == id));
-    if touches || self.virt.iter().any(|p| p.kitty.as_ref().is_some_and(|k| k.image_id == id)) {
+    if touches
+      || self
+        .virt
+        .iter()
+        .any(|p| p.kitty.as_ref().is_some_and(|k| k.image_id == id))
+    {
       self.full_damage = true;
     }
   }
@@ -377,8 +382,8 @@ impl Inner {
       Err(_) => control.image_id,
     };
     let suppress = match (&result, control.quiet) {
-      (_, q) if q >= 2 => true,      // suppress all
-      (Ok(_), q) if q >= 1 => true,  // suppress success
+      (_, q) if q >= 2 => true,     // suppress all
+      (Ok(_), q) if q >= 1 => true, // suppress success
       _ => false,
     };
     if suppress {

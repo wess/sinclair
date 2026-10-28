@@ -5,7 +5,6 @@ fn ctrl(s: &str) -> Control {
   parse_control(s.as_bytes())
 }
 
-
 #[test]
 fn decodes_raw_rgba() {
   let c = ctrl("f=32,s=2,v=1");
@@ -92,7 +91,6 @@ fn decodes_rgb_png_expanding_alpha() {
   let img = decode(&ctrl("f=100"), &bytes).unwrap();
   assert_eq!(img.rgba.as_ref(), &[10, 20, 30, 255]);
 }
-
 
 #[test]
 fn unsupported_format_errors() {

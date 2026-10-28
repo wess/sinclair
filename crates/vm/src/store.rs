@@ -96,7 +96,10 @@ pub fn machine(root: &Path, name: &str, image: &Image, persist: bool) -> Result<
     clone(&image.rootfs, &rootfs)?;
   }
   let kind = if persist { "persist" } else { "ephemeral" };
-  write(&dir.join("owner"), format!("{} {kind}", std::process::id()).as_bytes())?;
+  write(
+    &dir.join("owner"),
+    format!("{} {kind}", std::process::id()).as_bytes(),
+  )?;
   Ok(rootfs)
 }
 
@@ -144,7 +147,13 @@ fn hex(digest: &str) -> &str {
 pub(crate) fn slug(raw: &str) -> String {
   raw
     .chars()
-    .map(|c| if c.is_ascii_alphanumeric() || c == '.' { c } else { '+' })
+    .map(|c| {
+      if c.is_ascii_alphanumeric() || c == '.' {
+        c
+      } else {
+        '+'
+      }
+    })
     .collect()
 }
 

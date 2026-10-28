@@ -8,9 +8,9 @@
 // Only the boot path is platform-specific; elsewhere its helpers sit unused.
 #![cfg_attr(not(unix), allow(dead_code))]
 
-use std::ffi::{c_char, CString};
 #[cfg(unix)]
 use std::ffi::c_void;
+use std::ffi::{c_char, CString};
 use std::path::{Path, PathBuf};
 
 #[cfg(target_os = "macos")]
@@ -86,7 +86,10 @@ unsafe fn boot(libdir: &Path, spec: &Spec) -> Result<(), String> {
     return Err(format!("krun_create_ctx failed ({ctx})"));
   }
   let ctx = ctx as u32;
-  check("krun_set_vm_config", set_vm_config(ctx, spec.cpus, spec.memory_mib))?;
+  check(
+    "krun_set_vm_config",
+    set_vm_config(ctx, spec.cpus, spec.memory_mib),
+  )?;
 
   let root = cstr(&spec.rootfs.to_string_lossy())?;
   check("krun_set_root", set_root(ctx, root.as_ptr()))?;
@@ -137,7 +140,10 @@ unsafe fn sym<T: Copy>(lib: *mut c_void, name: &std::ffi::CStr) -> Result<T, Str
 
 fn check(call: &str, rc: i32) -> Result<(), String> {
   if rc < 0 {
-    Err(format!("{call} failed: {}", std::io::Error::from_raw_os_error(-rc)))
+    Err(format!(
+      "{call} failed: {}",
+      std::io::Error::from_raw_os_error(-rc)
+    ))
   } else {
     Ok(())
   }

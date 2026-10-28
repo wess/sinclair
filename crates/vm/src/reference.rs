@@ -58,7 +58,10 @@ impl Reference {
 
   /// `https://<registry>/v2/<repository>/<kind>/<id>`.
   pub fn url(&self, kind: &str, id: &str) -> String {
-    format!("https://{}/v2/{}/{kind}/{id}", self.registry, self.repository)
+    format!(
+      "https://{}/v2/{}/{kind}/{id}",
+      self.registry, self.repository
+    )
   }
 }
 

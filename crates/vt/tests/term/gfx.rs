@@ -184,7 +184,11 @@ fn displaying_leaves_the_cursor_past_the_image() {
   let mut t = term();
   // 16x32 px at 8x16 cells: two columns, two rows, anchored at the origin.
   gfx(&mut t, "a=T,f=32,s=16,v=32,i=1", &solid(16, 32, [0; 4]));
-  assert_eq!(t.cursor_pos(), (1, 2), "one row down, just right of the image");
+  assert_eq!(
+    t.cursor_pos(),
+    (1, 2),
+    "one row down, just right of the image"
+  );
 }
 
 #[test]
@@ -318,8 +322,16 @@ fn delete_by_z_index() {
 #[test]
 fn delete_by_cell_and_z_together() {
   let mut t = term();
-  gfx(&mut t, "a=T,f=32,s=8,v=16,i=1,z=3,C=1", &solid(8, 16, [0; 4]));
-  gfx(&mut t, "a=T,f=32,s=8,v=16,i=2,z=4,C=1", &solid(8, 16, [0; 4]));
+  gfx(
+    &mut t,
+    "a=T,f=32,s=8,v=16,i=1,z=3,C=1",
+    &solid(8, 16, [0; 4]),
+  );
+  gfx(
+    &mut t,
+    "a=T,f=32,s=8,v=16,i=2,z=4,C=1",
+    &solid(8, 16, [0; 4]),
+  );
   let _ = t.take_output();
   cmd(&mut t, "a=d,d=q,x=1,y=1,z=4");
   assert_eq!(t.images().len(), 1);
@@ -396,7 +408,11 @@ fn animation_control_sets_playback_state() {
   assert!(!t.graphics_playback(1).unwrap().running);
 
   cmd(&mut t, "a=a,i=1,s=3,v=1");
-  assert_eq!(t.graphics_playback(1).unwrap().loops, None, "v=1 is forever");
+  assert_eq!(
+    t.graphics_playback(1).unwrap().loops,
+    None,
+    "v=1 is forever"
+  );
 }
 
 #[test]
@@ -455,7 +471,11 @@ fn a_placeholder_run_resolves_to_the_virtual_placement_it_names() {
   // What a tmux-style passthrough emits: transmit with a virtual placement,
   // then write placeholder cells that say which piece goes where.
   let mut t = term();
-  gfx(&mut t, "a=T,f=32,s=4,v=2,i=1,U=1,c=2,r=1", &solid(4, 2, [1, 2, 3, 255]));
+  gfx(
+    &mut t,
+    "a=T,f=32,s=4,v=2,i=1,U=1,c=2,r=1",
+    &solid(4, 2, [1, 2, 3, 255]),
+  );
   let _ = reply(&mut t);
   assert_eq!(t.virtual_placements().len(), 1);
 

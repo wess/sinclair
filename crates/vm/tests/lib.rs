@@ -3,7 +3,13 @@ use super::*;
 #[test]
 fn argv_runs_the_hidden_vm_mode() {
   assert_eq!(
-    argv("/Apps/sinclair", "debian:latest", "bash -l", true, "sinclair-debian-1"),
+    argv(
+      "/Apps/sinclair",
+      "debian:latest",
+      "bash -l",
+      true,
+      "sinclair-debian-1"
+    ),
     vec![
       "/Apps/sinclair",
       "_vm",

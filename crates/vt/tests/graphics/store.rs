@@ -62,7 +62,12 @@ fn a_new_frame_composites_onto_a_solid_background() {
   // Y is a 32-bit RGBA background: opaque red.
   let red: u32 = u32::from_be_bytes([255, 0, 0, 255]);
   let rect = solid(1, 1, [0, 0, 255, 255]);
-  add_frame(&mut image, &ctrl(&format!("a=f,s=1,v=1,x=1,y=1,Y={red}")), &rect).unwrap();
+  add_frame(
+    &mut image,
+    &ctrl(&format!("a=f,s=1,v=1,x=1,y=1,Y={red}")),
+    &rect,
+  )
+  .unwrap();
 
   assert_eq!(image.frames.len(), 2);
   let px = &image.frames[1].image.rgba;

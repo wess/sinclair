@@ -83,12 +83,16 @@ pub(crate) fn unpack(reader: impl Read, root: &Path) -> io::Result<()> {
         chmod(&dest, (mode & 0o777) | 0o600)?;
       }
       EntryType::Symlink => {
-        let target = entry.link_name()?.ok_or_else(|| bad("symlink without target"))?;
+        let target = entry
+          .link_name()?
+          .ok_or_else(|| bad("symlink without target"))?;
         remove(&dest)?;
         symlink(&target, &dest)?;
       }
       EntryType::Link => {
-        let target = entry.link_name()?.ok_or_else(|| bad("hardlink without target"))?;
+        let target = entry
+          .link_name()?
+          .ok_or_else(|| bad("hardlink without target"))?;
         let target = clean(&target).ok_or_else(|| bad("hardlink outside the rootfs"))?;
         // Link the entry itself, not what it points at when it is a symlink.
         let source = resolve(root, target.parent().unwrap_or(Path::new("")))?
@@ -141,7 +145,10 @@ pub(crate) fn resolve(root: &Path, rel: &Path) -> io::Result<PathBuf> {
       parts.pop();
       continue;
     }
-    let candidate: PathBuf = std::iter::once(root.to_path_buf()).chain(parts.iter().cloned()).chain([part.clone()]).collect();
+    let candidate: PathBuf = std::iter::once(root.to_path_buf())
+      .chain(parts.iter().cloned())
+      .chain([part.clone()])
+      .collect();
     match fs::symlink_metadata(&candidate) {
       Ok(meta) if meta.file_type().is_symlink() => {
         hops += 1;
@@ -197,7 +204,10 @@ fn symlink(target: &Path, link: &Path) -> io::Result<()> {
 
 #[cfg(not(unix))]
 fn symlink(_: &Path, _: &Path) -> io::Result<()> {
-  Err(io::Error::new(io::ErrorKind::Unsupported, "symlinks need a unix host"))
+  Err(io::Error::new(
+    io::ErrorKind::Unsupported,
+    "symlinks need a unix host",
+  ))
 }
 
 /// Record the guest-visible owner and mode (see the module docs).

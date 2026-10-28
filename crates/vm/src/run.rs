@@ -119,7 +119,11 @@ pub fn boot(args: &[String]) -> i32 {
   let strings = |key: &str| -> Vec<String> {
     spec[key]
       .as_array()
-      .map(|a| a.iter().filter_map(|v| v.as_str().map(str::to_string)).collect())
+      .map(|a| {
+        a.iter()
+          .filter_map(|v| v.as_str().map(str::to_string))
+          .collect()
+      })
       .unwrap_or_default()
   };
   let argv = strings("argv");
@@ -148,7 +152,11 @@ pub(crate) fn guest(config: &Value, command: &[String], name: &str, term: &str) 
   let list = |key: &str| -> Vec<String> {
     config[key]
       .as_array()
-      .map(|a| a.iter().filter_map(|v| v.as_str().map(str::to_string)).collect())
+      .map(|a| {
+        a.iter()
+          .filter_map(|v| v.as_str().map(str::to_string))
+          .collect()
+      })
       .unwrap_or_default()
   };
 
@@ -200,7 +208,10 @@ fn resolv(rootfs: &Path) -> Result<(), String> {
   if servers.is_empty() {
     servers = vec!["1.1.1.1", "8.8.8.8"];
   }
-  let body: String = servers.iter().map(|s| format!("nameserver {s}\n")).collect();
+  let body: String = servers
+    .iter()
+    .map(|s| format!("nameserver {s}\n"))
+    .collect();
 
   let etc = crate::layer::resolve(rootfs, Path::new("etc")).map_err(|e| e.to_string())?;
   fs::create_dir_all(&etc).map_err(|e| e.to_string())?;

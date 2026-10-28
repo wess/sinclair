@@ -101,9 +101,6 @@ fn bel_terminated_apc() {
   assert_eq!(t.images().len(), 1);
 }
 
-
-
-
 /// An APC block is captured here and never handed to vte, so a run forwarded to
 /// vte must not end on a dangling ESC — vte would park mid-escape and eat the
 /// first byte *after* the block as that escape's final byte. `ESC ESC _…ST H`

@@ -9,7 +9,11 @@ fn parse(raw: &str) -> (String, String, String) {
 fn bare_name_is_a_hub_library_image_at_latest() {
   assert_eq!(
     parse("debian"),
-    ("registry-1.docker.io".into(), "library/debian".into(), "latest".into())
+    (
+      "registry-1.docker.io".into(),
+      "library/debian".into(),
+      "latest".into()
+    )
   );
 }
 
