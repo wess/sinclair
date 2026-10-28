@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Clipboard, snippets & pickers — Sinclair docs</title>
+    <meta name="description" content="A hands-on walkthrough of Sinclair's clipboard: copy and paste, copy-on-select, clipboard history, secret redaction, snippets, launch profiles, the emoji picker, and the two launchers that reach them all.">
+    <meta name="theme-color" content="#05070c">
+    <link rel="icon" href="icon.png">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="docs.css">
+  </head>
+  <body class="docs">
+    <a class="skip" href="#doc-main">Skip to content</a>
+    <main id="doc-main" class="doc-main">
+      <article class="doc-article" data-doc-page="clipboard">
+        <p class="kicker">Tutorial</p>
+        <h1>Clipboard, snippets &amp; pickers</h1>
+        <p class="lede">
+          Moving text in and out of a terminal is where a lot of small frictions hide. This
+          walkthrough turns Sinclair's clipboard into a real tool: copy without selecting, pull
+          back something you copied three commands ago, keep API keys off the clipboard for
+          good, and fuzzy-find the commands, launch setups, and glyphs you reach for every
+          day — then wire it all to two launchers you can drive by name.
+        </p>
+
+        <div class="callout note">
+          <p>On macOS, <kbd>⌘</kbd> is the modifier. On Linux, read <kbd>⌘</kbd> as
+          <kbd>⌃</kbd> (Ctrl) throughout. Every shortcut here maps to an action you can
+          remap — see <a href="keybindings.html">Keybindings</a>.</p>
+        </div>
+
+        <h2>1. Copy &amp; paste basics</h2>
+        <p>
+          The essentials are exactly where you expect: copy with <kbd>⌘C</kbd> and paste with
+          <kbd>⌘V</kbd>. From there, two options make the clipboard feel native to a terminal.
+          Turn on <code>copy-on-select</code> and any selection is copied the moment you make
+          it — no keystroke — and turn on <code>middle-click-paste</code> to drop the current
+          selection with a middle click, the way X11 users already expect:
+        </p>
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "copy-on-select": true,        <span class="c">// selecting text copies it immediately</span>
+  "middle-click-paste": true     <span class="c">// middle-click pastes the selection (X-style)</span>
+}</code></pre>
+        <p>
+          Remote programs get a say too: a process can set your clipboard through
+          <strong>OSC 52</strong>, so a tool running over SSH can copy to your local clipboard
+          without any round trip. That power cuts both ways on paste, which is why
+          <code>clipboard-paste-protection</code> warns you before pasting content that looks
+          risky — multi-line pastes and dangerous patterns like <code>rm -rf</code>,
+          <code>curl … | sh</code>, <code>sudo</code>, or writes to <code>/dev</code> — with
+          the reasons listed, so nothing runs before you've read it:
+        </p>
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "clipboard-paste-protection": true   <span class="c">// confirm before pasting risky content</span>
+}</code></pre>
+
+        <h2>2. Clipboard history</h2>
+        <p>
+          The system clipboard only remembers the last thing you copied — Sinclair remembers a
+          ring of recent ones. Press <kbd>⌘⇧Y</kbd> (<code>clipboard_history</code>) to open a
+          fuzzy picker over everything you've copied lately; type to filter, then choose an
+          entry to paste it into the focused pane. This is the fix for the copy-something-else
+          -and-lose-it problem: reach back and grab the value you copied three commands ago
+          without hunting through scrollback for it again.
+        </p>
+
+        <h2>3. Keep secrets off the clipboard</h2>
+        <p>
+          Copying a line that happens to hold an API key means that key now lives on your
+          clipboard, in your history, and one stray paste from a chat window. Secret redaction
+          stops that at the source. Each <code>redact</code> entry is a regular expression;
+          anything it matches is masked with bullets (<code>•</code>) <em>before</em> the text
+          ever reaches the clipboard:
+        </p>
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "redact": [
+    "sk-[A-Za-z0-9]{20,}",    <span class="c">// mask OpenAI-style keys</span>
+    "ghp_[A-Za-z0-9]{36}"     <span class="c">// mask GitHub tokens</span>
+  ]
+}</code></pre>
+        <p>
+          The key detail is that redaction runs on <em>every</em> copy path — an explicit
+          <kbd>⌘C</kbd>, copy-on-select, copy-command-output, and a copy-mode yank alike — so
+          there's no gap where a secret slips through unmasked. Because it happens before the
+          clipboard, the masked form is also what lands in clipboard history from step 2.
+        </p>
+
+        <h2>4. Snippets</h2>
+        <p>
+          Some commands you retype constantly and never quite remember in full. Save them as
+          snippets and recall them from a fuzzy picker instead. Each <code>snippet</code> entry
+          is <code>label | command</code>:
+        </p>
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "snippet": [
+    "deploy | git push origin main",
+    "logs | kubectl logs -f deploy/api"
+  ]
+}</code></pre>
+        <p>
+          Press <kbd>⌘⌥S</kbd> (<code>snippets</code>) to open the picker and pick one. The
+          payoff is in what happens next: the picker <em>inserts</em> the command into the
+          focused pane rather than running it, so you can edit the arguments — swap the branch,
+          change the deployment — and only then press Enter. It's a starting point you tweak,
+          not a blind fire.
+        </p>
+
+        <h2>5. Launch profiles</h2>
+        <p>
+          Profiles are named launch setups — an SSH host, a REPL, a project environment. Each
+          <code>profile</code> entry is <code>label | command</code>, just like a snippet:
+        </p>
+        <pre><code><span class="c">// ~/.config/sinclair/settings.json</span>
+{
+  "profile": [
+    "prod | ssh prod.example.com",
+    "repl | python3"
+  ]
+}</code></pre>
+        <p>
+          Press <kbd>⌘⌥P</kbd> (<code>profiles</code>) to open the picker, and choosing one
+          opens a <strong>new tab</strong> running that command. The difference from a snippet
+          is deliberate: a snippet edits into your current pane, a profile spins up its own tab
+          and gets going — reach for it when you want the thing running, not staged.
+        </p>
+
+        <h2>6. Emoji &amp; symbol picker</h2>
+        <p>
+          You don't need a separate app to type a glyph you can't reach on the keyboard. Press
+          <kbd>⌘⌥E</kbd> (<code>unicode_picker</code>) to open a searchable list of common emoji
+          and symbols — arrows, math signs, Greek letters, and more — each one named so you can
+          fuzzy-find it. Pick one and Sinclair sends the glyph straight to the focused pane. Handy
+          for a commit message, a comment, or a quick <code>→</code> in some notes.
+        </p>
+
+        <h2>7. Tie it together with the launchers</h2>
+        <p>
+          Every picker and action above is reachable by name, so you never have to memorize a
+          keybinding to find a feature. Two launchers are the escape hatch:
+        </p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Shortcut</th><th>Opens</th><th>Use it to</th></tr></thead>
+            <tbody>
+              <tr><td><kbd>⌘P</kbd></td><td>Quick open (<code>quick_open</code>)</td><td>A Spotlight-style launcher; type a few letters and run any action — including the pickers above.</td></tr>
+              <tr><td><kbd>⌘⇧P</kbd></td><td>Command palette (<code>command_palette</code>)</td><td>Fuzzy over Sinclair's full action catalog — the pickers, copy mode, splits, settings — with each row showing its current keybinding.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          Forgot that clipboard history is <kbd>⌘⇧Y</kbd>? Open the command palette, type
+          <code>clip</code>, and run it — and the row shows you the shortcut for next time. The
+          launchers list everything, so the whole rest of this page is one <kbd>⌘⇧P</kbd> away.
+        </p>
+
+        <h2>Where to next</h2>
+        <div class="cards">
+          <a href="navigate.html"><strong>Navigate &amp; select</strong>Keyboard-driven selection, hint mode, and copy mode — the fastest ways to grab text without the mouse.</a>
+          <a href="awareness.html"><strong>Triggers, notifications &amp; annotations</strong>Make the terminal tell you when something happens, and mark up what you find.</a>
+          <a href="palette.html"><strong>Command palette &amp; quick open</strong>The two launchers in full — every action and plugin, reachable by name.</a>
+        </div>
+      </article>
+    </main>
+    <script type="module" src="docs.js"></script>
+  </body>
+</html>

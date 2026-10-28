@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Agents — Sinclair docs</title>
+    <meta name="description" content="Run coding agents in Sinclair panes: status dots, the MCP server, the shared sandbox, worktrees, tiles, and resumed sessions.">
+    <meta name="theme-color" content="#05070c">
+    <link rel="icon" href="icon.png">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="docs.css">
+  </head>
+  <body class="docs">
+    <a class="skip" href="#doc-main">Skip to content</a>
+    <main id="doc-main" class="doc-main">
+      <article class="doc-article" data-doc-page="agents">
+        <p class="kicker">Agents</p>
+        <h1>Agents</h1>
+        <p class="lede">Sinclair doesn't launch or orchestrate agents for you — you run Claude Code, Codex, or any other agent CLI in a pane, the same way you'd run any command. What Sinclair adds is the supervision around them: a status dot per pane, an MCP server agents can drive the terminal through, one container to hold the project and its agents, a worktree per agent, and resumed sessions after a restart.</p>
+
+        <h2>Run an agent</h2>
+        <p>Open a tab or split and start the CLI: <code>claude</code>, <code>codex</code>, or anything else. To run several side by side, open a tile from the <strong>Workspace</strong> menu — built-in presets (Two/Three Columns, Two Rows, Grid, Main + Bottom Row, Main + Right Stack) open that arrangement of shells in a new tab, and <strong>Save Current Layout…</strong> captures the focused tab's split structure as a named layout (stored as JSON under <code>~/.config/sinclair/layouts/</code>). See <a href="workspace.html">Tabs, splits &amp; layouts</a>.</p>
+
+        <h2>Agent status</h2>
+        <p>Every pane has a <strong>semantic state</strong> — <code>working</code>, <code>blocked</code> (waiting on you), <code>done</code>, or <code>idle</code> — that shows up as a colored dot on its tab and is rolled up in the <a href="productivity.html">Activity</a> panel. It's the fastest way to read a window full of agents at a glance: who's heads-down, who's blocked, who's finished.</p>
+        <p>Claude Code reports these states through its lifecycle hooks. Run <code>sinclair agent-hooks install</code> once and its dot tracks its work automatically; anything else can report with <code>sinclair agent-status</code>. See the <a href="statushooks.html">Agent status at a glance</a> tutorial.</p>
+
+        <h2>The MCP server</h2>
+        <p><code>sinclair mcp</code> exposes the running terminal to any MCP client, so an agent can read the screen, send input, open tabs and splits, replay macros, manage worktrees, check other panes' states, and post notifications. Turn it on with <strong>MCP server</strong> under <strong>Settings → Agents</strong> (<code>mcp-server-enabled</code>). Full tool list: <a href="mcp.html">MCP server</a>.</p>
+
+        <h2 id="sandbox">The shared sandbox</h2>
+        <p>An agent working in your checkout is working on your real machine, with your real credentials. Turning on <strong>File ▸ Sandbox ▸ Use Sandbox for This Project</strong> puts the project and every agent you run in it inside one container instead: one filesystem, one toolchain, one blast radius. It needs Docker or Podman and nothing else, and its settings live under <strong>Settings → Agents</strong>. Full walkthrough: <a href="sandbox.html">Share one container with your agents</a>.</p>
+
+        <h2>A worktree per agent</h2>
+        <p>Create, open, and remove git worktrees from keybinds or MCP verbs, each opening a tab at the checkout — one isolated branch per agent, with triggers for setup and teardown. See <a href="worktreeagents.html">Parallel agents in git worktrees</a>.</p>
+
+        <h2>Resume, don't restart</h2>
+        <p>With <code>session-restore</code> on, a pane that was running <code>claude</code> or <code>codex</code> is remembered as one, along with the native session id its hooks reported. On restore it relaunches <em>resumed</em> — <code>claude --resume &lt;id&gt;</code> or <code>codex resume &lt;id&gt;</code> — instead of dropping to a bare shell. Other commands relaunch unchanged; plain shells restore exactly as before. Whether the conversation comes back intact is up to the agent CLI: Sinclair threads the session id, the provider reloads its transcript.</p>
+      </article>
+    </main>
+    <script type="module" src="docs.js"></script>
+  </body>
+</html>
