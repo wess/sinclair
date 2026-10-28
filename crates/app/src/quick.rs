@@ -334,7 +334,7 @@ fn open(cx: &mut App) {
   let cursor_style = opts.cursor_style;
   let copy_on_select = opts.copy_on_select;
   let smart_select = opts.smart_select;
-  let middle_click_paste = opts.middle_click_paste;
+  let middle_click = opts.middle_click;
   let option_as_alt = opts.macos_option_as_alt;
   let paste_protection = opts.clipboard_paste_protection;
   let clipboard_write = opts.clipboard_write;
@@ -357,7 +357,7 @@ fn open(cx: &mut App) {
         cursor_style,
         copy_on_select,
         smart_select,
-        middle_click_paste,
+        middle_click,
         option_as_alt,
         paste_protection,
         clipboard_write,
@@ -428,9 +428,9 @@ impl QuickTerminalView {
     cell: libsinclair::metrics::CellSize,
     pad: Padding,
     cursor_style: config::CursorStyle,
-    copy_on_select: bool,
+    copy_on_select: config::CopyOnSelect,
     smart_select: bool,
-    middle_click_paste: bool,
+    middle_click: config::MiddleClick,
     option_as_alt: config::OptionAsAlt,
     paste_protection: bool,
     clipboard_write: config::ClipboardAccess,
@@ -453,7 +453,7 @@ impl QuickTerminalView {
         cursor_style,
         copy_on_select,
         smart_select,
-        middle_click_paste,
+        middle_click,
         option_as_alt,
         paste_protection,
         clipboard_write,

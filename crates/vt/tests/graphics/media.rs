@@ -52,7 +52,7 @@ fn offset_and_size_window_the_file() {
 
 #[test]
 fn temp_medium_consumes_the_file() {
-  let f = Scratch::new("consume", b"gone");
+  let f = Scratch::new("tty-graphics-protocol-consume", b"gone");
   assert_eq!(fetch(&ctrl("t=t"), &f.payload()).unwrap(), b"gone");
   assert!(!f.0.exists(), "t=t owns the file and must delete it");
 }
@@ -67,6 +67,61 @@ fn temp_medium_leaves_files_outside_a_temp_dir_alone() {
   assert_eq!(fetch(&ctrl("t=t"), &payload).unwrap(), b"keep");
   assert!(path.exists(), "only temp-dir files may be deleted");
   std::fs::remove_file(&path).unwrap();
+}
+
+#[test]
+fn temp_medium_keeps_files_without_the_protocol_marker() {
+  // kitty only deletes files whose name says they were made for it.
+  let f = Scratch::new("unmarked", b"keep");
+  assert_eq!(fetch(&ctrl("t=t"), &f.payload()).unwrap(), b"keep");
+  assert!(f.0.exists(), "an unmarked temp file must survive t=t");
+}
+
+#[test]
+fn temp_medium_cannot_climb_out_of_the_temp_dir() {
+  // `/tmp/../<elsewhere>` starts with `/tmp` component-wise; the check must
+  // resolve it rather than delete a file outside every temp root.
+  let dir = std::env::current_dir().unwrap();
+  let path = dir.join(format!(
+    "tty-graphics-protocol-escape-{}",
+    std::process::id()
+  ));
+  std::fs::write(&path, b"keep").unwrap();
+  let depth = std::env::temp_dir()
+    .canonicalize()
+    .unwrap()
+    .components()
+    .count();
+  let climb = "../".repeat(depth);
+  let sneaky = std::env::temp_dir()
+    .join(climb)
+    .join(path.strip_prefix("/").unwrap());
+  let payload = sneaky.to_str().unwrap().as_bytes().to_vec();
+  assert_eq!(fetch(&ctrl("t=t"), &payload).unwrap(), b"keep");
+  let survived = path.exists();
+  std::fs::remove_file(&path).unwrap();
+  assert!(
+    survived,
+    "a `..` path out of the temp dir must not be deleted"
+  );
+}
+
+#[cfg(unix)]
+#[test]
+fn temp_medium_never_follows_a_symlink_to_delete() {
+  let target = Scratch::new("tty-graphics-protocol-target", b"real");
+  let link =
+    std::env::temp_dir().join(format!("tty-graphics-protocol-link-{}", std::process::id()));
+  let _ = std::fs::remove_file(&link);
+  std::os::unix::fs::symlink(&target.0, &link).unwrap();
+  let payload = link.to_str().unwrap().as_bytes().to_vec();
+  assert_eq!(fetch(&ctrl("t=t"), &payload).unwrap(), b"real");
+  let kept = link.exists();
+  let _ = std::fs::remove_file(&link);
+  assert!(
+    kept && target.0.exists(),
+    "a symlink is not a temp file to consume"
+  );
 }
 
 #[test]
@@ -131,4 +186,3 @@ fn shared_memory_is_read_and_unlinked() {
   // The name is consumed: a second read finds nothing.
   assert_eq!(fetch(&control, name.as_bytes()), Err(GfxError("ENOENT")));
 }
-

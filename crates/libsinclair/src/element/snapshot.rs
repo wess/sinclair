@@ -203,8 +203,11 @@ pub(crate) struct CachedTexture {
   pub(crate) started: std::time::Instant,
 }
 
-impl Drop for ImageCache {
-  fn drop(&mut self) {
+impl ImageCache {
+  /// Drop every texture this pane holds, freeing its share of the pool. A
+  /// pane that is not on screen (a background tab) has no use for them; the
+  /// next paint rebuilds whatever is visible then.
+  pub fn release(&mut self) {
     let Ok(mut pool) = self.pool.try_borrow_mut() else {
       return;
     };
@@ -217,6 +220,12 @@ impl Drop for ImageCache {
     for victim in victims {
       pool.remove(victim);
     }
+  }
+}
+
+impl Drop for ImageCache {
+  fn drop(&mut self) {
+    self.release();
   }
 }
 
@@ -603,6 +612,16 @@ enum Reuse<'a> {
 }
 
 impl SnapCache {
+  /// Forget the cached frame and shaped rows, keeping only the counters and
+  /// resize bookkeeping. For a pane that is no longer drawn: the next paint
+  /// rebuilds from the terminal, as the first one did.
+  pub fn release(&mut self) {
+    self.snap = None;
+    self.key = None;
+    self.shaped_rows = Vec::new();
+    self.anim_wake = None;
+  }
+
   pub fn stats(&self) -> RenderStats {
     self.stats
   }
@@ -1047,7 +1066,9 @@ pub(crate) fn image_draws(
     live.insert(key);
     let placement = &term.images()[i];
     let (source_w, source_h) = (placement.image.width as f32, placement.image.height as f32);
-    let (sx, sy, sw, sh) = placement.source().clip(placement.image.width, placement.image.height);
+    let (sx, sy, sw, sh) = placement
+      .source()
+      .clip(placement.image.width, placement.image.height);
     let (dest_w, dest_h) = placement.draw_size(cw as usize, ch as usize);
     if sw == 0 || sh == 0 || dest_w <= 0.0 || dest_h <= 0.0 {
       continue;
@@ -1061,7 +1082,11 @@ pub(crate) fn image_draws(
       .as_ref()
       .map_or((0.0, 0.0), |k| (k.cell_x as f32, k.cell_y as f32));
     let texture = image_cache.texture(key, serial, &frames);
-    let anim = anim_of(term, placement.kitty.as_ref().map(|k| k.image_id), texture.started);
+    let anim = anim_of(
+      term,
+      placement.kitty.as_ref().map(|k| k.image_id),
+      texture.started,
+    );
     draws.push(ImageDraw {
       line: placement.line,
       col: placement.col,
@@ -1103,7 +1128,11 @@ fn source_of(term: &vt::Terminal, i: usize) -> (u64, u64, Vec<&vt::Image>) {
 }
 
 /// An image's playback description, if it has frames to play.
-fn anim_of(term: &vt::Terminal, image_id: Option<u32>, started: std::time::Instant) -> Option<Anim> {
+fn anim_of(
+  term: &vt::Terminal,
+  image_id: Option<u32>,
+  started: std::time::Instant,
+) -> Option<Anim> {
   let id = image_id?;
   let frames = term.graphics_frames(id)?;
   Some(Anim {
@@ -1140,7 +1169,10 @@ fn placeholder_draws(
     }
     // The placement's cell box: what the client asked for, or the image's
     // own size in cells when it asked for neither.
-    let kitty = placement.kitty.as_ref().expect("virtual placements are kitty");
+    let kitty = placement
+      .kitty
+      .as_ref()
+      .expect("virtual placements are kitty");
     let box_cols = match kitty.cols {
       0 => (sw as f32 / cw).ceil().max(1.0),
       c => c as f32,

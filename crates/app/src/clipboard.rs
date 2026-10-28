@@ -34,3 +34,29 @@ pub fn entries(cx: &gpui::App) -> Vec<String> {
     .map(|h| h.0.iter().cloned().collect())
     .unwrap_or_default()
 }
+
+/// The macOS stand-in for X11's primary selection: the text copy-on-select
+/// last captured, which a middle click pastes. Linux uses the real one.
+#[cfg(not(any(target_os = "linux", target_os = "freebsd")))]
+#[derive(Default)]
+struct Primary(String);
+
+#[cfg(not(any(target_os = "linux", target_os = "freebsd")))]
+impl gpui::Global for Primary {}
+
+/// Set the primary selection to `text`.
+pub fn write_primary(text: String, cx: &mut gpui::App) {
+  #[cfg(any(target_os = "linux", target_os = "freebsd"))]
+  cx.write_to_primary(gpui::ClipboardItem::new_string(text));
+  #[cfg(not(any(target_os = "linux", target_os = "freebsd")))]
+  cx.set_global(Primary(text));
+}
+
+/// The primary selection's text, if anything has set it.
+pub fn read_primary(cx: &gpui::App) -> Option<String> {
+  #[cfg(any(target_os = "linux", target_os = "freebsd"))]
+  let text = cx.read_from_primary().and_then(|item| item.text());
+  #[cfg(not(any(target_os = "linux", target_os = "freebsd")))]
+  let text = cx.try_global::<Primary>().map(|p| p.0.clone());
+  text.filter(|t| !t.is_empty())
+}

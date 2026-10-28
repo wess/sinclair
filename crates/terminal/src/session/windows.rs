@@ -274,7 +274,17 @@ fn apply_chunk(chunk: &[u8], replies: &mut File, r: &Reader) {
     .output_bytes
     .fetch_add(chunk.len() as u64, Ordering::Relaxed);
   r.stats.output_chunks.fetch_add(1, Ordering::Relaxed);
-  let (reply, title, bell, clipboard, notification, command_finished, cwd_changed) = {
+  let (
+    reply,
+    title,
+    bell,
+    clipboard,
+    clipboard_requests,
+    resize_request,
+    notification,
+    command_finished,
+    cwd_changed,
+  ) = {
     let mut term = r.term.lock().unwrap_or_else(|e| e.into_inner());
     // The reader thread must survive parser bugs, but a panicking feed
     // leaves the terminal half-mutated: log it and start over from a
@@ -292,6 +302,8 @@ fn apply_chunk(chunk: &[u8], replies: &mut File, r: &Reader) {
       term.take_title_changed(),
       term.take_bell(),
       term.take_clipboard(),
+      term.take_clipboard_requests(),
+      term.take_resize_request(),
       term.take_notification(),
       term.take_command_finished(),
       term.take_cwd_changed(),
@@ -311,6 +323,12 @@ fn apply_chunk(chunk: &[u8], replies: &mut File, r: &Reader) {
       kind: clip.kind,
       data: clip.data,
     });
+  }
+  if let Some((rows, cols)) = resize_request {
+    let _ = r.events.send(Event::ResizeRequest { rows, cols });
+  }
+  for request in clipboard_requests {
+    let _ = r.events.send(Event::ClipboardRequest(Box::new(request)));
   }
   if let Some(note) = notification {
     let _ = r.events.send(Event::Notify {

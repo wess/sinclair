@@ -88,6 +88,13 @@ pub(crate) fn dispatch(
       6 => inner.report_cursor(),
       _ => {}
     },
+    // DECXCPR: the cursor report with the page number appended.
+    ('n', [b'?']) if arg(p, 0, 0) == 6 => inner.report_cursor_extended(),
+    // DECRQM: report whether a mode is set, reset, or unknown.
+    ('p', [b'$']) => report_mode(inner, arg(p, 0, 0), false),
+    ('p', [b'?', b'$']) => report_mode(inner, arg(p, 0, 0), true),
+    // DECSTR: soft reset.
+    ('p', [b'!']) => inner.soft_reset(),
     ('q', [b' ']) => {
       if let Some(style) = CursorStyle::from_decscusr(arg(p, 0, 0)) {
         inner.cursor_style = style;
@@ -109,7 +116,16 @@ pub(crate) fn dispatch(
       let mode = arg(p, 1, 1) as u8;
       inner.screen_mut().kitty.set(flags, mode);
     }
+    ('y', [b'*']) if inner.allow_checksum => checksum_report(inner, p),
     ('t', []) => match arg(p, 0, 0) {
+      // XTWINOPS 8: resize to rows;cols. A 0 keeps that dimension; the
+      // host clamps to its display. Ignored unless the user allowed it.
+      8 if inner.allow_window_resize => {
+        let grid = &inner.screen().grid;
+        let (rows, cols) = (grid.rows() as u16, grid.cols() as u16);
+        let want = |v: u16, cur: u16| if v == 0 { cur } else { v.min(MAX_RESIZE) };
+        inner.resize_request = Some((want(arg(p, 1, 0), rows), want(arg(p, 2, 0), cols)));
+      }
       14 => {
         let (w, h) = inner.text_area_px();
         inner
@@ -122,12 +138,14 @@ pub(crate) fn dispatch(
           .output
           .extend_from_slice(format!("\x1b[6;{ch};{cw}t").as_bytes());
       }
-      18 => {
+      // 18: the text area; 19: the screen. One grid, so the same size.
+      code @ (18 | 19) => {
         let grid = &inner.screen().grid;
         let (rows, cols) = (grid.rows(), grid.cols());
+        let reply = if code == 18 { 8 } else { 9 };
         inner
           .output
-          .extend_from_slice(format!("\x1b[8;{rows};{cols}t").as_bytes());
+          .extend_from_slice(format!("\x1b[{reply};{rows};{cols}t").as_bytes());
       }
       22 if inner.title_stack.len() < TITLE_STACK_MAX => {
         inner.title_stack.push(inner.title.clone());
@@ -179,6 +197,98 @@ fn arg(p: &[u16], i: usize, default: u16) -> u16 {
   }
 }
 
+/// Largest rows/cols a resize request may ask for.
+const MAX_RESIZE: u16 = 1000;
+
+/// DECRQCRA (`CSI Pid ; Pp ; Pt ; Pl ; Pb ; Pr * y`): the checksum of a
+/// rectangle, as `DCS Pid ! ~ XXXX ST`. The rectangle is 1-based and
+/// inclusive, relative to the scroll region in origin mode, and defaults to
+/// the whole screen. The value is the VT420's: the 16-bit two's complement
+/// of the sum of the cells' characters (a blank counts as a space), with
+/// attributes left out.
+fn checksum_report(inner: &mut Inner, p: &[u16]) {
+  let id = arg(p, 0, 0);
+  let scr = inner.screen();
+  let (rows, cols) = (scr.grid.rows(), scr.grid.cols());
+  let base = if inner.modes.contains(Modes::ORIGIN) {
+    scr.scroll_top
+  } else {
+    0
+  };
+  let top = (base + count(p, 2) - 1).min(rows - 1);
+  let left = (count(p, 3) - 1).min(cols - 1);
+  let bottom = (base + arg(p, 4, rows as u16) as usize).clamp(1, rows) - 1;
+  let right = (arg(p, 5, cols as u16) as usize).clamp(1, cols) - 1;
+  let mut sum: u16 = 0;
+  if top <= bottom && left <= right {
+    for r in top..=bottom {
+      for c in left..=right {
+        let ch = scr.grid.cell(r, c).ch;
+        let ch = if ch == '\0' { ' ' } else { ch };
+        sum = sum.wrapping_add(ch as u32 as u16);
+      }
+    }
+  }
+  let _ = std::io::Write::write_fmt(
+    &mut inner.output,
+    format_args!("\x1bP{id}!~{:04X}\x1b\\", sum.wrapping_neg()),
+  );
+}
+
+/// DECRQM reply values.
+const MODE_UNKNOWN: u8 = 0;
+const MODE_SET: u8 = 1;
+const MODE_RESET: u8 = 2;
+const MODE_PERMANENTLY_RESET: u8 = 4;
+
+/// Answer DECRQM (`CSI [?] Ps $ p`) with `CSI [?] Ps ; v $ y`. Programs ask
+/// before relying on a mode — Neovim checks synchronized output (2026) this
+/// way — so a mode we implement but never report is a mode they never use.
+fn report_mode(inner: &mut Inner, mode: u16, private: bool) {
+  let flag = |m: Modes| {
+    if inner.modes.contains(m) {
+      MODE_SET
+    } else {
+      MODE_RESET
+    }
+  };
+  let value = if private {
+    match mode {
+      1 => flag(Modes::APP_CURSOR),
+      6 => flag(Modes::ORIGIN),
+      7 => flag(Modes::AUTOWRAP),
+      25 => flag(Modes::CURSOR_VISIBLE),
+      66 => flag(Modes::APP_KEYPAD),
+      67 => flag(Modes::BACKARROW_BS),
+      47 | 1047 | 1049 => flag(Modes::ALT_SCREEN),
+      1000 => flag(Modes::MOUSE_CLICK),
+      1002 => flag(Modes::MOUSE_DRAG),
+      1003 => flag(Modes::MOUSE_MOTION),
+      1004 => flag(Modes::FOCUS_REPORT),
+      1006 => flag(Modes::MOUSE_SGR),
+      1007 => flag(Modes::ALT_SCROLL),
+      2004 => flag(Modes::BRACKETED_PASTE),
+      2026 => flag(Modes::SYNC_OUTPUT),
+      5522 => flag(Modes::CLIPBOARD_EVENTS),
+      // Mouse encodings and the keyboard modes we never enter.
+      1005 | 1015 | 1016 | 2027 => MODE_PERMANENTLY_RESET,
+      _ => MODE_UNKNOWN,
+    }
+  } else {
+    match mode {
+      4 => flag(Modes::INSERT),
+      // KAM, LNM: recognized, never entered.
+      2 | 20 => MODE_PERMANENTLY_RESET,
+      _ => MODE_UNKNOWN,
+    }
+  };
+  let mark = if private { "?" } else { "" };
+  let _ = std::io::Write::write_fmt(
+    &mut inner.output,
+    format_args!("\x1b[{mark}{mode};{value}$y"),
+  );
+}
+
 /// Count-style parameter: missing or 0 means 1.
 fn count(p: &[u16], i: usize) -> usize {
   arg(p, i, 1) as usize
@@ -214,6 +324,8 @@ fn set_private_mode(inner: &mut Inner, param: u16, enable: bool) {
       }
     }
     25 => inner.modes.set(Modes::CURSOR_VISIBLE, enable),
+    66 => inner.modes.set(Modes::APP_KEYPAD, enable),
+    67 => inner.modes.set(Modes::BACKARROW_BS, enable),
     47 => {
       if enable {
         inner.enter_alt(false);
@@ -255,6 +367,7 @@ fn set_private_mode(inner: &mut Inner, param: u16, enable: bool) {
     }
     2004 => inner.modes.set(Modes::BRACKETED_PASTE, enable),
     2026 => inner.modes.set(Modes::SYNC_OUTPUT, enable),
+    5522 => inner.modes.set(Modes::CLIPBOARD_EVENTS, enable),
     _ => {}
   }
 }

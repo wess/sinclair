@@ -159,3 +159,122 @@ fn unknown_csi_is_ignored() {
   t.feed(b"\x1b[999z\x1b[?9999hok");
   assert_eq!(t.row_text(0), "ok");
 }
+
+#[test]
+fn xtwinops_reports_screen_size_in_chars() {
+  let mut t = Terminal::new(10, 3, 0);
+  t.feed(b"\x1b[19t");
+  assert_eq!(t.take_output(), b"\x1b[9;3;10t");
+}
+
+#[test]
+fn decrqm_reports_private_modes() {
+  let mut t = Terminal::new(10, 3, 0);
+  t.feed(b"\x1b[?2026$p");
+  assert_eq!(t.take_output(), b"\x1b[?2026;2$y");
+  t.feed(b"\x1b[?2026h\x1b[?2026$p");
+  assert_eq!(t.take_output(), b"\x1b[?2026;1$y");
+  t.feed(b"\x1b[?7$p");
+  assert_eq!(t.take_output(), b"\x1b[?7;1$y", "autowrap is on by default");
+  t.feed(b"\x1b[?1049h\x1b[?1049$p");
+  assert_eq!(t.take_output(), b"\x1b[?1049;1$y");
+  t.feed(b"\x1b[?1015$p");
+  assert_eq!(t.take_output(), b"\x1b[?1015;4$y");
+  t.feed(b"\x1b[?31337$p");
+  assert_eq!(t.take_output(), b"\x1b[?31337;0$y");
+}
+
+#[test]
+fn decrqm_reports_ansi_modes() {
+  let mut t = Terminal::new(10, 3, 0);
+  t.feed(b"\x1b[4$p");
+  assert_eq!(t.take_output(), b"\x1b[4;2$y");
+  t.feed(b"\x1b[4h\x1b[4$p");
+  assert_eq!(t.take_output(), b"\x1b[4;1$y");
+  t.feed(b"\x1b[20$p");
+  assert_eq!(t.take_output(), b"\x1b[20;4$y");
+  t.feed(b"\x1b[99$p");
+  assert_eq!(t.take_output(), b"\x1b[99;0$y");
+}
+
+#[test]
+fn decxcpr_reports_cursor_with_page() {
+  let mut t = Terminal::new(10, 5, 0);
+  t.feed(b"\x1b[3;4H\x1b[?6n");
+  assert_eq!(t.take_output(), b"\x1b[?3;4;1R");
+}
+
+#[test]
+fn decbkm_toggles_and_reports() {
+  let mut t = Terminal::new(10, 3, 0);
+  assert!(!t.backspace_sends_bs());
+  t.feed(b"\x1b[?67h");
+  assert!(t.backspace_sends_bs());
+  t.feed(b"\x1b[?67$p");
+  assert_eq!(t.take_output(), b"\x1b[?67;1$y");
+}
+
+#[test]
+fn decstr_soft_resets_modes_but_keeps_the_screen() {
+  let mut t = Terminal::new(10, 5, 0);
+  t.feed(b"hello\x1b[2;4r\x1b[?6h\x1b[4h\x1b[?25l\x1b[?7l\x1b[?1h\x1b[1;31m\x1b7");
+  t.feed(b"\x1b[!p");
+  // Modes back to their defaults.
+  t.feed(b"\x1b[?6$p\x1b[4$p\x1b[?25$p\x1b[?7$p\x1b[?1$p");
+  assert_eq!(
+    t.take_output(),
+    b"\x1b[?6;2$y\x1b[4;2$y\x1b[?25;1$y\x1b[?7;1$y\x1b[?1;2$y"
+  );
+  // Margins are full and origin mode is off: row 5 is reachable and absolute.
+  t.feed(b"\x1b[5;5H\x1b[6n");
+  assert_eq!(t.take_output(), b"\x1b[5;5R");
+  // The text survives, and the pen is plain.
+  assert!(t.row_text(0).starts_with("hello"));
+  t.feed(b"x");
+  let cell = t.cell(4, 4);
+  assert_eq!(cell.ch, 'x');
+  assert_eq!(cell.fg, Default::default());
+  assert!(cell.flags.is_empty());
+}
+
+#[test]
+fn risky_sequences_are_inert_by_default() {
+  // Gated off unless the user opts in (Ghostty 1.4 gates the same two).
+  let mut t = Terminal::new(10, 3, 0);
+  // XTWINOPS 8: a program must not resize the user's window by default.
+  t.feed(b"\x1b[8;50;200t");
+  assert_eq!(t.take_resize_request(), None);
+  assert_eq!((t.cols(), t.rows()), (10, 3));
+  // DECRQCRA: a checksum of screen contents is an oracle for text the
+  // program did not write (e.g. a password echoed by another process).
+  t.feed(b"secret\x1b[1;1;1;1;3;10*y");
+  // XTCHECKSUM (CSI # y) only picks a checksum flavour; it stays inert.
+  t.feed(b"\x1b[0#y");
+  assert!(t.take_output().is_empty());
+}
+
+#[test]
+fn window_resize_requests_when_allowed() {
+  let mut t = Terminal::new(10, 3, 0);
+  t.set_window_resize_allowed(true);
+  t.feed(b"\x1b[8;50;200t");
+  assert_eq!(t.take_resize_request(), Some((50, 200)));
+  // 0 keeps a dimension; absurd sizes are clamped.
+  t.feed(b"\x1b[8;0;65000t");
+  assert_eq!(t.take_resize_request(), Some((3, 1000)));
+  // The grid itself only changes when the host resizes it.
+  assert_eq!((t.cols(), t.rows()), (10, 3));
+}
+
+#[test]
+fn decrqcra_checksums_a_rectangle_when_allowed() {
+  let mut t = Terminal::new(10, 3, 0);
+  t.set_checksum_report(true);
+  t.feed(b"AB");
+  // Row 1, columns 1..2: 'A' + 'B' = 0x83, negated = 0xFF7D.
+  t.feed(b"\x1b[7;1;1;1;1;2*y");
+  assert_eq!(t.take_output(), b"\x1bP7!~FF7D\x1b\\");
+  // Blanks count as spaces: one blank cell is 0x20 -> 0xFFE0.
+  t.feed(b"\x1b[1;1;3;5;3;5*y");
+  assert_eq!(t.take_output(), b"\x1bP1!~FFE0\x1b\\");
+}

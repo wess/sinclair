@@ -20,7 +20,7 @@ use terminal::Session;
 use crate::colors::{self, Colors};
 use crate::metrics::{self, CellSize, Padding};
 use crate::mouse::MouseState;
-use crate::pointer::{CopyHook, PathOpen, PathResolve};
+use crate::pointer::{CopyHook, MiddleClickHook, PathOpen, PathResolve};
 
 #[cfg(test)]
 use theme::Rgb;
@@ -128,6 +128,9 @@ pub struct TerminalElement {
   path: Option<(Rc<PathResolve>, Rc<PathOpen>)>,
   smart_select: bool,
   middle_click_paste: bool,
+  /// Takes middle clicks over from the built-in paste; see
+  /// [`TerminalElement::on_middle_click`].
+  middle_click: Option<Rc<MiddleClickHook>>,
   /// Whether this pane holds keyboard focus; an unfocused pane paints a
   /// hollow cursor, so the active pane is unambiguous in a split.
   focused: bool,
@@ -177,6 +180,7 @@ impl TerminalElement {
       path: None,
       smart_select,
       middle_click_paste,
+      middle_click: None,
       focused,
       search,
       ghost,
@@ -194,6 +198,13 @@ impl TerminalElement {
   /// the constructor is long enough already.
   pub fn on_path(mut self, resolve: Rc<PathResolve>, open: Rc<PathOpen>) -> Self {
     self.path = Some((resolve, open));
+    self
+  }
+
+  /// Route middle clicks to `hook` instead of the built-in paste, so a host
+  /// can choose the source (clipboard, primary) and vet the text first.
+  pub fn on_middle_click(mut self, hook: Rc<MiddleClickHook>) -> Self {
+    self.middle_click = Some(hook);
     self
   }
 
@@ -699,9 +710,14 @@ fn paint_images(images: &[ImagePaint], window: &mut Window, layer: impl Fn(i32) 
   for img in images.iter().filter(|i| layer(i.z)) {
     window.with_content_mask(Some(ContentMask { bounds: img.clip }), |window| {
       window
-        .paint_image(img.full, Corners::default(), img.image.clone(), img.frame, false)
+        .paint_image(
+          img.full,
+          Corners::default(),
+          img.image.clone(),
+          img.frame,
+          false,
+        )
         .ok();
     });
   }
 }
-

@@ -49,8 +49,85 @@ pub fn reveal(path: &Path) {
 /// The path is passed as an argument rather than built into a `file://` URL,
 /// so spaces and other characters that would need percent-encoding cannot be
 /// mangled on the way.
+///
+/// Anything that would *run* rather than open — an app bundle, a `.command`
+/// script, an executable — is revealed instead. The text being clicked came
+/// from whatever printed it, so a click must never be a way to execute code.
 pub fn open(path: &Path) {
-  spawn(path, open_command);
+  if launches(path) {
+    reveal(path);
+  } else {
+    spawn(path, open_command);
+  }
+}
+
+/// Extensions the desktop treats as something to run or install, compared
+/// case-insensitively. Directories with these are bundles, not folders.
+const LAUNCHABLE: &[&str] = &[
+  "app",
+  "appex",
+  "applescript",
+  "bundle",
+  "command",
+  "desktop",
+  "fileloc",
+  "inetloc",
+  "jar",
+  "kext",
+  "mpkg",
+  "pkg",
+  "plugin",
+  "prefpane",
+  "saver",
+  "scpt",
+  "scptd",
+  "terminal",
+  "tool",
+  "url",
+  "webloc",
+  "workflow",
+  "appimage",
+  "sh",
+  "bash",
+  "zsh",
+  "fish",
+  "py",
+  "rb",
+  "pl",
+];
+
+/// Whether handing `path` to the desktop would execute something: a bundle
+/// or script by extension, or a regular file with any execute bit set (macOS
+/// runs an extensionless executable in a terminal on `open`).
+///
+/// Judged on the resolved path too, so a harmless-looking symlink to an app
+/// bundle cannot slip through on its own name.
+pub fn launches(path: &Path) -> bool {
+  let real = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+  launchable_name(path) || launchable_name(&real) || executable(&real)
+}
+
+fn launchable_name(path: &Path) -> bool {
+  path
+    .extension()
+    .and_then(|e| e.to_str())
+    .is_some_and(|e| LAUNCHABLE.iter().any(|l| l.eq_ignore_ascii_case(e)))
+}
+
+fn executable(path: &Path) -> bool {
+  let Ok(meta) = std::fs::metadata(path) else {
+    return false;
+  };
+  #[cfg(unix)]
+  {
+    use std::os::unix::fs::PermissionsExt;
+    meta.is_file() && meta.permissions().mode() & 0o111 != 0
+  }
+  #[cfg(not(unix))]
+  {
+    let _ = meta;
+    false
+  }
 }
 
 /// Run a launcher off the render thread: a cold app launch can block for

@@ -25,7 +25,7 @@ documented limits), **✗** not yet.
 |------|--------|-------|
 | Legacy key encoding | ✓ | modifiers, cursor/tilde/function keys, app cursor/keypad |
 | Mouse reporting | ✓ | X10/normal/button/any + SGR (1000/1002/1003/1006), alt-scroll |
-| Bracketed paste | ✓ | |
+| Bracketed paste | ✓ | control characters other than tab/LF/CR (ESC and C1 included) are stripped from every paste, so a paste cannot close the bracket |
 | Kitty keyboard protocol | ✓ | all five enhancement flags encoded, over the full functional-key table: negotiation (`CSI ? / > / < / = u`, 16-deep per-screen stack), disambiguation, press/repeat/release event types, alternate (shifted) keys, associated text, and all-keys-as-escape-codes — including the bare modifier keys, synthesised from gpui's modifier-state changes. Modifier parameter carries super, hyper, meta and the locks; keys with no legacy spelling (F13–F35, keypad, media, lock and menu keys) use their `57344+` codes. Reported modifiers are the ones the window layer delivers — gpui exposes shift/alt/ctrl/super and caps lock, not hyper, meta, or num lock; keypad keys arrive under their plain names on macOS, so they encode as those |
 
 ## OSC / clipboard / links
@@ -37,14 +37,18 @@ documented limits), **✗** not yet.
 | Dynamic color *queries* (OSC 4/10/11/12 `?`) | ✓ | answered from theme via `set_report_colors` |
 | OSC 7 cwd reporting | ✓ | inherited by new splits, tabs, and windows; defaults to `$HOME` when unknown |
 | OSC 52 clipboard | ✓ | base64 decode → system clipboard |
+| Kitty clipboard protocol (OSC 5522) | ✓ | reads and writes of any MIME type gpui's clipboard holds (text, PNG/JPEG/GIF/WebP/…); chunked writes capped at 64 MiB (`EFBIG`); listing types needs no permission, reads/writes follow `clipboard-read`/`clipboard-write` with an ask prompt that can trust a client's password+name for the pane; mode 5522 paste events with one-time, location-scoped, 30 s passwords; `loc=primary` |
 | Desktop notifications (OSC 9 / 777 / 99) | ✓ | native banner + per-tab attention indicator; cleared on focus |
 | OSC 8 hyperlinks | ✓ | interned per-cell, underlined, open-modifier click opens |
 | URL detection (no OSC 8) | ✓ | open-modifier click opens detected URLs |
 | Path detection | ✓ | an open-modifier click opens a filesystem path with the desktop's default handler, and hovering underlines it — but only once the candidate resolves against the pane's cwd, so text that merely looks like a path stays inert. Right-click still reveals it in the file manager. The modifier is cmd on macOS, ctrl elsewhere |
 | Focus reporting (?1004) | ✓ | |
 | Synchronized output (?2026) | ✓ | frame-gated with a 150 ms stuck-sync timeout |
-| XTGETTCAP, DA1/DA2, DSR | ✓ | DA1 advertises sixel (`?62;4;22c`) |
-| XTSMGRAPHICS, XTWINOPS size reports | ✓ | color registers (256) + sixel geometry; `CSI 14/16/18 t` report pixel/cell/grid sizes |
+| XTGETTCAP, DA1/DA2, DSR | ✓ | DA1 advertises sixel (`?62;4;22c`); DECXCPR (`CSI ? 6 n`) adds the page |
+| DECRQM mode queries | ✓ | `CSI [?] Ps $ p` answers set/reset for every implemented mode (2026 included), permanently-reset for recognized-but-unentered ones, 0 otherwise |
+| Gated sequences | ✓ | off by default: `vt-window-resize-allowed` honours `CSI 8 ; rows ; cols t` (window resized by the pane's shortfall, kept on its display); `vt-checksum-report` answers DECRQCRA (VT420 checksum, attributes excluded) |
+| DECSTR soft reset, DECBKM | ✓ | `CSI ! p` restores modes/margins/charsets/pen; `?67` swaps Backspace between DEL and BS |
+| XTSMGRAPHICS, XTWINOPS size reports | ✓ | color registers (256) + sixel geometry; `CSI 14/16/18/19 t` report pixel/cell/grid/screen sizes |
 
 ## Shell integration
 
@@ -86,7 +90,9 @@ documented limits), **✗** not yet.
 | Auto light/dark theme | ✓ | `theme-light`/`theme-dark` follow the OS appearance live (observe_window_appearance) |
 | Minimum contrast | ✓ | `minimum-contrast` nudges fg toward black/white (WCAG ratio) until readable |
 | Background opacity | ✓ | `background-opacity` makes the window translucent; default-bg cells show through |
-| Middle-click paste / focus-follows-mouse | ✓ | `middle-click-paste`, `focus-follows-mouse` |
+| Middle-click paste / focus-follows-mouse | ✓ | `middle-click-action` (`ignore`/`primary-paste`/`clipboard-paste`; legacy `middle-click-paste` still read), `focus-follows-mouse`; middle-click pastes go through paste protection |
+| Copy on select | ✓ | `copy-on-select = none\|primary\|clipboard\|both` (`true` = clipboard); primary is the X11/Wayland selection on Linux, an app-wide buffer on macOS |
+| Background-tab resources | ✓ | a tab moved to the background drops its uploaded image textures and shaped-row cache; the next paint rebuilds them |
 | Copy / vi mode | ✓ | `copy_mode` (cmd+shift+space): hjkl/arrows, w/b, 0/$, g/G, v select, y/Enter yank |
 | Activity dashboard | ✓ | sidebar panel: every tab's working / attention / idle state at a glance |
 | Clipboard history | ✓ | `clipboard_history` (cmd+shift+y): Spotlight over recent copies, paste on pick |
@@ -114,6 +120,7 @@ documented limits), **✗** not yet.
 | Keybindings (`trigger = action`) | ✓ | config-driven, defaults + user overrides + unbind |
 | Command palette | ✓ | cmd+shift+p fuzzy launcher over the action catalog, shows keybinds |
 | Broadcast input | ✓ | cmd+shift+b mirrors typed keys to every pane in the tab (floating indicator) |
+| Early-exit bar | ✓ | a child that exits within 250 ms keeps its pane open, read-only, with the exit status in a bar; any key closes it |
 | Session restore | ✓ | `session-restore` saves tabs/splits/cwds on quit, rebuilds on launch; each pane comes back with its last `session-restore-lines` rows of scrollback (colors and all), agent panes resumed |
 | Session recording | ✓ | record a pane to an asciinema v2 `.cast` (cmd+shift+r); plays with `asciinema play`, embeddable |
 | Per-tab context | ✓ | each tab shows the focused pane's git branch + working directory |

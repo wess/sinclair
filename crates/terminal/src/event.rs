@@ -17,6 +17,14 @@ pub enum Event {
   /// selection field (`c` = clipboard, `p` = primary); `data` is the
   /// already-decoded bytes to place on the clipboard.
   Clipboard { kind: String, data: Vec<u8> },
+  /// The child made an OSC 5522 clipboard request (any MIME type, read or
+  /// write). The embedder vets it and answers with the `vt::term::kclip`
+  /// reply encoders written back through the session.
+  ClipboardRequest(Box<vt::ClipboardRequest>),
+  /// The child asked for the window to fit `rows` x `cols` of this terminal
+  /// (`CSI 8 t`). Only sent when the terminal allows it; see
+  /// `vt::Terminal::set_window_resize_allowed`.
+  ResizeRequest { rows: u16, cols: u16 },
   /// The child requested a desktop notification (OSC 9 / 777 / 99).
   Notify { title: Option<String>, body: String },
   /// The child exited; carries the unix exit code when available

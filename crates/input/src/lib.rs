@@ -68,4 +68,7 @@ pub struct TermState {
   pub bracketed_paste: bool,
   /// Active kitty keyboard enhancement flags (0 = legacy encoding).
   pub kitty_flags: u8,
+  /// DECBKM (?67): Backspace sends BS (0x08) and ctrl+Backspace DEL,
+  /// the reverse of the default.
+  pub backspace_bs: bool,
 }

@@ -229,6 +229,19 @@ impl TerminalView {
         }
         _ => {}
       },
+      Assist::KittyClipboard { request } => {
+        let answer = match ks.key.as_str() {
+          "escape" | "n" => Some((false, false)),
+          "enter" | "y" => Some((true, false)),
+          "a" => Some((true, true)),
+          _ => None,
+        };
+        if let Some((allow, always)) = answer {
+          let request = request.clone();
+          self.assist = None;
+          self.clipboard_answer(request, allow, always, cx);
+        }
+      }
       Assist::ClipboardWrite { text, primary } => match ks.key.as_str() {
         "escape" | "n" => self.assist = None,
         "enter" | "y" => {
@@ -345,6 +358,26 @@ impl TerminalView {
               .child(format!("Paste risk: {:?}", risk.level)),
           )
           .child(SharedString::from(reasons))
+      }
+      Assist::KittyClipboard { request } => {
+        let always = match request {
+          vt::ClipboardRequest::Read { auth, .. } | vt::ClipboardRequest::Write { auth, .. } => {
+            auth.is_some()
+          }
+        };
+        let keys = if always {
+          "enter/y allow · a always allow this program · esc/n deny"
+        } else {
+          "enter/y allow · esc/n deny"
+        };
+        panel
+          .child(
+            div()
+              .text_color(colors::rgba(self.colors.selection_fg))
+              .child("Allow clipboard access?"),
+          )
+          .child(SharedString::from(TerminalView::clipboard_summary(request)))
+          .child(SharedString::from(keys))
       }
       Assist::ClipboardWrite { .. } => panel
         .child(

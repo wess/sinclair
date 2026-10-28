@@ -718,8 +718,10 @@ impl WorkspaceView {
     if let Some(handle) = handle {
       window.focus(&handle, cx);
     }
-    // A switched-away webview item must hide its native surface.
+    // A switched-away webview item must hide its native surface, and a
+    // switched-away terminal can drop its render caches.
     self.reconcile_webview_visibility(cx);
+    self.reconcile_terminal_visibility(cx);
     self.settitle(window, cx);
   }
 
@@ -909,7 +911,7 @@ impl WorkspaceView {
       cursor_default: self.opts.cursor_style,
       copy_on_select: self.opts.copy_on_select,
       smart_select: self.opts.smart_select,
-      middle_click_paste: self.opts.middle_click_paste,
+      middle_click: self.opts.middle_click,
       option_as_alt: self.opts.macos_option_as_alt,
       paste_protection: self.opts.clipboard_paste_protection,
       clipboard_write: self.opts.clipboard_write,

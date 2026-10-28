@@ -95,6 +95,90 @@ impl ClipboardAccess {
   }
 }
 
+/// Where a finished selection is copied, file key `copy-on-select`.
+///
+/// `primary` is the X11/Wayland primary selection on Linux; macOS has none,
+/// so there it is an app-wide buffer that middle-click paste reads. The old
+/// boolean values still parse: `true` copies to the clipboard (as it always
+/// did) and `false` is `none`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum CopyOnSelect {
+  #[default]
+  None,
+  Primary,
+  Clipboard,
+  Both,
+}
+
+impl CopyOnSelect {
+  /// Parse from the config file value (case-insensitive).
+  pub fn parse(s: &str) -> Option<Self> {
+    match s.to_ascii_lowercase().as_str() {
+      "none" => Some(Self::None),
+      "primary" => Some(Self::Primary),
+      "clipboard" => Some(Self::Clipboard),
+      "both" => Some(Self::Both),
+      other => {
+        crate::value::parse_bool(other).map(|on| if on { Self::Clipboard } else { Self::None })
+      }
+    }
+  }
+
+  /// The config file spelling.
+  pub fn as_str(self) -> &'static str {
+    match self {
+      Self::None => "none",
+      Self::Primary => "primary",
+      Self::Clipboard => "clipboard",
+      Self::Both => "both",
+    }
+  }
+
+  pub fn enabled(self) -> bool {
+    self != Self::None
+  }
+
+  pub fn to_primary(self) -> bool {
+    matches!(self, Self::Primary | Self::Both)
+  }
+
+  pub fn to_clipboard(self) -> bool {
+    matches!(self, Self::Clipboard | Self::Both)
+  }
+}
+
+/// What a middle click does, file key `middle-click-action`. The legacy
+/// boolean `middle-click-paste` maps `true` to `primary-paste` and `false`
+/// to `ignore`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum MiddleClick {
+  #[default]
+  Ignore,
+  PrimaryPaste,
+  ClipboardPaste,
+}
+
+impl MiddleClick {
+  /// Parse from the config file value (case-insensitive).
+  pub fn parse(s: &str) -> Option<Self> {
+    match s.to_ascii_lowercase().as_str() {
+      "ignore" => Some(Self::Ignore),
+      "primary-paste" => Some(Self::PrimaryPaste),
+      "clipboard-paste" => Some(Self::ClipboardPaste),
+      _ => None,
+    }
+  }
+
+  /// The config file spelling.
+  pub fn as_str(self) -> &'static str {
+    match self {
+      Self::Ignore => "ignore",
+      Self::PrimaryPaste => "primary-paste",
+      Self::ClipboardPaste => "clipboard-paste",
+    }
+  }
+}
+
 /// All configuration options with their defaults.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Options {
@@ -166,7 +250,7 @@ pub struct Options {
   /// File key: `working-directory`.
   pub working_directory: Option<String>,
   /// File key: `copy-on-select`.
-  pub copy_on_select: bool,
+  pub copy_on_select: CopyOnSelect,
   /// File key: `confirm-close-surface`.
   pub confirm_close_surface: bool,
   /// File key: `confirm-quit`. Warn before quitting while a process is still
@@ -176,6 +260,12 @@ pub struct Options {
   /// risky prompts for confirmation before reaching the shell. Off by
   /// default so pasting is friction-free.
   pub clipboard_paste_protection: bool,
+  /// File key: `vt-window-resize-allowed` - let a program resize the window
+  /// with `CSI 8 ; rows ; cols t`. Off by default.
+  pub vt_window_resize_allowed: bool,
+  /// File key: `vt-checksum-report` - answer DECRQCRA screen checksums.
+  /// Off by default: they let a program probe text it did not write.
+  pub vt_checksum_report: bool,
   /// File key: `mouse-hide-while-typing`.
   pub mouse_hide_while_typing: bool,
   /// File key: `session-restore`. Save the window's tabs/splits/cwds on quit
@@ -341,8 +431,9 @@ pub struct Options {
   pub terminal_background_opacity: f32,
   /// File key: `focus-follows-mouse` - focus the split under the pointer.
   pub focus_follows_mouse: bool,
-  /// File key: `middle-click-paste` - paste the selection on a middle click.
-  pub middle_click_paste: bool,
+  /// File key: `middle-click-action` (legacy: `middle-click-paste`) - what a
+  /// middle click pastes, if anything.
+  pub middle_click: MiddleClick,
   /// File key: `trigger` (repeatable) - `regex` or `regex | title`; when new
   /// output matches the regex, a desktop notification fires with the line.
   pub trigger: Vec<String>,
@@ -435,10 +526,12 @@ impl Default for Options {
       window_height: 0,
       shell: None,
       working_directory: None,
-      copy_on_select: false,
+      copy_on_select: CopyOnSelect::None,
       confirm_close_surface: true,
       confirm_quit: true,
       clipboard_paste_protection: false,
+      vt_window_resize_allowed: false,
+      vt_checksum_report: false,
       mouse_hide_while_typing: false,
       shell_integration: true,
       auto_update: true,
@@ -495,7 +588,7 @@ impl Default for Options {
       background_opacity: 1.0,
       terminal_background_opacity: 1.0,
       focus_follows_mouse: false,
-      middle_click_paste: false,
+      middle_click: MiddleClick::Ignore,
       trigger: Vec::new(),
       snippet: Vec::new(),
       background_image: None,

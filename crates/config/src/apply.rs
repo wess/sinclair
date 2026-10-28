@@ -1,6 +1,8 @@
 //! Applies a single `key = value` pair to [`Options`].
 
-use crate::options::{ClipboardAccess, CursorStyle, FontStyle, OptionAsAlt, Options};
+use crate::options::{
+  ClipboardAccess, CopyOnSelect, CursorStyle, FontStyle, MiddleClick, OptionAsAlt, Options,
+};
 use crate::value;
 
 /// Ceiling on `session-restore-lines`. Far past anything worth replaying into
@@ -139,10 +141,33 @@ pub fn apply(opts: &mut Options, d: &Options, key: &str, val: &str) -> Result<()
       };
     }
     "middle-click-paste" => {
-      opts.middle_click_paste = if empty {
-        d.middle_click_paste
+      opts.middle_click = if empty {
+        d.middle_click
+      } else if value::parse_bool(val).ok_or_else(|| bad("boolean", val))? {
+        MiddleClick::PrimaryPaste
+      } else {
+        MiddleClick::Ignore
+      };
+    }
+    "vt-window-resize-allowed" => {
+      opts.vt_window_resize_allowed = if empty {
+        d.vt_window_resize_allowed
       } else {
         value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+      };
+    }
+    "vt-checksum-report" => {
+      opts.vt_checksum_report = if empty {
+        d.vt_checksum_report
+      } else {
+        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+      };
+    }
+    "middle-click-action" => {
+      opts.middle_click = if empty {
+        d.middle_click
+      } else {
+        MiddleClick::parse(val).ok_or_else(|| bad("ignore|primary-paste|clipboard-paste", val))?
       };
     }
     "trigger" => {
@@ -367,7 +392,7 @@ pub fn apply(opts: &mut Options, d: &Options, key: &str, val: &str) -> Result<()
       opts.copy_on_select = if empty {
         d.copy_on_select
       } else {
-        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+        CopyOnSelect::parse(val).ok_or_else(|| bad("none|primary|clipboard|both", val))?
       };
     }
     "confirm-close-surface" => {

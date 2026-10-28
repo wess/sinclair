@@ -8,7 +8,7 @@ fn user_file_overrides_defaults() {
   );
   assert!(diags.is_empty(), "{diags:?}");
   assert_eq!(opts.font_size, 17.0);
-  assert!(opts.copy_on_select);
+  assert_eq!(opts.copy_on_select, crate::CopyOnSelect::Clipboard);
   assert_eq!(opts.theme, "nord");
   // Everything unset stays at its default.
   assert_eq!(opts.scrollback_limit, Options::default().scrollback_limit);
@@ -45,7 +45,7 @@ fn invalid_values_fall_back_to_defaults_with_warnings() {
   let (opts, diags) =
     parse_json_str("{\n  \"font-size\": \"huge\",\n  \"copy-on-select\": [1],\n  \"bogus\": 1\n}");
   assert_eq!(opts.font_size, Options::default().font_size);
-  assert!(!opts.copy_on_select);
+  assert_eq!(opts.copy_on_select, crate::CopyOnSelect::None);
   assert_eq!(diags.len(), 3);
   assert_eq!(diags[0].line, 2);
   assert_eq!(diags[1].key, "copy-on-select");
@@ -54,9 +54,8 @@ fn invalid_values_fall_back_to_defaults_with_warnings() {
 
 #[test]
 fn retired_keys_load_silently() {
-  let (opts, diags) = parse_json_str(
-    "{ \"relay-enabled\": true, \"agent-custom\": [\"x|y\"], \"font-size\": 15 }",
-  );
+  let (opts, diags) =
+    parse_json_str("{ \"relay-enabled\": true, \"agent-custom\": [\"x|y\"], \"font-size\": 15 }");
   assert!(diags.is_empty(), "{diags:?}");
   assert_eq!(opts.font_size, 15.0);
 }
@@ -87,8 +86,9 @@ fn user_keys_lists_what_the_file_sets() {
 
 #[test]
 fn encode_uses_the_key_kind() {
-  assert_eq!(encode("copy-on-select", "true"), "true");
-  assert_eq!(encode("copy-on-select", "yes"), "true");
+  assert_eq!(encode("focus-follows-mouse", "true"), "true");
+  assert_eq!(encode("focus-follows-mouse", "yes"), "true");
+  assert_eq!(encode("copy-on-select", "both"), "\"both\"");
   assert_eq!(encode("font-size", "14"), "14");
   assert_eq!(encode("font-size", "big"), "\"big\"");
   assert_eq!(encode("theme", "nord"), "\"nord\"");

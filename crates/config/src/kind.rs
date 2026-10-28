@@ -57,7 +57,9 @@ pub const KEYS: &[(&str, Kind)] = &[
   ("window-height", Kind::Int),
   ("command", Kind::Str),
   ("working-directory", Kind::Str),
-  ("copy-on-select", Kind::Bool),
+  // A string now (`none|primary|clipboard|both`); JSON `true`/`false` from
+  // older files still load (see `CopyOnSelect::parse`).
+  ("copy-on-select", Kind::Str),
   ("confirm-close-surface", Kind::Bool),
   ("confirm-quit", Kind::Bool),
   ("clipboard-paste-protection", Kind::Bool),
@@ -87,6 +89,9 @@ pub const KEYS: &[(&str, Kind)] = &[
   ("terminal-background-opacity", Kind::Float),
   ("focus-follows-mouse", Kind::Bool),
   ("middle-click-paste", Kind::Bool),
+  ("middle-click-action", Kind::Str),
+  ("vt-window-resize-allowed", Kind::Bool),
+  ("vt-checksum-report", Kind::Bool),
   ("trigger", Kind::List),
   ("snippet", Kind::List),
   ("background-image", Kind::Str),

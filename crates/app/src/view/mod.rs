@@ -10,8 +10,7 @@ use gpui::prelude::*;
 use gpui::{
   anchored, deferred, div, px, AnyElement, App, ClipboardItem, Context, EventEmitter, FocusHandle,
   Focusable, KeyDownEvent, KeyUpEvent, ModifiersChangedEvent, MouseButton, MouseDownEvent, Pixels,
-  Point, SharedString,
-  Subscription, Window,
+  Point, SharedString, Subscription, Window,
 };
 use terminal::{Event, Session};
 
@@ -24,7 +23,9 @@ use libsinclair::pointer::CopyHook;
 mod annotate;
 mod assist;
 mod copymode;
+mod exitbar;
 mod hints;
+mod kclip;
 mod keys;
 mod mouse;
 mod notify;
@@ -100,6 +101,10 @@ pub enum ViewEvent {
   /// A terminal event a plugin `[[trigger]]` may react to; the workspace
   /// matches it against loaded triggers and runs their actions.
   Trigger(TriggerEvent),
+  /// The program asked (`CSI 8 t`, allowed by `vt-window-resize-allowed`)
+  /// for this pane to be `rows` x `cols`; the workspace resizes the window
+  /// by the difference.
+  ResizeWindow { rows: u16, cols: u16 },
 }
 
 /// A terminal event a plugin `[[trigger]]` can hook, carried to the workspace
@@ -325,6 +330,10 @@ enum Assist {
     /// OSC 52 aimed at the primary selection rather than the clipboard.
     primary: bool,
   },
+  /// An OSC 5522 read or write waiting on the user (see `kclip`).
+  KittyClipboard {
+    request: vt::ClipboardRequest,
+  },
 }
 
 /// Config-derived appearance pushed to every pane on a live reload.
@@ -335,9 +344,9 @@ pub struct Appearance {
   pub cell: CellSize,
   pub pad: Padding,
   pub cursor_default: config::CursorStyle,
-  pub copy_on_select: bool,
+  pub copy_on_select: config::CopyOnSelect,
   pub smart_select: bool,
-  pub middle_click_paste: bool,
+  pub middle_click: config::MiddleClick,
   pub option_as_alt: config::OptionAsAlt,
   pub paste_protection: bool,
   pub clipboard_write: config::ClipboardAccess,
@@ -358,11 +367,11 @@ pub struct TerminalView {
   cell: CellSize,
   pad: Padding,
   cursor_default: config::CursorStyle,
-  copy_on_select: bool,
+  copy_on_select: config::CopyOnSelect,
   /// Double-click selects the semantic token under the pointer (`smart-select`).
   smart_select: bool,
-  /// Middle-click pastes the current selection (`middle-click-paste`).
-  middle_click_paste: bool,
+  /// What a middle click pastes (`middle-click-action`).
+  middle_click: config::MiddleClick,
   /// How the macOS Option key is treated for pty input (`macos-option-as-alt`).
   option_as_alt: config::OptionAsAlt,
   /// When set, a risky paste prompts for confirmation before reaching the
@@ -400,6 +409,16 @@ pub struct TerminalView {
   fallback: String,
   /// When set, keystrokes and pastes are not forwarded to the pty.
   read_only: bool,
+  /// When the child was spawned, to tell a failure to start from an exit.
+  spawned: Instant,
+  /// Whether this pane is on screen (its tab is the active one); see
+  /// `set_visible`.
+  visible: bool,
+  /// OSC 5522 state: the live paste-event password and trusted clients.
+  kclip: kclip::KittyClipboard,
+  /// Set when the child exited too quickly to close the pane silently; the
+  /// exit bar shows it and the next key closes the pane (see `exitbar`).
+  exited: Option<Option<i32>>,
   /// The modifier state at the last report, so a change can be turned back
   /// into the key presses and releases the kitty protocol's all-keys mode
   /// asks for. Platforms report the state, not the keystroke.
@@ -471,9 +490,9 @@ impl TerminalView {
     cell: CellSize,
     pad: Padding,
     cursor_default: config::CursorStyle,
-    copy_on_select: bool,
+    copy_on_select: config::CopyOnSelect,
     smart_select: bool,
-    middle_click_paste: bool,
+    middle_click: config::MiddleClick,
     option_as_alt: config::OptionAsAlt,
     paste_protection: bool,
     clipboard_write: config::ClipboardAccess,
@@ -487,6 +506,7 @@ impl TerminalView {
     session.with_term(|term| term.set_report_colors(colors::report_colors(&colors)));
     let chars = paneopts::word_chars(cx);
     session.with_term(|term| term.set_word_chars(&chars));
+    session.with_term(|term| paneopts::apply_vt_gates(term, cx));
     let focus = cx.focus_handle();
     let subs = focus_subs(&focus, window, cx);
     Self {
@@ -499,7 +519,7 @@ impl TerminalView {
       cursor_default,
       copy_on_select,
       smart_select,
-      middle_click_paste,
+      middle_click,
       option_as_alt,
       paste_protection,
       clipboard_write,
@@ -508,11 +528,7 @@ impl TerminalView {
       context_menu: None,
       grid_bounds: gpui::Bounds::default(),
       mouse: Rc::new(RefCell::new(MouseState::default())),
-      copy: Rc::new(|text, cx| {
-        let text = crate::redact::mask(text, cx);
-        crate::clipboard::remember(&text, cx);
-        cx.write_to_clipboard(ClipboardItem::new_string(text));
-      }),
+      copy: copy_hook(copy_on_select),
       image_cache: app_image_cache(cx),
       snap_cache: Rc::new(RefCell::new(libsinclair::element::SnapCache::default())),
       focus,
@@ -520,6 +536,10 @@ impl TerminalView {
       override_title: None,
       fallback,
       read_only: false,
+      spawned: Instant::now(),
+      exited: None,
+      kclip: kclip::KittyClipboard::default(),
+      visible: true,
       last_mods: input::Mods::default(),
       bell: false,
       attention: false,
@@ -621,9 +641,12 @@ impl TerminalView {
     self.cell = a.cell;
     self.pad = a.pad;
     self.cursor_default = a.cursor_default;
+    if self.copy_on_select != a.copy_on_select {
+      self.copy = copy_hook(a.copy_on_select);
+    }
     self.copy_on_select = a.copy_on_select;
     self.smart_select = a.smart_select;
-    self.middle_click_paste = a.middle_click_paste;
+    self.middle_click = a.middle_click;
     self.option_as_alt = a.option_as_alt;
     self.paste_protection = a.paste_protection;
     self.clipboard_write = a.clipboard_write;
@@ -638,6 +661,9 @@ impl TerminalView {
     paneopts::refresh(cx);
     let chars = paneopts::word_chars(cx);
     self.session.with_term(|term| term.set_word_chars(&chars));
+    self
+      .session
+      .with_term(|term| paneopts::apply_vt_gates(term, cx));
     cx.notify();
   }
 
@@ -699,13 +725,20 @@ impl TerminalView {
           config::ClipboardAccess::Allow => self.write_clipboard(text, primary, cx),
         }
       }
+      Event::ClipboardRequest(request) => self.clipboard_request(*request, cx),
+      Event::ResizeRequest { rows, cols } => cx.emit(ViewEvent::ResizeWindow { rows, cols }),
       Event::CommandFinished(code) => {
         cx.emit(ViewEvent::Trigger(TriggerEvent::CommandFinished(code)))
       }
       Event::DirChanged(dir) => cx.emit(ViewEvent::Trigger(TriggerEvent::DirChanged(dir))),
       Event::Exit(code) => {
         cx.emit(ViewEvent::Trigger(TriggerEvent::Exit(code)));
-        cx.emit(ViewEvent::Exited);
+        if exitbar::lingers(self.spawned.elapsed()) {
+          self.exited = Some(code);
+          cx.notify();
+        } else {
+          cx.emit(ViewEvent::Exited);
+        }
       }
     }
   }
@@ -883,6 +916,25 @@ impl TerminalView {
     }
   }
 
+  /// Note whether the pane is on screen. Going off screen (its tab moved to
+  /// the background) releases the render caches — the uploaded image
+  /// textures and the shaped rows — which the next paint rebuilds. A
+  /// background tab then costs its terminal state, not its last frame.
+  pub(crate) fn is_visible(&self) -> bool {
+    self.visible
+  }
+
+  pub(crate) fn set_visible(&mut self, visible: bool) {
+    if self.visible == visible {
+      return;
+    }
+    self.visible = visible;
+    if !visible {
+      self.image_cache.borrow_mut().release();
+      self.snap_cache.borrow_mut().release();
+    }
+  }
+
   /// Flash the pane briefly on BEL when `visual-bell` is enabled.
   fn ring_bell(&mut self, cx: &mut Context<Self>) {
     if self.bell || !paneopts::visual_bell(cx) {
@@ -918,6 +970,22 @@ impl TerminalView {
         .into_any_element(),
     )
   }
+}
+
+/// What copy-on-select does with a captured selection under `mode`. The
+/// clipboard path keeps redaction and history; primary is a scratch buffer
+/// for middle-click and is redacted too, since it can leave the app on Linux.
+fn copy_hook(mode: config::CopyOnSelect) -> Rc<CopyHook> {
+  Rc::new(move |text, cx| {
+    let text = crate::redact::mask(text, cx);
+    if mode.to_primary() {
+      crate::clipboard::write_primary(text.clone(), cx);
+    }
+    if mode.to_clipboard() {
+      crate::clipboard::remember(&text, cx);
+      cx.write_to_clipboard(ClipboardItem::new_string(text));
+    }
+  })
 }
 
 impl EventEmitter<ViewEvent> for TerminalView {}
@@ -1007,17 +1075,20 @@ impl Render for TerminalView {
           self.pad,
           cursor_shape(self.cursor_default),
           self.mouse.clone(),
-          self.copy_on_select,
+          self.copy_on_select.enabled(),
           self.copy.clone(),
           self.smart_select,
-          self.middle_click_paste,
+          // Middle clicks go through `middle_click_hook`, never the
+          // element's own unvetted paste.
+          false,
           self.pane_active,
           query,
           self.suggestion_ghost(),
           self.image_cache.clone(),
           self.snap_cache.clone(),
         )
-        .on_path(self.path_resolve(), self.path_open()),
+        .on_path(self.path_resolve(), self.path_open())
+        .on_middle_click(self.middle_click_hook(cx)),
       )
       .children(self.bell_overlay())
       .children(self.badge_overlay(cx))
@@ -1026,6 +1097,7 @@ impl Render for TerminalView {
       .children(self.annotations_overlay())
       .children(self.hints_overlay())
       .children(self.copy_cursor_overlay())
+      .children(self.exit_overlay())
       .children(bar)
       .children(assist)
       .children(menu)

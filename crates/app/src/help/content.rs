@@ -223,7 +223,7 @@ pub(crate) const ARTICLES: &[Article] = &[
       Block::Bullet("font-family / font-size — terminal text rendering"),
       Block::Bullet("window-padding-x / window-padding-y — inner margins"),
       Block::Bullet("scrollback-limit — lines of history kept per pane"),
-      Block::Bullet("copy-on-select — copy selections to the clipboard automatically"),
+      Block::Bullet("copy-on-select — copy selections to the primary selection, the clipboard, or both"),
       Block::Bullet("clipboard-paste-protection — confirm before a risky paste (off by default)"),
       Block::Bullet("shell-integration — inject OSC 133/7 hooks for prompt-jump and cwd (on)"),
       Block::Bullet("session-restore — reopen tabs/splits on launch (off by default)"),

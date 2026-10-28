@@ -19,8 +19,22 @@ pub(crate) fn upsert(key: &str, value: &str) {
     return remove(key);
   }
   edit(key, |text| {
-    config::jsonedit::upsert(text, key, &config::settings::encode(key, value))
+    let mut text = config::jsonedit::upsert(text, key, &config::settings::encode(key, value))?;
+    // A key that replaced an older one takes over from it: leaving the old
+    // key in the file would let it win or lose by position alone.
+    for old in superseded(key) {
+      text = config::jsonedit::remove(&text, old)?;
+    }
+    Some(text)
   });
+}
+
+/// Legacy keys `key` replaced, removed whenever `key` is written.
+fn superseded(key: &str) -> &'static [&'static str] {
+  match key {
+    "middle-click-action" => &["middle-click-paste"],
+    _ => &[],
+  }
 }
 
 /// Replace a repeated `key` with the given entries; empty removes the key.

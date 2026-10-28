@@ -41,3 +41,22 @@ fn link_open_requires_a_local_undragged_press_inside_bounds() {
   // open it (and must leave the selection alone).
   assert!(!opens_link(true, true, true));
 }
+
+#[test]
+fn file_urls_decode_to_local_paths() {
+  use std::path::Path;
+  assert_eq!(
+    file_url_path("file:///tmp/a%20b").as_deref(),
+    Some(Path::new("/tmp/a b"))
+  );
+  assert_eq!(
+    file_url_path("FILE://host/etc/x?q#f").as_deref(),
+    Some(Path::new("/etc/x"))
+  );
+  assert_eq!(
+    file_url_path("file:/usr/bin").as_deref(),
+    Some(Path::new("/usr/bin"))
+  );
+  assert_eq!(file_url_path("https://example.com/a"), None);
+  assert_eq!(file_url_path("file://hostonly"), None);
+}

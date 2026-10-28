@@ -49,3 +49,9 @@ fn current_refuses_an_unreadable_existing_file() {
   std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
   let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn middle_click_action_supersedes_the_legacy_bool() {
+  assert_eq!(superseded("middle-click-action"), &["middle-click-paste"]);
+  assert!(superseded("font-size").is_empty());
+}

@@ -105,8 +105,12 @@ impl TerminalView {
   }
 
   /// Open a URL via the OS, refusing schemes outside the allow-list.
+  /// A `file:` URL goes through the same guarded path opener as a clicked
+  /// path, so a printed link cannot launch an app or a script.
   pub(crate) fn open_url(&mut self, url: String, cx: &mut Context<Self>) {
-    if libsinclair::pointer::openable(&url) {
+    if let Some(path) = libsinclair::pointer::file_url_path(&url) {
+      crate::reveal::open(&path);
+    } else if libsinclair::pointer::openable(&url) {
       cx.open_url(&url);
     } else {
       eprintln!("sinclair: refused to open link with disallowed scheme: {url}");
@@ -177,9 +181,7 @@ impl TerminalView {
         crate::reveal::reveal(&reveal)
       }));
       let open = path.clone();
-      menu = menu.child(self.menu_row("Open", cx, move |_this, _cx| {
-        crate::reveal::open(&open)
-      }));
+      menu = menu.child(self.menu_row("Open", cx, move |_this, _cx| crate::reveal::open(&open)));
       let copy = path.display().to_string();
       menu = menu.child(self.menu_row("Copy Path", cx, move |this, cx| {
         this.copy_text(copy.clone(), cx)
@@ -289,18 +291,27 @@ impl TerminalView {
   }
 
   /// Paste the clipboard into the pty (bracketed when the app requested it).
+  /// Under mode 5522 the paste is announced instead (see `kclip`).
   pub fn paste_clipboard(&mut self, cx: &mut Context<Self>) {
+    if self.paste_event(false, cx) {
+      return;
+    }
+    let text = cx.read_from_clipboard().and_then(|item| item.text());
+    self.paste_text(text, cx);
+  }
+
+  /// Paste `text` as the user would, through paste protection. Every
+  /// user-initiated paste comes through here so none skips the risk check.
+  pub(crate) fn paste_text(&mut self, text: Option<String>, cx: &mut Context<Self>) {
     if self.read_only {
       return;
     }
-    let Some(text) = cx.read_from_clipboard().and_then(|item| item.text()) else {
+    let Some(text) = text.filter(|t| !t.is_empty()) else {
       return;
     };
-    if text.is_empty() {
-      return;
-    }
     if self.paste_protection {
-      let risk = ::assist::analyze(&text);
+      let bracketed = self.session.with_term(|term| term.bracketed_paste());
+      let risk = ::assist::analyze(&text, bracketed);
       if risk.risky() {
         self.search = None;
         self.assist = Some(Assist::Paste { text, risk });
@@ -309,6 +320,34 @@ impl TerminalView {
       }
     }
     self.write_paste(&text, cx);
+  }
+
+  /// The element's middle-click hook: paste per `middle-click-action`.
+  /// `primary-paste` reads the primary selection, falling back to this
+  /// pane's live selection when nothing has set one (macOS with
+  /// copy-on-select off), which is what middle-click always did here.
+  pub(crate) fn middle_click_hook(
+    &self,
+    cx: &mut Context<Self>,
+  ) -> Rc<libsinclair::pointer::MiddleClickHook> {
+    let view = cx.entity().downgrade();
+    Rc::new(move |_window, cx| {
+      let _ = view.update(cx, |this, cx| {
+        let primary = this.middle_click == config::MiddleClick::PrimaryPaste;
+        if this.middle_click != config::MiddleClick::Ignore && this.paste_event(primary, cx) {
+          return;
+        }
+        let text = match this.middle_click {
+          config::MiddleClick::Ignore => return,
+          config::MiddleClick::ClipboardPaste => {
+            cx.read_from_clipboard().and_then(|item| item.text())
+          }
+          config::MiddleClick::PrimaryPaste => crate::clipboard::read_primary(cx)
+            .or_else(|| this.session.with_term(|t| t.selection_text())),
+        };
+        this.paste_text(text, cx);
+      });
+    })
   }
 
   /// Place text on a clipboard on behalf of an OSC 52 write, once the

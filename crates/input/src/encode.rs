@@ -65,7 +65,11 @@ fn special(key: &str, mods: Mods, state: TermState) -> Option<Vec<u8>> {
     }
     "escape" => alt_prefixed(mods, vec![csi::ESC]),
     "backspace" => {
-      let byte = if mods.ctrl { 0x08 } else { 0x7f };
+      let byte = if mods.ctrl != state.backspace_bs {
+        0x08
+      } else {
+        0x7f
+      };
       alt_prefixed(mods, vec![byte])
     }
     "up" => cursor_key(b'A', mods, state),

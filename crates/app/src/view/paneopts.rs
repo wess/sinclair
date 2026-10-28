@@ -9,6 +9,11 @@ pub struct PaneOpts {
   pub visual_bell: bool,
   /// Config `word-chars`: word characters for selection.
   pub word_chars: String,
+  /// Config `clipboard-read`: whether programs may read the clipboard.
+  pub clipboard_read: config::ClipboardAccess,
+  /// Config `vt-window-resize-allowed` / `vt-checksum-report`: the risky
+  /// sequences a program may use only when the user opted in.
+  pub vt_gates: (bool, bool),
 }
 
 impl gpui::Global for PaneOpts {}
@@ -17,6 +22,8 @@ fn install(opts: &config::Options, cx: &mut gpui::App) {
   cx.set_global(PaneOpts {
     visual_bell: opts.visual_bell,
     word_chars: opts.word_chars.clone(),
+    clipboard_read: opts.clipboard_read,
+    vt_gates: (opts.vt_window_resize_allowed, opts.vt_checksum_report),
   });
 }
 
@@ -41,4 +48,17 @@ pub fn visual_bell(cx: &mut gpui::App) -> bool {
 pub fn word_chars(cx: &mut gpui::App) -> String {
   ensure(cx);
   cx.global::<PaneOpts>().word_chars.clone()
+}
+
+pub fn clipboard_read(cx: &mut gpui::App) -> config::ClipboardAccess {
+  ensure(cx);
+  cx.global::<PaneOpts>().clipboard_read
+}
+
+/// Apply the opt-in sequence gates to a pane's terminal.
+pub fn apply_vt_gates(term: &mut vt::Terminal, cx: &mut gpui::App) {
+  ensure(cx);
+  let (resize, checksum) = cx.global::<PaneOpts>().vt_gates;
+  term.set_window_resize_allowed(resize);
+  term.set_checksum_report(checksum);
 }

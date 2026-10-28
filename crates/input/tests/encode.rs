@@ -44,12 +44,14 @@ const NORMAL: TermState = TermState {
   keypad_app: false,
   bracketed_paste: false,
   kitty_flags: 0,
+  backspace_bs: false,
 };
 const APP: TermState = TermState {
   cursor_keys_app: true,
   keypad_app: true,
   bracketed_paste: false,
   kitty_flags: 0,
+  backspace_bs: false,
 };
 
 fn enc(key: &str, text: Option<&str>, mods: Mods, state: TermState) -> Option<Vec<u8>> {
@@ -366,4 +368,15 @@ fn fkeys_f5_to_f12() {
 fn unknown_key_without_text_is_none() {
   assert_eq!(enc("f13", None, NONE, NORMAL), None);
   assert_eq!(enc("menu", None, NONE, NORMAL), None);
+}
+
+#[test]
+fn decbkm_swaps_backspace_bytes() {
+  let bkm = TermState {
+    backspace_bs: true,
+    ..NORMAL
+  };
+  assert_eq!(enc("backspace", None, NONE, bkm).unwrap(), b"\x08");
+  assert_eq!(enc("backspace", None, CTRL, bkm).unwrap(), b"\x7f");
+  assert_eq!(enc("backspace", None, ALT, bkm).unwrap(), b"\x1b\x08");
 }

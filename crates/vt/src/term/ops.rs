@@ -138,7 +138,10 @@ impl Inner {
   /// Slide image anchors up by `pushed` rows as the buffer scrolls, dropping
   /// any whose bottom has fallen off the end of scrollback.
   fn shift_images_up(&mut self, pushed: usize, scrollback_len: usize) {
-    let (cw, ch) = (self.cell_px.0.max(1) as usize, self.cell_px.1.max(1) as usize);
+    let (cw, ch) = (
+      self.cell_px.0.max(1) as usize,
+      self.cell_px.1.max(1) as usize,
+    );
     let oldest = -(scrollback_len as isize);
     let images = &mut self.screen_mut().images;
     for img in images.iter_mut() {
@@ -669,8 +672,26 @@ impl Inner {
     self.selection = None;
     self.hyperlinks.clear();
     self.dcs = super::dcs::Dcs::None;
+    self.kclip_write = None;
     self.input_start = None;
     self.full_damage = true;
+  }
+
+  /// DECSTR: soft reset. Restores the modes, margins, charsets, pen and
+  /// saved cursor a program may have left behind, without touching the
+  /// screen contents, the cursor position, or scrollback.
+  pub(crate) fn soft_reset(&mut self) {
+    self.modes.insert(Modes::CURSOR_VISIBLE | Modes::AUTOWRAP);
+    self.modes.remove(
+      Modes::INSERT | Modes::ORIGIN | Modes::APP_CURSOR | Modes::APP_KEYPAD | Modes::BACKARROW_BS,
+    );
+    self.charsets = Charsets::default();
+    let scr = self.screen_mut();
+    scr.scroll_top = 0;
+    scr.scroll_bottom = scr.grid.rows() - 1;
+    scr.cursor.pen = Default::default();
+    scr.cursor.pending_wrap = false;
+    scr.saved = None;
   }
 
   /// DECALN: fill the screen with `E`, reset margins, home the cursor.
@@ -734,6 +755,16 @@ impl Inner {
     };
     let col = scr.cursor.col;
     let _ = write!(self.output, "\x1b[{};{}R", row + 1, col + 1);
+  }
+
+  /// DECXCPR (`CSI ? 6 n`): the cursor report, private-marked, with page 1.
+  pub(crate) fn report_cursor_extended(&mut self) {
+    let start = self.output.len();
+    self.report_cursor();
+    // `ESC [ r ; c R` -> `ESC [ ? r ; c ; 1 R`
+    self.output.insert(start + 2, b'?');
+    self.output.pop();
+    self.output.extend_from_slice(b";1R");
   }
 }
 

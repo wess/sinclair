@@ -20,7 +20,9 @@ pub use keybind::{
   default_keybinds, diff_from_defaults, format_trigger, parse_keybind, resolve, Keybind, Mods,
 };
 pub use kind::{kind, Kind};
-pub use options::{ClipboardAccess, CursorStyle, FontStyle, OptionAsAlt, Options};
+pub use options::{
+  ClipboardAccess, CopyOnSelect, CursorStyle, FontStyle, MiddleClick, OptionAsAlt, Options,
+};
 pub use parse::{parse_str, Diagnostic};
 pub use watch::{watch, WatchHandle};
 

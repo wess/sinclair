@@ -46,6 +46,44 @@ pub fn openable(url: &str) -> bool {
   OPENABLE_SCHEMES.contains(&scheme.to_ascii_lowercase().as_str())
 }
 
+/// The local path a `file:` URL names (`file:///p` or `file://host/p`, host
+/// ignored, percent-escapes decoded), or `None` for any other URL.
+///
+/// A `file:` link is printed by whatever is running in the pane, so it is
+/// never handed to the desktop as a URL — that would launch an app bundle or
+/// a script as readily as it opens a document. Callers route the path through
+/// the host's path opener instead, which decides what is safe to open.
+pub fn file_url_path(url: &str) -> Option<PathBuf> {
+  let (scheme, rest) = url.split_once(':')?;
+  if !scheme.eq_ignore_ascii_case("file") {
+    return None;
+  }
+  let rest = rest.strip_prefix("//").unwrap_or(rest);
+  let path = &rest[rest.find('/')?..];
+  let path = path.split(['?', '#']).next().unwrap_or(path);
+  let bytes = path.as_bytes();
+  let mut out = Vec::with_capacity(bytes.len());
+  let mut i = 0;
+  while i < bytes.len() {
+    let hex = |b: u8| (b as char).to_digit(16);
+    match (
+      bytes[i],
+      bytes.get(i + 1).and_then(|&b| hex(b)),
+      bytes.get(i + 2).and_then(|&b| hex(b)),
+    ) {
+      (b'%', Some(hi), Some(lo)) => {
+        out.push((hi * 16 + lo) as u8);
+        i += 3;
+      }
+      (b, _, _) => {
+        out.push(b);
+        i += 1;
+      }
+    }
+  }
+  Some(PathBuf::from(String::from_utf8_lossy(&out).into_owned()))
+}
+
 /// What copy-on-select does with the captured text. The default,
 /// [`clipboard_copy`], writes it to the system clipboard; hosts can layer
 /// their own policy (redaction, clipboard history) on top.
@@ -63,6 +101,11 @@ pub type PathResolve = dyn Fn(&vt::PathHit) -> Option<PathBuf>;
 /// Acts on a path an open-modifier click landed on, after [`PathResolve`]
 /// confirmed it. A host that sets no hooks simply has no path clicks.
 pub type PathOpen = dyn Fn(&Path, &mut App);
+
+/// Replaces the built-in middle-click paste. A host that vets pastes (paste
+/// protection, a primary-selection source of its own) takes the click here so
+/// no paste reaches the pty around its checks.
+pub type MiddleClickHook = dyn Fn(&mut Window, &mut App);
 
 /// The span an open-modifier click at `(row, col)` would act on: a link, or a
 /// path candidate that resolved. `None` when the click would do nothing, which
@@ -111,6 +154,9 @@ pub struct Pointer {
   pub path: Option<(Rc<PathResolve>, Rc<PathOpen>)>,
   pub smart_select: bool,
   pub middle_click_paste: bool,
+  /// When set, a middle click (outside mouse reporting) goes here instead
+  /// of the built-in paste, whatever `middle_click_paste` says.
+  pub middle_click: Option<Rc<MiddleClickHook>>,
 }
 
 fn mods(m: &Modifiers) -> input::Mods {
@@ -158,7 +204,7 @@ fn report(
   }
 }
 
-pub fn down(p: &Pointer, e: &MouseDownEvent, window: &mut Window, _cx: &mut App) {
+pub fn down(p: &Pointer, e: &MouseDownEvent, window: &mut Window, cx: &mut App) {
   if !p.bounds.contains(&e.position) {
     return;
   }
@@ -177,6 +223,12 @@ pub fn down(p: &Pointer, e: &MouseDownEvent, window: &mut Window, _cx: &mut App)
     return;
   }
 
+  if e.button == gpui::MouseButton::Middle {
+    if let Some(hook) = p.middle_click.clone() {
+      hook(window, cx);
+      return;
+    }
+  }
   // Middle-click paste (X-style): send the current selection to the pty.
   if e.button == gpui::MouseButton::Middle && p.middle_click_paste {
     let (text, bracketed) = p
@@ -319,7 +371,12 @@ pub fn up(p: &Pointer, e: &MouseUpEvent, window: &mut Window, cx: &mut App) {
     };
     let acted = match (url, path) {
       (Some(url), _) => {
-        if openable(&url) {
+        if let Some(path) = file_url_path(&url) {
+          match p.path.clone() {
+            Some((_, open)) => open(&path, cx),
+            None => eprintln!("sinclair: no path opener for file link: {url}"),
+          }
+        } else if openable(&url) {
           cx.open_url(&url);
         } else {
           eprintln!("sinclair: refused to open link with disallowed scheme: {url}");

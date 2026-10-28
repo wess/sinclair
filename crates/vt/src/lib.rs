@@ -31,11 +31,13 @@ pub use grid::row::Row;
 pub use grid::scrollback::{Scrollback, DEFAULT_SCROLLBACK};
 pub use grid::Grid;
 pub use hyperlink::{Hyperlink, HyperlinkId, Hyperlinks};
+pub use image::{Image, Kitty, Parent, Placement, Rect};
 pub use kitty::KittyKeyboard;
 pub use mode::{Modes, MouseMode};
-pub use screen::Screen;
 pub use placeholder::{Placeholder, PLACEHOLDER};
+pub use screen::Screen;
 pub use search::Match;
 pub use selection::{Point, Selection, SelectionAdjust, SelectionMode};
-pub use image::{Image, Kitty, Parent, Placement, Rect};
-pub use term::{Clipboard, LinkHit, Notification, PathHit, ReportColors, Terminal};
+pub use term::{
+  Auth, Clipboard, ClipboardRequest, LinkHit, Notification, PathHit, ReportColors, Terminal,
+};

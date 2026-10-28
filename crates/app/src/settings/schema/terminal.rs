@@ -1,6 +1,8 @@
 //! Terminal section: grid density, scrollback, selection, and suggestions.
 
-use super::{list, opt, slider, text, toggle, Control, ListKind, Section, Setting, Slider};
+use super::{
+  choice, list, opt, slider, strs, text, toggle, Control, ListKind, Section, Setting, Slider,
+};
 
 pub(super) fn settings() -> Vec<Setting> {
   let s = Section::Terminal;
@@ -107,11 +109,27 @@ pub(super) fn settings() -> Vec<Setting> {
       "/-_.~",
     ),
     toggle(
-      "middle-click-paste",
-      "Middle-click paste",
-      "Paste the current selection on a middle click.",
+      "vt-window-resize-allowed",
+      "Programs may resize the window",
+      "Honour CSI 8 t, which lets a program resize the window to a grid size.",
       s,
-      |o| o.middle_click_paste,
+      |o| o.vt_window_resize_allowed,
+    ),
+    toggle(
+      "vt-checksum-report",
+      "Screen checksum reports",
+      "Answer DECRQCRA. Off by default: it lets a program probe screen text it did not write.",
+      s,
+      |o| o.vt_checksum_report,
+    ),
+    choice(
+      "middle-click-action",
+      "Middle click",
+      "What a middle click pastes: the primary selection, the clipboard, or nothing.",
+      s,
+      |o| o.middle_click.as_str().to_string(),
+      || strs(&["ignore", "primary-paste", "clipboard-paste"]),
+      None,
     ),
     toggle(
       "focus-follows-mouse",

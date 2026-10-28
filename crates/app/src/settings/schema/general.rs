@@ -133,12 +133,14 @@ pub(super) fn settings() -> Vec<Setting> {
       (60.0, 400.0, 10.0),
       true,
     ),
-    toggle(
+    choice(
       "copy-on-select",
       "Copy on select",
-      "Selecting text copies it to the clipboard immediately.",
+      "Where a finished selection is copied: the primary selection that middle-click pastes, the clipboard, or both.",
       s,
-      |o| o.copy_on_select,
+      |o| o.copy_on_select.as_str().to_string(),
+      || strs(&["none", "primary", "clipboard", "both"]),
+      None,
     ),
     choice(
       "macos-option-as-alt",

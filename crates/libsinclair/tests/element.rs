@@ -90,7 +90,10 @@ fn a_texture_is_rebuilt_when_its_image_is_edited() {
   assert!(Arc::ptr_eq(&first.image, &same.image), "same serial reuses");
 
   let edited = cache.texture(1, 1, &[&image]);
-  assert!(!Arc::ptr_eq(&first.image, &edited.image), "new serial rebuilds");
+  assert!(
+    !Arc::ptr_eq(&first.image, &edited.image),
+    "new serial rebuilds"
+  );
   assert_eq!(pool.borrow().stats().bytes, 64, "the old texture was freed");
 }
 
@@ -108,11 +111,23 @@ fn an_animation_advances_by_elapsed_time_and_stops_when_asked() {
     serial: 0,
   };
 
-  assert_eq!(animation_frame(&frames, &running, Duration::from_millis(0)).0, 0);
-  assert_eq!(animation_frame(&frames, &running, Duration::from_millis(150)).0, 1);
-  assert_eq!(animation_frame(&frames, &running, Duration::from_millis(250)).0, 2);
+  assert_eq!(
+    animation_frame(&frames, &running, Duration::from_millis(0)).0,
+    0
+  );
+  assert_eq!(
+    animation_frame(&frames, &running, Duration::from_millis(150)).0,
+    1
+  );
+  assert_eq!(
+    animation_frame(&frames, &running, Duration::from_millis(250)).0,
+    2
+  );
   // Looping wraps around rather than parking.
-  assert_eq!(animation_frame(&frames, &running, Duration::from_millis(350)).0, 0);
+  assert_eq!(
+    animation_frame(&frames, &running, Duration::from_millis(350)).0,
+    0
+  );
   // Still advancing, and it says when: 100 ms into a 3x100 ms loop leaves
   // 50 ms of the frame to run.
   assert_eq!(
@@ -1181,7 +1196,10 @@ fn a_placeholder_slice_offsets_the_image_behind_it() {
   let drawn = draws(&mut term);
   assert_eq!(drawn.len(), 1);
   assert_eq!(drawn[0].width, 8.0, "one cell wide");
-  assert_eq!(drawn[0].full_dx, -8.0, "shifted left by the column it skips");
+  assert_eq!(
+    drawn[0].full_dx, -8.0,
+    "shifted left by the column it skips"
+  );
 }
 
 #[test]
@@ -1195,7 +1213,11 @@ fn an_animated_image_carries_its_gaps_to_the_painter() {
 
   let drawn = draws(&mut term);
   let anim = drawn[0].anim.as_ref().expect("an animation");
-  assert_eq!(anim.gaps, vec![40, 70], "the root frame takes the default gap");
+  assert_eq!(
+    anim.gaps,
+    vec![40, 70],
+    "the root frame takes the default gap"
+  );
   assert!(anim.play.running && anim.play.looping);
   let (frame, due) = anim.resolve();
   assert_eq!(frame, 0, "it starts on the first frame");
@@ -1255,4 +1277,40 @@ fn an_animation_sleeps_between_frames_instead_of_repainting_every_vsync() {
     animation_frame(&gaps, &once, Duration::from_millis(2_000)).1,
     None
   );
+}
+
+#[test]
+fn a_released_pane_frees_its_textures_and_keeps_its_namespace() {
+  let pool = Rc::new(RefCell::new(ImageCachePool::new(1 << 20)));
+  let mut hidden = ImageCache::new(pool.clone());
+  let mut shown = ImageCache::new(pool.clone());
+  let image = vt::Image {
+    width: 4,
+    height: 4,
+    rgba: vec![0; 64].into(),
+  };
+  let _ = hidden.texture(1, 0, &[&image]);
+  let _ = shown.texture(1, 0, &[&image]);
+  assert_eq!(pool.borrow().stats().bytes, 128);
+
+  hidden.release();
+  assert_eq!(
+    pool.borrow().stats().bytes,
+    64,
+    "only the hidden pane's texture goes"
+  );
+  assert_eq!(pool.borrow().stats().entries, 1);
+  // Shown again, it rebuilds on demand under the same pane id.
+  let _ = hidden.texture(1, 0, &[&image]);
+  assert_eq!(pool.borrow().stats().entries, 2);
+}
+
+#[test]
+fn a_released_snap_cache_forgets_its_frame() {
+  let mut cache = SnapCache::default();
+  cache.shaped_rows = vec![None, None, None];
+  cache.anim_wake = Some(std::time::Instant::now());
+  cache.release();
+  assert!(cache.shaped_rows.is_empty() && cache.shaped_rows.capacity() == 0);
+  assert!(cache.anim_wake.is_none());
 }

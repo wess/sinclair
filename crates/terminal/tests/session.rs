@@ -252,7 +252,52 @@ fn preload_lands_before_the_child_says_anything() {
   let after = session.with_term(|term| term.buffer_dump(100, usize::MAX));
   let history = after.find("restored history").expect("history kept");
   let live = after.find("live output").expect("child output arrived");
-  assert!(history < live, "the child printed above the history: {after:?}");
+  assert!(
+    history < live,
+    "the child printed above the history: {after:?}"
+  );
   // The replay is emulator-only: nothing of it was written to the pty.
   assert_eq!(session.stats().input_bytes, 0);
+}
+
+/// Throughput probe for the reader thread: how long a burst of output takes
+/// end to end, against parsing the same bytes with no pty. The gap is the
+/// time a second (read-ahead) thread could hide. Run with
+/// `cargo test -p terminal --release -- --ignored pty_throughput --nocapture`.
+#[test]
+#[ignore]
+fn pty_throughput() {
+  const TOTAL: usize = 64 * 1024 * 1024;
+  let script = format!(
+    "yes 'the quick brown fox jumps over the lazy dog 0123456789 \x1b[1;32mok\x1b[0m' | head -c {TOTAL}"
+  );
+  let start = Instant::now();
+  let (session, rx) = Session::spawn(command(&["/bin/sh", "-c", &script])).expect("spawn");
+  let deadline = Instant::now() + Duration::from_secs(120);
+  loop {
+    match rx.recv_timeout(deadline.saturating_duration_since(Instant::now())) {
+      Ok(Event::Exit(_)) => break,
+      Ok(_) => {}
+      Err(e) => panic!("no exit: {e}"),
+    }
+  }
+  let e2e = start.elapsed();
+  let stats = session.stats();
+
+  let line = b"the quick brown fox jumps over the lazy dog 0123456789 \x1b[1;32mok\x1b[0m\r\n";
+  let chunk: Vec<u8> = line.iter().copied().cycle().take(64 * 1024).collect();
+  let mut term = vt::Terminal::new(80, 24, 10_000);
+  let start = Instant::now();
+  for _ in 0..TOTAL / chunk.len() {
+    term.feed(&chunk);
+  }
+  let parse = start.elapsed();
+  let mb = TOTAL as f64 / (1024.0 * 1024.0);
+  eprintln!(
+    "e2e {:.0} MB/s ({e2e:?}, {} chunks, avg {} B) | parse-only {:.0} MB/s ({parse:?})",
+    mb / e2e.as_secs_f64(),
+    stats.output_chunks,
+    stats.output_bytes / stats.output_chunks.max(1),
+    mb / parse.as_secs_f64(),
+  );
 }

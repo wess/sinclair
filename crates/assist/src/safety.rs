@@ -19,11 +19,22 @@ impl PasteRisk {
   }
 }
 
-pub fn analyze(text: &str) -> PasteRisk {
+/// Score `text` as a paste. `bracketed` is whether the receiving program
+/// asked for bracketed paste: without it, any line break — `\r` as much as
+/// `\n`, and a single trailing one — is a keypress of Return, so the paste
+/// runs before anyone can read it.
+pub fn analyze(text: &str, bracketed: bool) -> PasteRisk {
   let lower = text.to_ascii_lowercase();
   let mut reasons = Vec::new();
-  if text.lines().filter(|line| !line.trim().is_empty()).count() > 1 {
+  // `str::lines` splits on `\n` only; a bare `\r` ends a command too.
+  let commands = text
+    .split(['\n', '\r'])
+    .filter(|line| !line.trim().is_empty())
+    .count();
+  if commands > 1 {
     reasons.push("multiple commands".to_string());
+  } else if !bracketed && text.contains(['\n', '\r']) {
+    reasons.push("runs on paste".to_string());
   }
   for needle in ["rm -rf", "mkfs", "dd if=", ":(){", "chmod -r", "chown -r"] {
     if lower.contains(needle) {

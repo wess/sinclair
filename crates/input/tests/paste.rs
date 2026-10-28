@@ -15,13 +15,38 @@ fn bracketed_preserves_newlines_verbatim() {
 fn bracketed_strips_embedded_end_marker() {
   assert_eq!(
     encode_paste("evil\x1b[201~rm -rf\x1b[201~ /", true),
-    b"\x1b[200~evilrm -rf /\x1b[201~"
+    b"\x1b[200~evil[201~rm -rf[201~ /\x1b[201~"
   );
-  // Other escapes pass through; only the end marker is removed.
+}
+
+#[test]
+fn a_split_end_marker_cannot_reassemble() {
+  // Removing only the literal marker would leave `ESC[201~` behind here.
+  let out = encode_paste("a\x1b[20\x1b[201~1~\nrm -rf ~\n", true);
+  let inner = &out[6..out.len() - 6];
+  assert!(
+    !inner.contains(&0x1b),
+    "no ESC may survive inside the bracket"
+  );
+}
+
+#[test]
+fn controls_are_stripped_but_formatting_survives() {
   assert_eq!(
-    encode_paste("ok\x1b[200~still", true),
-    b"\x1b[200~ok\x1b[200~still\x1b[201~"
+    encode_paste("a\tb\x07c\x18d\x7fe", true),
+    b"\x1b[200~a\tbcde\x1b[201~"
   );
+  // C1 CSI (U+009B) is dropped too.
+  assert_eq!(
+    encode_paste("x\u{9b}201~y", true),
+    b"\x1b[200~x201~y\x1b[201~"
+  );
+  assert_eq!(encode_paste("ok\x1b[200~still", false), b"ok[200~still");
+}
+
+#[test]
+fn unicode_is_untouched() {
+  assert_eq!(encode_paste("héllo ✓", false), "héllo ✓".as_bytes());
 }
 
 #[test]

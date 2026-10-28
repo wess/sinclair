@@ -306,7 +306,7 @@ fn read_loop(mut r: Reader) {
       drain_input(&r.pump, &r.input);
     }
     if ready.readable {
-      match r.pump.read(&mut buf) {
+      match fill(&r.pump, &mut buf) {
         Ok(0) => break,
         Ok(n) => {
           if let Ok(mut rec) = r.recorder.lock() {
@@ -324,6 +324,28 @@ fn read_loop(mut r: Reader) {
   }
   let code = r.pty.wait().ok().and_then(|status| status.code());
   let _ = r.events.send(Event::Exit(code));
+}
+
+/// Read what the pty has, then keep reading until it is empty or `buf` is
+/// full, so one parse (one terminal lock, one round of events) covers a burst.
+/// A pty hands output over in whatever pieces the child wrote — `yes | head`
+/// arrives ~100 bytes at a time — and paying the per-chunk cost for each
+/// piece made the reader, not the parser, the bottleneck. Returns 0 only at
+/// EOF on the first read; later errors end the fill and keep what was read.
+fn fill(pump: &pty::Pump, buf: &mut [u8]) -> io::Result<usize> {
+  let mut n = pump.read(buf)?;
+  if n == 0 {
+    return Ok(0);
+  }
+  while n < buf.len() {
+    match pump.read(&mut buf[n..]) {
+      Ok(0) => break,
+      Ok(more) => n += more,
+      Err(e) if e.kind() == io::ErrorKind::Interrupted => {}
+      Err(_) => break, // WouldBlock (drained) or EIO; the next wait sees it
+    }
+  }
+  Ok(n)
 }
 
 /// Write queued input until the pty stops taking it, preserving order. On a
@@ -358,7 +380,17 @@ fn apply_chunk(chunk: &[u8], r: &Reader) {
     .output_bytes
     .fetch_add(chunk.len() as u64, Ordering::Relaxed);
   r.stats.output_chunks.fetch_add(1, Ordering::Relaxed);
-  let (reply, title, bell, clipboard, notification, command_finished, cwd_changed) = {
+  let (
+    reply,
+    title,
+    bell,
+    clipboard,
+    clipboard_requests,
+    resize_request,
+    notification,
+    command_finished,
+    cwd_changed,
+  ) = {
     let mut term = r.term.lock().unwrap_or_else(|e| e.into_inner());
     // The reader thread must survive parser bugs, but a panicking feed
     // leaves the terminal half-mutated: log it and start over from a
@@ -376,6 +408,8 @@ fn apply_chunk(chunk: &[u8], r: &Reader) {
       term.take_title_changed(),
       term.take_bell(),
       term.take_clipboard(),
+      term.take_clipboard_requests(),
+      term.take_resize_request(),
       term.take_notification(),
       term.take_command_finished(),
       term.take_cwd_changed(),
@@ -398,6 +432,12 @@ fn apply_chunk(chunk: &[u8], r: &Reader) {
       kind: clip.kind,
       data: clip.data,
     });
+  }
+  if let Some((rows, cols)) = resize_request {
+    let _ = r.events.send(Event::ResizeRequest { rows, cols });
+  }
+  for request in clipboard_requests {
+    let _ = r.events.send(Event::ClipboardRequest(Box::new(request)));
   }
   if let Some(note) = notification {
     let _ = r.events.send(Event::Notify {

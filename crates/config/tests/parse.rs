@@ -51,7 +51,7 @@ keybind = ctrl+shift+v=paste_from_clipboard
   assert_eq!(o.window_height, 40);
   assert_eq!(o.shell.as_deref(), Some("/bin/zsh"));
   assert_eq!(o.working_directory.as_deref(), Some("/tmp"));
-  assert!(o.copy_on_select);
+  assert_eq!(o.copy_on_select, crate::CopyOnSelect::Clipboard);
   assert!(!o.confirm_close_surface);
   assert!(o.mouse_hide_while_typing);
   assert_eq!(
@@ -174,4 +174,45 @@ fn whitespace_around_key_and_value_is_trimmed() {
   let (o, diags) = parse_str("   font-size   =   16   \n");
   assert!(diags.is_empty());
   assert_eq!(o.font_size, 16.0);
+}
+
+#[test]
+fn copy_on_select_takes_a_target_or_a_legacy_bool() {
+  use crate::CopyOnSelect;
+  for (val, want) in [
+    ("primary", CopyOnSelect::Primary),
+    ("clipboard", CopyOnSelect::Clipboard),
+    ("both", CopyOnSelect::Both),
+    ("none", CopyOnSelect::None),
+    ("true", CopyOnSelect::Clipboard),
+    ("false", CopyOnSelect::None),
+  ] {
+    let (o, diags) = parse_str(&format!("copy-on-select = {val}"));
+    assert!(diags.is_empty(), "{val}: {diags:?}");
+    assert_eq!(o.copy_on_select, want, "{val}");
+  }
+  let (o, diags) = parse_str("copy-on-select = sometimes");
+  assert_eq!(diags.len(), 1);
+  assert_eq!(o.copy_on_select, CopyOnSelect::None);
+}
+
+#[test]
+fn middle_click_action_and_its_legacy_bool() {
+  use crate::MiddleClick;
+  let (o, _) = parse_str("middle-click-action = clipboard-paste");
+  assert_eq!(o.middle_click, MiddleClick::ClipboardPaste);
+  let (o, _) = parse_str("middle-click-paste = true");
+  assert_eq!(o.middle_click, MiddleClick::PrimaryPaste);
+  let (o, _) = parse_str("middle-click-paste = false");
+  assert_eq!(o.middle_click, MiddleClick::Ignore);
+  assert_eq!(parse_str("").0.middle_click, MiddleClick::Ignore);
+}
+
+#[test]
+fn risky_vt_features_are_off_unless_enabled() {
+  let (o, _) = parse_str("");
+  assert!(!o.vt_window_resize_allowed && !o.vt_checksum_report);
+  let (o, diags) = parse_str("vt-window-resize-allowed = true\nvt-checksum-report = true");
+  assert!(diags.is_empty(), "{diags:?}");
+  assert!(o.vt_window_resize_allowed && o.vt_checksum_report);
 }

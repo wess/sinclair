@@ -18,7 +18,7 @@ fn defaults() {
   assert_eq!(o.window_height, 0);
   assert_eq!(o.shell, None);
   assert_eq!(o.working_directory, None);
-  assert!(!o.copy_on_select);
+  assert_eq!(o.copy_on_select, crate::CopyOnSelect::None);
   assert!(o.confirm_close_surface);
   assert!(!o.mouse_hide_while_typing);
   assert!(o.palette.is_empty());

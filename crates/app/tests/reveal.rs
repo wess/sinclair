@@ -83,8 +83,46 @@ fn opening_passes_the_path_as_an_argument_not_a_url() {
 fn revealing_and_opening_are_different_gestures() {
   // Reveal selects the file in Finder; open hands it to its default app.
   let (_, file) = fixture();
-  let reveal: Vec<_> = command(&file).unwrap().get_args().map(|a| a.to_owned()).collect();
-  let open: Vec<_> = open_command(&file).unwrap().get_args().map(|a| a.to_owned()).collect();
+  let reveal: Vec<_> = command(&file)
+    .unwrap()
+    .get_args()
+    .map(|a| a.to_owned())
+    .collect();
+  let open: Vec<_> = open_command(&file)
+    .unwrap()
+    .get_args()
+    .map(|a| a.to_owned())
+    .collect();
   assert_eq!(reveal.first().map(|a| a.to_str().unwrap()), Some("-R"));
   assert_ne!(reveal, open);
+}
+
+#[test]
+fn bundles_scripts_and_executables_launch() {
+  let dir = std::env::temp_dir().join(format!("sinclair-launch-{}", std::process::id()));
+  std::fs::create_dir_all(dir.join("Evil.app")).unwrap();
+  let script = dir.join("run.Command");
+  std::fs::write(&script, b"#!/bin/sh\n").unwrap();
+  let exe = dir.join("tool");
+  std::fs::write(&exe, b"#!/bin/sh\n").unwrap();
+  let doc = dir.join("notes.txt");
+  std::fs::write(&doc, b"x").unwrap();
+  #[cfg(unix)]
+  {
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::set_permissions(&exe, std::fs::Permissions::from_mode(0o755)).unwrap();
+    // A plain-looking name pointing at a bundle is judged by its target.
+    std::os::unix::fs::symlink(dir.join("Evil.app"), dir.join("readme")).unwrap();
+  }
+
+  assert!(launches(&dir.join("Evil.app")));
+  assert!(launches(&script), "extension match is case-insensitive");
+  assert!(!launches(&doc));
+  assert!(!launches(&dir), "a plain folder opens in the file manager");
+  #[cfg(unix)]
+  {
+    assert!(launches(&exe));
+    assert!(launches(&dir.join("readme")));
+  }
+  let _ = std::fs::remove_dir_all(&dir);
 }

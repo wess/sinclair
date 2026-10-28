@@ -96,4 +96,5 @@ const STATE: input::TermState = input::TermState {
   keypad_app: false,
   bracketed_paste: false,
   kitty_flags: 0,
+  backspace_bs: false,
 };

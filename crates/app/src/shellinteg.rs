@@ -40,11 +40,32 @@ ZDOTDIR=\"${SINCLAIR_ZDOTDIR:-$HOME}\"
 [[ \"$HISTFILE\" == \"$_sinclair_zdotdir\"/* ]] && HISTFILE=\"$ZDOTDIR/.zsh_history\"
 unset _sinclair_zdotdir
 [[ -f \"$ZDOTDIR/.zshrc\" ]] && source \"$ZDOTDIR/.zshrc\"
+# OSC 7 carries the cwd as a URL. Percent-encode everything outside a safe
+# set, byte by byte, so a directory name holding ESC or BEL cannot end the
+# sequence early and smuggle in another (an OSC 52 clipboard write, say). No
+# subshells: this runs every prompt.
+_sinclair_urlencode() {
+  emulate -L zsh
+  setopt no_multibyte
+  local s=$1 out= c hex
+  local -i i
+  if [[ $s != *[^A-Za-z0-9/._~-]* ]]; then REPLY=$s; return; fi
+  for (( i = 1; i <= $#s; i++ )); do
+    c=$s[i]
+    case $c in
+      [A-Za-z0-9/._~-]) out+=$c ;;
+      *) printf -v hex '%d' \"'$c\"; printf -v hex '%%%02X' $(( hex & 255 )); out+=$hex ;;
+    esac
+  done
+  REPLY=$out
+}
 _sinclair_precmd() {
-  local ret=$?
+  local ret=$? REPLY host
   printf '\\e]133;D;%d\\e\\\\' \"$ret\"
   printf '\\e]133;A\\e\\\\'
-  printf '\\e]7;file://%s%s\\e\\\\' \"${HOST}\" \"${PWD}\"
+  _sinclair_urlencode \"${HOST}\"; host=$REPLY
+  _sinclair_urlencode \"${PWD}\"
+  printf '\\e]7;file://%s%s\\e\\\\' \"$host\" \"$REPLY\"
   # Mark where shell input begins (OSC 133;B) so Sinclair can read the line being
   # typed for autosuggestions. Appended to PS1 (zero-width) idempotently, so it
   # survives prompts that rebuild PS1 each precmd.
@@ -67,7 +88,9 @@ const FISH: &str = "\
 # Sinclair shell integration (fish): OSC 133 prompt marks + OSC 7 cwd.
 function _sinclair_mark_prompt --on-event fish_prompt
     printf '\\e]133;A\\e\\\\'
-    printf '\\e]7;file://%s%s\\e\\\\' (hostname) \"$PWD\"
+    # Percent-encoded so a hostile directory name cannot inject escapes;
+    # `$hostname` rather than `(hostname)` keeps a fork off every prompt.
+    printf '\\e]7;file://%s%s\\e\\\\' (string escape --style=url -- $hostname) (string escape --style=url -- $PWD)
 end
 function _sinclair_mark_preexec --on-event fish_preexec
     printf '\\e]133;C\\e\\\\'
@@ -82,7 +105,25 @@ const BASH: &str = "\
 _sinclair_ret=$?
 printf '\\e]133;D;%d\\e\\\\' \"$_sinclair_ret\"
 printf '\\e]133;A\\e\\\\'
-printf '\\e]7;file://%s%s\\e\\\\' \"${HOSTNAME}\" \"${PWD}\"
+# OSC 7 carries the cwd as a URL. Percent-encode everything outside a safe
+# set, byte by byte (LC_ALL=C; masked for bash 3.2's signed chars), so a
+# directory name holding ESC or BEL cannot end the sequence early and smuggle
+# in another. No subshells: this runs every prompt.
+_sinclair_urlencode() {
+  local LC_ALL=C s=$1 out= c hex i
+  if [[ $s != *[!A-Za-z0-9/._~-]* ]]; then REPLY=$s; return; fi
+  for (( i = 0; i < ${#s}; i++ )); do
+    c=${s:i:1}
+    case $c in
+      [A-Za-z0-9/._~-]) out+=$c ;;
+      *) printf -v hex '%d' \"'$c\"; printf -v hex '%%%02X' $(( hex & 255 )); out+=$hex ;;
+    esac
+  done
+  REPLY=$out
+}
+_sinclair_urlencode \"${HOSTNAME}\"; _sinclair_host=$REPLY
+_sinclair_urlencode \"${PWD}\"
+printf '\\e]7;file://%s%s\\e\\\\' \"$_sinclair_host\" \"$REPLY\"
 # Mark where shell input begins (OSC 133;B) via a zero-width PS1 suffix, added
 # once, so Sinclair can read the line being typed for autosuggestions.
 [[ \"$PS1\" != *'133;B'* ]] && PS1=\"${PS1}\"'\\[\\e]133;B\\e\\\\\\]'

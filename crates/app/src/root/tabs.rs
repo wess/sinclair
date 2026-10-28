@@ -115,6 +115,30 @@ impl WorkspaceView {
     }
   }
 
+  /// Tell every terminal whether it is on screen: the active item of each
+  /// pane is, the background tabs are not (and drop their render caches).
+  pub(crate) fn reconcile_terminal_visibility(&self, cx: &mut Context<Self>) {
+    let shown: std::collections::HashSet<ItemId> = self
+      .group
+      .read(cx)
+      .panes_with_items()
+      .into_iter()
+      .map(|(_, _, active)| active)
+      .collect();
+    let views: Vec<(ItemId, gpui::Entity<crate::view::TerminalView>)> = self
+      .items
+      .borrow()
+      .iter()
+      .filter_map(|(id, it)| it.content.as_terminal().map(|v| (*id, v.clone())))
+      .collect();
+    for (id, view) in views {
+      let visible = shown.contains(&id);
+      if view.read(cx).is_visible() != visible {
+        view.update(cx, |v, _| v.set_visible(visible));
+      }
+    }
+  }
+
   /// One title per item, in the group's layout order (for the MCP bridge).
   pub(crate) fn titles(&self, cx: &App) -> Vec<String> {
     self

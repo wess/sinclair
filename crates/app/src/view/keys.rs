@@ -113,6 +113,11 @@ impl TerminalView {
   ) {
     let keystroke = &event.keystroke;
     let mods = mods_of(keystroke, window);
+    if self.exited.is_some() {
+      cx.emit(ViewEvent::Exited);
+      cx.stop_propagation();
+      return;
+    }
     if self.context_menu.is_some() {
       if keystroke.key == "escape" {
         self.context_menu = None;
@@ -180,12 +185,7 @@ impl TerminalView {
   /// a key-up into bytes (`encode_key` returns `None` otherwise), so this is a
   /// no-op in normal use. Overlays that own the keyboard suppress it, matching
   /// [`Self::key_down`].
-  pub(crate) fn key_up(
-    &mut self,
-    event: &KeyUpEvent,
-    window: &mut Window,
-    cx: &mut Context<Self>,
-  ) {
+  pub(crate) fn key_up(&mut self, event: &KeyUpEvent, window: &mut Window, cx: &mut Context<Self>) {
     if self.context_menu.is_some()
       || self.copy_mode_active()
       || self.hints_active()
@@ -261,6 +261,7 @@ impl TerminalView {
       keypad_app: term.keypad_app(),
       bracketed_paste: term.bracketed_paste(),
       kitty_flags: term.kitty_keyboard_flags(),
+      backspace_bs: term.backspace_sends_bs(),
     })
   }
 

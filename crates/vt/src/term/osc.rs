@@ -137,6 +137,7 @@ pub(crate) fn dispatch(inner: &mut Inner, params: &[&[u8]], bell_terminated: boo
         }
       }
     }
+    5522 => super::kclip::dispatch(inner, params),
     104 => {
       if params.len() <= 1 {
         inner.palette = [None; 256];

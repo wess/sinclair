@@ -2,14 +2,16 @@
 
 mod apc;
 mod csi;
-mod gfx;
 mod dcs;
+mod gfx;
+pub mod kclip;
 mod ops;
 mod osc;
 mod perform;
 pub mod report;
 mod select;
 
+pub use kclip::{Auth, ClipboardRequest};
 pub use report::{Clipboard, Notification, ReportColors};
 
 use crate::cell::Cell;
@@ -102,6 +104,18 @@ pub(crate) struct Inner {
   pub(crate) word_chars: Vec<char>,
   /// Pending OSC 52 clipboard write for the host to act on.
   pub(crate) clipboard: Option<report::Clipboard>,
+  /// `vt-window-resize-allowed`: honour `CSI 8 ; rows ; cols t`. Off by
+  /// default — a program resizing the user's window is a nuisance at best.
+  pub(crate) allow_window_resize: bool,
+  /// A window resize the program asked for (rows, cols), for the host.
+  pub(crate) resize_request: Option<(u16, u16)>,
+  /// `vt-checksum-report`: answer DECRQCRA. Off by default — a checksum of
+  /// screen contents lets a program probe text it did not write.
+  pub(crate) allow_checksum: bool,
+  /// OSC 5522 write being assembled from `wdata` chunks.
+  pub(crate) kclip_write: Option<kclip::Pending>,
+  /// OSC 5522 requests waiting for the host (bounded; see `kclip`).
+  pub(crate) kclip_requests: Vec<ClipboardRequest>,
   /// Pending OSC 9/777/99 desktop notification for the host to post.
   pub(crate) notification: Option<report::Notification>,
   /// Colors the host installed for answering OSC color queries.
@@ -186,6 +200,11 @@ impl Terminal {
         selection: None,
         word_chars: vec!['/', '-', '_', '.', '~'],
         clipboard: None,
+        allow_window_resize: false,
+        resize_request: None,
+        allow_checksum: false,
+        kclip_write: None,
+        kclip_requests: Vec::new(),
         notification: None,
         report_colors: None,
         hyperlinks: Hyperlinks::default(),
@@ -320,7 +339,11 @@ impl Terminal {
   /// The virtual placement a placeholder cell names: the image, and the
   /// placement id when the cell spelled one. A cell that names no placement
   /// takes the image's only virtual placement.
-  pub fn virtual_placement(&self, image_id: u32, placement_id: u32) -> Option<&crate::image::Placement> {
+  pub fn virtual_placement(
+    &self,
+    image_id: u32,
+    placement_id: u32,
+  ) -> Option<&crate::image::Placement> {
     self.inner.virt.iter().find(|p| {
       p.kitty.as_ref().is_some_and(|k| {
         k.image_id == image_id && (placement_id == 0 || k.placement_id == placement_id)
@@ -592,6 +615,11 @@ impl Terminal {
     self.inner.modes
   }
 
+  /// DECBKM (CSI ? 67 h/l): Backspace sends BS rather than DEL.
+  pub fn backspace_sends_bs(&self) -> bool {
+    self.inner.modes.contains(Modes::BACKARROW_BS)
+  }
+
   /// DECCKM (CSI ? 1 h/l): application cursor keys.
   pub fn cursor_keys_app(&self) -> bool {
     self.inner.modes.contains(Modes::APP_CURSOR)
@@ -670,6 +698,38 @@ impl Terminal {
   /// Take a pending OSC 52 clipboard write, if the program requested one.
   pub fn take_clipboard(&mut self) -> Option<report::Clipboard> {
     self.inner.clipboard.take()
+  }
+
+  /// Allow `CSI 8 ; rows ; cols t` to request a window resize
+  /// (`vt-window-resize-allowed`). Off by default.
+  pub fn set_window_resize_allowed(&mut self, allowed: bool) {
+    self.inner.allow_window_resize = allowed;
+    if !allowed {
+      self.inner.resize_request = None;
+    }
+  }
+
+  /// The window size, in (rows, cols) of this terminal, that the program
+  /// last asked for; only ever set while resizing is allowed.
+  pub fn take_resize_request(&mut self) -> Option<(u16, u16)> {
+    self.inner.resize_request.take()
+  }
+
+  /// Answer DECRQCRA rectangle checksums (`vt-checksum-report`). Off by
+  /// default.
+  pub fn set_checksum_report(&mut self, allowed: bool) {
+    self.inner.allow_checksum = allowed;
+  }
+
+  /// Take the OSC 5522 clipboard requests the program has made.
+  pub fn take_clipboard_requests(&mut self) -> Vec<ClipboardRequest> {
+    std::mem::take(&mut self.inner.kclip_requests)
+  }
+
+  /// Mode 5522: the program wants pastes announced as OSC 5522 type lists
+  /// (see [`kclip::paste_event`]) instead of bracketed text.
+  pub fn clipboard_paste_events(&self) -> bool {
+    self.inner.modes.contains(Modes::CLIPBOARD_EVENTS)
   }
 
   /// Resolve an OSC 8 hyperlink id (from a [`Cell`]) to its target.

@@ -138,6 +138,7 @@ impl TerminalElement {
       path: self.path.clone(),
       smart_select: self.smart_select,
       middle_click_paste: self.middle_click_paste,
+      middle_click: self.middle_click.clone(),
     };
     window.on_mouse_event({
       let p = pointer.clone();

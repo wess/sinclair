@@ -381,11 +381,25 @@ impl TermView {
           cx.write_to_clipboard(ClipboardItem::new_string(text));
         }
       }
+      Event::ClipboardRequest(request) => {
+        // TermView has no prompt UI, so OSC 5522 gets the answer a `deny`
+        // policy would rather than leaving the program waiting.
+        let (kind, id) = match &**request {
+          vt::ClipboardRequest::Read { id, .. } => ("read", id),
+          vt::ClipboardRequest::Write { id, .. } => ("write", id),
+        };
+        let reply = vt::term::kclip::status(kind, "EPERM", id.as_deref());
+        let _ = self.session.write(&reply);
+      }
       Event::Exit(_) => {
         self.exited = true;
         cx.notify();
       }
-      Event::Bell | Event::Notify { .. } | Event::CommandFinished(_) | Event::DirChanged(_) => {}
+      Event::Bell
+      | Event::Notify { .. }
+      | Event::CommandFinished(_)
+      | Event::DirChanged(_)
+      | Event::ResizeRequest { .. } => {}
     }
     cx.emit(event);
   }
@@ -471,6 +485,7 @@ impl TermView {
       keypad_app: term.keypad_app(),
       bracketed_paste: term.bracketed_paste(),
       kitty_flags: term.kitty_keyboard_flags(),
+      backspace_bs: term.backspace_sends_bs(),
     });
     // gpui re-fires key_down for auto-repeat with `is_held`; report those as
     // kitty repeat events, everything else as a press.
@@ -512,6 +527,7 @@ impl TermView {
       keypad_app: term.keypad_app(),
       bracketed_paste: term.bracketed_paste(),
       kitty_flags: term.kitty_keyboard_flags(),
+      backspace_bs: term.backspace_sends_bs(),
     });
     if state.kitty_flags & input::kitty_flags::REPORT_ALL_KEYS_AS_ESCAPE_CODES == 0 {
       return;
@@ -549,6 +565,7 @@ impl TermView {
       keypad_app: term.keypad_app(),
       bracketed_paste: term.bracketed_paste(),
       kitty_flags: term.kitty_keyboard_flags(),
+      backspace_bs: term.backspace_sends_bs(),
     });
     if let Some(bytes) =
       input::encode_key(&keystroke.key, text, mods, state, input::KeyEvent::Release)

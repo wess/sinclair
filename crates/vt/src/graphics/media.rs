@@ -21,10 +21,11 @@ pub(crate) fn fetch(control: &Control, payload: &[u8]) -> Result<Vec<u8>, GfxErr
     b'f' | b't' => {
       let path = name(payload)?;
       let data = read_file(Path::new(path), control.offset, control.size)?;
-      if control.medium == b't' && is_temporary(Path::new(path)) {
+      if control.medium == b't' && deletable(Path::new(path)) {
         // `t=t` hands the terminal ownership of the file. Deleting it is
-        // part of the contract, but only inside a temp directory — a client
-        // that misnames a real file should not lose it.
+        // part of the contract, but only for a file that is plainly a
+        // graphics temp file — a client that misnames a real file, or a
+        // hostile one naming `/tmp/../home/…`, must not cost anyone data.
         let _ = std::fs::remove_file(path);
       }
       Ok(data)
@@ -78,16 +79,48 @@ fn read_file(path: &Path, offset: u32, size: u32) -> Result<Vec<u8>, GfxError> {
   Ok(out)
 }
 
-/// Whether a `t=t` path sits somewhere the terminal may delete from.
-fn is_temporary(path: &Path) -> bool {
-  let temp = std::env::temp_dir();
-  let roots: [&Path; 4] = [
-    temp.as_path(),
-    Path::new("/tmp"),
-    Path::new("/var/tmp"),
-    Path::new("/dev/shm"),
-  ];
-  roots.iter().any(|root| path.starts_with(root))
+/// Marker kitty requires in a `t=t` file name before the terminal may delete
+/// it, so only files a client created for the protocol are ever consumed.
+const TEMP_MARKER: &str = "tty-graphics-protocol";
+
+/// Whether a `t=t` path may be deleted: an absolute path to a regular file
+/// (not a symlink) whose name carries [`TEMP_MARKER`] and whose *resolved*
+/// parent sits inside a temp directory. The parent is canonicalized because
+/// `Path::starts_with` compares components without resolving `..`, so a
+/// lexical check would accept `/tmp/../home/user/file`.
+fn deletable(path: &Path) -> bool {
+  if !path.is_absolute() {
+    return false;
+  }
+  let named = path
+    .file_name()
+    .and_then(|n| n.to_str())
+    .is_some_and(|n| n.contains(TEMP_MARKER));
+  if !named {
+    return false;
+  }
+  let regular = std::fs::symlink_metadata(path).is_ok_and(|m| m.file_type().is_file());
+  if !regular {
+    return false;
+  }
+  let Some(parent) = path.parent().and_then(|p| p.canonicalize().ok()) else {
+    return false;
+  };
+  temp_roots().iter().any(|root| parent.starts_with(root))
+}
+
+/// The temp directories `t=t` may delete from, resolved through symlinks
+/// (macOS's `/tmp` is `/private/tmp`).
+fn temp_roots() -> Vec<std::path::PathBuf> {
+  [
+    std::env::temp_dir(),
+    "/tmp".into(),
+    "/var/tmp".into(),
+    "/dev/shm".into(),
+  ]
+  .into_iter()
+  .filter_map(|root| root.canonicalize().ok())
+  .collect()
 }
 
 /// Read a POSIX shared-memory object and unlink it, as `t=s` requires.
@@ -102,8 +135,8 @@ fn read_shm(name: &str, offset: u32, size: u32) -> Result<Vec<u8>, GfxError> {
   use rustix::mm::{mmap, munmap, MapFlags, ProtFlags};
   use rustix::shm;
 
-  let fd = shm::open(name, shm::OFlags::RDONLY, shm::Mode::empty())
-    .map_err(|_| GfxError("ENOENT"))?;
+  let fd =
+    shm::open(name, shm::OFlags::RDONLY, shm::Mode::empty()).map_err(|_| GfxError("ENOENT"))?;
   // The name is consumed whether or not the read succeeds: the client handed
   // the object over, and leaving it behind leaks a name until reboot.
   let _unlink = Unlink(name);
@@ -144,7 +177,8 @@ fn read_shm(name: &str, offset: u32, size: u32) -> Result<Vec<u8>, GfxError> {
     .map_err(|_| GfxError("EBADF"))?
   };
   // SAFETY: `ptr` maps `span` readable bytes, and `skew + want <= span`.
-  let out = unsafe { std::slice::from_raw_parts(ptr.cast::<u8>().add(skew), want as usize) }.to_vec();
+  let out =
+    unsafe { std::slice::from_raw_parts(ptr.cast::<u8>().add(skew), want as usize) }.to_vec();
   // SAFETY: unmapping exactly the mapping created above.
   unsafe {
     let _ = munmap(ptr, span);

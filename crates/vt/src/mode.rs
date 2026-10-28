@@ -36,6 +36,11 @@ bitflags::bitflags! {
         /// Synchronized output (?2026): hold rendering until cleared so a
         /// frame is presented atomically.
         const SYNC_OUTPUT     = 1 << 14;
+        /// DECBKM (?67): Backspace sends BS (0x08) instead of DEL (0x7f).
+        const BACKARROW_BS    = 1 << 15;
+        /// Kitty paste events (?5522): announce a paste's MIME types over
+        /// OSC 5522 instead of sending bracketed text.
+        const CLIPBOARD_EVENTS = 1 << 16;
     }
 }
 

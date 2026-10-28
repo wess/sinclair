@@ -3,7 +3,8 @@ use super::*;
 #[test]
 fn lookup() {
   assert_eq!(kind("font-size"), Some(Kind::Float));
-  assert_eq!(kind("copy-on-select"), Some(Kind::Bool));
+  assert_eq!(kind("focus-follows-mouse"), Some(Kind::Bool));
+  assert_eq!(kind("copy-on-select"), Some(Kind::Str));
   assert_eq!(kind("keybind"), Some(Kind::List));
   assert_eq!(kind("scrollback-limit"), Some(Kind::Int));
   assert_eq!(kind("theme"), Some(Kind::Str));

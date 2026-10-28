@@ -55,7 +55,7 @@ impl WorkspaceView {
         self.opts.cursor_style,
         self.opts.copy_on_select,
         self.opts.smart_select,
-        self.opts.middle_click_paste,
+        self.opts.middle_click,
         self.opts.macos_option_as_alt,
         self.opts.clipboard_paste_protection,
         self.opts.clipboard_write,
@@ -169,6 +169,38 @@ impl WorkspaceView {
     self.spawn(options, window, cx)
   }
 
+  /// Grow or shrink the window so `item`'s pane comes out `rows` x `cols`:
+  /// the window changes by the pane's shortfall in cells, which works the
+  /// same with or without splits. Kept on its display, and never below one
+  /// cell, so a request cannot push the window off screen or collapse it.
+  fn resize_for(
+    &mut self,
+    item: ItemId,
+    rows: u16,
+    cols: u16,
+    window: &mut Window,
+    cx: &mut Context<Self>,
+  ) {
+    let Some(view) = self
+      .items
+      .borrow()
+      .get(&item)
+      .and_then(|it| it.content.as_terminal().cloned())
+    else {
+      return;
+    };
+    let (cur_cols, cur_rows) = view.read(cx).grid_size();
+    let size = window.viewport_size();
+    let width = f32::from(size.width) + (cols as f32 - cur_cols as f32) * self.cell.width;
+    let height = f32::from(size.height) + (rows as f32 - cur_rows as f32) * self.cell.height;
+    let display = window.display(cx).map(|d| d.bounds().size).unwrap_or(size);
+    let fit = |want: f32, cell: f32, max: gpui::Pixels| want.clamp(cell * 2.0, f32::from(max));
+    window.resize(gpui::size(
+      px(fit(width, self.cell.width, display.width)),
+      px(fit(height, self.cell.height, display.height)),
+    ));
+  }
+
   fn itemevent(
     &mut self,
     item: ItemId,
@@ -196,6 +228,7 @@ impl WorkspaceView {
         }
       }
       ViewEvent::Trigger(ev) => self.fire_triggers(item, ev, window, cx),
+      ViewEvent::ResizeWindow { rows, cols } => self.resize_for(item, *rows, *cols, window, cx),
     }
   }
 
