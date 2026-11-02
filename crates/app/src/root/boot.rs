@@ -96,6 +96,7 @@ pub(crate) fn palette_catalog() -> Vec<(&'static str, Action)> {
       Action::ExportRecording("mp4".into()),
     ),
     ("Save Buffer", Action::SaveBuffer),
+    ("Install Sinclair for Agents", Action::InstallAgentHooks),
     ("Settings", Action::ToggleSettings),
     ("Documentation", Action::ShowHelp),
     ("Quit", Action::Quit),

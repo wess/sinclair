@@ -8,6 +8,7 @@ fn simple_actions() {
     ("close_surface", Action::CloseSurface),
     ("close_tab", Action::CloseTab),
     ("close_window", Action::CloseWindow),
+    ("install_agent_hooks", Action::InstallAgentHooks),
     ("close_all_windows", Action::CloseAllWindows),
     ("previous_tab", Action::PreviousTab),
     ("next_tab", Action::NextTab),
