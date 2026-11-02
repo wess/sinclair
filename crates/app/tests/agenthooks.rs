@@ -179,7 +179,7 @@ fn session_context_shape() {
   assert_eq!(v["hookSpecificOutput"]["hookEventName"], json!("SessionStart"));
   let text = v["hookSpecificOutput"]["additionalContext"].as_str().unwrap();
   assert!(text.contains("SINCLAIR_PANE=7"));
-  assert!(text.contains("run_command") && text.contains("agent_states"));
+  assert!(text.contains("pane:7") && text.contains("sinclair run") && text.contains("wait"));
 }
 
 #[test]

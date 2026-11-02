@@ -184,9 +184,14 @@ fn payload_event(v: &Value) -> Option<&str> {
 /// and Codex share this shape (`hookSpecificOutput.additionalContext`).
 fn session_context(pane: u64) -> Value {
   let text = format!(
-    "You are running inside the Sinclair terminal emulator, in pane SINCLAIR_PANE={pane}. \
-     The `sinclair mcp` MCP server exposes tools for driving the terminal: run_command, \
-     read_screen, split, new_tab, list_panes, notify, agent_states."
+    "You are running inside the Sinclair terminal emulator, in pane `pane:{pane}` \
+     (SINCLAIR_PANE={pane}). To work with other panes from a shell: `sinclair ls` lists them \
+     with ids; `sinclair run -p PANE --wait CMD` runs a command and exits with its status; \
+     `sinclair capture -p PANE` prints its screen; `sinclair wait -p PANE --text REGEX` blocks \
+     until output matches (e.g. a dev server's ready line). PANE is an id, a tab number, or a \
+     title. The `sinclair mcp` server offers the same as MCP tools (ls, run_command, \
+     read_screen, wait, events, split, new_tab, notify). Report progress with \
+     OSC 7501 (state=working|blocked|done|error) so the user sees it on the tab."
   );
   json!({ "hookSpecificOutput": { "hookEventName": "SessionStart", "additionalContext": text } })
 }
