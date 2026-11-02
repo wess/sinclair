@@ -20,6 +20,8 @@ mod peek;
 mod persist;
 mod pluginpanel;
 mod quickopen;
+mod remote;
+pub(crate) use remote::journal_since;
 mod render;
 pub(crate) mod sandbox;
 mod savebuffer;

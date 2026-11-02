@@ -48,6 +48,12 @@ impl WorkspaceView {
           .and_then(Value::as_str)
           .ok_or("run_command requires a `text` string")?;
         let target = args.get("target").and_then(Value::as_str).unwrap_or("pane");
+        if target == "pane" && args.get("pane").is_some() {
+          self
+            .target_terminal(args, cx)?
+            .update(cx, |v, cx| v.run_command(text, cx));
+          return Ok(json!({ "ok": true, "target": "pane" }));
+        }
         self.mcp_run(text, target, window, cx)
       }
       "read_screen" => {
@@ -55,10 +61,7 @@ impl WorkspaceView {
           .get("lines")
           .and_then(Value::as_u64)
           .map(|n| n as usize);
-        let text = self
-          .focused_terminal(cx)
-          .map(|v| v.read(cx).screen_text(lines))
-          .unwrap_or_default();
+        let text = self.target_terminal(args, cx)?.read(cx).screen_text(lines);
         Ok(json!({ "text": text }))
       }
       #[cfg(debug_assertions)]
@@ -150,7 +153,9 @@ impl WorkspaceView {
           .and_then(Value::as_str)
           .ok_or("send_input requires a `text` string")?
           .to_string();
-        self.onfocused(cx, |v, cx| v.send_text(text.as_bytes(), cx));
+        self
+          .target_terminal(args, cx)?
+          .update(cx, |v, cx| v.send_text(text.as_bytes(), cx));
         Ok(json!({ "ok": true }))
       }
       "new_tab" => {
@@ -271,6 +276,14 @@ impl WorkspaceView {
         Ok(json!({ "ok": true, "index": index }))
       }
       "agent_states" => Ok(self.agent_states(cx)),
+      "ls" => Ok(self.list_items(cx)),
+      "status" => self.pane_status(args, cx),
+      "events" => self.events_since(args, cx),
+      "focus" => {
+        let item = self.target_item(args, cx)?;
+        self.activate_item(item, window, cx);
+        Ok(json!({ "ok": true }))
+      }
       "worktree_create" => {
         let path = args
           .get("path")

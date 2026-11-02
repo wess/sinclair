@@ -92,7 +92,7 @@ fn control_characters_discard_the_report() {
 fn limits_discard_the_report() {
   let long = "a".repeat(2733);
   assert_eq!(parse(format!("state=idle:msg={long}").as_bytes()), None);
-  let deep = vec!["a"; 9].join("/");
+  let deep = ["a"; 9].join("/");
   assert_eq!(parse(format!("state=idle:id={deep}").as_bytes()), None);
   let seg = "a".repeat(33);
   assert_eq!(parse(format!("state=idle:id={seg}").as_bytes()), None);

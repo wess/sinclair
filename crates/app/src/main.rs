@@ -8,6 +8,7 @@ mod appkit;
 mod attachpicker;
 mod badge;
 mod catalog;
+mod cli;
 mod clipboard;
 mod colors;
 mod confwrite;
@@ -21,6 +22,7 @@ mod guisetheme;
 mod guiwasm;
 mod help;
 mod ipc;
+mod journal;
 mod keys;
 #[cfg(target_os = "linux")]
 mod linux;
@@ -46,6 +48,7 @@ mod settings;
 mod shellinteg;
 mod sidecar;
 mod statusmark;
+mod target;
 mod suggest;
 mod switcher;
 mod tabbar;
@@ -102,6 +105,12 @@ fn main() {
   if args.first().map(String::as_str) == Some("mcp") {
     mcpbridge::run_stdio();
     return;
+  }
+
+  // Scripting the running terminal: ls, send, run, capture, focus, status,
+  // wait, events.
+  if let Some(cmd) = args.first().filter(|c| cli::COMMANDS.contains(&c.as_str())) {
+    std::process::exit(cli::main(cmd, &args[1..]));
   }
 
   if args.first().map(String::as_str) == Some("notify") {
@@ -177,6 +186,7 @@ fn main() {
   });
   app.run(move |cx: &mut App| {
     let auto_update = opts.auto_update;
+    cx.set_global(journal::Global::default());
     reload::install(cx);
     open_default_window(opts, cx);
     cx.activate(true);

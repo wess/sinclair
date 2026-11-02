@@ -39,7 +39,7 @@ fn each_blocked_kind_has_its_own_glyph() {
 
 #[test]
 fn urgency_orders_blocked_first() {
-  let mut s = vec![
+  let mut s = [
     Signal::Idle,
     Signal::Done,
     Signal::Working(None),

@@ -221,13 +221,30 @@ impl WorkspaceView {
         self.activate_item(item, window, cx);
         self.dispatch(action.clone(), window, cx);
       }
-      ViewEvent::Attention | ViewEvent::Status => cx.notify(),
+      ViewEvent::Attention => cx.notify(),
+      ViewEvent::Status => {
+        let headline = self
+          .items
+          .borrow()
+          .get(&item)
+          .and_then(|it| it.content.status_board(cx).headline().map(remote::record_json));
+        self.journal(item, "status_changed", json!({ "status": headline }), cx);
+        cx.notify();
+      }
       ViewEvent::Focused => {
         if self.group.read(cx).active_item() != item {
           self.activate_item(item, window, cx);
         }
       }
-      ViewEvent::Trigger(ev) => self.fire_triggers(item, ev, window, cx),
+      ViewEvent::Trigger(ev) => {
+        if !matches!(
+          ev,
+          crate::view::TriggerEvent::WorktreeCreated(_) | crate::view::TriggerEvent::WorktreeRemoved(_)
+        ) {
+          self.journal(item, ev.name(), ev.payload(), cx);
+        }
+        self.fire_triggers(item, ev, window, cx)
+      }
       ViewEvent::ResizeWindow { rows, cols } => self.resize_for(item, *rows, *cols, window, cx),
     }
   }

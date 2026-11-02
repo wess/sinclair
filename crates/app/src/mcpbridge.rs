@@ -28,8 +28,62 @@ pub fn run_stdio() {
   let wasm = RefCell::new(WasmRuntime::new().ok());
   mcp::serve(tools, &|name, args| match routes.get(name) {
     Some((index, tool_id)) => call_plugin_tool(&plugins[*index], tool_id, args, &wasm),
+    // Waiting polls from this process, so a long wait never holds the
+    // GUI's socket (see `cli::wait`).
+    None if name == "wait" => mcp_wait(args),
+    None if name == "events" => mcp_events(args),
     None => crate::ipc::request(name, args),
   });
+}
+
+fn ipc_call(op: &str, args: Value) -> Result<Value, crate::cli::Failure> {
+  crate::ipc::request(op, &args).map_err(crate::cli::Failure::from_request)
+}
+
+/// Longest an MCP `wait` or `events` call may block.
+const MCP_WAIT_CAP: u64 = 1800;
+
+fn mcp_wait(args: &Value) -> Result<Value, String> {
+  let until = crate::cli::wait::Until::from_args(args)?;
+  let secs = args
+    .get("timeout_secs")
+    .and_then(Value::as_u64)
+    .unwrap_or(300)
+    .min(MCP_WAIT_CAP);
+  let pane = args.get("pane").and_then(Value::as_str);
+  crate::cli::wait::wait(
+    &until,
+    pane,
+    Some(std::time::Duration::from_secs(secs)),
+    None,
+    &ipc_call,
+  )
+    .map(|o| o.json)
+    .map_err(|f| f.message)
+}
+
+/// Events after `after` (or a fresh cursor). With `wait_secs`, block until at
+/// least one arrives or the time is up.
+fn mcp_events(args: &Value) -> Result<Value, String> {
+  let secs = args
+    .get("wait_secs")
+    .and_then(Value::as_u64)
+    .unwrap_or(0)
+    .min(MCP_WAIT_CAP);
+  let deadline = std::time::Instant::now() + std::time::Duration::from_secs(secs);
+  let mut args = args.clone();
+  if args.get("after").is_none() {
+    let head = crate::ipc::request("events", &json!({}))?;
+    args["after"] = head["next"].clone();
+  }
+  loop {
+    let out = crate::ipc::request("events", &args)?;
+    let empty = out["events"].as_array().is_none_or(|e| e.is_empty());
+    if !empty || std::time::Instant::now() >= deadline {
+      return Ok(out);
+    }
+    std::thread::sleep(std::time::Duration::from_millis(200));
+  }
 }
 
 /// The full tool surface: built-ins plus every plugin `[[tool]]`. Returns the
@@ -81,6 +135,15 @@ fn call_plugin_tool(
   rt.call_tool(plugin, tool_id, args)
 }
 
+/// The `pane` argument every pane-addressed tool takes.
+fn pane_param() -> Value {
+  json!({
+      "type": "string",
+      "description": "Which pane: `pane:<n>` (an id from `ls`), a tab position from 1, \
+                      or a title or unique fragment of one. Defaults to the focused pane."
+  })
+}
+
 /// The terminal-control tool surface exposed to MCP clients.
 pub fn tools() -> Vec<mcp::Tool> {
   vec![
@@ -96,7 +159,8 @@ pub fn tools() -> Vec<mcp::Tool> {
                   "type": "string",
                   "enum": ["pane", "tab", "split_right", "split_down"],
                   "description": "Where to run the command. Defaults to pane."
-              }
+              },
+              "pane": pane_param()
           },
           "required": ["text"]
       }),
@@ -111,7 +175,8 @@ pub fn tools() -> Vec<mcp::Tool> {
                   "type": "integer",
                   "minimum": 1,
                   "description": "How many trailing lines to return. Defaults to the visible row count."
-              }
+              },
+              "pane": pane_param()
           }
       }),
     ),
@@ -121,7 +186,10 @@ pub fn tools() -> Vec<mcp::Tool> {
              partial input. Use run_command to run a whole command line.",
       json!({
           "type": "object",
-          "properties": { "text": { "type": "string", "description": "Bytes to send as-is." } },
+          "properties": {
+              "text": { "type": "string", "description": "Bytes to send as-is." },
+              "pane": pane_param()
+          },
           "required": ["text"]
       }),
     ),
@@ -144,6 +212,56 @@ pub fn tools() -> Vec<mcp::Tool> {
               }
           },
           "required": ["action"]
+      }),
+    ),
+    mcp::Tool::new(
+      "ls",
+      "List every tab with its id (`pane:<n>`), position, title, cwd, whether a command \
+             is running, and its status (what its program reports: working, blocked, done...).",
+      json!({ "type": "object", "properties": {} }),
+    ),
+    mcp::Tool::new(
+      "status",
+      "A pane's program status records (OSC 7501 / progress) and summary signal.",
+      json!({ "type": "object", "properties": { "pane": pane_param() } }),
+    ),
+    mcp::Tool::new(
+      "focus",
+      "Bring a pane to the front.",
+      json!({ "type": "object", "properties": { "pane": pane_param() }, "required": ["pane"] }),
+    ),
+    mcp::Tool::new(
+      "wait",
+      "Block until something happens in a pane, instead of polling read_screen: `exit` \
+             (its process exits; returns the exit code), `command` (the next shell command \
+             finishes; needs shell integration), `text` (the screen matches the regex \
+             `pattern`, e.g. a dev server's \"ready\" line), or `status` (its status becomes \
+             one of `state`, comma-separated; default done,error,blocked).",
+      json!({
+          "type": "object",
+          "properties": {
+              "for": { "type": "string", "enum": ["exit", "command", "text", "status"] },
+              "pattern": { "type": "string", "description": "Regex, for `text`." },
+              "state": { "type": "string", "description": "States, for `status`." },
+              "pane": pane_param(),
+              "timeout_secs": { "type": "integer", "minimum": 1, "description": "Give up after this long (default 300, max 1800)." }
+          },
+          "required": ["for"]
+      }),
+    ),
+    mcp::Tool::new(
+      "events",
+      "Terminal events (bell, title_changed, dir_changed, notify, command_finished, exit, \
+             status_changed) after cursor `after`. Call without `after` to get a starting \
+             cursor (`next`); pass `next` back to get what happened since. `wait_secs` blocks \
+             until at least one event arrives.",
+      json!({
+          "type": "object",
+          "properties": {
+              "after": { "type": "integer" },
+              "pane": pane_param(),
+              "wait_secs": { "type": "integer", "minimum": 0 }
+          }
       }),
     ),
     mcp::Tool::new(
@@ -304,7 +422,24 @@ pub fn handle(op: &str, args: &Value, cx: &mut App) -> Result<Value, String> {
     }
     return Ok(json!({ "ok": applied }));
   }
-  let workspace = active_workspace(cx).ok_or("no active terminal window")?;
+  // The journal is app-wide and outlives windows; reading all of it needs
+  // no window (a wait on a pane whose window just closed still finds the
+  // pane's last events).
+  if op == "events" && args.get("pane").is_none() {
+    return Ok(crate::root::journal_since(args, cx));
+  }
+  // A pane named by id may live in any window; anything else is resolved
+  // against the frontmost one.
+  let by_id = args
+    .get("pane")
+    .and_then(Value::as_str)
+    .and_then(|p| p.strip_prefix("pane:"))
+    .and_then(|n| n.parse::<u64>().ok());
+  let workspace = match by_id {
+    Some(token) => workspace_with(token, cx)
+      .ok_or_else(|| format!("{}: no pane pane:{token}", crate::target::NOT_FOUND))?,
+    None => active_workspace(cx).ok_or("no active terminal window")?,
+  };
   let op = op.to_string();
   let args = args.clone();
   workspace
@@ -321,6 +456,18 @@ fn mcp_enabled(cx: &mut App) -> bool {
   active_workspace(cx)
     .and_then(|w| w.update(cx, |view, _window, _cx| view.mcp_enabled()).ok())
     .unwrap_or(false)
+}
+
+/// The workspace window holding the pane with this token.
+fn workspace_with(token: u64, cx: &mut App) -> Option<WindowHandle<WorkspaceView>> {
+  cx.windows().into_iter().find_map(|handle| {
+    let workspace = handle.downcast::<WorkspaceView>()?;
+    workspace
+      .update(cx, |view, _w, _cx| view.has_pane_token(token))
+      .ok()
+      .filter(|&found| found)
+      .map(|_| workspace)
+  })
 }
 
 /// The frontmost workspace window, falling back to any workspace window when
