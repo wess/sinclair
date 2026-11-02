@@ -14,6 +14,10 @@ pub struct PaneOpts {
   /// Config `vt-window-resize-allowed` / `vt-checksum-report`: the risky
   /// sequences a program may use only when the user opted in.
   pub vt_gates: (bool, bool),
+  /// Config `keep-open`.
+  pub keep_open: config::KeepOpen,
+  /// Config `zoom-on-failure`.
+  pub zoom_on_failure: bool,
 }
 
 impl gpui::Global for PaneOpts {}
@@ -24,6 +28,8 @@ fn install(opts: &config::Options, cx: &mut gpui::App) {
     word_chars: opts.word_chars.clone(),
     clipboard_read: opts.clipboard_read,
     vt_gates: (opts.vt_window_resize_allowed, opts.vt_checksum_report),
+    keep_open: opts.keep_open,
+    zoom_on_failure: opts.zoom_on_failure,
   });
 }
 
@@ -61,4 +67,14 @@ pub fn apply_vt_gates(term: &mut vt::Terminal, cx: &mut gpui::App) {
   let (resize, checksum) = cx.global::<PaneOpts>().vt_gates;
   term.set_window_resize_allowed(resize);
   term.set_checksum_report(checksum);
+}
+
+pub fn keep_open(cx: &mut gpui::App) -> config::KeepOpen {
+  ensure(cx);
+  cx.global::<PaneOpts>().keep_open
+}
+
+pub fn zoom_on_failure(cx: &mut gpui::App) -> bool {
+  ensure(cx);
+  cx.global::<PaneOpts>().zoom_on_failure
 }

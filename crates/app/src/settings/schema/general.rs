@@ -78,6 +78,22 @@ pub(super) fn settings() -> Vec<Setting> {
       s,
       |o| o.auto_update,
     ),
+    choice(
+      "keep-open",
+      "Keep finished panes open",
+      "Whether a pane stays open, read-only, after its process exits. A process that dies as it starts always keeps its pane open.",
+      s,
+      |o| o.keep_open.label().to_string(),
+      || strs(&["never", "failure", "always"]),
+      Some("never"),
+    ),
+    toggle(
+      "zoom-on-failure",
+      "Zoom a split when its command fails",
+      "When a command fails in a pane you aren't looking at, focus and zoom that pane so the failure is in front of you.",
+      s,
+      |o| o.zoom_on_failure,
+    ),
     toggle(
       "session-restore",
       "Restore session on launch",

@@ -32,11 +32,16 @@ impl Control {
   /// pty. The shell is its own session/group leader (pgid == pid via
   /// `setsid`); when it runs a command it makes that command's group the
   /// terminal foreground group, so a differing `tcgetpgrp` means "busy".
+  ///
+  /// Once the child has exited, macOS reports a foreground group of 0, which
+  /// rustix's `tcgetpgrp` asserts against (aborting the process); the raw
+  /// call lets a 0 or an error read as "nothing running".
   pub fn foreground_running(&self) -> bool {
-    match rustix::termios::tcgetpgrp(&self.master) {
-      Ok(pgrp) => pgrp.as_raw_nonzero().get() as u32 != self.pid,
-      Err(_) => false,
-    }
+    use std::os::fd::AsRawFd;
+    // SAFETY: tcgetpgrp only reads the terminal's foreground group from an
+    // fd we own for the lifetime of `self`.
+    let pgrp = unsafe { libc::tcgetpgrp(self.master.as_raw_fd()) };
+    pgrp > 0 && pgrp as u32 != self.pid
   }
 
   /// SIGHUP the child's whole process group: the polite "terminal closing".

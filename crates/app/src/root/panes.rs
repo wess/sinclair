@@ -243,10 +243,45 @@ impl WorkspaceView {
         ) {
           self.journal(item, ev.name(), ev.payload(), cx);
         }
+        if let Some(Some(code)) = ev.exit_code() {
+          if code != 0 {
+            self.zoom_failure(item, matches!(ev, crate::view::TriggerEvent::Exit(_)), window, cx);
+          }
+        }
         self.fire_triggers(item, ev, window, cx)
       }
       ViewEvent::ResizeWindow { rows, cols } => self.resize_for(item, *rows, *cols, window, cx),
     }
+  }
+
+  /// `zoom-on-failure`: bring a failed pane that shares its tab with others
+  /// to the front, zoomed. A pane whose process exited only counts if it is
+  /// staying open to show the failure (`keep-open`); one about to close has
+  /// nothing to show.
+  fn zoom_failure(&mut self, item: ItemId, exited: bool, window: &mut Window, cx: &mut Context<Self>) {
+    if !crate::view::paneopts::zoom_on_failure(cx) || item == self.group.read(cx).active_item() {
+      return;
+    }
+    if self.group.read(cx).tree().panes().len() < 2 {
+      return;
+    }
+    if exited {
+      let staying = self
+        .items
+        .borrow()
+        .get(&item)
+        .and_then(|it| it.content.as_terminal().cloned())
+        .is_some_and(|v| v.read(cx).has_exited());
+      if !staying {
+        return;
+      }
+    }
+    self.activate_item(item, window, cx);
+    if !self.group.read(cx).is_zoomed() {
+      self.group.update(cx, |g, cx| g.toggle_zoom(cx));
+    }
+    self.focusactive(window, cx);
+    cx.notify();
   }
 
   /// Mirror `bytes` (already encoded by the source item) to every other

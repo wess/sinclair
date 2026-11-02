@@ -95,6 +95,50 @@ impl ClipboardAccess {
   }
 }
 
+/// When a pane stays open after its process exits, file key `keep-open`.
+/// A pane whose process dies within a fraction of a second of starting
+/// always stays open (it failed to start); this governs the rest.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum KeepOpen {
+  /// Close as soon as the process exits.
+  #[default]
+  Never,
+  /// Stay open when it exits with a non-zero status or a signal.
+  Failure,
+  /// Always stay open, read-only, until a key is pressed.
+  Always,
+}
+
+impl KeepOpen {
+  /// Parse from the config file value (case-insensitive).
+  pub fn parse(s: &str) -> Option<Self> {
+    match s.to_ascii_lowercase().as_str() {
+      "never" | "false" | "no" | "off" => Some(Self::Never),
+      "failure" | "on-failure" | "error" => Some(Self::Failure),
+      "always" | "true" | "yes" | "on" => Some(Self::Always),
+      _ => None,
+    }
+  }
+
+  /// Whether a process that exited with `code` (`None`: a signal) keeps its
+  /// pane open.
+  pub fn keeps(self, code: Option<i32>) -> bool {
+    match self {
+      Self::Never => false,
+      Self::Failure => code != Some(0),
+      Self::Always => true,
+    }
+  }
+
+  pub fn label(self) -> &'static str {
+    match self {
+      Self::Never => "never",
+      Self::Failure => "failure",
+      Self::Always => "always",
+    }
+  }
+}
+
 /// Where a finished selection is copied, file key `copy-on-select`.
 ///
 /// `primary` is the X11/Wayland primary selection on Linux; macOS has none,
@@ -268,6 +312,14 @@ pub struct Options {
   pub vt_checksum_report: bool,
   /// File key: `mouse-hide-while-typing`.
   pub mouse_hide_while_typing: bool,
+  /// File key: `keep-open`. Whether a pane stays open, read-only, after its
+  /// process exits. See [`KeepOpen`].
+  pub keep_open: KeepOpen,
+  /// File key: `zoom-on-failure`. When a command fails (non-zero exit, or a
+  /// shell-integration command finishing non-zero) in a pane that is not
+  /// focused and shares its tab with others, zoom that pane so the failure is
+  /// in front of you. Off by default: it moves focus.
+  pub zoom_on_failure: bool,
   /// File key: `session-restore`. Save the window's tabs/splits/cwds on quit
   /// and restore them on the next launch. Off by default.
   pub session_restore: bool,
@@ -544,6 +596,8 @@ impl Default for Options {
       autosuggest_assist: true,
       session_restore: false,
       session_restore_lines: 1000,
+      keep_open: KeepOpen::Never,
+      zoom_on_failure: false,
       unified_tab_bar: true,
       tab_title_show_host: false,
       tab_peek: true,

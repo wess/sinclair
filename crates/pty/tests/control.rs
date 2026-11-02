@@ -55,6 +55,16 @@ fn foreground_running_false_for_bare_child() {
 }
 
 #[test]
+fn foreground_running_after_the_child_exits_does_not_panic() {
+  // macOS reports foreground group 0 once the session leader is gone; that
+  // must read as "nothing running", not abort.
+  let mut pty = Pty::spawn(&command(&["/bin/sh", "-c", "exit 3"])).expect("spawn");
+  let control = pty.control().expect("control");
+  pty.wait().expect("wait");
+  assert!(!control.foreground_running());
+}
+
+#[test]
 fn hangup_terminates_the_group() {
   let mut pty = Pty::spawn(&command(&["/bin/sh", "-c", "sleep 30"])).expect("spawn");
   let control = pty.control().expect("control");

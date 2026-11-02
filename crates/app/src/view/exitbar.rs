@@ -22,10 +22,19 @@ pub(crate) fn lingers(runtime: Duration) -> bool {
   runtime < ABNORMAL_RUNTIME
 }
 
+/// Whether a pane stays open after its child exits with `code`: always when
+/// the child failed to start, otherwise as `keep` says.
+pub(crate) fn stays(runtime: Duration, keep: config::KeepOpen, code: Option<i32>) -> bool {
+  lingers(runtime) || keep.keeps(code)
+}
+
 /// What the bar says about an exit `code` (`None`: killed by a signal).
-pub(crate) fn message(code: Option<i32>) -> String {
+/// `immediate` says the process died as it started rather than being kept
+/// open by `keep-open`.
+pub(crate) fn message(code: Option<i32>, immediate: bool) -> String {
   let status = match code {
-    Some(0) => "Process exited immediately".to_string(),
+    Some(0) if immediate => "Process exited immediately".to_string(),
+    Some(0) => "Process exited".to_string(),
     Some(code) => format!("Process exited with code {code}"),
     None => "Process was terminated by a signal".to_string(),
   };
@@ -57,7 +66,7 @@ impl TerminalView {
         .py(px(4.0))
         .bg(bg)
         .text_color(fg)
-        .child(SharedString::from(message(code)))
+        .child(SharedString::from(message(code, self.exit_immediate)))
         .into_any_element(),
     )
   }

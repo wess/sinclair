@@ -1,7 +1,7 @@
 //! Applies a single `key = value` pair to [`Options`].
 
 use crate::options::{
-  ClipboardAccess, CopyOnSelect, CursorStyle, FontStyle, MiddleClick, OptionAsAlt, Options,
+  ClipboardAccess, CopyOnSelect, CursorStyle, FontStyle, KeepOpen, MiddleClick, OptionAsAlt, Options,
 };
 use crate::value;
 
@@ -412,6 +412,20 @@ pub fn apply(opts: &mut Options, d: &Options, key: &str, val: &str) -> Result<()
     "clipboard-paste-protection" => {
       opts.clipboard_paste_protection = if empty {
         d.clipboard_paste_protection
+      } else {
+        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+      };
+    }
+    "keep-open" => {
+      opts.keep_open = if empty {
+        d.keep_open
+      } else {
+        KeepOpen::parse(val).ok_or_else(|| bad("never|failure|always", val))?
+      };
+    }
+    "zoom-on-failure" => {
+      opts.zoom_on_failure = if empty {
+        d.zoom_on_failure
       } else {
         value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
       };

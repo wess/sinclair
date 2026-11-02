@@ -260,3 +260,19 @@ fn session_restore_lines_defaults_to_a_screenful_of_history() {
   assert!(diags.is_empty(), "{diags:?}");
   assert_eq!(o.session_restore_lines, 50_000);
 }
+
+#[test]
+fn keep_open_and_zoom_on_failure() {
+  assert_eq!(Options::default().keep_open, crate::KeepOpen::Never);
+  assert!(!Options::default().zoom_on_failure);
+  let (o, diags) = parse_str("keep-open = failure\nzoom-on-failure = true\n");
+  assert!(diags.is_empty(), "{diags:?}");
+  assert_eq!(o.keep_open, crate::KeepOpen::Failure);
+  assert!(o.zoom_on_failure);
+  let (_, diags) = parse_str("keep-open = sometimes\n");
+  assert_eq!(diags.len(), 1, "{diags:?}");
+  assert!(crate::KeepOpen::Failure.keeps(Some(2)));
+  assert!(crate::KeepOpen::Failure.keeps(None));
+  assert!(!crate::KeepOpen::Failure.keeps(Some(0)));
+  assert!(crate::KeepOpen::Always.keeps(Some(0)));
+}

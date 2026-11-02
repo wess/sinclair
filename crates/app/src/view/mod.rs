@@ -29,7 +29,7 @@ mod kclip;
 mod keys;
 mod mouse;
 mod notify;
-mod paneopts;
+pub(crate) mod paneopts;
 mod scroll;
 mod search;
 mod status;
@@ -437,6 +437,11 @@ pub struct TerminalView {
   /// Set when the child exited too quickly to close the pane silently; the
   /// exit bar shows it and the next key closes the pane (see `exitbar`).
   exited: Option<Option<i32>>,
+  /// Whether `exited` came from a failure to start (vs. `keep-open`).
+  exit_immediate: bool,
+  /// This pane's own `keep-open`, overriding the config (a command started
+  /// with `sinclair run --keep-open`).
+  keep_open: Option<config::KeepOpen>,
   /// The modifier state at the last report, so a change can be turned back
   /// into the key presses and releases the kitty protocol's all-keys mode
   /// asks for. Platforms report the state, not the keystroke.
@@ -558,6 +563,8 @@ impl TerminalView {
       read_only: false,
       spawned: Instant::now(),
       exited: None,
+      exit_immediate: false,
+      keep_open: None,
       kclip: kclip::KittyClipboard::default(),
       visible: true,
       last_mods: input::Mods::default(),
@@ -754,9 +761,17 @@ impl TerminalView {
       Event::DirChanged(dir) => cx.emit(ViewEvent::Trigger(TriggerEvent::DirChanged(dir))),
       Event::StatusChanged => self.refresh_status(cx),
       Event::Exit(code) => {
-        cx.emit(ViewEvent::Trigger(TriggerEvent::Exit(code)));
-        if exitbar::lingers(self.spawned.elapsed()) {
+        let runtime = self.spawned.elapsed();
+        let keep = self.keep_open.unwrap_or_else(|| paneopts::keep_open(cx));
+        // Decide first, so the exit trigger's listeners can tell a pane that
+        // is staying (and may be zoomed to show the failure) from one closing.
+        let stays = exitbar::stays(runtime, keep, code);
+        if stays {
           self.exited = Some(code);
+          self.exit_immediate = exitbar::lingers(runtime);
+        }
+        cx.emit(ViewEvent::Trigger(TriggerEvent::Exit(code)));
+        if stays {
           cx.notify();
         } else {
           cx.emit(ViewEvent::Exited);
@@ -897,6 +912,16 @@ impl TerminalView {
   /// Whether a foreground process (beyond the shell) is running in this pane.
   pub fn has_running_process(&self) -> bool {
     self.session.foreground_running()
+  }
+
+  /// Keep this pane open after its process exits, whatever the config says.
+  pub fn set_keep_open(&mut self, keep: config::KeepOpen) {
+    self.keep_open = Some(keep);
+  }
+
+  /// Whether the process has exited and the pane is staying open to show it.
+  pub fn has_exited(&self) -> bool {
+    self.exited.is_some()
   }
 
   /// Whether this pane has a pending notification awaiting the user's eyes.

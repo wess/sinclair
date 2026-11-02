@@ -120,7 +120,8 @@ documented limits), **✗** not yet.
 | Keybindings (`trigger = action`) | ✓ | config-driven, defaults + user overrides + unbind |
 | Command palette | ✓ | cmd+shift+p fuzzy launcher over the action catalog, shows keybinds |
 | Broadcast input | ✓ | cmd+shift+b mirrors typed keys to every pane in the tab (floating indicator) |
-| Early-exit bar | ✓ | a child that exits within 250 ms keeps its pane open, read-only, with the exit status in a bar; any key closes it |
+| Early-exit bar | ✓ | a child that exits within 250 ms keeps its pane open, read-only, with the exit status in a bar; any key closes it. `keep-open` (never / failure / always) extends that to any exit, and `sinclair run --tab|--split DIR --keep-open` (MCP `keep_open`) sets it for one command |
+| Zoom on failure | ✓ | `zoom-on-failure` (off by default): a non-zero exit or failed shell-integration command in a split you aren't looking at focuses and zooms it. `sinclair zoom` / MCP `zoom` do it by hand |
 | Session restore | ✓ | `session-restore` saves tabs/splits/cwds on quit, rebuilds on launch; each pane comes back with its last `session-restore-lines` rows of scrollback (colors and all), agent panes resumed |
 | Session recording | ✓ | record a pane to an asciinema v2 `.cast` (cmd+shift+r); plays with `asciinema play`, embeddable |
 | Per-tab context | ✓ | each tab shows the focused pane's git branch + working directory |

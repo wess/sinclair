@@ -158,7 +158,11 @@ pub fn tools() -> Vec<mcp::Tool> {
               "target": {
                   "type": "string",
                   "enum": ["pane", "tab", "split_right", "split_down"],
-                  "description": "Where to run the command. Defaults to pane."
+                  "description": "Where to run the command. Defaults to pane. A new tab or split returns its `pane` id."
+              },
+              "keep_open": {
+                  "type": "boolean",
+                  "description": "For a new tab or split: keep the pane open, showing its output, after the command exits."
               },
               "pane": pane_param()
           },
@@ -224,6 +228,11 @@ pub fn tools() -> Vec<mcp::Tool> {
       "status",
       "A pane's program status records (OSC 7501 / progress) and summary signal.",
       json!({ "type": "object", "properties": { "pane": pane_param() } }),
+    ),
+    mcp::Tool::new(
+      "zoom",
+      "Zoom a pane to fill its tab (or with `on: false`, unzoom). Toggles when `on` is omitted.",
+      json!({ "type": "object", "properties": { "pane": pane_param(), "on": { "type": "boolean" } } }),
     ),
     mcp::Tool::new(
       "focus",

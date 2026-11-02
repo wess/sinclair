@@ -5938,6 +5938,7 @@ dependencies = [
 name = "pty"
 version = "1.38.1"
 dependencies = [
+ "libc",
  "rustix 0.38.44",
  "windows 0.58.0",
 ]

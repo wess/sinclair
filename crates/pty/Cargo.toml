@@ -6,6 +6,7 @@ edition.workspace = true
 license.workspace = true
 
 [target.'cfg(unix)'.dependencies]
+libc = "0.2"
 rustix = { version = "0.38", features = ["pty", "process", "termios", "fs", "event", "pipe", "stdio"] }
 
 [target.'cfg(windows)'.dependencies]

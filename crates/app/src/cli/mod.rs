@@ -25,7 +25,7 @@ pub const UNREACHABLE: i32 = 4;
 
 /// The subcommands this module owns.
 pub const COMMANDS: &[&str] = &[
-  "ls", "send", "run", "capture", "focus", "status", "wait", "events",
+  "ls", "send", "run", "capture", "focus", "zoom", "status", "wait", "events",
 ];
 
 /// A failed command: its exit status and what to print.
@@ -69,6 +69,10 @@ pub struct Flags {
   pub lines: Option<u64>,
   pub exit: bool,
   pub wait: bool,
+  pub split: Option<String>,
+  pub tab: bool,
+  pub keep_open: bool,
+  pub on: Option<bool>,
   pub command: bool,
   pub text: Option<String>,
   pub status: Option<String>,
@@ -105,6 +109,11 @@ pub fn parse(args: &[String]) -> Result<Flags, Failure> {
       }
       "--exit" => f.exit = true,
       "--wait" => f.wait = true,
+      "--split" => f.split = Some(value(a)?),
+      "--tab" => f.tab = true,
+      "--keep-open" => f.keep_open = true,
+      "--on" => f.on = Some(true),
+      "--off" => f.on = Some(false),
       "--command" => f.command = true,
       "--text" => f.text = Some(value(a)?),
       "--status" => f.status = Some(value(a)?),
@@ -185,6 +194,34 @@ fn run(command: &str, args: &[String]) -> Result<(), Failure> {
       }
       let text = if command == "send" { unescape(&text) } else { text };
       let op = if command == "send" { "send_input" } else { "run_command" };
+      // `run --split right|down` / `run --tab` start the command in a new
+      // pane, print its id, and (with --wait) wait on that pane.
+      if command == "run" && (f.split.is_some() || f.tab) {
+        let target = match (f.split.as_deref(), f.tab) {
+          (Some("right"), _) => "split_right",
+          (Some("down"), _) => "split_down",
+          (Some(other), _) => return Err(Failure::usage(format!("--split takes right or down, not `{other}`"))),
+          (None, _) => "tab",
+        };
+        let cursor = call("events", json!({}))?["next"].as_u64().unwrap_or(0);
+        let out = call(
+          "run_command",
+          json!({ "text": text, "target": target, "keep_open": f.keep_open }),
+        )?;
+        let id = out["pane"].as_str().unwrap_or_default().to_string();
+        if !f.wait {
+          println!("{id}");
+          return Ok(());
+        }
+        let outcome = wait::wait(&wait::Until::Exit, Some(&id), f.timeout, Some(cursor), &call)?;
+        if f.json {
+          println!("{}", outcome.json);
+        }
+        return match outcome.exit_code {
+          Some(code) if code != 0 => Err(Failure { code, message: String::new() }),
+          _ => Ok(()),
+        };
+      }
       // `run --wait`: note where the journal stands before typing, so even a
       // command that finishes at once is seen, then exit with its status.
       let cursor = if f.wait && command == "run" {
@@ -217,6 +254,17 @@ fn run(command: &str, args: &[String]) -> Result<(), Failure> {
     "focus" => {
       let p = f.pane.or_else(|| f.words.first().cloned()).ok_or_else(|| Failure::usage("usage: sinclair focus PANE"))?;
       call("focus", json!({ "pane": p }))?;
+    }
+    "zoom" => {
+      let p = f.pane.clone().or_else(|| f.words.first().cloned());
+      let mut args = with_pane(json!({}), &p.or(pane));
+      if let Some(on) = f.on {
+        args["on"] = json!(on);
+      }
+      let out = call("zoom", args)?;
+      if f.json {
+        println!("{out}");
+      }
     }
     "status" => {
       let out = call("status", with_pane(json!({}), &pane))?;

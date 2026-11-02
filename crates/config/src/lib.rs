@@ -21,7 +21,7 @@ pub use keybind::{
 };
 pub use kind::{kind, Kind};
 pub use options::{
-  ClipboardAccess, CopyOnSelect, CursorStyle, FontStyle, MiddleClick, OptionAsAlt, Options,
+  ClipboardAccess, CopyOnSelect, CursorStyle, KeepOpen, FontStyle, MiddleClick, OptionAsAlt, Options,
 };
 pub use parse::{parse_str, Diagnostic};
 pub use watch::{watch, WatchHandle};

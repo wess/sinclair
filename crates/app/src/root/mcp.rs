@@ -54,7 +54,8 @@ impl WorkspaceView {
             .update(cx, |v, cx| v.run_command(text, cx));
           return Ok(json!({ "ok": true, "target": "pane" }));
         }
-        self.mcp_run(text, target, window, cx)
+        let keep_open = args.get("keep_open").and_then(Value::as_bool).unwrap_or(false);
+        self.mcp_run(text, target, keep_open, window, cx)
       }
       "read_screen" => {
         let lines = args
@@ -279,6 +280,17 @@ impl WorkspaceView {
       "ls" => Ok(self.list_items(cx)),
       "status" => self.pane_status(args, cx),
       "events" => self.events_since(args, cx),
+      "zoom" => {
+        let item = self.target_item(args, cx)?;
+        self.activate_item(item, window, cx);
+        let want = args.get("on").and_then(Value::as_bool);
+        let zoomed = self.group.read(cx).is_zoomed();
+        if want.is_none_or(|on| on != zoomed) {
+          self.group.update(cx, |g, cx| g.toggle_zoom(cx));
+        }
+        self.focusactive(window, cx);
+        Ok(json!({ "ok": true, "zoomed": self.group.read(cx).is_zoomed() }))
+      }
       "focus" => {
         let item = self.target_item(args, cx)?;
         self.activate_item(item, window, cx);
@@ -318,16 +330,22 @@ impl WorkspaceView {
     }
   }
 
-  /// Run `text` per the MCP `run_command` target.
+  /// Run `text` per the MCP `run_command` target. A command started in a new
+  /// tab or split reports the new pane's id, and with `keep_open` its pane
+  /// stays open after it exits.
   fn mcp_run(
     &mut self,
     text: &str,
     target: &str,
+    keep_open: bool,
     window: &mut Window,
     cx: &mut Context<Self>,
   ) -> Result<Value, String> {
-    match target {
-      "pane" => self.onfocused(cx, |view, cx| view.run_command(text, cx)),
+    let spawned = match target {
+      "pane" => {
+        self.onfocused(cx, |view, cx| view.run_command(text, cx));
+        None
+      }
       "tab" => {
         let id = self
           .spawncommand(text, window, cx)
@@ -335,6 +353,7 @@ impl WorkspaceView {
         self.group.update(cx, |g, cx| g.add_to_focused(id, cx));
         self.focusactive(window, cx);
         cx.notify();
+        Some(id)
       }
       "split_right" => self.splitcommand(text, SplitAxis::Horizontal, false, window, cx),
       "split_down" => self.splitcommand(text, SplitAxis::Vertical, false, window, cx),
@@ -343,8 +362,18 @@ impl WorkspaceView {
           "unknown target `{other}` (pane|tab|split_right|split_down)"
         ))
       }
+    };
+    let Some(id) = spawned else {
+      return Ok(json!({ "ok": true, "target": target }));
+    };
+    let item = self.items.borrow();
+    let it = item.get(&id).ok_or("the new pane is gone")?;
+    if keep_open {
+      if let Some(v) = it.content.as_terminal() {
+        v.update(cx, |v, _| v.set_keep_open(config::KeepOpen::Always));
+      }
     }
-    Ok(json!({ "ok": true, "target": target }))
+    Ok(json!({ "ok": true, "target": target, "pane": crate::target::id(it.pane_token) }))
   }
 
   pub(crate) fn spawncommand(
@@ -432,16 +461,15 @@ impl WorkspaceView {
     first: bool,
     window: &mut Window,
     cx: &mut Context<Self>,
-  ) {
-    let Some(id) = self.spawncommand(command, window, cx) else {
-      return;
-    };
+  ) -> Option<ItemId> {
+    let id = self.spawncommand(command, window, cx)?;
     let pane = self.group.read(cx).focused_pane();
     self.group.update(cx, |g, cx| {
       g.split(pane, axis, first, id, cx);
     });
     self.focusactive(window, cx);
     cx.notify();
+    Some(id)
   }
 
   /// Spawn an item running `command` (or a plain shell when `None`).
