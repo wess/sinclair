@@ -117,6 +117,7 @@ pub const KEYS: &[(&str, Kind)] = &[
   ("sandbox-persist", Kind::Bool),
   ("sandbox-devcontainer", Kind::Bool),
   ("keybind", Kind::List),
+  ("keymode", Kind::List),
   ("sidebar-left", Kind::List),
   ("sidebar-right", Kind::List),
   ("sidebar-collapsed", Kind::List),

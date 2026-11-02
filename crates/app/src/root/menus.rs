@@ -8,6 +8,7 @@ impl WorkspaceView {
   pub(crate) fn applykeybinds(&self, cx: &mut Context<Self>) {
     cx.clear_key_bindings();
     let mut bindings = Vec::new();
+    let mut mode_bindings = Vec::new();
     for (i, kb) in self.keybinds.iter().enumerate() {
       let Some(ks) = keys::keystroke_seq(kb) else {
         continue;
@@ -17,8 +18,25 @@ impl WorkspaceView {
       if ks.split(' ').any(|s| gpui::Keystroke::parse(s).is_err()) {
         continue;
       }
-      bindings.push(KeyBinding::new(&ks, RunBind(i), Some("Workspace")));
+      // Mode bindings come after the always-on ones: at equal context depth
+      // gpui prefers the later binding, so a mode's `left` beats nothing
+      // and its `cmd+t` beats the global one while the mode is active.
+      match &kb.mode {
+        None => bindings.push(KeyBinding::new(&ks, RunBind(i), Some("Workspace"))),
+        Some(mode) => {
+          let context = format!("Workspace && {}", keymode_context(mode));
+          mode_bindings.push(KeyBinding::new(&ks, ModeKey(i), Some(&context)));
+        }
+      }
     }
+    bindings.extend(mode_bindings);
+    // Escape always leaves the innermost mode; bound last so nothing in a
+    // mode can shadow it.
+    bindings.push(KeyBinding::new(
+      "escape",
+      LeaveMode,
+      Some("Workspace && keymode"),
+    ));
     cx.bind_keys(bindings);
   }
 
@@ -39,15 +57,18 @@ impl WorkspaceView {
     action: Action,
     checked: bool,
   ) -> MenuItem {
-    let dispatch: Box<dyn gpui::Action> =
-      match self.keybinds.iter().position(|k| k.action == action) {
-        Some(index) => Box::new(RunBind(index)),
-        None => {
-          let index = actions.len();
-          actions.push(action);
-          Box::new(MenuPick(index))
-        }
-      };
+    let dispatch: Box<dyn gpui::Action> = match self
+      .keybinds
+      .iter()
+      .position(|k| k.mode.is_none() && k.action == action)
+    {
+      Some(index) => Box::new(RunBind(index)),
+      None => {
+        let index = actions.len();
+        actions.push(action);
+        Box::new(MenuPick(index))
+      }
+    };
     MenuItem::Action {
       name: label.to_string().into(),
       action: dispatch,

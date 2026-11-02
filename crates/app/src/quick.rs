@@ -89,7 +89,9 @@ fn toggle_binding(opts: &config::Options) -> Option<(config::Mods, String)> {
   let (binds, _) = config::resolve(&opts.keybind);
   binds
     .into_iter()
-    .find(|kb| kb.action == config::Action::ToggleQuickTerminal && kb.tail.is_empty())
+    .find(|kb| {
+      kb.action == config::Action::ToggleQuickTerminal && kb.tail.is_empty() && kb.mode.is_none()
+    })
     .map(|kb| (kb.mods, kb.key))
 }
 

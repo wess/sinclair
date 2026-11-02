@@ -680,6 +680,13 @@ pub fn apply(opts: &mut Options, d: &Options, key: &str, val: &str) -> Result<()
         opts.keybind.push(val.to_string());
       }
     }
+    "keymode" => {
+      if empty {
+        opts.keymode = d.keymode.clone();
+      } else {
+        opts.keymode.push(val.to_string());
+      }
+    }
     // The two dock compositions accumulate one section token per entry, in
     // file order — that order *is* the top-to-bottom order in the dock.
     "sidebar-left" => {

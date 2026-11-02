@@ -187,6 +187,12 @@ impl WorkspaceView {
       Action::Sidebar(payload) => self.toggle_sidebar(&payload, cx),
       Action::CheckUpdates => crate::updateui::check_now(cx),
       Action::ManagePlugins => crate::pluginmanager::open(window, cx),
+      Action::EnterMode(name) => self.enter_mode(&name, false, cx),
+      Action::EnterModeOnce(name) => self.enter_mode(&name, true, cx),
+      Action::ExitMode => self.exit_mode(cx),
+      Action::ExitAllModes => self.exit_all_modes(cx),
+      Action::ShowKeymap => self.show_keymap(window, cx),
+      Action::ChangeShortcut => self.open_change_shortcut(window, cx),
       Action::Quit => self.request_quit(window, cx),
       Action::Unbound => {}
     }

@@ -283,3 +283,32 @@ fn text_and_esc_decode_escapes() {
   assert!(Action::parse("esc").is_err());
   assert!(Action::parse("text:\\x0").is_err());
 }
+
+#[test]
+fn mode_actions() {
+  assert_eq!(
+    Action::parse("enter_mode:Resize").unwrap(),
+    Action::EnterMode("resize".into())
+  );
+  assert_eq!(
+    Action::parse("enter_mode_once:tmux").unwrap(),
+    Action::EnterModeOnce("tmux".into())
+  );
+  assert_eq!(Action::parse("exit_mode").unwrap(), Action::ExitMode);
+  assert_eq!(
+    Action::parse("exit_all_modes").unwrap(),
+    Action::ExitAllModes
+  );
+  assert!(Action::parse("enter_mode").is_err());
+  assert!(Action::parse("enter_mode:a+b").is_err());
+  for s in [
+    "enter_mode:resize",
+    "enter_mode_once:x",
+    "exit_mode",
+    "exit_all_modes",
+    "show_keymap",
+    "change_shortcut",
+  ] {
+    assert_eq!(Action::parse(s).unwrap().to_config(), s);
+  }
+}

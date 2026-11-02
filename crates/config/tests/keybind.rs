@@ -341,6 +341,7 @@ fn diff_round_trips_through_resolve() {
     key: "page_up".into(),
     tail: Vec::new(),
     action: Action::ScrollPageUp,
+    mode: None,
   }); // add new
 
   let lines = diff_from_defaults(&desired);
@@ -375,4 +376,79 @@ fn equivalent_triggers_in_different_spellings_collide() {
     .collect();
   assert_eq!(hits.len(), 1);
   assert_eq!(hits[0].action, Action::Quit);
+}
+
+#[test]
+fn mode_prefix() {
+  let kb = parse_keybind("resize/left=resize_split:left").unwrap();
+  assert_eq!(kb.mode.as_deref(), Some("resize"));
+  assert_eq!(kb.key, "left");
+  assert_eq!(kb.config_line(), "resize/left=resize_split:left");
+  let kb = parse_keybind("Resize/ctrl+a>n=new_tab").unwrap();
+  assert_eq!(kb.mode.as_deref(), Some("resize"));
+  assert!(kb.is_chord());
+  // The slash key itself, with and without modifiers, is not a mode.
+  let kb = parse_keybind("cmd+/=new_tab").unwrap();
+  assert_eq!((kb.mode, kb.key.as_str()), (None, "/"));
+  let kb = parse_keybind("/=new_tab").unwrap();
+  assert_eq!((kb.mode, kb.key.as_str()), (None, "/"));
+  let kb = parse_keybind("nav//=new_tab").unwrap();
+  assert_eq!((kb.mode.as_deref(), kb.key.as_str()), (Some("nav"), "/"));
+  assert!(parse_keybind("resize/=new_tab").is_err());
+}
+
+#[test]
+fn mode_bindings_never_shadow_global_ones() {
+  let (binds, diags) = resolve(&["resize/cmd+t=resize_split:left".to_string()]);
+  assert!(diags.is_empty());
+  assert!(binds
+    .iter()
+    .any(|b| b.mode.is_none() && b.key == "t" && b.action == Action::NewTab));
+  assert!(binds.iter().any(|b| b.mode.as_deref() == Some("resize")));
+  // And they survive a diff round trip.
+  let lines = diff_from_defaults(&binds);
+  assert_eq!(lines, vec!["resize/cmd+t=resize_split:left".to_string()]);
+}
+
+#[test]
+fn rebind_replaces_the_actions_shortcut() {
+  // new_tab defaults to cmd+t; move it to cmd+y.
+  let out = rebind(&[], &Action::NewTab, "cmd+y").unwrap();
+  assert_eq!(out, vec!["cmd+t=unbind", "cmd+y=new_tab"]);
+  let (binds, _) = resolve(&out);
+  let tabs: Vec<_> = binds
+    .iter()
+    .filter(|b| b.action == Action::NewTab)
+    .collect();
+  assert_eq!(tabs.len(), 1);
+  assert_eq!(tabs[0].trigger(), "cmd+y");
+}
+
+#[test]
+fn rebind_takes_over_a_used_trigger_and_keeps_other_entries() {
+  let raw: Vec<String> = vec![
+    "cmd+y=new_window".into(),
+    "cmd+j=do_a_flip".into(),
+    "resize/cmd+y=resize_split:left".into(),
+    "ctrl+q=new_tab".into(),
+  ];
+  let out = rebind(&raw, &Action::NewTab, "cmd+y").unwrap();
+  assert_eq!(
+    out,
+    vec![
+      "cmd+j=do_a_flip",
+      "resize/cmd+y=resize_split:left",
+      "cmd+t=unbind",
+      "cmd+y=new_tab",
+    ]
+  );
+}
+
+#[test]
+fn rebind_leaves_a_user_override_of_the_old_default_alone() {
+  // cmd+t was already moved to new_window by the user; rebinding new_tab
+  // must not unbind it.
+  let raw: Vec<String> = vec!["cmd+t=new_window".into()];
+  let out = rebind(&raw, &Action::NewTab, "cmd+y").unwrap();
+  assert_eq!(out, vec!["cmd+t=new_window", "cmd+y=new_tab"]);
 }

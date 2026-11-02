@@ -86,3 +86,38 @@ fn every_emitted_default_binding_parses_in_gpui() {
     gpui::Keystroke::parse(&ks).unwrap_or_else(|e| panic!("gpui rejected {ks:?}: {e:?}"));
   }
 }
+
+#[test]
+fn pressed_keystroke_to_trigger() {
+  let ks = |s: &str| gpui::Keystroke::parse(s).unwrap();
+  assert_eq!(
+    trigger_of(&ks("cmd-shift-k")),
+    Some((mods(false, true, false, true), "k".to_string()))
+  );
+  assert_eq!(
+    trigger_of(&ks("ctrl-pageup")),
+    Some((mods(true, false, false, false), "page_up".to_string()))
+  );
+  // Only a modifier held: still waiting for the real key.
+  let bare = gpui::Keystroke {
+    modifiers: gpui::Modifiers {
+      platform: true,
+      ..Default::default()
+    },
+    key: "cmd".into(),
+    key_char: None,
+  };
+  assert_eq!(trigger_of(&bare), None);
+}
+
+#[test]
+fn bare_keys_would_steal_typing() {
+  let none = config::Mods::default();
+  let shift = mods(false, true, false, false);
+  assert!(steals_typing(none, "a"));
+  assert!(steals_typing(shift, "a"));
+  assert!(steals_typing(none, "enter"));
+  assert!(!steals_typing(none, "f5"));
+  assert!(!steals_typing(mods(true, false, false, false), "a"));
+  assert!(!steals_typing(mods(false, false, false, true), "enter"));
+}

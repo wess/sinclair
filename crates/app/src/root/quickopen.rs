@@ -205,11 +205,11 @@ impl WorkspaceView {
   }
 
   /// The keybind hint for an action, if one is bound.
-  fn shortcut_hint(&self, action: &Action) -> Option<String> {
+  pub(crate) fn shortcut_hint(&self, action: &Action) -> Option<String> {
     self
       .keybinds
       .iter()
-      .find(|k| &k.action == action)
+      .find(|k| k.mode.is_none() && &k.action == action)
       .and_then(keys::shortcut_glyphs_seq)
   }
 

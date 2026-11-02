@@ -33,6 +33,7 @@ mod panelui;
 mod paths;
 mod pluginmanager;
 mod quick;
+mod rebind;
 mod redact;
 mod reload;
 mod rename;
@@ -127,6 +128,12 @@ fn main() {
     std::process::exit(vm::main(&args[1..], &paths::data_dir("vm")));
   }
 
+  // Every effective keybinding and where it came from. Reads config
+  // directly; no running instance needed.
+  if args.first().map(String::as_str) == Some("keymap") {
+    std::process::exit(keymap_command(&args[1..]));
+  }
+
   if args.first().map(String::as_str) == Some("export") {
     std::process::exit(exportcmd::run(&args[1..]));
   }
@@ -187,6 +194,31 @@ fn main() {
       updateui::start_from_config(cx);
     }
   });
+}
+
+/// `sinclair keymap [--json]`: print the effective keymap (defaults, plugin
+/// and settings.json bindings layered as the app does) plus any entries that
+/// didn't take.
+fn keymap_command(args: &[String]) -> i32 {
+  let json = match args {
+    [] => false,
+    [flag] if flag == "--json" => true,
+    _ => {
+      eprintln!("usage: sinclair keymap [--json]");
+      return 2;
+    }
+  };
+  let (opts, _) = config::load();
+  let text = config::default_path().and_then(|p| std::fs::read_to_string(p).ok());
+  let (plugins, _) = plugin::load(&opts.plugin);
+  let map = config::keymap::build(&opts, text.as_deref(), &plugin::keybinds(&plugins));
+  let out = if json {
+    config::keymap::render_json(&map)
+  } else {
+    config::keymap::render_text(&map)
+  };
+  print!("{out}");
+  0
 }
 
 /// Load config fresh and open one default window. Used for dock-reopen, where

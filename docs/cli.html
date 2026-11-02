@@ -34,6 +34,7 @@
               <tr><td><code>sinclair notify [--title T] &lt;message&gt;</code></td><td>Post a desktop notification.</td></tr>
               <tr><td><code>sinclair agent-status &lt;state&gt;</code></td><td>Report an agent's semantic state (working/blocked/done/idle) to the running window.</td></tr>
               <tr><td><code>sinclair agent-hooks &lt;install|uninstall&gt; [--project]</code></td><td>Wire (or remove) the Claude Code lifecycle hooks that drive the status dots.</td></tr>
+              <tr><td><code>sinclair keymap [--json]</code></td><td>Print every effective keybinding and where it came from, plus entries that didn't take.</td></tr>
               <tr><td><code>sinclair export &lt;in.cast&gt; &lt;out.gif|mp4|mov|webm&gt;</code></td><td>Render a session recording to a GIF or video file.</td></tr>
               <tr><td><code>sinclair --toggle-quick</code></td><td>Tell a running instance to summon/hide the quick terminal, then exit.</td></tr>
             </tbody>
@@ -113,6 +114,21 @@ sinclair agent-hooks uninstall            <span class="c"># remove Sinclair's en
           <a href="statushooks.html">Agent status at a glance</a> tutorial for the full
           workflow.
         </p>
+
+        <h2>sinclair keymap</h2>
+        <p>
+          Prints the keymap the app would use right now — defaults, plugin bindings and
+          your <code>settings.json</code>, layered the same way — one row per binding:
+          trigger, key mode (if any), action, and source (<code>default</code>,
+          <code>plugin</code>, or <code>settings.json:LINE</code>). Entries that didn't take
+          effect (a misspelled action, an unknown key, an <code>enter_mode</code> naming a
+          mode nothing defines) are listed after, with their line. It reads the config
+          directly, so no running instance is needed. <code>--json</code> prints the same
+          data as one JSON object with <code>bindings</code>, <code>modes</code>, and
+          <code>problems</code> arrays. See <a href="keybindings.html">Keybindings</a>.
+        </p>
+        <pre><code>sinclair keymap
+sinclair keymap --json | jq '.problems'</code></pre>
 
         <h2>sinclair export</h2>
         <p>
