@@ -45,6 +45,7 @@ mod sessionstate;
 mod settings;
 mod shellinteg;
 mod sidecar;
+mod statusmark;
 mod suggest;
 mod switcher;
 mod tabbar;

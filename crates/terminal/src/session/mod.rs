@@ -87,6 +87,19 @@ impl EventSender {
   }
 }
 
+/// The child is gone: end its `working`/`blocked` status records and say so
+/// before the exit event, so a host never shows a dead program as busy.
+fn end_status(term: &std::sync::Mutex<vt::Terminal>, events: &EventSender) {
+  let changed = {
+    let mut term = term.lock().unwrap_or_else(|e| e.into_inner());
+    term.status_exited();
+    term.take_status_changed()
+  };
+  if changed {
+    let _ = events.send(Event::StatusChanged);
+  }
+}
+
 fn event_channel(counters: Arc<Counters>) -> (EventSender, crate::EventReceiver) {
   let (inner, receiver) = flume::bounded(EVENT_CHANNEL_CAPACITY);
   (EventSender { inner, counters }, receiver)

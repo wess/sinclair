@@ -183,6 +183,22 @@ impl PaneContent {
     }
   }
 
+  /// The pane's program status signal, if a program reported one.
+  fn status_signal(&self, cx: &App) -> Option<crate::statusmark::Signal> {
+    match self {
+      PaneContent::Terminal(v) => v.read(cx).status_signal(),
+      PaneContent::Webview(_) => None,
+    }
+  }
+
+  /// The pane's program status records (empty for webviews).
+  fn status_board(&self, cx: &App) -> vt::status::Board {
+    match self {
+      PaneContent::Terminal(v) => v.read(cx).status().clone(),
+      PaneContent::Webview(_) => vt::status::Board::default(),
+    }
+  }
+
   fn needs_attention(&self, cx: &App) -> bool {
     match self {
       PaneContent::Terminal(v) => v.read(cx).needs_attention(),
@@ -268,6 +284,30 @@ struct Item {
   /// The command this pane was launched with (for agent panes), persisted so a
   /// restored session can relaunch — and resume — the agent.
   command: Option<String>,
+}
+
+impl Item {
+  /// What this pane is doing: its programs' own report when there is one,
+  /// else the state its agent's hooks reported.
+  fn signal(&self, cx: &App) -> Option<crate::statusmark::Signal> {
+    self
+      .content
+      .status_signal(cx)
+      .or_else(|| self.agent.map(crate::statusmark::Signal::from_agent))
+  }
+}
+
+/// A key unique to one tab's mark in a frame: the pane token when the item
+/// has a session, else the item id's debug form hashed (webviews have no
+/// token and draw no mark, so this rarely matters).
+fn id_key(id: ItemId, token: u64) -> u64 {
+  if token != 0 {
+    return token;
+  }
+  use std::hash::{Hash, Hasher};
+  let mut h = std::collections::hash_map::DefaultHasher::new();
+  id.hash(&mut h);
+  h.finish()
 }
 
 /// The host-owned item map the `PaneGroup` reads through its render/title
@@ -637,14 +677,13 @@ impl WorkspaceView {
             }
           }
         })
-        .on_item_dot({
+        .on_item_mark({
           let items = items.clone();
-          move |id, _cx| {
-            items
-              .borrow()
-              .get(&id)
-              .and_then(|it| it.agent)
-              .map(|st| colors::hsla(st.color()))
+          move |id, cx| {
+            let items = items.borrow();
+            let it = items.get(&id)?;
+            let signal = it.signal(cx)?;
+            Some(crate::statusmark::mark(signal, id_key(id, it.pane_token)))
           }
         })
     })

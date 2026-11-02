@@ -19,6 +19,7 @@ pub mod selection;
 pub mod semantic;
 pub mod sgr;
 pub mod sixel;
+pub mod status;
 pub mod term;
 pub mod url;
 

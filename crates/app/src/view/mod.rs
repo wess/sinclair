@@ -32,6 +32,7 @@ mod notify;
 mod paneopts;
 mod scroll;
 mod search;
+mod status;
 mod suggest;
 mod timestamps;
 
@@ -105,6 +106,8 @@ pub enum ViewEvent {
   /// for this pane to be `rows` x `cols`; the workspace resizes the window
   /// by the difference.
   ResizeWindow { rows: u16, cols: u16 },
+  /// The pane's program status records changed.
+  Status,
 }
 
 /// A terminal event a plugin `[[trigger]]` can hook, carried to the workspace
@@ -187,6 +190,21 @@ impl TriggerEvent {
         serde_json::json!({ "event": "worktree_removed", "path": p })
       }
     }
+  }
+}
+
+/// A banner heading that always names the pane it came from. A program may
+/// add its own title (OSC 777), but never replace the pane's, or it could
+/// pass itself off as something running elsewhere.
+pub(crate) fn banner_heading(pane: &str, program: Option<&str>) -> String {
+  let program = program
+    .map(vt::status::disarm)
+    .filter(|t| !t.trim().is_empty() && t.trim() != pane.trim());
+  match (pane.trim().is_empty(), program) {
+    (false, Some(t)) => format!("{pane} \u{2014} {t}"),
+    (false, None) => pane.to_string(),
+    (true, Some(t)) => t,
+    (true, None) => "Sinclair".to_string(),
   }
 }
 
@@ -429,6 +447,8 @@ pub struct TerminalView {
   /// Set when this pane posts a desktop notification (OSC 9/777/99) while
   /// unfocused; drives the tab/pane attention indicator. Cleared on focus.
   attention: bool,
+  /// Program status records (OSC 7501 / 9;4), cached from the terminal.
+  status: vt::status::Board,
   /// Tracks true focus — window *and* pane — kept in sync by the focus-in/out
   /// subscriptions. Drives ?1004 reporting and the attention indicator (a
   /// background notification), both of which react to the window losing focus.
@@ -543,6 +563,7 @@ impl TerminalView {
       last_mods: input::Mods::default(),
       bell: false,
       attention: false,
+      status: vt::status::Board::default(),
       focused: false,
       pane_active: false,
       sync_pending: false,
@@ -700,8 +721,8 @@ impl TerminalView {
         cx.emit(ViewEvent::Trigger(TriggerEvent::Bell));
       }
       Event::Notify { title, body } => {
-        let heading = title.clone().unwrap_or_else(|| self.title().to_string());
-        self.post_notification(&heading, &body);
+        let heading = banner_heading(self.title(), title.as_deref());
+        self.post_notification(&heading, &vt::status::disarm(&body));
         if !self.focused {
           self.attention = true;
           cx.emit(ViewEvent::Attention);
@@ -731,6 +752,7 @@ impl TerminalView {
         cx.emit(ViewEvent::Trigger(TriggerEvent::CommandFinished(code)))
       }
       Event::DirChanged(dir) => cx.emit(ViewEvent::Trigger(TriggerEvent::DirChanged(dir))),
+      Event::StatusChanged => self.refresh_status(cx),
       Event::Exit(code) => {
         cx.emit(ViewEvent::Trigger(TriggerEvent::Exit(code)));
         if exitbar::lingers(self.spawned.elapsed()) {

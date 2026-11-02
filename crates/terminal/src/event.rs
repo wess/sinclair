@@ -36,4 +36,7 @@ pub enum Event {
   /// The working directory changed (OSC 7). Carries the new directory as the
   /// raw OSC 7 value (typically a `file://` URL).
   DirChanged(String),
+  /// The program status records changed (OSC 7501 / OSC 9;4, a new prompt,
+  /// or the child exiting). Read them with `vt::Terminal::status`.
+  StatusChanged,
 }

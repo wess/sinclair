@@ -39,16 +39,6 @@ impl AgentState {
     }
   }
 
-  /// A filled-circle emoji for plain-text surfaces (sidebar rows).
-  pub fn glyph(self) -> &'static str {
-    match self {
-      AgentState::Blocked => "\u{1f534}", // 🔴
-      AgentState::Working => "\u{1f7e1}", // 🟡
-      AgentState::Done => "\u{1f535}",    // 🔵
-      AgentState::Idle => "\u{1f7e2}",    // 🟢
-    }
-  }
-
   /// The dot color, as an RGB the caller converts into the gpui/theme space.
   pub fn color(self) -> theme::Rgb {
     match self {

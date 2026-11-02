@@ -609,50 +609,116 @@ impl WorkspaceView {
     body.into_any_element()
   }
 
-  /// Activity panel: every tab rolled up to a status dot — who's blocked,
-  /// working, done, or idle at a glance across the whole session. An agent's
-  /// self-reported state (🔴 blocked, 🟡 working, 🔵 done, 🟢 idle) wins when
-  /// present; otherwise the dot falls back to the terminal's own signals — 🔴
-  /// attention (a bell / OSC 9 fired), 🟡 a foreground command is running, 🟢
-  /// idle. Click a row to focus that tab.
+  /// Activity panel: an inbox of every tab, grouped by what it wants from
+  /// the user. "Needs you" holds what is blocked, failed, or finished (most
+  /// urgent first), then "Running", then "Quiet". A tab's signal is its
+  /// programs' own status report (OSC 7501 / 9;4) when there is one, else its
+  /// agent hook's state, else the terminal's own signals: a bell or
+  /// notification reads as needing you, a foreground command as running.
+  /// Under each tab, its programs' sub-records and messages are listed.
+  /// Click a row to focus that tab.
   fn panel_activity(&self, cx: &mut Context<Self>) -> AnyElement {
+    use crate::statusmark::{describe, inbox, Bucket, Signal};
+
+    struct Entry {
+      item: ItemId,
+      name: String,
+      signal: Signal,
+      records: Vec<vt::status::Record>,
+      board: vt::status::Board,
+    }
+
     let mut body = self.sidebar_body("sb-activity");
     let active_item = self.group.read(cx).active_item();
-    for (i, item) in self.group.read(cx).items().into_iter().enumerate() {
-      let (agent, working, attention, title) = {
+    let entries: Vec<Entry> = self
+      .group
+      .read(cx)
+      .items()
+      .into_iter()
+      .enumerate()
+      .map(|(i, item)| {
         let map = self.items.borrow();
-        match map.get(&item) {
-          Some(it) => (
-            it.agent,
-            it.content.has_running_process(cx),
-            it.content.needs_attention(cx),
-            it.content.title(cx),
-          ),
-          None => (None, false, false, String::new()),
+        let it = map.get(&item);
+        let title = it.map(|it| it.content.title(cx)).unwrap_or_default();
+        let signal = it
+          .and_then(|it| it.signal(cx))
+          .unwrap_or_else(|| match it {
+            Some(it) if it.content.needs_attention(cx) => Signal::Blocked(None),
+            Some(it) if it.content.has_running_process(cx) => Signal::Working(None),
+            _ => Signal::Idle,
+          });
+        let board = it.map(|it| it.content.status_board(cx)).unwrap_or_default();
+        Entry {
+          item,
+          name: if title.trim().is_empty() {
+            format!("Terminal {}", i + 1)
+          } else {
+            title
+          },
+          signal,
+          records: board.records().to_vec(),
+          board,
         }
-      };
-      let dot = match agent {
-        Some(state) => state.glyph(),
-        None if attention => "\u{1f534}", // 🔴
-        None if working => "\u{1f7e1}",   // 🟡
-        None => "\u{1f7e2}",              // 🟢
-      };
-      let name = if title.trim().is_empty() {
-        format!("Terminal {}", i + 1)
-      } else {
-        title
-      };
-      let label = match agent {
-        Some(state) => format!("{dot}  {name}  \u{00b7}  {}", state.label()),
-        None => format!("{dot}  {name}"),
-      };
+      })
+      .collect();
+
+    let signals: Vec<Signal> = entries.iter().map(|e| e.signal).collect();
+    let mut bucket = None;
+    let mut row = 0usize;
+    for i in inbox(&signals) {
+      let e = &entries[i];
+      let b = Bucket::of(e.signal);
+      if bucket != Some(b) {
+        bucket = Some(b);
+        body = body.child(self.sidebar_section(b.heading()));
+      }
+      let item = e.item;
       body = body.child(
         self
-          .sidebar_row(("sb-activity", i), label, item == active_item, false, false)
+          .sidebar_row(
+            ("sb-activity", row),
+            format!("{}  {}  \u{00b7}  {}", e.signal.emoji(), e.name, e.signal.label()),
+            false,
+            item == active_item,
+            false,
+          )
           .on_click(cx.listener(move |this, _: &gpui::ClickEvent, window, cx| {
             this.activate_item(item, window, cx);
           })),
       );
+      row += 1;
+      // The program's own words, then its sub-records, nested by id.
+      let mut records = e.records.clone();
+      records.sort_by(|a, b| a.id.cmp(&b.id));
+      for r in &records {
+        let signal = Signal::from_record(r);
+        let text = if r.depth() == 0 {
+          describe(None, None, r.msg.as_deref())
+        } else {
+          let name = r
+            .title
+            .clone()
+            .unwrap_or_else(|| r.id.rsplit('/').next().unwrap_or(&r.id).to_string());
+          let line = describe(Some(&name), None, r.msg.as_deref());
+          format!("{}  {line}  \u{00b7}  {}", signal.emoji(), signal.label())
+        };
+        if text.is_empty() {
+          continue;
+        }
+        let pad = "   ".repeat(r.depth().saturating_sub(1));
+        let app = match (r.depth(), e.board.app_of(r)) {
+          (0, Some(app)) => format!("{}: ", vt::status::disarm(app)),
+          _ => String::new(),
+        };
+        body = body.child(
+          self
+            .sidebar_row(("sb-activity", row), format!("{pad}{app}{text}"), true, false, false)
+            .on_click(cx.listener(move |this, _: &gpui::ClickEvent, window, cx| {
+              this.activate_item(item, window, cx);
+            })),
+        );
+        row += 1;
+      }
     }
     body.into_any_element()
   }

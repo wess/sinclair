@@ -98,3 +98,12 @@ const STATE: input::TermState = input::TermState {
   kitty_flags: 0,
   backspace_bs: false,
 };
+
+#[test]
+fn banner_heading_always_names_the_pane() {
+  assert_eq!(banner_heading("build", Some("Done")), "build \u{2014} Done");
+  assert_eq!(banner_heading("build", None), "build");
+  assert_eq!(banner_heading("build", Some("build")), "build");
+  assert_eq!(banner_heading("", Some("x\u{202E}y")), "xy");
+  assert_eq!(banner_heading(" ", None), "Sinclair");
+}

@@ -263,7 +263,9 @@ fn read_loop(mut output: File, mut replies: File, r: Reader) {
       Err(_) => break, // pipe gone once the console is fully closed
     }
   }
-  let _ = r.events.send(Event::Exit(reap(&r.pty)));
+  let code = reap(&r.pty);
+  super::end_status(&r.term, &r.events);
+  let _ = r.events.send(Event::Exit(code));
 }
 
 /// Feed one chunk into the terminal and emit the resulting events. Replies
@@ -284,6 +286,7 @@ fn apply_chunk(chunk: &[u8], replies: &mut File, r: &Reader) {
     notification,
     command_finished,
     cwd_changed,
+    status_changed,
   ) = {
     let mut term = r.term.lock().unwrap_or_else(|e| e.into_inner());
     // The reader thread must survive parser bugs, but a panicking feed
@@ -307,6 +310,7 @@ fn apply_chunk(chunk: &[u8], replies: &mut File, r: &Reader) {
       term.take_notification(),
       term.take_command_finished(),
       term.take_cwd_changed(),
+      term.take_status_changed(),
     )
   };
   if !reply.is_empty() {
@@ -341,6 +345,9 @@ fn apply_chunk(chunk: &[u8], replies: &mut File, r: &Reader) {
   }
   if let Some(dir) = cwd_changed {
     let _ = r.events.send(Event::DirChanged(dir));
+  }
+  if status_changed {
+    let _ = r.events.send(Event::StatusChanged);
   }
   r.generation.fetch_add(1, Ordering::Release);
   if !r.pending.swap(true, Ordering::SeqCst) {

@@ -118,6 +118,8 @@ pub(crate) struct Inner {
   pub(crate) kclip_requests: Vec<ClipboardRequest>,
   /// Pending OSC 9/777/99 desktop notification for the host to post.
   pub(crate) notification: Option<report::Notification>,
+  /// Program status records (OSC 7501, plus OSC 9;4 progress).
+  pub(crate) status: crate::status::Board,
   /// Colors the host installed for answering OSC color queries.
   pub(crate) report_colors: Option<Box<report::ReportColors>>,
   /// Interned OSC 8 hyperlinks referenced by cells.
@@ -206,6 +208,7 @@ impl Terminal {
         kclip_write: None,
         kclip_requests: Vec::new(),
         notification: None,
+        status: crate::status::Board::default(),
         report_colors: None,
         hyperlinks: Hyperlinks::default(),
         dcs: dcs::Dcs::None,
@@ -688,6 +691,27 @@ impl Terminal {
   /// from the theme and refresh it on config reload.
   pub fn set_report_colors(&mut self, colors: report::ReportColors) {
     self.inner.report_colors = Some(Box::new(colors));
+  }
+
+  /// Program status records reported by the programs in this terminal
+  /// (OSC 7501 and OSC 9;4). See [`crate::status`].
+  pub fn status(&self) -> &crate::status::Board {
+    &self.inner.status
+  }
+
+  /// Whether the status records changed since the last call.
+  pub fn take_status_changed(&mut self) -> bool {
+    self.inner.status.take_changed()
+  }
+
+  /// The child process exited: end its `working` and `blocked` records.
+  pub fn status_exited(&mut self) {
+    self.inner.status.exited();
+  }
+
+  /// The user has seen this terminal: drop its `done` and `error` records.
+  pub fn acknowledge_status(&mut self) {
+    self.inner.status.acknowledge();
   }
 
   /// Take a pending OSC 9/777/99 desktop notification, if one was requested.

@@ -169,6 +169,7 @@ impl TerminalView {
       input::KeyEvent::Press
     };
     if let Some(bytes) = input::encode_key(&keystroke.key, text, mods, state, phase) {
+      self.acknowledge_status(cx);
       self.scroll_to_bottom(cx);
       let _ = self.session.write(&bytes);
       if cx

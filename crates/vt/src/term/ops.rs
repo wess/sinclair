@@ -674,6 +674,7 @@ impl Inner {
     self.dcs = super::dcs::Dcs::None;
     self.kclip_write = None;
     self.input_start = None;
+    self.status.reset();
     self.full_damage = true;
   }
 

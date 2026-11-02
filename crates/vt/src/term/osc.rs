@@ -69,6 +69,7 @@ pub(crate) fn dispatch(inner: &mut Inner, params: &[&[u8]], bell_terminated: boo
       Some(&b'A') => {
         let row = inner.screen().cursor.row;
         inner.screen_mut().grid.row_mut(row).prompt = true;
+        inner.status.prompt();
       }
       // Command-line start: the cursor now sits where shell input begins.
       Some(&b'B') => {
@@ -138,6 +139,20 @@ pub(crate) fn dispatch(inner: &mut Inner, params: &[&[u8]], bell_terminated: boo
       }
     }
     5522 => super::kclip::dispatch(inner, params),
+    7501 => {
+      // The value grammar has no `;`, so a body vte split on one is rejoined
+      // and left for the pair parser to reject.
+      let len: usize = params.iter().map(|p| p.len() + 1).sum::<usize>() + 2;
+      if len > crate::status::MAX_SEQUENCE {
+        return;
+      }
+      let body = params[1..].join(&b';');
+      if let Some(report) = crate::status::parse(&body) {
+        if let Some(answer) = inner.status.apply(report) {
+          reply(inner, bell_terminated, answer);
+        }
+      }
+    }
     104 => {
       if params.len() <= 1 {
         inner.palette = [None; 256];
@@ -159,7 +174,16 @@ pub(crate) fn dispatch(inner: &mut Inner, params: &[&[u8]], bell_terminated: boo
         && params
           .get(1)
           .is_some_and(|p| p.len() == 1 && p[0].is_ascii_digit());
-      if !conemu {
+      if conemu && params[1] == b"4" {
+        let st = parse_number(params[2]).and_then(|n| u8::try_from(n).ok());
+        let pr = params
+          .get(3)
+          .and_then(|p| parse_number(p))
+          .and_then(|n| u8::try_from(n).ok());
+        if let Some(st) = st {
+          inner.status.progress(st, pr);
+        }
+      } else if !conemu {
         notify(
           inner,
           None,

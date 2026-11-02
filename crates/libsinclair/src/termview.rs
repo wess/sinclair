@@ -399,6 +399,7 @@ impl TermView {
       | Event::Notify { .. }
       | Event::CommandFinished(_)
       | Event::DirChanged(_)
+      | Event::StatusChanged
       | Event::ResizeRequest { .. } => {}
     }
     cx.emit(event);
