@@ -66,6 +66,7 @@ pub const KEYS: &[(&str, Kind)] = &[
   ("mouse-hide-while-typing", Kind::Bool),
   ("keep-open", Kind::Str),
   ("zoom-on-failure", Kind::Bool),
+  ("persistent-sessions", Kind::Bool),
   ("session-restore", Kind::Bool),
   ("session-restore-lines", Kind::Int),
   ("shell-integration", Kind::Bool),

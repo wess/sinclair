@@ -8,6 +8,24 @@ use gpui::prelude::*;
 /// hooks can report state for exactly this pane (see `agenthooks.rs`).
 static PANE_SEQ: AtomicU64 = AtomicU64::new(0);
 
+/// Sessions a previous launch left in the session server keep the pane
+/// tokens they were started with, so this process must not hand those out
+/// again. Once, before the first pane is made, start counting above them.
+#[cfg(unix)]
+fn reserve_server_tokens(opts: &config::Options) {
+  static RESERVED: std::sync::Once = std::sync::Once::new();
+  if !crate::sessiond::enabled(opts) {
+    return;
+  }
+  RESERVED.call_once(|| {
+    if let Ok(listed) = terminal::mux::client::list(&crate::sessiond::socket()) {
+      if let Some(max) = listed.iter().map(|s| s.token).max() {
+        PANE_SEQ.fetch_max(max, Ordering::Relaxed);
+      }
+    }
+  });
+}
+
 impl WorkspaceView {
   /// Spawn a session, wrap it in a terminal view, wire its event bridge and
   /// subscription, and register it as an item. `None` if the shell failed to
@@ -21,6 +39,8 @@ impl WorkspaceView {
     // Tag the session so an agent's hooks can address this exact pane. The
     // `PROMPT_*` twins are the pre-rename names, kept so existing user
     // scripts and hooks keep resolving; drop them a release after 1.26.
+    #[cfg(unix)]
+    reserve_server_tokens(&self.opts);
     let token = PANE_SEQ.fetch_add(1, Ordering::Relaxed) + 1;
     let socket = crate::ipc::socket_env();
     for (key, value) in [
@@ -31,7 +51,38 @@ impl WorkspaceView {
     ] {
       options.spawn.env.push((key.to_string(), value));
     }
-    let (session, events) = match Session::spawn(options) {
+    // With persistent sessions on, the pane runs in the session server so
+    // it outlives this process; if the server can't be reached it runs
+    // here, as it always did.
+    let mut server = None;
+    #[cfg(unix)]
+    let remote = if crate::sessiond::enabled(&self.opts) && crate::sessiond::ensure() {
+      let (cols, rows, scrollback) = (options.cols, options.rows, options.scrollback_limit);
+      match Session::attach(
+        &crate::sessiond::socket(),
+        terminal::mux::Attach::Open {
+          options: options.clone(),
+          token,
+        },
+        cols,
+        rows,
+        scrollback,
+      ) {
+        Ok((session, events, attached)) => {
+          server = Some(attached.id);
+          Some((session, events))
+        }
+        Err(e) => {
+          eprintln!("sinclair: session server: {e}; running the pane here");
+          None
+        }
+      }
+    } else {
+      None
+    };
+    #[cfg(not(unix))]
+    let remote = None;
+    let (session, events) = match remote.map(Ok).unwrap_or_else(|| Session::spawn(options)) {
       Ok(pair) => pair,
       Err(error) => {
         eprintln!("sinclair: failed to spawn shell: {error}");
@@ -42,6 +93,55 @@ impl WorkspaceView {
       }
     };
     self.spawn_error = None;
+    let id = self.host_session(session, events, token, window, cx);
+    if let Some(it) = self.items.borrow_mut().get_mut(&id) {
+      it.server = server;
+    }
+    Some(id)
+  }
+
+  /// Attach a pane to a session the server is already running (one a
+  /// previous launch left behind). The pane keeps the token its shell was
+  /// started with, so `SINCLAIR_PANE` in that shell still names it.
+  #[cfg(unix)]
+  pub(crate) fn attach_server_session(
+    &mut self,
+    id: &str,
+    window: &mut Window,
+    cx: &mut Context<Self>,
+  ) -> Option<ItemId> {
+    let (session, events, attached) = Session::attach(
+      &crate::sessiond::socket(),
+      terminal::mux::Attach::Existing(id.to_string()),
+      SPAWN_COLS,
+      SPAWN_ROWS,
+      self.opts.scrollback_limit.max(1),
+    )
+    .map_err(|e| eprintln!("sinclair: reattaching session {id}: {e}"))
+    .ok()?;
+    let token = if attached.token == 0 {
+      PANE_SEQ.fetch_add(1, Ordering::Relaxed) + 1
+    } else {
+      PANE_SEQ.fetch_max(attached.token, Ordering::Relaxed);
+      attached.token
+    };
+    let item = self.host_session(session, events, token, window, cx);
+    if let Some(it) = self.items.borrow_mut().get_mut(&item) {
+      it.server = Some(attached.id);
+    }
+    Some(item)
+  }
+
+  /// Wrap a live session in a terminal view, wire its event bridge, and
+  /// register it as an item.
+  fn host_session(
+    &mut self,
+    session: Session,
+    events: terminal::EventReceiver,
+    token: u64,
+    window: &mut Window,
+    cx: &mut Context<Self>,
+  ) -> ItemId {
     let session = Arc::new(session);
     let fallback = session::shellname(self.opts.shell.as_deref());
     let view = cx.new(|cx| {
@@ -81,7 +181,7 @@ impl WorkspaceView {
     })
     .detach();
 
-    Some(self.insert_item(PaneContent::Terminal(view), token, window, cx))
+    self.insert_item(PaneContent::Terminal(view), token, window, cx)
   }
 
   /// Register existing content as an item with no pane token. Used by tear-off
@@ -130,6 +230,7 @@ impl WorkspaceView {
         agent: None,
         agent_session: None,
         command: None,
+        server: None,
       },
     );
     id
@@ -153,6 +254,7 @@ impl WorkspaceView {
         agent: None,
         agent_session: None,
         command: None,
+        server: None,
       },
     );
     id

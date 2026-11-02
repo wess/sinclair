@@ -320,6 +320,10 @@ pub struct Options {
   /// focused and shares its tab with others, zoom that pane so the failure is
   /// in front of you. Off by default: it moves focus.
   pub zoom_on_failure: bool,
+  /// File key: `persistent-sessions`. Run panes in a separate session server
+  /// process so they survive the app crashing, updating, or quitting, and
+  /// reattach on the next launch. Off by default. Unix only.
+  pub persistent_sessions: bool,
   /// File key: `session-restore`. Save the window's tabs/splits/cwds on quit
   /// and restore them on the next launch. Off by default.
   pub session_restore: bool,
@@ -598,6 +602,7 @@ impl Default for Options {
       session_restore_lines: 1000,
       keep_open: KeepOpen::Never,
       zoom_on_failure: false,
+      persistent_sessions: false,
       unified_tab_bar: true,
       tab_title_show_host: false,
       tab_peek: true,

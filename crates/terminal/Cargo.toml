@@ -9,7 +9,11 @@ license.workspace = true
 cast = { path = "../cast" }
 flume = { version = "0.11", features = ["async"] }
 pty = { path = "../pty" }
+serde_json = "1"
 vt = { path = "../vt" }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
 
 # End-to-end integration test (unit tests are compiled in-crate via #[path],
 # so auto-discovery is off; declare this explicitly).

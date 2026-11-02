@@ -423,6 +423,13 @@ pub fn apply(opts: &mut Options, d: &Options, key: &str, val: &str) -> Result<()
         KeepOpen::parse(val).ok_or_else(|| bad("never|failure|always", val))?
       };
     }
+    "persistent-sessions" => {
+      opts.persistent_sessions = if empty {
+        d.persistent_sessions
+      } else {
+        value::parse_bool(val).ok_or_else(|| bad("boolean", val))?
+      };
+    }
     "zoom-on-failure" => {
       opts.zoom_on_failure = if empty {
         d.zoom_on_failure

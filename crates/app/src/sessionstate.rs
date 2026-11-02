@@ -47,6 +47,11 @@ pub struct TabState {
   /// buffers were kept, which restores as it always did.
   #[serde(default)]
   pub buffers: Vec<Option<String>>,
+  /// Per-pane session server id (pre-order leaf order), for panes running
+  /// in the session server (`persistent-sessions`). A restore reattaches the
+  /// live session instead of starting a new shell.
+  #[serde(default)]
+  pub servers: Vec<Option<String>>,
 }
 
 /// Where the window was on screen, in logical pixels. Restored as-is when it

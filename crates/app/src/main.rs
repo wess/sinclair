@@ -43,6 +43,7 @@ mod reveal;
 mod root;
 mod sandbox;
 mod session;
+mod sessiond;
 mod sessionstate;
 mod settings;
 mod shellinteg;
@@ -137,6 +138,13 @@ fn main() {
     std::process::exit(vm::main(&args[1..], &paths::data_dir("vm")));
   }
 
+  // The session server that keeps panes alive across launches (hidden; the
+  // GUI starts it when `persistent-sessions` is on).
+  #[cfg(unix)]
+  if args.first().map(String::as_str) == Some("_server") {
+    std::process::exit(sessiond::run());
+  }
+
   if args.first().map(String::as_str) == Some("export") {
     std::process::exit(exportcmd::run(&args[1..]));
   }
@@ -194,6 +202,13 @@ fn main() {
     ipc::listen(cx);
     // Plugin sidecars are host-owned children; never leave one behind.
     cx.on_app_quit(|_cx| async { sidecar::shutdown() }).detach();
+    // Quitting lets server-owned panes go rather than ending them; closing a
+    // pane while running still ends its session.
+    cx.on_app_quit(|_cx| {
+      terminal::mux::detach_on_drop(true);
+      async {}
+    })
+    .detach();
     if auto_update {
       updateui::start_from_config(cx);
     }

@@ -21,6 +21,8 @@ pub(crate) struct RestoredPane {
   command: Option<String>,
   session: Option<String>,
   buffer: Option<String>,
+  /// The session server's id for this pane, when it ran there.
+  server: Option<String>,
 }
 
 impl WorkspaceView {
@@ -90,6 +92,16 @@ impl WorkspaceView {
     window: &mut Window,
     cx: &mut Context<Self>,
   ) -> Option<ItemId> {
+    // A pane whose session is still running in the server comes back as
+    // that session, history and running program and all.
+    #[cfg(unix)]
+    if let Some(id) = seed.server.as_deref().filter(|_| crate::sessiond::enabled(&self.opts)) {
+      if crate::sessiond::ensure() {
+        if let Some(item) = self.attach_server_session(id, window, cx) {
+          return Some(item);
+        }
+      }
+    }
     let mut options = session::options(&self.opts, SPAWN_COLS, SPAWN_ROWS, seed.cwd.clone());
     options.preload = seed.buffer.clone().unwrap_or_default().into_bytes();
     match (seed.command.as_deref(), seed.session.as_deref()) {
@@ -134,7 +146,7 @@ impl WorkspaceView {
     }
     let initial = self.group.read(cx).active_item();
     for tab in &state.tabs {
-      let panes: Vec<RestoredPane> = (0..tab.cwds.len().max(tab.commands.len()))
+      let panes: Vec<RestoredPane> = (0..tab.cwds.len().max(tab.commands.len()).max(tab.servers.len()))
         .map(|i| RestoredPane {
           cwd: tab
             .cwds
@@ -145,12 +157,36 @@ impl WorkspaceView {
           command: tab.commands.get(i).cloned().flatten(),
           session: tab.sessions.get(i).cloned().flatten(),
           buffer: tab.buffers.get(i).cloned().flatten(),
+          server: tab.servers.get(i).cloned().flatten(),
         })
         .collect();
       self.restore_layout(&tab.layout, &panes, tab.title.as_deref(), window, cx);
     }
     // Drop the placeholder shell the window launched with.
     self.close_item(initial, window, cx);
+  }
+
+  /// Open every session the server is holding that no window has claimed —
+  /// what a crash or an unsaved quit left running — as tabs of this window.
+  #[cfg(unix)]
+  /// Returns how many were opened.
+  pub(crate) fn adopt_server_sessions(&mut self, window: &mut Window, cx: &mut Context<Self>) -> usize {
+    if !crate::sessiond::enabled(&self.opts) {
+      return 0;
+    }
+    let path = crate::sessiond::socket();
+    let Ok(listed) = terminal::mux::client::list(&path) else {
+      return 0;
+    };
+    let mut adopted = 0;
+    for orphan in listed.into_iter().filter(|s| s.clients == 0) {
+      if let Some(item) = self.attach_server_session(&orphan.id, window, cx) {
+        self.group.update(cx, |g, cx| g.add_to_focused(item, cx));
+        adopted += 1;
+      }
+    }
+    self.focusactive(window, cx);
+    adopted
   }
 
   /// Quit, but warn first when a process is still running in an item and
@@ -188,7 +224,8 @@ impl WorkspaceView {
       .items
       .borrow()
       .values()
-      .any(|it| it.content.has_running_process(cx))
+      // A pane living in the session server survives the quit.
+      .any(|it| it.server.is_none() && it.content.has_running_process(cx))
   }
 
   /// Persist this window's split arrangement and per-pane cwds for the next
@@ -206,6 +243,7 @@ impl WorkspaceView {
     let mut commands = Vec::with_capacity(panes.len());
     let mut sessions = Vec::with_capacity(panes.len());
     let mut buffers = Vec::with_capacity(panes.len());
+    let mut servers = Vec::with_capacity(panes.len());
     let lines = self.opts.session_restore_lines as usize;
     let budget = (MAX_SESSION_BUFFER_BYTES / panes.len().max(1)).min(MAX_PANE_BUFFER_BYTES);
     for &p in &panes {
@@ -236,6 +274,7 @@ impl WorkspaceView {
           .flatten(),
       );
       sessions.push(it.and_then(|it| it.agent_session.clone()));
+      servers.push(it.and_then(|it| it.server.clone()));
       // What the pane had on screen and in scrollback, within both the
       // configured line count and this pane's share of the byte budget.
       // Empty panes store nothing rather than an empty string, so a session
@@ -252,6 +291,7 @@ impl WorkspaceView {
       commands,
       sessions,
       buffers,
+      servers,
     }];
     crate::sessionstate::save(&crate::sessionstate::SessionState {
       tabs,

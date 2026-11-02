@@ -286,6 +286,9 @@ struct Item {
   /// The command this pane was launched with (for agent panes), persisted so a
   /// restored session can relaunch — and resume — the agent.
   command: Option<String>,
+  /// The session server's id for this pane's session, when it runs there
+  /// (`persistent-sessions`); saved so the next launch reattaches it.
+  server: Option<String>,
 }
 
 impl Item {
@@ -623,8 +626,19 @@ impl WorkspaceView {
     // is nothing to restore into (and closing the placeholder would close
     // the window before the error is ever seen). Windows opened by hand
     // (new-window, a tear-off) pass `Fresh` and never restore.
+    let placeholder = this.group.read(cx).active_item();
     if restore == Restore::Saved && this.opts.session_restore && this.spawn_error.is_none() {
       this.try_restore(window, cx);
+    }
+    // Whatever else the session server is still running comes back too, in
+    // place of the fresh shell the window opened with.
+    #[cfg(unix)]
+    if restore == Restore::Saved
+      && this.spawn_error.is_none()
+      && this.adopt_server_sessions(window, cx) > 0
+      && this.items.borrow().contains_key(&placeholder)
+    {
+      this.close_item(placeholder, window, cx);
     }
     this
   }

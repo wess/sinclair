@@ -25,7 +25,7 @@ pub const UNREACHABLE: i32 = 4;
 
 /// The subcommands this module owns.
 pub const COMMANDS: &[&str] = &[
-  "ls", "send", "run", "capture", "focus", "zoom", "status", "wait", "events",
+  "ls", "send", "run", "capture", "focus", "zoom", "status", "wait", "events", "sessions",
 ];
 
 /// A failed command: its exit status and what to print.
@@ -73,6 +73,7 @@ pub struct Flags {
   pub tab: bool,
   pub keep_open: bool,
   pub on: Option<bool>,
+  pub kill: Option<String>,
   pub command: bool,
   pub text: Option<String>,
   pub status: Option<String>,
@@ -114,6 +115,7 @@ pub fn parse(args: &[String]) -> Result<Flags, Failure> {
       "--keep-open" => f.keep_open = true,
       "--on" => f.on = Some(true),
       "--off" => f.on = Some(false),
+      "--kill" => f.kill = Some(value(a)?),
       "--command" => f.command = true,
       "--text" => f.text = Some(value(a)?),
       "--status" => f.status = Some(value(a)?),
@@ -266,6 +268,9 @@ fn run(command: &str, args: &[String]) -> Result<(), Failure> {
         println!("{out}");
       }
     }
+    // The session server's own view, straight from its socket: what is
+    // running there whether or not any window shows it.
+    "sessions" => sessions(&f)?,
     "status" => {
       let out = call("status", with_pane(json!({}), &pane))?;
       if f.json {
@@ -297,6 +302,42 @@ fn run(command: &str, args: &[String]) -> Result<(), Failure> {
     other => return Err(Failure::usage(format!("unknown command `{other}`"))),
   }
   Ok(())
+}
+
+#[cfg(unix)]
+fn sessions(f: &Flags) -> Result<(), Failure> {
+  let path = crate::sessiond::socket();
+  if let Some(id) = &f.kill {
+    return terminal::mux::client::kill(&path, id).map_err(|e| Failure {
+      code: if e.to_string().contains("no such session") { TARGET } else { FAILURE },
+      message: e.to_string(),
+    });
+  }
+  let listed = terminal::mux::client::list(&path).map_err(|_| Failure {
+    code: UNREACHABLE,
+    message: "no session server is running".into(),
+  })?;
+  if f.json {
+    let rows: Vec<Value> = listed
+      .iter()
+      .map(|s| json!({ "id": s.id, "pane": crate::target::id(s.token), "title": s.title, "attached": s.clients }))
+      .collect();
+    println!("{}", serde_json::to_string_pretty(&json!({ "sessions": rows })).unwrap_or_default());
+  } else {
+    for s in &listed {
+      let state = if s.clients > 0 { "attached" } else { "detached" };
+      println!("{}  {:<9}  {:<8}  {}", s.id, crate::target::id(s.token), state, s.title);
+    }
+  }
+  Ok(())
+}
+
+#[cfg(not(unix))]
+fn sessions(_f: &Flags) -> Result<(), Failure> {
+  Err(Failure {
+    code: UNREACHABLE,
+    message: "persistent sessions are not available on this platform".into(),
+  })
 }
 
 /// `\n`, `\r`, `\t`, `\e`, `\\`, and `\xNN` in `send` text, so keys like

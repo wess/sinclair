@@ -5,6 +5,7 @@
 //! (wakeups, title changes, bell, exit) to the embedder over a channel.
 
 pub mod event;
+pub mod mux;
 pub mod options;
 pub mod session;
 

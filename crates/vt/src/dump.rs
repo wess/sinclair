@@ -27,11 +27,17 @@ use crate::sgr;
 /// The pen starts and ends at the default, so rows are independent of each
 /// other and of whatever was on screen before the dump is replayed.
 pub fn write_row(row: &Row, out: &mut String) {
-  let end = row
-    .cells
-    .iter()
-    .rposition(|c| !is_plain_blank(c))
-    .map_or(0, |i| i + 1);
+  // A soft-wrapped row keeps its trailing blanks: they were printed, and
+  // dropping them would pull the next row's text back onto this one.
+  let end = if row.wrapped {
+    row.cells.len()
+  } else {
+    row
+      .cells
+      .iter()
+      .rposition(|c| !is_plain_blank(c))
+      .map_or(0, |i| i + 1)
+  };
   let mut pen = Cell::default();
   for cell in row.cells[..end].iter().filter(|c| !c.is_wide_spacer()) {
     if !same_style(&pen, cell) {

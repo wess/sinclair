@@ -89,6 +89,7 @@ fn pane_buffers_round_trip() {
       commands: vec![None, None],
       sessions: vec![None, None],
       buffers: vec![Some("\u{1b}[31mred\u{1b}[0m\r\n".into()), None],
+      servers: vec![Some("abc123".into()), None],
     }],
     active: 0,
     window: None,
@@ -135,4 +136,27 @@ fn persist_is_atomic_and_owner_only() {
     assert_eq!(mode & 0o777, 0o600, "session file is not owner-only");
   }
   let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn a_session_without_server_ids_still_loads() {
+  let state = SessionState {
+    tabs: vec![TabState {
+      layout: Layout::Leaf,
+      cwds: vec![Some("/tmp".into())],
+      title: None,
+      commands: vec![None],
+      sessions: vec![None],
+      buffers: vec![None],
+      servers: vec![Some("x".into())],
+    }],
+    active: 0,
+    window: None,
+    docks: None,
+  };
+  let mut json: serde_json::Value = serde_json::to_value(&state).unwrap();
+  json["tabs"][0].as_object_mut().unwrap().remove("servers");
+  let back: SessionState = serde_json::from_value(json).unwrap();
+  assert!(back.tabs[0].servers.is_empty());
+  assert_eq!(back.tabs[0].cwds, vec![Some("/tmp".to_string())]);
 }

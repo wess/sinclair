@@ -37,7 +37,7 @@ const CLIENT_WRITE_TIMEOUT: Duration = Duration::from_secs(5);
 /// Directory that holds the socket: `$XDG_RUNTIME_DIR` (already a private
 /// per-user dir on Linux) when set, otherwise a per-user subdirectory of the
 /// temp dir, never the shared temp root itself, which any local user can write.
-fn socket_dir() -> PathBuf {
+pub(crate) fn socket_dir() -> PathBuf {
   if let Some(dir) = std::env::var_os("XDG_RUNTIME_DIR") {
     return PathBuf::from(dir);
   }
@@ -59,7 +59,7 @@ fn socket_path() -> PathBuf {
 /// directory (not a symlink), owned by this uid, with no group/other access.
 /// Returns false if it can't be made safe, we then refuse to listen rather
 /// than expose a world-reachable control socket.
-fn ensure_private_dir(dir: &Path) -> bool {
+pub(crate) fn ensure_private_dir(dir: &Path) -> bool {
   use std::os::unix::fs::{DirBuilderExt, MetadataExt, PermissionsExt};
   if !dir.exists() {
     let _ = std::fs::DirBuilder::new().mode(0o700).create(dir);

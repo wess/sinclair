@@ -10,6 +10,7 @@ mod osc;
 mod perform;
 pub mod report;
 mod select;
+mod snapshot;
 
 pub use kclip::{Auth, ClipboardRequest};
 pub use report::{Clipboard, Notification, ReportColors};

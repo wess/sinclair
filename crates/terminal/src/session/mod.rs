@@ -135,7 +135,7 @@ pub(crate) fn preload(term: &Mutex<vt::Terminal>, bytes: &[u8], scrollback_limit
 #[cfg(unix)]
 mod unix;
 #[cfg(unix)]
-pub use unix::Session;
+pub use unix::{Session, Tap};
 
 #[cfg(windows)]
 mod windows;

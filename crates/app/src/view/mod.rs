@@ -529,6 +529,7 @@ impl TerminalView {
     cx: &mut Context<Self>,
   ) -> Self {
     session.with_term(|term| term.set_report_colors(colors::report_colors(&colors)));
+    session.push_report_colors(&colors::report_colors(&colors));
     let chars = paneopts::word_chars(cx);
     session.with_term(|term| term.set_word_chars(&chars));
     session.with_term(|term| paneopts::apply_vt_gates(term, cx));
@@ -684,6 +685,9 @@ impl TerminalView {
     self.session.with_term(|term| {
       term.set_report_colors(colors::report_colors(&self.colors));
     });
+    self
+      .session
+      .push_report_colors(&colors::report_colors(&self.colors));
     // A reload delivered a fresh appearance; pick up the pane options
     // that ride outside it in the same pass.
     paneopts::refresh(cx);

@@ -107,9 +107,10 @@ documented limits), **✗** not yet.
 
 ### Larger / blocked follow-ups (not yet done)
 
-- **Persistent, detachable sessions** — a live
-  mux server you detach/reattach; a multi-week subsystem. Session *restore* on
-  quit exists (agent panes resume their native sessions); a live server does not.
+- **Remote and shared sessions** — persistent sessions (`persistent-sessions`,
+  see `docs/sessions.md`) keep panes alive across crashes, updates and quits on
+  this machine; attaching from another machine, or several viewers on one
+  session, is not built.
 - **SSH multiplexing domains, multiple cursors, serial** — out of current scope.
   Launch profiles cover opening an `ssh`/REPL/env tab; true remote multiplexing,
   the kitty multiple-cursor protocol, and serial connections do not exist yet.
@@ -122,6 +123,7 @@ documented limits), **✗** not yet.
 | Broadcast input | ✓ | cmd+shift+b mirrors typed keys to every pane in the tab (floating indicator) |
 | Early-exit bar | ✓ | a child that exits within 250 ms keeps its pane open, read-only, with the exit status in a bar; any key closes it. `keep-open` (never / failure / always) extends that to any exit, and `sinclair run --tab|--split DIR --keep-open` (MCP `keep_open`) sets it for one command |
 | Zoom on failure | ✓ | `zoom-on-failure` (off by default): a non-zero exit or failed shell-integration command in a split you aren't looking at focuses and zooms it. `sinclair zoom` / MCP `zoom` do it by hand |
+| Persistent sessions | ✓ | `persistent-sessions`: panes run in a `sinclair _server` process and survive the app crashing, updating or quitting; the next launch reattaches them (snapshot + live stream) and adopts anything else still running. `sinclair sessions` lists/kills. Unix only. See `docs/sessions.md` |
 | Session restore | ✓ | `session-restore` saves tabs/splits/cwds on quit, rebuilds on launch; each pane comes back with its last `session-restore-lines` rows of scrollback (colors and all), agent panes resumed |
 | Session recording | ✓ | record a pane to an asciinema v2 `.cast` (cmd+shift+r); plays with `asciinema play`, embeddable |
 | Per-tab context | ✓ | each tab shows the focused pane's git branch + working directory |

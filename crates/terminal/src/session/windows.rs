@@ -195,6 +195,15 @@ impl Session {
       .foreground_running()
   }
 
+  /// Sessions here are never server-owned: there is no session server on
+  /// Windows yet.
+  pub fn is_remote(&self) -> bool {
+    false
+  }
+
+  /// Nothing to tell: this process's own terminal answers color queries.
+  pub fn push_report_colors(&self, _colors: &vt::ReportColors) {}
+
   /// Run `f` with the terminal locked, for rendering or inspection.
   pub fn with_term<R>(&self, f: impl FnOnce(&mut vt::Terminal) -> R) -> R {
     let mut term = self.term.lock().unwrap_or_else(|e| e.into_inner());

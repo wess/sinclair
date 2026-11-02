@@ -7409,7 +7409,9 @@ version = "1.38.1"
 dependencies = [
  "cast",
  "flume",
+ "libc",
  "pty",
+ "serde_json",
  "vt",
 ]
 

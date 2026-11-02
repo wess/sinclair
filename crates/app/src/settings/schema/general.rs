@@ -88,6 +88,13 @@ pub(super) fn settings() -> Vec<Setting> {
       Some("never"),
     ),
     toggle(
+      "persistent-sessions",
+      "Keep shells running when Sinclair quits",
+      "Run panes in a background session server, so a crash, an update, or quitting leaves them running; the next launch reattaches them.",
+      s,
+      |o| o.persistent_sessions,
+    ),
+    toggle(
       "zoom-on-failure",
       "Zoom a split when its command fails",
       "When a command fails in a pane you aren't looking at, focus and zoom that pane so the failure is in front of you.",

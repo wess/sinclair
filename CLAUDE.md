@@ -68,7 +68,10 @@ The workspace is layered bottom-up; each crate depends only on those below it.
 - **`pty`** — Unix pty allocation and child-process spawn (`rustix`). Unix-only.
 - **`terminal`** — runtime glue: `Session::spawn` runs a child on a pty, feeds
   its bytes into a `vt::Terminal` on a reader thread, and emits `Event`s
-  (wakeup, title, bell, exit) over an async-capable flume receiver.
+  (wakeup, title, bell, exit) over an async-capable flume receiver. `mux`
+  is the session server: it owns ptys for GUIs that come and go, and
+  `Session::attach` is the same `Session` fed from its socket instead of a
+  pty (see `docs/sessions.md`).
 - **`cast`** — asciinema v2 `.cast` recording: a `Recorder` writes a header line
   plus timestamped output events as bytes arrive (output only; UTF-8 split
   across reads is carried over). Used by `terminal` for session capture.
@@ -160,6 +163,11 @@ The `sinclair` binary dispatches on argv before starting the GUI:
 - `sinclair _vm run|boot …` — a built-in OS Tab's VM (hidden; see `docs/vm.md`).
 - `sinclair notify [--title T] <message>` — posts a desktop notification, for
   agent hooks that can't emit an OSC 9/777/99 escape themselves.
+- `sinclair ls|send|run|capture|focus|zoom|status|wait|events` — script the
+  running terminal from a shell (`app/src/cli/`); `sinclair sessions` talks to
+  the session server directly.
+- `sinclair _server` — the session server behind `persistent-sessions`
+  (hidden; started by the GUI). See `docs/sessions.md`.
 - otherwise — loads config and launches the gpui app.
 
 ### Single-instance IPC (`app/src/ipc.rs`)
@@ -217,5 +225,7 @@ boundary is the bridge.
 - `docs/sandbox.md` — the shared project sandbox: one container for a human and
   a whole agent team, the identity mount, the generated image, adoption, and
   which `devcontainer.json` fields are honoured.
+- `docs/sessions.md` — persistent sessions: the session server, attach and
+  snapshot, what survives and what doesn't.
 - `docs/vm.md` — built-in OS Tabs: the microVM Sinclair runs when no
   container engine is installed.
