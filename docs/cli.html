@@ -33,7 +33,7 @@
               <tr><td><code>sinclair mcp</code></td><td>Run the Model Context Protocol server over stdio, bridging tool calls into a running GUI instance.</td></tr>
               <tr><td><code>sinclair notify [--title T] &lt;message&gt;</code></td><td>Post a desktop notification.</td></tr>
               <tr><td><code>sinclair agent-status &lt;state&gt;</code></td><td>Report an agent's semantic state (working/blocked/done/idle) to the running window.</td></tr>
-              <tr><td><code>sinclair agent-hooks &lt;install|uninstall&gt; [--project]</code></td><td>Wire (or remove) the Claude Code lifecycle hooks that drive the status dots.</td></tr>
+              <tr><td><code>sinclair agent-hooks &lt;install|uninstall|status&gt; [--agent claude|codex] [--project]</code></td><td>Wire (or remove, or check) the Claude Code and Codex lifecycle hooks that drive the status dots.</td></tr>
               <tr><td><code>sinclair export &lt;in.cast&gt; &lt;out.gif|mp4|mov|webm&gt;</code></td><td>Render a session recording to a GIF or video file.</td></tr>
               <tr><td><code>sinclair --toggle-quick</code></td><td>Tell a running instance to summon/hide the quick terminal, then exit.</td></tr>
             </tbody>
@@ -104,7 +104,15 @@ sinclair agent-status done</code></pre>
         </p>
         <pre><code>sinclair agent-hooks install              <span class="c"># wire hooks in ~/.claude/settings.json</span>
 sinclair agent-hooks install --project    <span class="c"># scope them to this repo's .claude/settings.json</span>
-sinclair agent-hooks uninstall            <span class="c"># remove Sinclair's entries again</span></code></pre>
+sinclair agent-hooks uninstall            <span class="c"># remove Sinclair's entries again</span>
+sinclair agent-hooks status               <span class="c"># per agent: installed / outdated / missing</span>
+sinclair agent-hooks install --agent codex <span class="c"># ~/.codex/hooks.json (approve with /hooks in Codex)</span></code></pre>
+        <p>
+          With no <code>--agent</code> it acts on every agent whose config directory exists
+          (<code>CLAUDE_CONFIG_DIR</code> / <code>CODEX_HOME</code> are honoured). The same install
+          is in the command palette as <em>Install Sinclair for Agents</em>. Each session start also
+          tells the agent it is inside Sinclair and which pane it is in.
+        </p>
         <p>
           The hooks map Claude Code's events onto states: session start → <code>idle</code>,
           a submitted prompt → <code>working</code>, a notification (Claude is waiting on

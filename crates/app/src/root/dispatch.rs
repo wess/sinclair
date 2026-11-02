@@ -186,6 +186,7 @@ impl WorkspaceView {
       Action::SaveLayout => self.open_save_layout(window, cx),
       Action::Sidebar(payload) => self.toggle_sidebar(&payload, cx),
       Action::CheckUpdates => crate::updateui::check_now(cx),
+      Action::InstallAgentHooks => crate::agenthooks::install_all_notify(),
       Action::ManagePlugins => crate::pluginmanager::open(window, cx),
       Action::Quit => self.request_quit(window, cx),
       Action::Unbound => {}

@@ -328,6 +328,9 @@ pub enum Action {
   Sidebar(String),
   /// Check GitHub for a newer release now and prompt to update.
   CheckUpdates,
+  /// Install Sinclair's status/context hooks into every detected agent CLI
+  /// (Claude Code, Codex) and report the result.
+  InstallAgentHooks,
   /// Open the Plugin Manager window (search / install / uninstall).
   ManagePlugins,
   Quit,
@@ -483,6 +486,7 @@ impl Action {
       "save_layout" => only(Self::SaveLayout, &name, param),
       "sidebar" => Ok(Self::Sidebar(req(&name, param)?.to_string())),
       "check_updates" => only(Self::CheckUpdates, &name, param),
+      "install_agent_hooks" => only(Self::InstallAgentHooks, &name, param),
       // Retired: plugins no longer contribute web views, and Notes is a
       // built-in surface. Kept as an alias so a binding someone already
       // wrote (`open_webview:notes`) still opens Notes.
@@ -557,6 +561,7 @@ impl Action {
       Self::SaveLayout => "save_layout".into(),
       Self::Sidebar(s) => format!("sidebar:{s}"),
       Self::CheckUpdates => "check_updates".into(),
+      Self::InstallAgentHooks => "install_agent_hooks".into(),
       Self::ManagePlugins => "manage_plugins".into(),
       Self::PluginCommand(s) => format!("plugin_command:{s}"),
       Self::MacroRecord => "macro_record".into(),
