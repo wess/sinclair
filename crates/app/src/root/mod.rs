@@ -12,6 +12,7 @@ mod containers;
 mod dialogs;
 mod dispatch;
 pub(crate) mod dock;
+mod keymodes;
 mod layout;
 mod mcp;
 mod menus;
@@ -25,6 +26,7 @@ pub(crate) use remote::journal_since;
 mod render;
 pub(crate) mod sandbox;
 mod savebuffer;
+mod shortcut;
 mod sidebar;
 mod tabmenu;
 mod tabs;
@@ -60,6 +62,8 @@ use libsinclair::metrics::{CellSize, Padding};
 pub(crate) use boot::{
   commandspawn, loadmacros, loadplugins, palette_catalog, resolvekeys, write_config,
 };
+pub(crate) use keymodes::keymode_context;
+pub(crate) use shortcut::action_label;
 // The settings designer edits the same composition the workspace renders, so
 // it builds docks through the same code rather than a parallel reading of the
 // config keys.
@@ -71,6 +75,18 @@ pub(crate) use pluginpanel::{compose_docks, label_of, token_of};
 #[derive(Clone, PartialEq, Default, Debug, gpui::Action)]
 #[action(namespace = sinclair, no_json)]
 pub struct RunBind(pub usize);
+
+/// A key-mode binding fired: the index of one mode-scoped binding in the
+/// keybind table. The handler re-resolves the keystroke against the active
+/// mode stack, so the innermost mode wins whichever binding gpui picked.
+#[derive(Clone, PartialEq, Default, Debug, gpui::Action)]
+#[action(namespace = sinclair, no_json)]
+pub struct ModeKey(pub usize);
+
+/// Escape while any key mode is active: leave the innermost one.
+#[derive(Clone, PartialEq, Default, Debug, gpui::Action)]
+#[action(namespace = sinclair, no_json)]
+pub struct LeaveMode;
 
 /// Open the documentation window. Its own action (rather than a `RunBind`) so
 /// the Help menu item works without depending on a configured keybind.
@@ -344,6 +360,10 @@ pub struct WorkspaceView {
   _group_sub: Subscription,
   /// Resolved keybindings (defaults + user config); `RunBind` indexes here.
   keybinds: Vec<Keybind>,
+  /// Every key mode the keybinds and `keymode` setting define.
+  keymodes: Vec<config::KeyMode>,
+  /// The key modes this window is in (innermost last).
+  modes: config::ModeStack,
   /// Loaded manifest plugins.
   plugins: Vec<plugin::Plugin>,
   /// Saved command macros, loaded from the macro directory.
@@ -500,7 +520,8 @@ impl WorkspaceView {
     // set — both docks start closed, exactly as the old drawers did.
     let docks = pluginpanel::compose_docks(&opts, &plugins);
     let (keybinds, diags) = resolvekeys(&opts, &plugins);
-    for d in &diags {
+    let (keymodes, mode_diags) = config::keymode::resolve_modes(&opts.keymode, &keybinds);
+    for d in diags.iter().chain(&mode_diags) {
       eprintln!("sinclair: {}: {}", d.key, d.message);
     }
     if cx.try_global::<MacroRecorder>().is_none() {
@@ -539,6 +560,8 @@ impl WorkspaceView {
       items,
       item_ids,
       _group_sub: group_sub,
+      keymodes,
+      modes: config::ModeStack::default(),
       keybinds,
       plugins,
       macros: loadmacros(),
@@ -938,8 +961,7 @@ impl WorkspaceView {
     for d in &diags {
       eprintln!("sinclair: {}: {}", d.key, d.message);
     }
-    self.keybinds = keybinds;
-    self.applykeybinds(cx);
+    self.set_keybinds(keybinds, cx);
     self.setmenus(cx);
     self.pushappearance(cx);
     self.refresh_menu_data(cx);

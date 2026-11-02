@@ -443,6 +443,9 @@ pub struct Options {
   pub sandbox_devcontainer: bool,
   /// File key: `keybind`, raw strings (accumulated, parsed later).
   pub keybind: Vec<String>,
+  /// File key: `keymode` - key-mode declarations, `name[:exclusive]`. A mode
+  /// also exists without one as soon as a `mode/trigger` binding names it.
+  pub keymode: Vec<String>,
   /// File key: `sidebar-left` - the left dock's sections, top to bottom, as
   /// section tokens (`terminals`, `agents`, `plugin:<id>`, …). Empty means the
   /// built-in composition; the app resolves tokens and silently skips any that
@@ -628,6 +631,7 @@ impl Default for Options {
       sandbox_persist: true,
       sandbox_devcontainer: true,
       keybind: Vec::new(),
+      keymode: Vec::new(),
       // Empty means "use the built-in composition" (see the app's
       // `root::dock`), which is how a user who has never touched the
       // sidebar gets sensible, *different* left and right docks.

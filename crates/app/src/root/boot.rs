@@ -98,6 +98,8 @@ pub(crate) fn palette_catalog() -> Vec<(&'static str, Action)> {
     ("Save Buffer", Action::SaveBuffer),
     ("Install Sinclair for Agents", Action::InstallAgentHooks),
     ("Settings", Action::ToggleSettings),
+    ("Show Keymap", Action::ShowKeymap),
+    ("Change Shortcut\u{2026}", Action::ChangeShortcut),
     ("Documentation", Action::ShowHelp),
     ("Quit", Action::Quit),
   ]
@@ -125,6 +127,7 @@ pub(crate) fn resolvekeys(
         key: String::new(),
         tail: Vec::new(),
         action,
+        mode: None,
       });
     }
   }

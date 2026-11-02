@@ -34,6 +34,15 @@
               <tr><td><code>sinclair notify [--title T] &lt;message&gt;</code></td><td>Post a desktop notification.</td></tr>
               <tr><td><code>sinclair agent-status &lt;state&gt;</code></td><td>Report an agent's semantic state (working/blocked/done/idle) to the running window.</td></tr>
               <tr><td><code>sinclair agent-hooks &lt;install|uninstall|status&gt; [--agent claude|codex] [--project]</code></td><td>Wire (or remove, or check) the Claude Code and Codex lifecycle hooks that drive the status dots.</td></tr>
+              <tr><td><code>sinclair keymap [--json]</code></td><td>Print every effective keybinding and where it came from, plus entries that didn't take.</td></tr>
+              <tr><td><code>sinclair ls [--json]</code></td><td>List the running window's tabs with their ids (<code>pane:N</code>), titles and status.</td></tr>
+              <tr><td><code>sinclair run [-p PANE] [--wait] [--split right|down | --tab [--keep-open]] CMD</code></td><td>Type a command into a pane and run it; <code>--wait</code> exits with its status; <code>--split</code>/<code>--tab</code> start it in a new pane and print its id.</td></tr>
+              <tr><td><code>sinclair send [-p PANE] TEXT</code></td><td>Send raw keys (<code>\r</code>, <code>\x03</code>, <code>\e</code> escapes) with no newline.</td></tr>
+              <tr><td><code>sinclair capture [-p PANE] [-n LINES]</code></td><td>Print a pane's text.</td></tr>
+              <tr><td><code>sinclair wait [-p PANE] --exit|--command|--text RE|--status S [--timeout D]</code></td><td>Block until the pane's process exits, its next command finishes, its text matches, or its status changes.</td></tr>
+              <tr><td><code>sinclair events (--follow | --for D) [-p PANE] [--json]</code></td><td>Stream bell, title, cwd, notify, command and status events.</td></tr>
+              <tr><td><code>sinclair focus | zoom | status [-p PANE]</code></td><td>Bring a pane forward, zoom it, or print its status.</td></tr>
+              <tr><td><code>sinclair sessions [--json] [--kill ID]</code></td><td>List or end the panes the session server is keeping alive (<code>persistent-sessions</code>).</td></tr>
               <tr><td><code>sinclair export &lt;in.cast&gt; &lt;out.gif|mp4|mov|webm&gt;</code></td><td>Render a session recording to a GIF or video file.</td></tr>
               <tr><td><code>sinclair --toggle-quick</code></td><td>Tell a running instance to summon/hide the quick terminal, then exit.</td></tr>
             </tbody>
@@ -121,6 +130,21 @@ sinclair agent-hooks install --agent codex <span class="c"># ~/.codex/hooks.json
           <a href="statushooks.html">Agent status at a glance</a> tutorial for the full
           workflow.
         </p>
+
+        <h2>sinclair keymap</h2>
+        <p>
+          Prints the keymap the app would use right now — defaults, plugin bindings and
+          your <code>settings.json</code>, layered the same way — one row per binding:
+          trigger, key mode (if any), action, and source (<code>default</code>,
+          <code>plugin</code>, or <code>settings.json:LINE</code>). Entries that didn't take
+          effect (a misspelled action, an unknown key, an <code>enter_mode</code> naming a
+          mode nothing defines) are listed after, with their line. It reads the config
+          directly, so no running instance is needed. <code>--json</code> prints the same
+          data as one JSON object with <code>bindings</code>, <code>modes</code>, and
+          <code>problems</code> arrays. See <a href="keybindings.html">Keybindings</a>.
+        </p>
+        <pre><code>sinclair keymap
+sinclair keymap --json | jq '.problems'</code></pre>
 
         <h2>sinclair export</h2>
         <p>

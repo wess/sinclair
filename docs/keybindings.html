@@ -58,6 +58,38 @@ keybind = cmd+shift+j=plugin_command:git/status</code></pre>
           <p>Sinclair watches your config file. Edits to your keybindings apply <strong>live the moment you save</strong> — no restart needed.</p>
         </div>
 
+        <h2>Key modes</h2>
+        <p>A <strong>key mode</strong> is a named set of bindings that only applies while the mode is entered. Prefix a trigger with <code>mode/</code> to put the binding in that mode; bind something to <code>enter_mode:NAME</code> to get into it. While a mode is active a pill in the bottom-right corner names it, and <kbd>Esc</kbd> always leaves the innermost mode.</p>
+        <pre><code>"keybind": [
+  <span class="c">// ⌘⌥R enters resize mode…</span>
+  "cmd+alt+r=enter_mode:resize",
+  <span class="c">// …where the bare arrows move the divider until Esc</span>
+  "resize/left=resize_split:left",
+  "resize/right=resize_split:right",
+  "resize/up=resize_split:up",
+  "resize/down=resize_split:down",
+  "resize/e=equalize_splits",
+  "resize/enter=exit_mode",
+
+  <span class="c">// A tmux-style prefix: ⌃A, then one key, then back to normal</span>
+  "ctrl+a=enter_mode_once:tmux",
+  "tmux/c=new_tab",
+  "tmux/n=next_tab",
+  "tmux/p=previous_tab"
+],
+<span class="c">// Optional: declare a mode to set options on it</span>
+"keymode": ["resize:exclusive"]</code></pre>
+        <ul>
+          <li><code>enter_mode:NAME</code> stays until <kbd>Esc</kbd> or <code>exit_mode</code>. <code>enter_mode_once:NAME</code> leaves after the next key the mode binds fires; other keys leave it in place.</li>
+          <li>Modes nest. The most recently entered mode is checked first, then the ones below it, then the always-on bindings. <code>exit_all_modes</code> leaves all of them.</li>
+          <li>Keys a mode doesn't bind still reach the terminal, unless the mode is declared <code>exclusive</code> in <code>keymode</code> — then they are dropped, so a stray key can't type into the shell. Always-on shortcuts like <kbd>⌘</kbd><kbd>T</kbd> keep working either way.</li>
+          <li>A mode exists as soon as a binding names it; <code>keymode</code> is only needed for options. Mode names use letters, digits, <code>_</code> and <code>-</code>.</li>
+        </ul>
+
+        <h2>Seeing and changing the keymap</h2>
+        <p><code>sinclair keymap</code> prints every effective binding — trigger, mode, action, and where it came from (<code>default</code>, <code>plugin</code>, or <code>settings.json:LINE</code>) — followed by every entry that didn't take: misspelled actions, bad triggers, an <code>enter_mode</code> naming a mode nothing defines. Add <code>--json</code> for a machine-readable copy. The palette's <strong>Show Keymap</strong> opens the same listing in a tab.</p>
+        <p>The palette's <strong>Change Shortcut…</strong> picks an action, then records the next key combination you press and writes it to <code>settings.json</code> (comments and formatting kept). If the combination already does something else it says what and asks before replacing it. The action's previous shortcut is removed, defaults included.</p>
+
         <h2>Default keybindings</h2>
         <p>These bindings are active out of the box. (<kbd>⌘</kbd> is Command on macOS and Ctrl on Linux/Windows.)</p>
         <div class="tablewrap">
@@ -229,6 +261,12 @@ keybind = cmd+shift+j=plugin_command:git/status</code></pre>
               <tr><td><code>worktree_open</code></td><td><code>PATH</code></td><td>Open an existing git worktree in a new tab</td></tr>
               <tr><td><code>worktree_remove</code></td><td><code>PATH</code></td><td>Remove a git worktree (<code>git worktree remove</code>)</td></tr>
               <tr><td><code>sidebar</code></td><td><code>SIDE</code>: <code>left</code> | <code>right</code>; optional <code>:PANEL</code> id</td><td>Toggle a sidebar (optionally a specific panel)</td></tr>
+              <tr><td><code>enter_mode</code></td><td><code>NAME</code></td><td>Enter a key mode until <kbd>Esc</kbd> or <code>exit_mode</code></td></tr>
+              <tr><td><code>enter_mode_once</code></td><td><code>NAME</code></td><td>Enter a key mode for one bound key</td></tr>
+              <tr><td><code>exit_mode</code></td><td>—</td><td>Leave the innermost key mode</td></tr>
+              <tr><td><code>exit_all_modes</code></td><td>—</td><td>Leave every key mode</td></tr>
+              <tr><td><code>show_keymap</code> <span class="c">(keymap)</span></td><td>—</td><td>Open a tab listing every effective binding</td></tr>
+              <tr><td><code>change_shortcut</code></td><td>—</td><td>Pick an action and record a new shortcut for it</td></tr>
               <tr><td><code>quit</code></td><td>—</td><td>Quit Sinclair</td></tr>
               <tr><td><code>unbind</code></td><td>—</td><td>Remove a default binding for this trigger</td></tr>
             </tbody>

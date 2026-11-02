@@ -151,8 +151,7 @@ impl WorkspaceView {
     for d in &diags {
       eprintln!("sinclair: {}: {}", d.key, d.message);
     }
-    self.keybinds = keybinds;
-    self.applykeybinds(cx);
+    self.set_keybinds(keybinds, cx);
     self.setmenus(cx);
   }
 

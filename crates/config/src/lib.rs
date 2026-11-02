@@ -8,6 +8,8 @@ mod apply;
 pub mod json;
 pub mod jsonedit;
 pub mod keybind;
+pub mod keymap;
+pub mod keymode;
 pub mod kind;
 pub mod options;
 pub mod parse;
@@ -17,8 +19,10 @@ pub mod watch;
 
 pub use action::{Action, ResizeDir, SelectAdjust, SplitDirection, SplitFocus};
 pub use keybind::{
-  default_keybinds, diff_from_defaults, format_trigger, parse_keybind, resolve, Keybind, Mods,
+  default_keybinds, diff_from_defaults, format_trigger, parse_keybind, rebind, resolve, Keybind,
+  Mods,
 };
+pub use keymode::{KeyMode, ModeStack};
 pub use kind::{kind, Kind};
 pub use options::{
   ClipboardAccess, CopyOnSelect, CursorStyle, KeepOpen, FontStyle, MiddleClick, OptionAsAlt, Options,

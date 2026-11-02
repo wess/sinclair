@@ -333,6 +333,18 @@ pub enum Action {
   InstallAgentHooks,
   /// Open the Plugin Manager window (search / install / uninstall).
   ManagePlugins,
+  /// Enter a key mode: its bindings apply until Escape or `exit_mode`.
+  EnterMode(String),
+  /// Enter a key mode for one bound key, then leave it.
+  EnterModeOnce(String),
+  /// Leave the innermost active key mode.
+  ExitMode,
+  /// Leave every active key mode.
+  ExitAllModes,
+  /// Open a tab listing every effective keybinding (`sinclair keymap`).
+  ShowKeymap,
+  /// Pick an action and record a new shortcut for it, written to settings.
+  ChangeShortcut,
   Quit,
   /// The special `unbind` action: removes the trigger's binding.
   Unbound,
@@ -492,6 +504,12 @@ impl Action {
       // wrote (`open_webview:notes`) still opens Notes.
       "open_webview" if param == Some("notes") => Ok(Self::Notes),
       "manage_plugins" => only(Self::ManagePlugins, &name, param),
+      "enter_mode" => Ok(Self::EnterMode(mode_name(&name, param)?)),
+      "enter_mode_once" => Ok(Self::EnterModeOnce(mode_name(&name, param)?)),
+      "exit_mode" => only(Self::ExitMode, &name, param),
+      "exit_all_modes" => only(Self::ExitAllModes, &name, param),
+      "show_keymap" | "keymap" => only(Self::ShowKeymap, &name, param),
+      "change_shortcut" => only(Self::ChangeShortcut, &name, param),
       "quit" => only(Self::Quit, &name, param),
       "unbind" => only(Self::Unbound, &name, param),
       _ => Err(format!("unknown action `{name}`")),
@@ -563,6 +581,12 @@ impl Action {
       Self::CheckUpdates => "check_updates".into(),
       Self::InstallAgentHooks => "install_agent_hooks".into(),
       Self::ManagePlugins => "manage_plugins".into(),
+      Self::EnterMode(m) => format!("enter_mode:{m}"),
+      Self::EnterModeOnce(m) => format!("enter_mode_once:{m}"),
+      Self::ExitMode => "exit_mode".into(),
+      Self::ExitAllModes => "exit_all_modes".into(),
+      Self::ShowKeymap => "show_keymap".into(),
+      Self::ChangeShortcut => "change_shortcut".into(),
       Self::PluginCommand(s) => format!("plugin_command:{s}"),
       Self::MacroRecord => "macro_record".into(),
       Self::MacroReplay(s) => format!("macro:{s}"),
@@ -686,6 +710,18 @@ fn req<'a>(name: &str, param: Option<&'a str>) -> Result<&'a str, String> {
   match param {
     Some(p) if !p.is_empty() => Ok(p),
     _ => Err(format!("action `{name}` requires a parameter")),
+  }
+}
+
+/// The action requires a key-mode name parameter.
+fn mode_name(name: &str, param: Option<&str>) -> Result<String, String> {
+  let p = req(name, param)?;
+  if crate::keymode::valid_name(p) {
+    Ok(p.to_ascii_lowercase())
+  } else {
+    Err(format!(
+      "`{name}` needs a mode name of letters, digits, `_` or `-`"
+    ))
   }
 }
 

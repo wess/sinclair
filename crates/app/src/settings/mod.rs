@@ -286,6 +286,7 @@ impl SettingsView {
       key,
       tail: Vec::new(),
       action,
+      mode: None,
     });
     write_list("keybind", &config::diff_from_defaults(&binds));
     self.reload();
@@ -624,31 +625,7 @@ impl SettingsView {
 /// Convert a gpui keystroke into a config trigger string (`cmd+shift+t`), or
 /// `None` for a bare modifier press that should not end capture.
 fn capture_trigger(ks: &gpui::Keystroke) -> Option<String> {
-  let key = ks.key.to_ascii_lowercase();
-  if matches!(
-    key.as_str(),
-    "" | "cmd"
-      | "command"
-      | "super"
-      | "ctrl"
-      | "control"
-      | "alt"
-      | "option"
-      | "shift"
-      | "fn"
-      | "function"
-      | "capslock"
-  ) {
-    return None;
-  }
-  let m = &ks.modifiers;
-  let mods = config::Mods {
-    cmd: m.platform,
-    ctrl: m.control,
-    alt: m.alt,
-    shift: m.shift,
-  };
-  Some(config::format_trigger(mods, &key))
+  crate::keys::trigger_of(ks).map(|(mods, key)| config::format_trigger(mods, &key))
 }
 
 /// Write one key to settings.json (an empty value removes it). See

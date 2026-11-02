@@ -55,8 +55,16 @@ impl Render for WorkspaceView {
       .size_full()
       .flex()
       .flex_col()
-      .key_context("Workspace")
+      .key_context(self.key_context())
       .on_action(cx.listener(Self::runbind))
+      .on_action(cx.listener(Self::modekey))
+      .on_action(cx.listener(Self::leavemode))
+      .capture_key_down(
+        cx.listener(|this, _: &gpui::KeyDownEvent, window, cx| this.swallow_unbound(window, cx)),
+      )
+      .capture_key_up(
+        cx.listener(|this, _: &gpui::KeyUpEvent, window, cx| this.swallow_unbound(window, cx)),
+      )
       .on_action(cx.listener(Self::showdocs))
       .on_action(cx.listener(Self::showabout))
       .on_action(cx.listener(Self::menupick))
@@ -177,6 +185,10 @@ impl Render for WorkspaceView {
 
     if cx.try_global::<Broadcast>().is_some_and(|b| b.0) {
       base = base.child(broadcast_pill(&self.colors));
+    }
+
+    if let Some(pill) = self.mode_pill() {
+      base = base.child(pill);
     }
 
     if self

@@ -92,6 +92,38 @@ fn key_glyph(key: &str) -> String {
   }
 }
 
+/// The config trigger (`cmd+shift+k`) for a pressed gpui keystroke, the
+/// reverse of [`keystroke`]. `None` while only a modifier is down, or for a
+/// key the config syntax can't spell.
+pub fn trigger_of(ks: &gpui::Keystroke) -> Option<(config::Mods, String)> {
+  let key = match ks.key.to_ascii_lowercase().as_str() {
+    "" | "cmd" | "command" | "super" | "platform" | "ctrl" | "control" | "alt" | "option"
+    | "shift" | "fn" | "function" | "capslock" => return None,
+    "pageup" => "page_up".to_string(),
+    "pagedown" => "page_down".to_string(),
+    other => other.to_string(),
+  };
+  let m = &ks.modifiers;
+  let mods = config::Mods {
+    cmd: m.platform,
+    ctrl: m.control,
+    alt: m.alt,
+    shift: m.shift,
+  };
+  // Round-trip through the parser so only spellable keys come back.
+  config::keybind::parse_trigger(&config::format_trigger(mods, &key)).ok()
+}
+
+/// Whether binding this trigger would steal ordinary typing from the shell:
+/// a printable or editing key with nothing but (at most) shift held. Function
+/// keys are fine bare.
+pub fn steals_typing(mods: config::Mods, key: &str) -> bool {
+  if mods.cmd || mods.ctrl || mods.alt {
+    return false;
+  }
+  !(key.len() >= 2 && key.starts_with('f') && key[1..].bytes().all(|b| b.is_ascii_digit()))
+}
+
 /// Map config key names onto gpui's spellings. Most match; only the paged
 /// navigation keys differ (`page_up` vs `pageup`).
 fn gpui_key(key: &str) -> String {

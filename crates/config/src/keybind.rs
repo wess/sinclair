@@ -1,5 +1,6 @@
 //! Keybind parsing: `keybind = trigger=action` where the trigger is
-//! modifiers and a key joined by `+`.
+//! modifiers and a key joined by `+`. A `mode/` prefix scopes a binding to
+//! a key mode (`resize/left=resize_split:left`); see [`crate::keymode`].
 
 use crate::action::{Action, SelectAdjust, SplitDirection, SplitFocus};
 use crate::parse::Diagnostic;
@@ -24,6 +25,8 @@ pub struct Keybind {
   /// plain single-stroke binding; the leader is [`Self::mods`]/[`Self::key`].
   pub tail: Vec<(Mods, String)>,
   pub action: Action,
+  /// The key mode this binding belongs to, or `None` for an always-on one.
+  pub mode: Option<String>,
 }
 
 impl Keybind {
@@ -49,14 +52,27 @@ impl Keybind {
     !self.tail.is_empty()
   }
 
-  /// True when this binding's trigger sequence matches `other`'s.
-  fn same_trigger(&self, other: &Keybind) -> bool {
+  /// True when this binding's trigger sequence (and mode) matches `other`'s.
+  pub fn same_trigger(&self, other: &Keybind) -> bool {
+    self.mode == other.mode && self.same_keys(other)
+  }
+
+  /// True when the key sequences match, ignoring the mode.
+  pub fn same_keys(&self, other: &Keybind) -> bool {
     self.mods == other.mods && self.key == other.key && self.tail == other.tail
+  }
+
+  /// The trigger with its `mode/` prefix, e.g. `resize/left`.
+  pub fn scoped_trigger(&self) -> String {
+    match &self.mode {
+      Some(mode) => format!("{mode}/{}", self.trigger()),
+      None => self.trigger(),
+    }
   }
 
   /// The full `trigger=action` config value for this binding.
   pub fn config_line(&self) -> String {
-    format!("{}={}", self.trigger(), self.action.to_config())
+    format!("{}={}", self.scoped_trigger(), self.action.to_config())
   }
 }
 
@@ -135,10 +151,12 @@ pub fn diff_from_defaults(desired: &[Keybind]) -> Vec<String> {
 
 /// Parse one keybind value, e.g. `ctrl+shift+c=copy_to_clipboard`, or a
 /// multi-key chord like `ctrl+a>n=new_tab`. Triggers are separated by `>`.
+/// A leading `mode/` scopes the binding to that key mode.
 pub fn parse_keybind(s: &str) -> Result<Keybind, String> {
   let (trigger, action) = s
     .split_once('=')
     .ok_or_else(|| "expected `trigger=action`".to_string())?;
+  let (mode, trigger) = split_mode(trigger.trim())?;
   let mut triggers = Vec::new();
   for part in trigger.split('>') {
     triggers.push(parse_trigger(part.trim())?);
@@ -150,7 +168,25 @@ pub fn parse_keybind(s: &str) -> Result<Keybind, String> {
     key,
     tail: triggers,
     action,
+    mode,
   })
+}
+
+/// Split a `mode/` prefix off a trigger. The prefix only counts when it is a
+/// valid mode name, so `cmd+/` (whose text before the slash is `cmd+`) stays
+/// an ordinary trigger on the slash key.
+fn split_mode(trigger: &str) -> Result<(Option<String>, &str), String> {
+  let Some((prefix, rest)) = trigger.split_once('/') else {
+    return Ok((None, trigger));
+  };
+  if !crate::keymode::valid_name(prefix) {
+    return Ok((None, trigger));
+  }
+  let rest = rest.trim();
+  if rest.is_empty() {
+    return Err(format!("missing trigger after mode `{prefix}/`"));
+  }
+  Ok((Some(prefix.to_ascii_lowercase()), rest))
 }
 
 /// Parse a trigger like `cmd+shift+page_up` into modifiers plus a key.
@@ -284,6 +320,7 @@ pub fn default_keybinds() -> Vec<Keybind> {
     key: key.to_string(),
     tail: Vec::new(),
     action,
+    mode: None,
   };
   let mut binds = vec![
     kb(cmd, "n", Action::NewWindow),
@@ -420,24 +457,75 @@ pub fn default_keybinds() -> Vec<Keybind> {
 /// removes it. Invalid entries become diagnostics (line 0) and are
 /// skipped.
 pub fn resolve(raw: &[String]) -> (Vec<Keybind>, Vec<Diagnostic>) {
-  let mut binds = default_keybinds();
-  let mut diags = Vec::new();
-  for entry in raw {
+  let (binds, bad) = resolve_tagged(raw.iter().map(|e| (e.as_str(), ())), ());
+  let binds = binds.into_iter().map(|(kb, ())| kb).collect();
+  let diags = bad
+    .into_iter()
+    .map(|(entry, message, ())| Diagnostic {
+      line: 0,
+      key: "keybind".to_string(),
+      message: format!("`{entry}`: {message}"),
+    })
+    .collect();
+  (binds, diags)
+}
+
+/// [`resolve`], carrying a tag (where each entry came from) through to the
+/// surviving bindings and the rejected entries. Defaults get `default_tag`.
+#[allow(clippy::type_complexity)]
+pub fn resolve_tagged<'a, T: Clone>(
+  raw: impl IntoIterator<Item = (&'a str, T)>,
+  default_tag: T,
+) -> (Vec<(Keybind, T)>, Vec<(String, String, T)>) {
+  let mut binds: Vec<(Keybind, T)> = default_keybinds()
+    .into_iter()
+    .map(|kb| (kb, default_tag.clone()))
+    .collect();
+  let mut bad = Vec::new();
+  for (entry, tag) in raw {
     match parse_keybind(entry) {
       Ok(kb) => {
-        binds.retain(|b| !b.same_trigger(&kb));
+        binds.retain(|(b, _)| !b.same_trigger(&kb));
         if kb.action != Action::Unbound {
-          binds.push(kb);
+          binds.push((kb, tag));
         }
       }
-      Err(message) => diags.push(Diagnostic {
-        line: 0,
-        key: "keybind".to_string(),
-        message: format!("`{entry}`: {message}"),
-      }),
+      Err(message) => bad.push((entry.to_string(), message, tag)),
     }
   }
-  (binds, diags)
+  (binds, bad)
+}
+
+/// The `keybind` entries after rebinding `action` to `trigger` (a config
+/// trigger such as `cmd+shift+k`, no mode): every always-on entry for that
+/// action or on that trigger is dropped, a default that still binds the
+/// action elsewhere is unbound, and the new binding is appended. Entries that
+/// don't parse are kept untouched — this edits the user's list, it does not
+/// launder it.
+pub fn rebind(raw: &[String], action: &Action, trigger: &str) -> Result<Vec<String>, String> {
+  let line = format!("{trigger}={}", action.to_config());
+  let new = parse_keybind(&line)?;
+  if new.mode.is_some() {
+    return Err("a mode-scoped trigger can't be set from here".to_string());
+  }
+  let mut out: Vec<String> = raw
+    .iter()
+    .filter(|entry| match parse_keybind(entry) {
+      Ok(kb) => kb.mode.is_some() || (kb.action != *action && !kb.same_trigger(&new)),
+      Err(_) => true,
+    })
+    .cloned()
+    .collect();
+  // What survives is a default (every user entry for the action is gone);
+  // unbind it so the action ends up on the new trigger alone.
+  let (current, _) = resolve(&out);
+  for kb in current {
+    if kb.mode.is_none() && kb.action == *action && !kb.same_trigger(&new) {
+      out.push(format!("{}=unbind", kb.trigger()));
+    }
+  }
+  out.push(new.config_line());
+  Ok(out)
 }
 
 #[cfg(test)]
