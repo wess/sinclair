@@ -58,7 +58,7 @@ jobs:
       # none of its assets attached yet, and the update prompt can only fail.
       # Drafts are invisible to `releases/latest` and still accept uploads.
       - name: Create GitHub Release (draft)
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64
         with:
           tag_name: "v${{ needs.check-version.outputs.version }}"
           generate_release_notes: true
