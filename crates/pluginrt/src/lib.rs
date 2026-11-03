@@ -6,10 +6,10 @@
 
 use std::collections::{HashMap, HashSet};
 
-use anyhow::{Context, Result};
-use wasmtime::component::{Component, Linker};
+use anyhow::{anyhow, Context, Result};
+use wasmtime::component::{Component, HasSelf, Linker};
 use wasmtime::{Config, Engine, Store, StoreLimits, StoreLimitsBuilder};
-use wasmtime_wasi::{ResourceTable, WasiCtx, WasiCtxBuilder, WasiView};
+use wasmtime_wasi::{ResourceTable, WasiCtx, WasiCtxBuilder, WasiCtxView, WasiView};
 
 /// The generated host/guest bindings for `wit/plugin.wit`.
 mod bindings {
@@ -68,11 +68,11 @@ struct State {
 }
 
 impl WasiView for State {
-  fn table(&mut self) -> &mut ResourceTable {
-    &mut self.table
-  }
-  fn ctx(&mut self) -> &mut WasiCtx {
-    &mut self.wasi
+  fn ctx(&mut self) -> WasiCtxView<'_> {
+    WasiCtxView {
+      ctx: &mut self.wasi,
+      table: &mut self.table,
+    }
   }
 }
 
@@ -155,7 +155,7 @@ pub fn engine() -> Result<Engine> {
   let mut config = Config::new();
   config.wasm_component_model(true);
   config.consume_fuel(true);
-  Engine::new(&config)
+  Engine::new(&config).map_err(|error| anyhow!(error.to_string()))
 }
 
 /// A resident WASM plugin instance: a `Store` plus the instantiated component.
@@ -176,36 +176,61 @@ impl PluginInstance {
     capabilities: &[String],
     host: Box<dyn AppHost>,
   ) -> Result<Self> {
-    let component = Component::new(engine, wasm).context("load plugin component")?;
+    let component =
+      Component::new(engine, wasm).map_err(|error| anyhow!("load plugin component: {error}"))?;
     let caps: HashSet<&str> = capabilities.iter().map(String::as_str).collect();
     let mut linker: Linker<State> = Linker::new(engine);
 
     // Baseline WASI (clocks, random, io) so the guest's std initializes. The
     // context is empty — no filesystem, sockets, or env are exposed.
-    wasmtime_wasi::add_to_linker_sync(&mut linker)?;
+    wasmtime_wasi::p2::add_to_linker_sync(&mut linker)?;
 
     // Always linked: log + per-plugin storage.
-    bindings::prompt::plugin::host_core::add_to_linker(&mut linker, |s: &mut State| s)?;
+    bindings::prompt::plugin::host_core::add_to_linker::<_, HasSelf<_>>(
+      &mut linker,
+      |s: &mut State| s,
+    )?;
     if caps.contains("commands") {
-      bindings::prompt::plugin::host_commands::add_to_linker(&mut linker, |s: &mut State| s)?;
+      bindings::prompt::plugin::host_commands::add_to_linker::<_, HasSelf<_>>(
+        &mut linker,
+        |s: &mut State| s,
+      )?;
     }
     if caps.contains("screen") {
-      bindings::prompt::plugin::host_screen::add_to_linker(&mut linker, |s: &mut State| s)?;
+      bindings::prompt::plugin::host_screen::add_to_linker::<_, HasSelf<_>>(
+        &mut linker,
+        |s: &mut State| s,
+      )?;
     }
     if caps.contains("network") {
-      bindings::prompt::plugin::host_net::add_to_linker(&mut linker, |s: &mut State| s)?;
+      bindings::prompt::plugin::host_net::add_to_linker::<_, HasSelf<_>>(
+        &mut linker,
+        |s: &mut State| s,
+      )?;
     }
     if caps.contains("filesystem") {
-      bindings::prompt::plugin::host_fs::add_to_linker(&mut linker, |s: &mut State| s)?;
+      bindings::prompt::plugin::host_fs::add_to_linker::<_, HasSelf<_>>(
+        &mut linker,
+        |s: &mut State| s,
+      )?;
     }
     if caps.contains("clipboard") {
-      bindings::prompt::plugin::host_clipboard::add_to_linker(&mut linker, |s: &mut State| s)?;
+      bindings::prompt::plugin::host_clipboard::add_to_linker::<_, HasSelf<_>>(
+        &mut linker,
+        |s: &mut State| s,
+      )?;
     }
     if caps.contains("notify") {
-      bindings::prompt::plugin::host_notify::add_to_linker(&mut linker, |s: &mut State| s)?;
+      bindings::prompt::plugin::host_notify::add_to_linker::<_, HasSelf<_>>(
+        &mut linker,
+        |s: &mut State| s,
+      )?;
     }
     if caps.contains("process") {
-      bindings::prompt::plugin::host_process::add_to_linker(&mut linker, |s: &mut State| s)?;
+      bindings::prompt::plugin::host_process::add_to_linker::<_, HasSelf<_>>(
+        &mut linker,
+        |s: &mut State| s,
+      )?;
     }
 
     let wasi = WasiCtxBuilder::new().build();
@@ -219,13 +244,14 @@ impl PluginInstance {
       },
     );
     store.limiter(|state| &mut state.limits);
+    store.set_fuel(FUEL_PER_CALL)?;
     let world = bindings::Plugin::instantiate(&mut store, &component, &linker)
-      .context("instantiate plugin component")?;
+      .map_err(|error| anyhow!("instantiate plugin component: {error}"))?;
     store.set_fuel(FUEL_PER_CALL)?;
     world
       .prompt_plugin_guest()
       .call_init(&mut store)
-      .context("plugin init")?;
+      .map_err(|error| anyhow!("plugin init: {error}"))?;
     Ok(Self {
       store,
       world,
@@ -244,19 +270,25 @@ impl PluginInstance {
     // Refill fuel per call so a bounded budget applies to each invocation and
     // an infinite loop traps rather than hanging the caller.
     self.store.set_fuel(self.fuel)?;
-    self
-      .world
-      .prompt_plugin_guest()
-      .call_call_tool(&mut self.store, name, params_json)
+    Ok(
+      self
+        .world
+        .prompt_plugin_guest()
+        .call_call_tool(&mut self.store, name, params_json)
+        .map_err(|error| anyhow!(error.to_string()))?,
+    )
   }
 
   /// Render a panel: returns the plugin's UI node tree as a JSON string.
   pub fn render(&mut self, request_json: &str) -> Result<String> {
     self.store.set_fuel(self.fuel)?;
-    self
-      .world
-      .prompt_plugin_guest()
-      .call_render(&mut self.store, request_json)
+    Ok(
+      self
+        .world
+        .prompt_plugin_guest()
+        .call_render(&mut self.store, request_json)
+        .map_err(|error| anyhow!(error.to_string()))?,
+    )
   }
 
   /// Deliver a UI event (button click, input change) from a rendered panel.
@@ -266,6 +298,7 @@ impl PluginInstance {
       .world
       .prompt_plugin_guest()
       .call_on_ui_event(&mut self.store, event_json)
+      .map_err(|error| anyhow!(error.to_string()))
   }
 }
 

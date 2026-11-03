@@ -17,7 +17,7 @@ jobs:
       changed: ${{ steps.diff.outputs.changed }}
       version: ${{ steps.version.outputs.version }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
 
       # Release when the workspace version has no matching tag yet. Idempotent
       # for both push and manual dispatch (a HEAD~1 diff would miss dispatches
@@ -44,7 +44,7 @@ jobs:
     needs: check-version
     if: needs.check-version.outputs.changed == 'true'
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
 
       - name: Create git tag
         run: |
@@ -58,7 +58,7 @@ jobs:
       # none of its assets attached yet, and the update prompt can only fail.
       # Drafts are invisible to `releases/latest` and still accept uploads.
       - name: Create GitHub Release (draft)
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65
         with:
           tag_name: "v${{ needs.check-version.outputs.version }}"
           generate_release_notes: true
@@ -77,16 +77,16 @@ jobs:
       APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
       APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
           ref: "v${{ needs.check-version.outputs.version }}"
           submodules: recursive
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec
 
       - name: Cache cargo
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0
 
       - name: Import signing certificate
         if: env.APPLE_SIGNING_IDENTITY != ''
@@ -172,7 +172,7 @@ jobs:
             runner: ubuntu-22.04-arm
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
           ref: "v${{ needs.check-version.outputs.version }}"
           submodules: recursive
@@ -196,10 +196,10 @@ jobs:
             zsync
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec
 
       - name: Cache cargo
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0
 
       - name: Install cargo-deb
         run: cargo install cargo-deb --locked
@@ -269,7 +269,7 @@ jobs:
           echo "sha_darwin_arm64=${SHA}" >> "$GITHUB_OUTPUT"
 
       - name: Checkout homebrew tap
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
           repository: wess/homebrew-packages
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
@@ -324,16 +324,16 @@ jobs:
     if: needs.check-version.outputs.changed == 'true'
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
           ref: "v${{ needs.check-version.outputs.version }}"
           submodules: recursive
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec
 
       - name: Cache cargo
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0
 
       - name: Build + package (.zip + .msi)
         shell: pwsh
@@ -384,7 +384,7 @@ jobs:
     if: needs.check-version.outputs.changed == 'true'
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
 
       - name: Update Scoop manifest
         run: |
